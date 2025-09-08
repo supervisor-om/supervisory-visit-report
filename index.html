@@ -1,12 +1,851 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>تقرير زيارة إشرافية</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تقرير زيارة مدرسية</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles to use the Cairo font */
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #reportPreview, #reportPreview * {
+                visibility: visible;
+            }
+            #reportPreview {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 2px solid #3498db;
+            width: 16px;
+            height: 16px;
+            -webkit-animation: spin 2s linear infinite; /* Safari */
+            animation: spin 2s linear infinite;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+         .modal-backdrop {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out;
+        }
+    </style>
 </head>
-<body style="font-family:Arial, sans-serif; text-align:center; margin-top:50px;">
-<h1>مرحبًا بك في تقرير الزيارة الإشرافية</h1>
-<p>هذا الموقع قيد الإنشاء وسيتم تحديثه قريبًا بالمحتوى الكامل.</p>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg no-print">
+
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">تقرير زيارة إشرافية</h1>
+            <p class="text-gray-500 mt-2">نموذج لتوثيق الزيارات الإشرافية للمعلمين</p>
+        </header>
+
+        <form id="reportForm" class="space-y-8">
+
+            <!-- School and Date Section -->
+            <fieldset class="border p-6 rounded-lg bg-gray-50/50">
+                <legend class="text-lg font-semibold text-gray-700 px-2">معلومات أساسية</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <label for="schoolName" class="block mb-2 text-sm font-medium text-gray-900">اسم المدرسة</label>
+                        <select id="schoolName" name="schoolName" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option selected disabled>اختر المدرسة</option>
+                            <option value="أبو القاسم الزهراوي">أبو القاسم الزهراوي</option>
+                            <option value="أبو أيوب الحضرمي">أبو أيوب الحضرمي</option>
+                            <option value="أبو تمام">أبو تمام</option>
+                            <option value="أحمد بن النعمان">أحمد بن النعمان</option>
+                            <option value="الشيخ سالم السيابي">الشيخ سالم السيابي</option>
+                            <option value="الشيخ سعيد الكندي مسائي">الشيخ سعيد الكندي مسائي</option>
+                            <option value="الشيخ ناصر الخروصي">الشيخ ناصر الخروصي</option>
+                            <option value="جنادة الازدى (موسى سابقا)">جنادة الازدى (موسى سابقا)</option>
+                            <option value="حفص بن راشد">حفص بن راشد</option>
+                            <option value="خريس الحبوس">خريس الحبوس</option>
+                            <option value="سهيل بن عمرو العامري">سهيل بن عمرو العامري</option>
+                            <option value="كعب بن زيد">كعب بن زيد</option>
+                            <option value="يزيد الطائي">يزيد الطائي</option>
+                            <option value="اجيال الثقافة">اجيال الثقافة</option>
+                            <option value="اجيال الفردوس - الحيل">اجيال الفردوس - الحيل</option>
+                            <option value="البيان">البيان</option>
+                            <option value="الجيل المبدع">الجيل المبدع</option>
+                            <option value="الريادة">الريادة</option>
+                            <option value="الصفوة المعبيلة">الصفوة المعبيلة</option>
+                            <option value="المجد">المجد</option>
+                            <option value="انس بن مالك (المنار سابقا)">انس بن مالك (المنار سابقا)</option>
+                            <option value="جيفر بن الجلندي">جيفر بن الجلندي</option>
+                            <option value="درة مجان">درة مجان</option>
+                            <option value="ضياء المستقبل">ضياء المستقبل</option>
+                            <option value="مشاعل مسقط سور الحديد">مشاعل مسقط سور الحديد</option>
+                            <option value="منابع التفوق">منابع التفوق</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="visitDate" class="block mb-2 text-sm font-medium text-gray-900">تاريخ الزيارة</label>
+                        <input type="date" id="visitDate" name="visitDate" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    </div>
+                </div>
+            </fieldset>
+            
+            <!-- Visit Type Section -->
+            <fieldset class="border p-6 rounded-lg bg-gray-50/50">
+                <legend class="text-lg font-semibold text-gray-700 px-2">نوع الزيارة</legend>
+                <div class="flex items-center gap-4 mt-2">
+                    <select id="visitTypeSelect" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <!-- Options will be dynamically generated by JS -->
+                    </select>
+                    <button type="button" id="manageVisitTypesBtn" class="p-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg border hover:bg-gray-200 transition-colors whitespace-nowrap">
+                        ⚙️ إدارة الأنواع
+                    </button>
+                </div>
+            </fieldset>
+
+            <!-- Visit Objectives Section -->
+            <fieldset class="border p-6 rounded-lg bg-gray-50/50">
+                <legend class="text-lg font-semibold text-gray-700 px-2">أهداف الزيارة</legend>
+                <div id="objectivesContainer" class="space-y-4 mt-4">
+                    <!-- Checkboxes will be dynamically generated by JS -->
+                </div>
+            </fieldset>
+
+            <!-- Visitor's Opinion Section -->
+            <fieldset class="border p-6 rounded-lg bg-gray-50/50">
+                <legend class="text-lg font-semibold text-gray-700 px-2">رأي الزائر</legend>
+                 <p class="text-sm text-gray-500 mb-4">اكتب ملاحظاتك لكل هدف من الأهداف المحددة أعلاه.</p>
+                <div id="opinionsContainer" class="space-y-6">
+                    <!-- Opinion textareas will be generated here -->
+                </div>
+            </fieldset>
+
+            <!-- Recommendations Section -->
+            <fieldset class="border p-6 rounded-lg bg-gray-50/50">
+                <legend class="text-lg font-semibold text-gray-700 px-2">التوصيات</legend>
+                <div class="mt-4">
+                    <div class="flex items-center justify-between mb-2 gap-4 flex-wrap">
+                        <label for="recommendations" class="block text-sm font-medium text-gray-900 sr-only">التوصيات</label>
+                        <div class="flex gap-4">
+                             <button type="button" id="gemini-suggest-btn" class="flex items-center text-sm text-blue-600 font-semibold hover:text-blue-800 transition-colors">
+                                ✨ اقتراح توصيات
+                                <span id="loader" class="loader hidden"></span>
+                            </button>
+                             <button type="button" id="generateActionPlanBtn" class="flex items-center text-sm text-green-600 font-semibold hover:text-green-800 transition-colors">
+                                ✨ إنشاء خطة عمل
+                                <span id="actionPlanLoader" class="loader hidden"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="recommendations" name="recommendations" rows="5" class="block p-2.5 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="اكتب التوصيات والملاحظات النهائية هنا أو استخدم مساعد الذكاء الاصطناعي..."></textarea>
+                    <p id="gemini-error" class="text-red-500 text-xs mt-1 hidden"></p>
+                </div>
+            </fieldset>
+            
+            <!-- Action Buttons -->
+            <div class="flex justify-end pt-4 gap-4">
+                <button type="button" id="prepareReportBtn" class="text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm w-full sm:w-auto px-8 py-3 text-center transition-colors">إعداد التقرير</button>
+                <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-8 py-3 text-center transition-colors">حفظ</button>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- Report Preview Section -->
+    <div id="reportPreviewContainer" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden">
+         <div id="reportContent" class="prose max-w-none">
+            <!-- Generated report will be injected here -->
+         </div>
+         <div class="flex justify-end pt-6 mt-6 border-t no-print gap-4 flex-wrap">
+            <button id="backToEditBtn" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 font-medium rounded-lg text-sm px-8 py-3 text-center transition-colors">رجوع للتعديل</button>
+             <button type="button" id="generateSummaryBtn" class="flex items-center text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-8 py-3 text-center transition-colors">
+                ✨ إنشاء ملخص تنفيذي
+                <span id="summaryLoader" class="loader hidden"></span>
+            </button>
+            <button type="button" id="generateEmailBtn" class="flex items-center text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:outline-none focus:ring-purple-300 font-medium rounded-lg text-sm px-8 py-3 text-center transition-colors">
+                ✨ إنشاء مسودة بريد إلكتروني
+                <span id="emailLoader" class="loader hidden"></span>
+            </button>
+            <button onclick="window.print()" class="text-white bg-gray-800 hover:bg-gray-900 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-8 py-3 text-center transition-colors">طباعة</button>
+         </div>
+    </div>
+    
+    <!-- Modals -->
+    <div id="manageTypesModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
+        <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white modal-content">
+            <div class="flex justify-between items-center border-b pb-3">
+                 <h3 class="text-lg leading-6 font-medium text-gray-900">إدارة أنواع الزيارات</h3>
+                 <button id="closeManageModalBtn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                 </button>
+            </div>
+            <div class="mt-4">
+                <div id="visitTypesList" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    <!-- List of visit types will be here -->
+                </div>
+                <div class="mt-6 pt-4 border-t">
+                    <button id="addNewTypeBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-lg text-sm px-5 py-2.5 text-center">إضافة نوع زيارة جديد</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="addEditTypeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
+        <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white modal-content">
+            <h3 id="addEditModalTitle" class="text-lg leading-6 font-medium text-gray-900 mb-4"></h3>
+            <form id="addEditTypeForm">
+                <input type="hidden" id="editTypeKey" value="">
+                <div>
+                    <label for="typeName" class="block mb-2 text-sm font-medium text-gray-900">اسم نوع الزيارة</label>
+                    <input type="text" id="typeName" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                </div>
+                <div class="mt-4">
+                    <label for="typeObjectives" class="block mb-2 text-sm font-medium text-gray-900">الأهداف (كل هدف في سطر)</label>
+                    <textarea id="typeObjectives" rows="8" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" required></textarea>
+                </div>
+                <div class="items-center px-4 py-3 gap-3 flex justify-end mt-4 border-t pt-4">
+                    <button id="saveTypeBtn" type="submit" class="px-4 py-2 bg-green-500 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-green-700">حفظ</button>
+                    <button id="cancelEditBtn" type="button" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-300">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- AI Feature Modals -->
+    <div id="emailModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
+        <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white modal-content">
+            <div class="flex justify-between items-center border-b pb-3">
+                 <h3 class="text-lg leading-6 font-medium text-gray-900">مسودة البريد الإلكتروني</h3>
+                 <button class="close-modal-btn text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                 </button>
+            </div>
+            <div class="mt-4">
+                <textarea id="emailContent" rows="15" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300"></textarea>
+            </div>
+            <div class="flex justify-end mt-4 pt-4 border-t">
+                <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-300">إغلاق</button>
+            </div>
+        </div>
+    </div>
+    <div id="actionPlanModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
+        <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white modal-content">
+            <div class="flex justify-between items-center border-b pb-3">
+                 <h3 class="text-lg leading-6 font-medium text-gray-900">خطة العمل المقترحة</h3>
+                 <button class="close-modal-btn text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                 </button>
+            </div>
+            <div class="mt-4">
+                <div id="actionPlanContent" class="prose max-w-none p-4 bg-gray-50 rounded-lg border h-96 overflow-y-auto"></div>
+            </div>
+            <div class="flex justify-end mt-4 pt-4 border-t">
+                <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-300">إغلاق</button>
+            </div>
+        </div>
+    </div>
+    <div id="summaryModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
+        <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white modal-content">
+            <div class="flex justify-between items-center border-b pb-3">
+                 <h3 class="text-lg leading-6 font-medium text-gray-900">الملخص التنفيذي</h3>
+                 <button class="close-modal-btn text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                 </button>
+            </div>
+            <div class="mt-4">
+                <div id="summaryContent" class="prose max-w-none p-4 bg-gray-50 rounded-lg border"></div>
+            </div>
+            <div class="flex justify-end mt-4 pt-4 border-t">
+                <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-300">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Set default date to today
+            document.getElementById('visitDate').valueAsDate = new Date();
+
+            const STORAGE_KEY = 'visitTypesData';
+
+            const defaultVisitTypesData = {
+                'exploratory': {
+                    name: 'زيارة استطلاعية',
+                    objectives: [
+                        "مقابلة مدير المدرسة ومعلمي الرياضة المدرسية.",
+                        "حضور الطابور المدرسي ومتابعة مراسم رفع العلم.",
+                        "تحديث قاعدة بيانات المعلمين.",
+                        "متابعة موافقات التعيين.",
+                        "متابعة توفر الادلة وكتاب الطالب وتحديثها.",
+                        "متابعة توزيع الجدول ونصاب الحصص للمعلمين.",
+                        "متابعة الملاعب وتخطيطها والادوات الرياضية.",
+                        "متابعة النشرات ووثائق التقويم ومناقشة مستجداتها.",
+                        "متابعة المنهاج وسجلات المعلمين.",
+                        "حضور موقف صفي مع معلمي المادة والمداولة الاشرافية."
+                    ],
+                    completedOpinions: [
+                        "تمت مقابلة مدير المدرسة ومعلمي الرياضة المدرسية، وجرى نقاش بنّاء ومثمر حول سير العملية التعليمية.",
+                        "تم حضور الطابور المدرسي ومتابعة مراسم رفع العلم، وكان أداء الطلبة للنشيد الوطني بصوت عالٍ ومراسم رفع العلم صحيحة ومنظمة.",
+                        "تم تحديث قاعدة بيانات المعلمين عبر الرابط المخصص وكانت جميع البيانات مكتملة.",
+                        "تمت متابعة موافقات التعيين للمعلمين الجدد وكانت جميعها مكتملة وموثقة حسب الأصول.",
+                        "تمت متابعة توفر الأدلة وكتب الطلاب، وكانت جميعها متوفرة بالطبعات الحديثة وموزعة على الطلبة.",
+                        "تمت متابعة توزيع الجدول المدرسي ونصاب الحصص للمعلمين، وكان التوزيع متوازنًا وعادلاً ويتوافق مع الأنظمة.",
+                        "تمت متابعة الملاعب وتخطيطها والأدوات الرياضية، وكانت بحالة جيدة ومتوفرة وتلبي احتياجات الطلبة.",
+                        "تمت متابعة النشرات ووثائق التقويم، وتم التأكد من مناقشتها مع المعلمين وإلمامهم بجميع المستجدات.",
+                        "تمت متابعة تنفيذ خطة المنهاج وسجلات المعلمين، وكانت مكتملة ومنظمة وتظهر متابعة دقيقة لأداء الطلبة.",
+                        "تم حضور موقف صفي مع معلمي المادة، وكان الأداء متميزًا والتفاعل صفيًا ونشطًا، تلتها مداولة إشرافية بنّاءة."
+                    ],
+                    incompleteOpinions: [
+                        "تمت مقابلة مدير المدرسة وبغياب بعض معلمي المادة، وأفادت الإدارة بأسباب الغياب وتم التوجيه بالمتابعة.",
+                        "تم حضور الطابور المدرسي ولوحظ وجود بعض الملاحظات في التنظيم ورفع العلم، وتم توجيه المعلم المسؤول لتحسين الأداء.",
+                        "قاعدة بيانات المعلمين بحاجة إلى تحديث بعض البيانات، وتم التنبيه على المسؤول لاستكمال البيانات المطلوبة عبر الرابط.",
+                        "يوجد نقص في موافقات التعيين لبعض المعلمين، وتم توجيه الإدارة لاستكمالها ومتابعة الإجراءات اللازمة بشكل عاجل.",
+                        "لوحظ تأخر في توزيع بعض كتب الطلاب، وتم توجيه الإدارة للمتابعة الحثيثة مع الجهات المعنية لضمان وصولها للطلبة.",
+                        "لوحظ وجود بعض الملاحظات في توزيع نصاب الحصص، وتمت مناقشتها مع الإدارة والتوجيه بإعادة النظر في الجدول لتحقيق التوازن.",
+                        "تمت متابعة الملاعب ويوجد نقص في بعض الأدوات الرياضية الأساسية، وتم توجيه المعلم لعمل قائمة بالاحتياجات وتسليمها لإدارة المدرسة.",
+                        "لوحظ عدم تعميم بعض النشرات والوثائق المهمة على جميع المعلمين، وتم التأكيد على الإدارة بضرورة مناقشتها وتوثيق ذلك.",
+                        "تمت متابعة سجلات المعلمين ولوحظ عدم اكتمال بعضها، وتم التأكيد على ضرورة استكمالها وتوثيق متابعة الطلبة بشكل دوري.",
+                        "تم حضور موقف صفي ولوحظ وجود بعض الجوانب التي تحتاج إلى تحسين، وتمت مناقشتها خلال المداولة الإشرافية وتقديم التوصيات اللازمة للمعلم."
+                    ]
+                },
+                'standard': { 
+                    name: 'زيارة قياسية',
+                    objectives: [
+                        "مقابلة مدير المدرسة ومعلمي الرياضة المدرسية.",
+                        "متابعة سجلات المعلمين.",
+                        "تحديث قاعدة بيانات المعلمين.",
+                        "متابعة تخطيط الملاعب والأدوات الرياضية.",
+                        "متابعة استلام الأدلة وكتاب الطالب والتأكد من طبعاتها الحديثة.",
+                        "متابعة النشرات والوثائق ومناقشة المستجدات في المادة.",
+                        "التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية."
+                    ],
+                    completedOpinions: [
+                        "تمت مقابلة مدير المدرسة ومعلمي الرياضة المدرسية، وجرى نقاش بنّاء ومثمر حول سير العمل.",
+                        "تمت متابعة سجلات المعلمين وكانت مكتملة ومنظمة حسب التوجيهات.",
+                        "تم تحديث قاعدة بيانات المعلمين عبر الرابط المخصص وكانت جميع البيانات مكتملة.",
+                        "تمت متابعة تخطيط الملاعب والأدوات الرياضية، وكانت متوفرة وبحالة جيدة.",
+                        "تم التأكد من استلام الأدلة وكتب الطلاب بالطبعات الحديثة، وقد تم توزيعها على جميع الطلبة.",
+                        "تم متابعة النشرات والوثائق ومناقشتها والتاكيد على المنهاج الجديد ومستجداته.",
+                        "تم التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية، والمعلمون ملتزمون بذلك ويظهر أثره الإيجابي على الطلبة."
+                    ],
+                    incompleteOpinions: [
+                        "تم مقابلة مدير المدرسة وبغياب أحد المعلمين لظرف طارئ، وتم عمل مراسلة لشرح الوضع وطلب تعزيز للمدرسة.",
+                        "تم متابعة سجلات المعلمين ولم تكتمل القوائم، وتم التأكيد على ضرورة التحضير بالمنصة وسحب السجلات بعد اكتمال قوائم الطلبة.",
+                        "قاعدة بيانات المعلمين بحاجة إلى تحديث، وتم التنبيه على المسؤول لاستكمال البيانات المطلوبة عبر الرابط.",
+                        "تم متابعة تخطيط الملاعب ويوجد نقص بالأدوات، وتم توجيه المعلم لعمل قائمة بالاحتياجات وتسليمها لإدارة المدرسة.",
+                        "تم متابعة استلام الأدلة والكتاب لم يتم توزيعه بعد، وتم توجيه الإدارة للمتابعة.",
+                        "لوحظ عدم تعميم بعض النشرات والوثائق المهمة، وتم التأكيد على الإدارة بضرورة مناقشتها مع المعلمين.",
+                        "الحصص لا تزال بحاجة إلى تفعيل أكبر لجانب المنافسات، وتم إعادة التأكيد على المعلمين بأهمية ذلك لزيادة دافعية الطلاب."
+                    ]
+                }
+            };
+
+            let visitTypesData = {};
+            let currentVisitTypeKey = '';
+
+            // --- Elements ---
+            const visitTypeSelect = document.getElementById('visitTypeSelect');
+            const objectivesContainer = document.getElementById('objectivesContainer');
+            const opinionsContainer = document.getElementById('opinionsContainer');
+            const prepareReportBtn = document.getElementById('prepareReportBtn');
+            const backToEditBtn = document.getElementById('backToEditBtn');
+            const formContainer = document.querySelector('.container.no-print');
+            const reportPreviewContainer = document.getElementById('reportPreviewContainer');
+            const reportContent = document.getElementById('reportContent');
+
+            // --- Manager Modal Elements ---
+            const manageVisitTypesBtn = document.getElementById('manageVisitTypesBtn');
+            const manageTypesModal = document.getElementById('manageTypesModal');
+            const closeManageModalBtn = document.getElementById('closeManageModalBtn');
+            const visitTypesList = document.getElementById('visitTypesList');
+            const addNewTypeBtn = document.getElementById('addNewTypeBtn');
+            
+            // --- Add/Edit Modal Elements ---
+            const addEditTypeModal = document.getElementById('addEditTypeModal');
+            const addEditModalTitle = document.getElementById('addEditModalTitle');
+            const addEditTypeForm = document.getElementById('addEditTypeForm');
+            const editTypeKey = document.getElementById('editTypeKey');
+            const typeName = document.getElementById('typeName');
+            const typeObjectives = document.getElementById('typeObjectives');
+            const saveTypeBtn = document.getElementById('saveTypeBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+            
+            // --- Data Management Functions ---
+            function generateOpinions(objectives) {
+                const completedOpinions = objectives.map(obj => `تمت ${obj.replace(/\.$/, '')} بنجاح وكانت النتائج إيجابية.`);
+                const incompleteOpinions = objectives.map(obj => `لوحظ وجود قصور في ${obj.replace(/\.$/, '')}، وتم توجيه المسؤولين لاتخاذ الإجراءات اللازمة.`);
+                return { completedOpinions, incompleteOpinions };
+            }
+
+            function saveVisitTypes() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(visitTypesData));
+            }
+
+            function loadVisitTypes() {
+                const storedData = localStorage.getItem(STORAGE_KEY);
+                if (storedData) {
+                    visitTypesData = JSON.parse(storedData);
+                } else {
+                    visitTypesData = defaultVisitTypesData;
+                    saveVisitTypes();
+                }
+                const keys = Object.keys(visitTypesData);
+                currentVisitTypeKey = keys.length > 0 ? keys[0] : '';
+            }
+            
+            // --- UI Rendering Functions ---
+            function populateVisitTypeDropdown() {
+                visitTypeSelect.innerHTML = '';
+                Object.keys(visitTypesData).forEach(key => {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = visitTypesData[key].name;
+                    visitTypeSelect.appendChild(option);
+                });
+                if (currentVisitTypeKey) {
+                    visitTypeSelect.value = currentVisitTypeKey;
+                }
+            }
+
+            function renderObjectivesForCurrentType() {
+                if (!currentVisitTypeKey || !visitTypesData[currentVisitTypeKey]) return;
+
+                const data = visitTypesData[currentVisitTypeKey];
+                objectivesContainer.innerHTML = '';
+                data.objectives.forEach((objective, index) => {
+                    const objectiveId = `objective-${index}`;
+                    const div = document.createElement('div');
+                    div.classList.add('flex', 'items-start');
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.id = objectiveId;
+                    checkbox.type = 'checkbox';
+                    checkbox.value = objective;
+                    checkbox.dataset.index = index;
+                    checkbox.classList.add('w-4', 'h-4', 'text-blue-600', 'bg-gray-100', 'border-gray-300', 'rounded', 'focus:ring-blue-500', 'mt-1');
+                    checkbox.addEventListener('change', updateOpinionsSection);
+
+                    const label = document.createElement('label');
+                    label.htmlFor = objectiveId;
+                    label.classList.add('mr-2', 'text-sm', 'font-medium', 'text-gray-900');
+                    label.textContent = objective;
+
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    objectivesContainer.appendChild(div);
+                });
+                updateOpinionsSection();
+            }
+
+            function updateOpinionsSection() {
+                const previouslySavedOpinions = new Map();
+                opinionsContainer.querySelectorAll('.opinion-block textarea').forEach(textarea => {
+                    previouslySavedOpinions.set(textarea.id, textarea.value);
+                });
+
+                opinionsContainer.innerHTML = '';
+                const checkedCheckboxes = objectivesContainer.querySelectorAll('input[type="checkbox"]:checked');
+                
+                if (checkedCheckboxes.length === 0) {
+                    opinionsContainer.innerHTML = '<p class="text-center text-gray-500">لم يتم تحديد أي هدف بعد.</p>';
+                    return;
+                }
+                
+                checkedCheckboxes.forEach(checkbox => {
+                    const index = checkbox.dataset.index;
+                    const opinionId = `opinion-${index}`;
+                    
+                    const opinionBlock = document.createElement('div');
+                    opinionBlock.className = 'opinion-block';
+                    
+                    opinionBlock.innerHTML = `
+                        <label for="${opinionId}" class="block mb-2 text-sm font-semibold text-gray-800">${opinionsContainer.children.length + 1}- ${checkbox.value}</label>
+                        <div class="flex gap-2 mb-2">
+                            <button type="button" data-opinion="completed" data-index="${index}" class="px-3 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full hover:bg-green-200 transition-colors">✅ مكتمل</button>
+                            <button type="button" data-opinion="incomplete" data-index="${index}" class="px-3 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full hover:bg-red-200 transition-colors">❌ غير مكتمل</button>
+                        </div>
+                        <textarea id="${opinionId}" name="${opinionId}" rows="3" class="block p-2.5 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="..."></textarea>
+                    `;
+                    
+                    const textarea = opinionBlock.querySelector('textarea');
+                    if (previouslySavedOpinions.has(opinionId)) {
+                        textarea.value = previouslySavedOpinions.get(opinionId);
+                    }
+
+                    opinionsContainer.appendChild(opinionBlock);
+                });
+            }
+            
+            function renderManagerModal() {
+                visitTypesList.innerHTML = '';
+                 Object.keys(visitTypesData).forEach(key => {
+                    const type = visitTypesData[key];
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg';
+                    item.innerHTML = `
+                        <span class="font-medium">${type.name}</span>
+                        <div class="flex gap-2">
+                            <button data-key="${key}" class="edit-btn text-sm text-blue-600 hover:underline">تعديل</button>
+                            <button data-key="${key}" class="delete-btn text-sm text-red-600 hover:underline">حذف</button>
+                        </div>
+                    `;
+                    visitTypesList.appendChild(item);
+                });
+            }
+
+            // --- Event Listeners ---
+            visitTypeSelect.addEventListener('change', (e) => {
+                currentVisitTypeKey = e.target.value;
+                renderObjectivesForCurrentType();
+            });
+
+            opinionsContainer.addEventListener('click', (e) => {
+                if(e.target.matches('button[data-opinion]')) {
+                    const type = e.target.dataset.opinion;
+                    const index = e.target.dataset.index;
+                    const opinionText = visitTypesData[currentVisitTypeKey][`${type}Opinions`][index];
+                    const textarea = e.target.closest('.opinion-block').querySelector('textarea');
+                    textarea.value = opinionText || '';
+                }
+            });
+            
+            // --- Manager Modal Logic ---
+            manageVisitTypesBtn.addEventListener('click', () => {
+                renderManagerModal();
+                manageTypesModal.classList.remove('hidden');
+            });
+            closeManageModalBtn.addEventListener('click', () => manageTypesModal.classList.add('hidden'));
+
+            addNewTypeBtn.addEventListener('click', () => {
+                editTypeKey.value = '';
+                addEditModalTitle.textContent = 'إضافة نوع زيارة جديد';
+                typeName.value = '';
+                typeObjectives.value = '';
+                addEditTypeModal.classList.remove('hidden');
+            });
+
+            visitTypesList.addEventListener('click', (e) => {
+                const key = e.target.dataset.key;
+                if (e.target.classList.contains('edit-btn')) {
+                    editTypeKey.value = key;
+                    addEditModalTitle.textContent = 'تعديل نوع الزيارة';
+                    typeName.value = visitTypesData[key].name;
+                    typeObjectives.value = visitTypesData[key].objectives.join('\n');
+                    addEditTypeModal.classList.remove('hidden');
+                }
+                if (e.target.classList.contains('delete-btn')) {
+                    if (confirm(`هل أنت متأكد من حذف "${visitTypesData[key].name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+                         if (Object.keys(visitTypesData).length <= 1) {
+                            alert("يجب أن يكون هناك نوع زيارة واحد على الأقل.");
+                            return;
+                        }
+                        delete visitTypesData[key];
+                        saveVisitTypes();
+                        loadVisitTypes(); // Reload and reset current key
+                        populateVisitTypeDropdown();
+                        renderObjectivesForCurrentType();
+                        renderManagerModal();
+                    }
+                }
+            });
+
+            cancelEditBtn.addEventListener('click', () => addEditTypeModal.classList.add('hidden'));
+
+            addEditTypeForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const key = editTypeKey.value;
+                const name = typeName.value.trim();
+                const objectives = typeObjectives.value.trim().split('\n').filter(line => line.trim() !== '');
+                
+                if (!name || objectives.length === 0) {
+                    alert("الرجاء إدخال اسم ونوع وهدف واحد على الأقل.");
+                    return;
+                }
+
+                const newKey = key || `type_${Date.now()}`;
+                const opinions = generateOpinions(objectives);
+
+                visitTypesData[newKey] = {
+                    name,
+                    objectives,
+                    completedOpinions: opinions.completedOpinions,
+                    incompleteOpinions: opinions.incompleteOpinions,
+                };
+
+                saveVisitTypes();
+                currentVisitTypeKey = newKey;
+                populateVisitTypeDropdown();
+                renderObjectivesForCurrentType();
+                renderManagerModal();
+                addEditTypeModal.classList.add('hidden');
+            });
+
+            // --- Report Generation & Preview Logic ---
+             prepareReportBtn.addEventListener('click', function() {
+                const schoolName = document.getElementById('schoolName').value;
+                const visitDate = new Date(document.getElementById('visitDate').value).toLocaleDateString('ar-OM');
+                const recommendations = document.getElementById('recommendations').value;
+                const checkedCheckboxes = objectivesContainer.querySelectorAll('input[type="checkbox"]:checked');
+                const visitTypeName = visitTypesData[currentVisitTypeKey].name;
+
+                let reportHTML = `<h2 class="text-2xl font-bold mb-4 text-center">تقرير زيارة إشرافية</h2>`;
+                reportHTML += `<div class="grid grid-cols-2 gap-4 mb-6 border-b pb-4">
+                                <p><strong>اسم المدرسة:</strong> ${schoolName}</p>
+                                <p><strong>تاريخ الزيارة:</strong> ${visitDate}</p>
+                                <p class="col-span-2"><strong>نوع الزيارة:</strong> ${visitTypeName}</p>
+                               </div>`;
+
+                let objectivesSection = `<h3 class="text-xl font-semibold mt-6 mb-3">أهداف الزيارة:</h3><ul class="list-decimal list-inside space-y-2">`;
+                let opinionsSection = `<h3 class="text-xl font-semibold mt-6 mb-3">رأي الزائر:</h3><ol class="list-decimal list-inside space-y-2">`;
+
+                checkedCheckboxes.forEach(checkbox => {
+                    const index = checkbox.dataset.index;
+                    const opinionText = document.getElementById(`opinion-${index}`).value.replace(/\n/g, '<br>');
+                    objectivesSection += `<li>${checkbox.value}</li>`;
+                    opinionsSection += `<li class="text-gray-700">${opinionText}</li>`;
+                });
+                
+                reportHTML += objectivesSection + '</ul>';
+                reportHTML += opinionsSection + '</ol>';
+
+                if(recommendations) {
+                    reportHTML += `<h3 class="text-xl font-semibold mt-6 mb-3">التوصيات:</h3><p class="text-gray-700">${recommendations.replace(/\n/g, '<br>')}</p>`;
+                }
+                
+                reportContent.innerHTML = reportHTML;
+                reportPreviewContainer.classList.remove('hidden');
+                formContainer.classList.add('hidden');
+                window.scrollTo(0, 0);
+            });
+            backToEditBtn.addEventListener('click', () => {
+                reportPreviewContainer.classList.add('hidden');
+                formContainer.classList.remove('hidden');
+            });
+
+            // --- Initialize App ---
+            loadVisitTypes();
+            populateVisitTypeDropdown();
+            renderObjectivesForCurrentType();
+
+
+            // --- Gemini API Functionality ---
+            const geminiSuggestBtn = document.getElementById('gemini-suggest-btn');
+            const generateActionPlanBtn = document.getElementById('generateActionPlanBtn');
+            const generateSummaryBtn = document.getElementById('generateSummaryBtn');
+            const generateEmailBtn = document.getElementById('generateEmailBtn');
+            const recommendationsTextarea = document.getElementById('recommendations');
+            const geminiError = document.getElementById('gemini-error');
+
+            async function callGemini(prompt, loaderElement, errorElement) {
+                loaderElement.classList.remove('hidden');
+                if (errorElement) errorElement.classList.add('hidden');
+
+                try {
+                    const apiKey = ""; // API key is handled by the environment.
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    
+                    const payload = {
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: {
+                            parts: [{ text: "You are an expert educational supervisor in Oman. Your responses should be professional, formal, and in Arabic." }]
+                        },
+                    };
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        return candidate.content.parts[0].text;
+                    } else {
+                        throw new Error("Invalid response structure from API.");
+                    }
+
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    if (errorElement) {
+                        errorElement.textContent = "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي. الرجاء المحاولة مرة أخرى.";
+                        errorElement.classList.remove('hidden');
+                    }
+                    return null;
+                } finally {
+                    loaderElement.classList.add('hidden');
+                }
+            }
+
+            geminiSuggestBtn.addEventListener('click', async () => {
+                const opinionTextareas = opinionsContainer.querySelectorAll('textarea');
+                if (opinionTextareas.length === 0) {
+                    alert("الرجاء تحديد هدف واحد على الأقل لكتابة الرأي.");
+                    return;
+                }
+
+                let allOpinions = [];
+                opinionTextareas.forEach(textarea => {
+                    if (textarea.value.trim()) {
+                        allOpinions.push(textarea.value.trim());
+                    }
+                });
+
+                if (allOpinions.length === 0) {
+                    alert("الرجاء كتابة رأيك في هدف واحد على الأقل.");
+                    return;
+                }
+
+                const prompt = `
+                    بناءً على ملاحظات الزائر التالية خلال زيارة إشرافية لمدرسة، قم بصياغة توصيات محددة.
+                    ركز فقط على النقاط التي تشير إلى وجود مشكلة أو نقص (مثل "غير مكتمل"، "نقص"، "بحاجة إلى تحسين").
+                    إذا كانت جميع الملاحظات إيجابية ولا توجد مشاكل، اذكر أن "سير العمل ممتاز ولا توجد حاجة لتوصيات حالية."
+                    إذا كانت هناك توصيات، ابدأها بعبارة "بناءً على الملاحظات، نوصي إدارة المدرسة بالآتي:" ثم قدم التوصيات على شكل قائمة نقطية (-).
+                    
+                    الملاحظات:
+                    - ${allOpinions.join('\n- ')}
+                `;
+
+                const loader = document.getElementById('loader');
+                const result = await callGemini(prompt, loader, geminiError);
+
+                if (result) {
+                    recommendationsTextarea.value = result;
+                }
+            });
+
+            generateActionPlanBtn.addEventListener('click', async () => {
+                if (!recommendationsTextarea.value.trim()) {
+                    alert("لا توجد توصيات لإنشاء خطة عمل. الرجاء كتابة التوصيات أولاً أو اقتراحها.");
+                    return;
+                }
+
+                const prompt = `
+                    بناءً على التوصيات التالية، قم بإنشاء خطة عمل تنفيذية ومفصلة.
+                    لكل توصية، اقترح خطوات إجرائية واضحة، وحدد المسؤول عن التنفيذ (مثلاً: "إدارة المدرسة"، "معلم المادة"، "المشرف التربوي")، واقترح إطاراً زمنياً للتنفيذ (مثلاً: "خلال أسبوع"، "مستمر").
+                    نسق الخطة في جدول منظم وواضح.
+                    
+                    التوصيات:
+                    ${recommendationsTextarea.value.trim()}
+                `;
+                const loader = document.getElementById('actionPlanLoader');
+                const modal = document.getElementById('actionPlanModal');
+                const contentDiv = document.getElementById('actionPlanContent');
+                
+                contentDiv.innerHTML = ''; 
+                modal.classList.remove('hidden');
+
+                const result = await callGemini(prompt, loader, null);
+                if (result) {
+                    contentDiv.innerHTML = `<pre class="whitespace-pre-wrap text-sm">${result}</pre>`;
+                } else {
+                    contentDiv.textContent = "حدث خطأ أثناء إنشاء خطة العمل.";
+                }
+            });
+
+            function getReportTextForAI() {
+                const reportDiv = document.getElementById('reportContent');
+                if (!reportDiv) return "";
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = reportDiv.innerHTML;
+                tempDiv.querySelectorAll('li').forEach(li => {
+                    li.textContent = `\n- ${li.textContent}`;
+                });
+                return tempDiv.innerText;
+            }
+
+            generateSummaryBtn.addEventListener('click', async () => {
+                const reportText = getReportTextForAI();
+                if (!reportText) return;
+
+                const prompt = `
+                    قم بإنشاء ملخص تنفيذي موجز واحترافي لتقرير الزيارة الإشرافية التالي.
+                    يجب أن يكون الملخص عبارة عن فقرة واحدة تسلط الضوء على أهم النتائج التي تم التوصل إليها والتوصيات الرئيسية.
+                    
+                    نص التقرير:
+                    ${reportText}
+                `;
+                const loader = document.getElementById('summaryLoader');
+                const modal = document.getElementById('summaryModal');
+                const contentDiv = document.getElementById('summaryContent');
+                
+                contentDiv.innerHTML = '';
+                modal.classList.remove('hidden');
+
+                const result = await callGemini(prompt, loader, null);
+                if (result) {
+                    contentDiv.textContent = result;
+                } else {
+                    contentDiv.textContent = "حدث خطأ أثناء إنشاء الملخص.";
+                }
+            });
+
+            generateEmailBtn.addEventListener('click', async () => {
+                const reportText = getReportTextForAI();
+                if (!reportText) return;
+                const schoolName = document.getElementById('schoolName').value || "الفاضل/ة مدير/ة المدرسة";
+
+                const prompt = `
+                    بناءً على تقرير الزيارة الإشرافية التالي، قم بصياغة مسودة بريد إلكتروني رسمي وموجز يتم إرساله إلى مدير المدرسة.
+                    يجب أن يبدأ البريد بتحية رسمية، ثم يلخص بإيجاز أهم نتائج الزيارة، ويقدم التوصيات الرئيسية بطريقة بنّاءة وإيجابية، وينتهي بخاتمة مناسبة.
+                    
+                    اسم المدرسة: ${schoolName}
+
+                    نص التقرير:
+                    ${reportText}
+                `;
+                const loader = document.getElementById('emailLoader');
+                const modal = document.getElementById('emailModal');
+                const contentArea = document.getElementById('emailContent');
+                
+                contentArea.value = '';
+                modal.classList.remove('hidden');
+
+                const result = await callGemini(prompt, loader, null);
+                if (result) {
+                    contentArea.value = result;
+                } else {
+                    contentArea.value = "حدث خطأ أثناء إنشاء مسودة البريد الإلكتروني.";
+                }
+            });
+
+            document.querySelectorAll('.close-modal-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.target.closest('.modal-backdrop').classList.add('hidden');
+                });
+            });
+
+        });
+    </script>
+
 </body>
 </html>
+
+
+
