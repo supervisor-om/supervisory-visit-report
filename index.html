@@ -236,37 +236,6 @@
             const TYPES_STORAGE_KEY = 'visitTypesData';
             const REPORTS_STORAGE_KEY = 'savedReportsData';
 
-            // --- SCHOOLS DATA WITH TEACHERS ---
-            const schoolsData = {
-                "أبو القاسم الزهراوي": { teachers: ["أ. محمد الفارسي", "أ.علي الكندي"] },
-                "أبو أيوب الحضرمي": { teachers: ["أ. خالد المعمري", "أ. سالم الشكيلي"] },
-                "أبو تمام": { teachers: ["أ. يوسف البلوشي", "أ. سليمان الجديدي", "أ. ماجد الوهيبي"] },
-                "أحمد بن النعمان": { teachers: ["أ. عبدالله الرئيسي", "أ. ناصر السعدي"] },
-                "الشيخ سالم السيابي": { teachers: ["أ. راشد الحارثي", "أ. حمد الهاشمي"] },
-                "الشيخ سعيد الكندي مسائي": { teachers: ["أ. فيصل الزدجالي", "أ. عمر العبري"] },
-                "الشيخ ناصر الخروصي": { teachers: ["أ. إبراهيم الصالحي", "أ. أحمد المرزوقي"] },
-                "جنادة الازدى (موسى سابقا)": { teachers: ["أ. سعيد العامري", "أ. بدر الشامسي"] },
-                "حفص بن راشد": { teachers: ["أ. طارق اليافعي", "أ. ياسر الحوسني", "أ. هيثم الشبلي"] },
-                "خريس الحبوس": { teachers: ["أ. قيس المحروقي", "أ. مالك الهنائي"] },
-                "سهيل بن عمرو العامري": { teachers: ["أ. عيسى العويسي", "أ. زاهر الغافري"] },
-                "كعب بن زيد": { teachers: ["أ. أنور السناني", "أ. حسان القصابي"] },
-                "يزيد الطائي": { teachers: ["أ. جمال الحضرمي", "أ. وليد الجابري"] },
-                "اجيال الثقافة": { teachers: ["معلم ١", "معلم ٢"] },
-                "اجيال الفردوس - الحيل": { teachers: ["معلم ١", "معلم ٢"] },
-                "البيان": { teachers: ["معلم ١", "معلم ٢"] },
-                "الجيل المبدع": { teachers: ["معلم ١", "معلم ٢"] },
-                "الريادة": { teachers: ["معلم ١", "معلم ٢"] },
-                "الصفوة المعبيلة": { teachers: ["معلم ١", "معلم ٢"] },
-                "المجد": { teachers: ["معلم ١", "معلم ٢"] },
-                "انس بن مالك (المنار سابقا)": { teachers: ["معلم ١", "معلم ٢"] },
-                "جيفر بن الجلندي": { teachers: ["معلم ١", "معلم ٢"] },
-                "درة مجان": { teachers: ["معلم ١", "معلم ٢"] },
-                "ضياء المستقبل": { teachers: ["معلم ١", "معلم ٢"] },
-                "مشاعل مسقط سور الحديد": { teachers: ["معلم ١", "معلم ٢"] },
-                "منابع التفوق": { teachers: ["معلم ١", "معلم ٢"] }
-            };
-
-
             // --- DEFAULT DATA ---
             const defaultVisitTypesData = {
                  'exploratory': {
@@ -511,51 +480,37 @@
                     let specialInputsHTML = '';
                     const classSessionObjectiveText = "حضور موقف صفي مع معلمي المادة والمداولة الاشرافية.";
                     const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمين.";
-                    
-                    const selectedSchool = schoolNameSelect.value;
-                    let teachers = [];
-                    if (selectedSchool && schoolsData[selectedSchool]) {
-                        teachers = schoolsData[selectedSchool].teachers;
-                    }
 
                     if (objectiveText === classSessionObjectiveText) {
-                        let teacherOptions = '<option value="" disabled selected>اختر المعلم</option>';
-                        teachers.forEach(teacher => { teacherOptions += `<option value="${teacher}">${teacher}</option>`; });
-
-                        specialInputsHTML = `
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 bg-gray-100 rounded-md border">
-                                <div>
-                                    <label for="lessonNumber-${index}" class="text-xs text-gray-600 block mb-1">رقم الحصة</label>
-                                    <input type="text" id="lessonNumber-${index}" class="w-full text-sm p-1.5 border-gray-300 rounded-md" placeholder="مثال: الثالثة">
+                         specialInputsHTML = `
+                            <div class="p-3 bg-gray-100 rounded-md border space-y-3">
+                                <div id="session-rows-container-${index}" class="space-y-2">
+                                    <!-- Initial row -->
+                                    <div class="grid grid-cols-4 gap-2 items-center session-row">
+                                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md lesson-number-input" placeholder="رقم الحصة">
+                                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-name-input" placeholder="اسم المعلم">
+                                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md class-name-input" placeholder="الصف/الشعبة">
+                                        <span></span> <!-- Placeholder for alignment -->
+                                    </div>
                                 </div>
-                                <div>
-                                    <label for="teacherName-${index}" class="text-xs text-gray-600 block mb-1">اسم المعلم</label>
-                                    <select id="teacherName-${index}" class="w-full text-sm p-1.5 border-gray-300 rounded-md bg-white">
-                                        ${teacherOptions}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="className-${index}" class="text-xs text-gray-600 block mb-1">الصف/الشعبة</label>
-                                    <input type="text" id="className-${index}" class="w-full text-sm p-1.5 border-gray-300 rounded-md" placeholder="مثال: 8/2">
-                                </div>
+                                <button type="button" data-index="${index}" class="add-session-btn text-sm text-blue-600 hover:underline">+ إضافة موقف صفي</button>
                             </div>
                         `;
                     } else if (objectiveText === timetableObjectiveText) {
-                         specialInputsHTML = `<div class="p-3 bg-gray-100 rounded-md border space-y-3">`;
-                         if (teachers.length > 0) {
-                            teachers.forEach((teacher, teacherIndex) => {
-                                specialInputsHTML += `
-                                    <div class="grid grid-cols-3 gap-2 items-center teacher-timetable-row" data-teacher-name="${teacher}">
-                                        <label class="text-sm font-medium text-gray-700">${teacher}</label>
-                                        <input type="text" id="timetable-load-${index}-${teacherIndex}" class="w-full text-sm p-1.5 border-gray-300 rounded-md" placeholder="نصاب الحصص">
-                                        <input type="text" id="timetable-classes-${index}-${teacherIndex}" class="w-full text-sm p-1.5 border-gray-300 rounded-md" placeholder="الصفوف التي يدرسها">
+                         specialInputsHTML = `
+                            <div class="p-3 bg-gray-100 rounded-md border space-y-3">
+                                <div id="teacher-rows-container-${index}" class="space-y-2">
+                                    <!-- Initial row -->
+                                    <div class="grid grid-cols-4 gap-2 items-center teacher-timetable-row">
+                                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-name-input" placeholder="اسم المعلم">
+                                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-load-input" placeholder="نصاب الحصص">
+                                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-classes-input" placeholder="الصفوف التي يدرسها">
+                                        <span></span> <!-- Placeholder for alignment -->
                                     </div>
-                                `;
-                            });
-                         } else {
-                            specialInputsHTML += `<p class="text-xs text-center text-gray-500">اختر مدرسة لعرض المعلمين</p>`;
-                         }
-                         specialInputsHTML += `</div>`;
+                                </div>
+                                <button type="button" data-index="${index}" class="add-teacher-btn text-sm text-blue-600 hover:underline">+ إضافة معلم</button>
+                            </div>
+                        `;
                     }
 
                     opinionBlock.innerHTML = `
@@ -765,21 +720,37 @@
                     const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمين.";
 
                     if (opinionType === 'completed' && objectiveText === classSessionObjectiveText) {
-                        const lessonNumber = opinionBlock.querySelector(`#lessonNumber-${index}`).value || '(رقم الحصة)';
-                        const teacherName = opinionBlock.querySelector(`#teacherName-${index}`).value || '(اسم المعلم)';
-                        const className = opinionBlock.querySelector(`#className-${index}`).value || '(الصف/الشعبة)';
-                        textarea.value = `تم حضور موقف صفي مع معلمي المادة الحصة ${lessonNumber} مع ا.${teacherName} للصف ${className}، وكان الأداء متميزًا، تلتها مداولة إشرافية بنّاءة.`;
+                        let summary = "تم حضور المواقف الصفية التالية:\n";
+                        const sessionRows = opinionBlock.querySelectorAll('.session-row');
+                        let detailsFound = false;
+                        sessionRows.forEach(row => {
+                            const lessonNumber = row.querySelector('.lesson-number-input').value;
+                            const teacherName = row.querySelector('.teacher-name-input').value;
+                            const className = row.querySelector('.class-name-input').value;
+                            if (lessonNumber || teacherName || className) {
+                                detailsFound = true;
+                                summary += `- الحصة ${lessonNumber || '(غير محددة)'} مع ا.${teacherName || '(غير محدد)'} للصف ${className || '(غير محدد)'}.\n`;
+                            }
+                        });
+
+                        if (detailsFound) {
+                            summary += "وكان الأداء العام متميزًا، تلتها مداولات إشرافية بنّاءة.";
+                            textarea.value = summary;
+                        } else {
+                            textarea.value = `تم حضور موقف صفي مع معلمي المادة، وكان الأداء متميزًا والتفاعل صفيًا ونشطًا، تلتها مداولة إشرافية بنّاءة.`;
+                        }
+
                     } else if (opinionType === 'completed' && objectiveText === timetableObjectiveText) {
                         let summary = "تمت متابعة توزيع الجدول المدرسي ونصاب الحصص للمعلمين، وكان التوزيع كالتالي:\n";
                         const teacherRows = opinionBlock.querySelectorAll('.teacher-timetable-row');
                         let detailsFound = false;
-                        teacherRows.forEach((row, teacherIndex) => {
-                            const teacherName = row.dataset.teacherName;
-                            const load = opinionBlock.querySelector(`#timetable-load-${index}-${teacherIndex}`).value;
-                            const classes = opinionBlock.querySelector(`#timetable-classes-${index}-${teacherIndex}`).value;
-                            if (load || classes) {
+                        teacherRows.forEach(row => {
+                            const teacherName = row.querySelector('.teacher-name-input').value;
+                            const load = row.querySelector('.teacher-load-input').value;
+                            const classes = row.querySelector('.teacher-classes-input').value;
+                            if (teacherName || load || classes) {
                                 detailsFound = true;
-                                summary += `- ${teacherName}: نصابه (${load || 'غير محدد'}) حصة، ويدرس الصفوف (${classes || 'غير محددة'}).\n`;
+                                summary += `- ${teacherName || 'معلم غير مسمى'}: نصابه (${load || 'غير محدد'}) حصة، ويدرس الصفوف (${classes || 'غير محددة'}).\n`;
                             }
                         });
                         if (detailsFound) {
@@ -792,6 +763,42 @@
                         const defaultOpinionText = visitTypesData[currentVisitTypeKey][`${opinionType}Opinions`][index];
                         textarea.value = defaultOpinionText || '';
                     }
+                }
+
+                if (e.target.matches('.add-teacher-btn')) {
+                    const index = e.target.dataset.index;
+                    const container = document.getElementById(`teacher-rows-container-${index}`);
+                    const newRow = document.createElement('div');
+                    newRow.className = 'grid grid-cols-4 gap-2 items-center teacher-timetable-row';
+                    newRow.innerHTML = `
+                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-name-input" placeholder="اسم المعلم">
+                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-load-input" placeholder="نصاب الحصص">
+                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-classes-input" placeholder="الصفوف التي يدرسها">
+                        <button type="button" class="remove-teacher-btn text-red-500 hover:text-red-700 text-lg font-bold">×</button>
+                    `;
+                    container.appendChild(newRow);
+                }
+
+                if (e.target.matches('.remove-teacher-btn')) {
+                    e.target.closest('.teacher-timetable-row').remove();
+                }
+
+                if (e.target.matches('.add-session-btn')) {
+                    const index = e.target.dataset.index;
+                    const container = document.getElementById(`session-rows-container-${index}`);
+                    const newRow = document.createElement('div');
+                    newRow.className = 'grid grid-cols-4 gap-2 items-center session-row';
+                    newRow.innerHTML = `
+                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md lesson-number-input" placeholder="رقم الحصة">
+                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md teacher-name-input" placeholder="اسم المعلم">
+                        <input type="text" class="w-full text-sm p-1.5 border-gray-300 rounded-md class-name-input" placeholder="الصف/الشعبة">
+                        <button type="button" class="remove-session-btn text-red-500 hover:text-red-700 text-lg font-bold">×</button>
+                    `;
+                    container.appendChild(newRow);
+                }
+
+                if (e.target.matches('.remove-session-btn')) {
+                    e.target.closest('.session-row').remove();
                 }
             });
 
