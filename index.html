@@ -276,10 +276,10 @@
                     objectives_list: [
                         "مقابلة مديرة المدرسة معلمةالرياضة المدرسية.",
                         "حضور الطابور المدرسي.",
-                        "تحديث قاعدة بيانات المعلمين.",
+                        "تحديث قاعدة بيانات المعلمة.",
                         "متابعة موافقات التعيين.",
                         "متابعة توفر الأدلة وكتاب الطالب وتحديثها.",
-                        "متابعة توزيع الجدول ونصاب الحصص للمعلمين.",
+                        "متابعة توزيع الجدول ونصاب الحصص للمعلمة.",
                         "متابعة الملاعب وتخطيطها والأدوات الرياضية.",
                         "متابعة النشرات ووثائق التقويم ومناقشة مستجداتها.",
                         "متابعة المنهاج وسجلات المعلمة.",
@@ -305,7 +305,7 @@
                         "تم متابعة توفر الأدلة وتحديثها وكانت محدثة بصيغة (PDF).",
                         "تم متابعة توزيع الجدول المدرسي وتلاحظ وجود حصص موزعة في الجدول السابعة والثامنة وكذلك تفريغ المعلمة يوم الثلاثاء بدون عذر مقبول وتم توجيه ادارة المدرسة بتعديل ذلك والابتعاد عن الحصص الأخيرة.",
                         "تم متابعة الملاعب وتخطيطها والأدوات الرياضية وتلاحظ عدم وجود أدوات رياضية في المدرسة وتم توجيه إدارة المدرسة بتوفير الأدوات وتجديد تخطيط الملعب.",
-                        "لوحظ عدم تعميم بعض النشرات والوثائق المهمة، وتم التأكيد على الإدارة بضرورة مناقشتها مع المعلمة.",
+                        "تم متابعة النشرات ووثائق التقويم ومناقشة مستجداتها ولوحظ عدم وصول النشرات الى المعلمين وتم ارسال النشرات والوثائق مرة اخرى الى المعلمين عبر الوتساب.",
                         "تم متابعة المنهاج وسجلات المعلمة وكانت غير مكتملة، وتم توجيه المعلمة لاستكمالها.",
                         "تعذر حضور حصة مع المعلمة."
                     ],
@@ -317,7 +317,7 @@
                         "التواصل مع الجهات المعنية لتوفير الكتب المدرسية الناقصة.",
                         "تغيير جدول المعلمة ليكون لديها حصة رياضة كل يوم، وتوزيع الحصص بحيث يتم الابتعاد عن الحصة السابعة والثامنة.",
                         "توفير الأدوات الرياضية حسب الكشف المرفق ونخص بالذكر (جهاز الوثب العالي مع المرتبة الخاصة به، الصندوق المقسم، المقعد السويدي، مرمى لكرة اليد عدد (2)، قوائم للسلة عدد (2)، شبك لكرة الطائرة) بالإضافة لباقي الأدوات في الكشف، وتجديد تخطيط الملعب.",
-                        "التأكيد على تعميم ومناقشة جميع النشرات والوثائق الرسمية.",
+                        "التأكيد على وصول جميع النشرات والوثائق للمعلمين وتوثيق استلامهم لها.",
                         "متابعة استكمال سجلات المعلمة (التحضير+الزي والملاحظة+الخطة).",
                         "التنسيق المسبق مع المعلمة لحضور حصة دراسية."
                     ]
@@ -402,16 +402,21 @@
             }
 
             function applyGender(text, context) {
+                if (!text) return "";
                 if (context.count > 1) {
                     return text.replace(/مديرة/g, 'مدير')
                                .replace(/معلمةالرياضة/g, 'معلمي الرياضة')
                                .replace(/المعلمة/g, 'المعلمين')
-                               .replace(/معلمة/g, 'معلمي');
+                               .replace(/معلمة/g, 'معلمي')
+                               .replace(/وهي /g, 'وهم ')
+                               .replace(/لديها/g, 'لديهم');
                 } else if (context.gender === 'male') {
                      return text.replace(/مديرة/g, 'مدير')
                                .replace(/معلمةالرياضة/g, 'معلم الرياضة')
                                .replace(/المعلمة/g, 'المعلم')
-                               .replace(/معلمة/g, 'معلم');
+                               .replace(/معلمة/g, 'معلم')
+                               .replace(/وهي /g, 'وهو ')
+                               .replace(/لديها/g, 'لديه');
                 }
                 return text;
             }
@@ -599,7 +604,7 @@
                             <button type="button" data-opinion="incomplete" data-index="${index}" class="px-3 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full hover:bg-red-200 transition-colors">❌ غير مكتمل</button>
                         </div>`;
 
-                    const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمين.";
+                    const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمة.";
                     const approvalObjectiveText = "متابعة موافقات التعيين.";
                     const classSessionObjectiveText = "حضور حصة للمعلمة والمداولة الاشرافية.";
 
@@ -624,9 +629,9 @@
                                     <label for="approval-status-${index}" class="text-xs text-gray-600 block mb-1">في حالة عدم الاكتمال، اختر السبب:</label>
                                     <select id="approval-status-${index}" data-index="${index}" class="approval-status-select bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
                                         <option value="" selected>اختر السبب...</option>
-                                        <option value="المعلمة في اجراءات التعيين.">في اجراءات التعيين</option>
-                                        <option value="ليس لديها موافقة تعيين.">ليس لديها موافقة تعيين</option>
-                                        <option value="الموافقة المبدئية منتهية الصلاحية.">الموافقة المبدئية منتهية</option>
+                                        <option value="in_progress">في اجراءات التعيين</option>
+                                        <option value="no_approval">ليس لديها موافقة تعيين</option>
+                                        <option value="expired">الموافقة المبدئية منتهية الصلاحية</option>
                                     </select>
                                 </div>
                                 <div class="self-end">
@@ -907,64 +912,10 @@
             });
 
             opinionsContainer.addEventListener('click', (e) => {
-                if(e.target.matches('button[data-opinion]')) {
-                    const opinionType = e.target.dataset.opinion;
-                    const index = e.target.dataset.index;
+                 if (e.target.matches('.add-teacher-btn, .remove-teacher-btn, .add-session-btn, .remove-session-btn')) {
                     const opinionBlock = e.target.closest('.opinion-block');
-                    const textarea = opinionBlock.querySelector('textarea');
-                    const schoolName = schoolNameSelect.value;
-                    const context = getTeacherContext(schoolName);
-                    
-                    const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمين.";
-                    const classSessionObjectiveText = "حضور حصة للمعلمة والمداولة الاشرافية.";
-                    const isSpecialApproval = e.target.dataset.special === 'approval';
-                    
-                    let baseOpinionText = visitTypesData[currentVisitTypeKey][`${opinionType}Opinions`][index];
-                    let genderedOpinion = applyGender(baseOpinionText, context);
-                    
-                    if (isSpecialApproval && opinionType === 'completed') {
-                        textarea.value = genderedOpinion;
-                        const dropdown = opinionBlock.querySelector('.approval-status-select');
-                        if (dropdown) dropdown.value = '';
-
-                    } else if (opinionType === 'completed' && visitTypesData[currentVisitTypeKey].objectives_list[index] === timetableObjectiveText) {
-                        let summary = "تمت متابعة توزيع الجدول المدرسي، وكانت الأنصبة كالتالي:\n";
-                        const teacherRows = opinionBlock.querySelectorAll('.teacher-timetable-row');
-                        let detailsFound = false;
-                        teacherRows.forEach(row => {
-                            const teacherName = row.querySelector('.teacher-name-input').value;
-                            const load = row.querySelector('.teacher-load-input').value;
-                            const classes = row.querySelector('.teacher-classes-input').value;
-                            if (teacherName || load || classes) {
-                                detailsFound = true;
-                                summary += `- ${teacherName || 'معلم غير مسمى'}: نصابه (${load || 'غير محدد'}) حصة، ويدرس الصفوف (${classes || 'غير محددة'}).\n`;
-                            }
-                        });
-                        textarea.value = detailsFound ? summary : genderedOpinion;
-                    } else if (opinionType === 'completed' && visitTypesData[currentVisitTypeKey].objectives_list[index] === classSessionObjectiveText) {
-                         let summary = "";
-                        const sessionRows = opinionBlock.querySelectorAll('.session-row');
-                        let detailsFound = false;
-                        sessionRows.forEach(row => {
-                            const lessonNumber = row.querySelector('.lesson-number-input').value;
-                            const lessonName = row.querySelector('.lesson-name-input').value;
-                            const className = row.querySelector('.class-name-input').value;
-                            const teacherName = row.querySelector('.teacher-name-input').value;
-                            const performance = row.querySelector('.performance-level-select').value;
-                            if (lessonNumber || lessonName || className || teacherName) {
-                                detailsFound = true;
-                                summary += `تم حضور موقف صفي للمعلمة الحصة (${lessonNumber || 'غير محددة'}) درس (${lessonName || 'غير محدد'}) للصف ${className || 'غير محدد'} مع ا.${teacherName || 'غير محدد'} وكان مستوى الاداء ${performance}.\n`;
-                            }
-                        });
-                        textarea.value = detailsFound ? summary.trim() : genderedOpinion;
-                    } else {
-                        textarea.value = genderedOpinion || '';
-                    }
-                }
-
-                if (e.target.matches('.add-teacher-btn, .remove-teacher-btn')) {
-                    const container = e.target.closest('.opinion-block').querySelector('[id^="teacher-rows-container"]');
                     if(e.target.matches('.add-teacher-btn')) {
+                        const container = opinionBlock.querySelector('[id^="teacher-rows-container"]');
                         const newRow = document.createElement('div');
                         newRow.className = 'grid grid-cols-4 gap-2 items-center teacher-timetable-row';
                         newRow.innerHTML = `
@@ -974,14 +925,10 @@
                             <button type="button" class="remove-teacher-btn text-red-500 hover:text-red-700 text-lg font-bold">×</button>
                         `;
                         container.appendChild(newRow);
-                    } else {
+                    } else if (e.target.matches('.remove-teacher-btn')) {
                          e.target.closest('.teacher-timetable-row').remove();
-                    }
-                }
-
-                if (e.target.matches('.add-session-btn, .remove-session-btn')) {
-                    const container = e.target.closest('.opinion-block').querySelector('[id^="session-rows-container"]');
-                    if(e.target.matches('.add-session-btn')) {
+                    } else if (e.target.matches('.add-session-btn')) {
+                        const container = opinionBlock.querySelector('[id^="session-rows-container"]');
                         const newRow = document.createElement('div');
                         newRow.className = 'grid grid-cols-6 gap-2 items-center session-row mt-2';
                         newRow.innerHTML = `
@@ -999,9 +946,70 @@
                             <button type="button" class="remove-session-btn text-red-500 hover:text-red-700 text-lg font-bold">×</button>
                         `;
                         container.appendChild(newRow);
-                    } else {
+                    } else if (e.target.matches('.remove-session-btn')) {
                          e.target.closest('.session-row').remove();
                     }
+                    return; // Prevent opinion text generation on these button clicks
+                }
+
+                if(e.target.matches('button[data-opinion]')) {
+                    const opinionType = e.target.dataset.opinion;
+                    const index = e.target.dataset.index;
+                    const opinionBlock = e.target.closest('.opinion-block');
+                    const textarea = opinionBlock.querySelector('textarea');
+                    const existingText = textarea.value.trim();
+                    const schoolName = schoolNameSelect.value;
+                    const context = getTeacherContext(schoolName);
+                    
+                    let generatedText = '';
+
+                    if (opinionType === 'incomplete') {
+                        let baseOpinionText = visitTypesData[currentVisitTypeKey].incompleteOpinions[index];
+                        generatedText = applyGender(baseOpinionText, context);
+                    } else { // opinionType === 'completed'
+                        const baseObjectiveText = visitTypesData[currentVisitTypeKey].objectives_list[index];
+                        const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمة.";
+                        const classSessionObjectiveText = "حضور حصة للمعلمة والمداولة الاشرافية.";
+                        let baseOpinionText = visitTypesData[currentVisitTypeKey].completedOpinions[index];
+                        generatedText = applyGender(baseOpinionText, context);
+
+                        if (e.target.dataset.special === 'approval') {
+                            const dropdown = opinionBlock.querySelector('.approval-status-select');
+                            if (dropdown) dropdown.value = '';
+                        } else if (baseObjectiveText === timetableObjectiveText) {
+                            let summary = "تمت متابعة توزيع الجدول المدرسي، وكانت الأنصبة كالتالي:\n";
+                            const teacherRows = opinionBlock.querySelectorAll('.teacher-timetable-row');
+                            let detailsFound = false;
+                            teacherRows.forEach(row => {
+                                const teacherName = row.querySelector('.teacher-name-input').value;
+                                const load = row.querySelector('.teacher-load-input').value;
+                                const classes = row.querySelector('.teacher-classes-input').value;
+                                if (teacherName || load || classes) {
+                                    detailsFound = true;
+                                    summary += `- ${teacherName || 'معلم غير مسمى'}: نصابه (${load || 'غير محدد'}) حصة، ويدرس الصفوف (${classes || 'غير محددة'}).\n`;
+                                }
+                            });
+                            if(detailsFound) generatedText = summary.trim();
+                        } else if (baseObjectiveText === classSessionObjectiveText) {
+                             let summary = "";
+                            const sessionRows = opinionBlock.querySelectorAll('.session-row');
+                            let detailsFound = false;
+                            sessionRows.forEach(row => {
+                                const lessonNumber = row.querySelector('.lesson-number-input').value;
+                                const lessonName = row.querySelector('.lesson-name-input').value;
+                                const className = row.querySelector('.class-name-input').value;
+                                const teacherName = row.querySelector('.teacher-name-input').value;
+                                const performance = row.querySelector('.performance-level-select').value;
+                                if (lessonNumber || lessonName || className || teacherName) {
+                                    detailsFound = true;
+                                    summary += `تم حضور موقف صفي للمعلمة الحصة (${lessonNumber || 'غير محددة'}) درس (${lessonName || 'غير محدد'}) للصف ${className || 'غير محدد'} مع ا.${teacherName || 'غير محدد'} وكان مستوى الاداء ${performance}.\n`;
+                                }
+                            });
+                            if(detailsFound) generatedText = summary.trim();
+                        }
+                    }
+                    
+                    textarea.value = generatedText + (existingText ? ' ' + existingText : '');
                 }
             });
             
@@ -1011,8 +1019,22 @@
                     const textarea = document.getElementById(`opinion-${index}`);
                     const schoolName = schoolNameSelect.value;
                     const context = getTeacherContext(schoolName);
-                    if (e.target.value && textarea) {
-                        textarea.value = applyGender(e.target.value, context);
+                    const selectedValue = e.target.value;
+
+                    if (selectedValue && textarea) {
+                         let text = '';
+                        switch(selectedValue) {
+                            case 'in_progress':
+                                text = "تم متابعة موافقات التعيين وهي في اجراءات التعيين.";
+                                break;
+                            case 'no_approval':
+                                text = "تم متابعة موافقات التعيين وليس لديها موافقة تعيين.";
+                                break;
+                            case 'expired':
+                                text = "تم متابعة موافقات التعيين والموافقة المبدئية منتهية الصلاحية.";
+                                break;
+                        }
+                        textarea.value = applyGender(text, context);
                     }
                 }
             });
