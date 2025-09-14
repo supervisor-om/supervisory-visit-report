@@ -727,16 +727,31 @@
                                 <p class="col-span-2"><strong>نوع الزيارة:</strong> ${data.visitTypeName}</p>
                                </div>`;
                 
-                reportHTML += `<div id="reportObjectives"><h3 class="text-xl font-semibold mt-6 mb-3">أهداف الزيارة:</h3><ol class="list-decimal list-inside space-y-2">`;
+                reportHTML += `<div id="reportObjectives">
+                                <div class="flex justify-between items-center mt-6 mb-3">
+                                    <h3 class="text-xl font-semibold">أهداف الزيارة:</h3>
+                                    <button data-target="reportObjectives" class="copy-section-btn text-xs text-blue-600 hover:underline no-print">نسخ</button>
+                                </div>
+                                <ol class="list-decimal list-inside space-y-2">`;
                 data.checkedObjectives.forEach(obj => { reportHTML += `<li>${obj}</li>`; });
                 reportHTML += `</ol></div>`;
                 
-                reportHTML += `<div id="reportOpinions"><h3 class="text-xl font-semibold mt-6 mb-3">رأي الزائر:</h3><ol class="list-decimal list-inside space-y-2">`;
+                reportHTML += `<div id="reportOpinions">
+                                <div class="flex justify-between items-center mt-6 mb-3">
+                                    <h3 class="text-xl font-semibold">رأي الزائر:</h3>
+                                    <button data-target="reportOpinions" class="copy-section-btn text-xs text-blue-600 hover:underline no-print">نسخ</button>
+                                </div>
+                                <ol class="list-decimal list-inside space-y-2">`;
                 data.opinions.sort((a,b) => a.index - b.index).forEach(op => { reportHTML += `<li class="text-gray-700">${op.text.replace(/\n/g, '<br>')}</li>`; });
                 reportHTML += `</ol></div>`;
 
                 if(data.recommendations) {
-                    reportHTML += `<div id="reportRecommendations"><h3 class="text-xl font-semibold mt-6 mb-3">التوصيات:</h3><p class="text-gray-700">${data.recommendations.replace(/\n/g, '<br>')}</p></div>`;
+                    reportHTML += `<div id="reportRecommendations">
+                                    <div class="flex justify-between items-center mt-6 mb-3">
+                                        <h3 class="text-xl font-semibold">التوصيات:</h3>
+                                        <button data-target="reportRecommendations" class="copy-section-btn text-xs text-blue-600 hover:underline no-print">نسخ</button>
+                                    </div>
+                                    <p class="text-gray-700">${data.recommendations.replace(/\n/g, '<br>')}</p></div>`;
                 }
 
                 if(data.attachments && data.attachments.length > 0) {
@@ -812,7 +827,34 @@
                 }
             });
             
-            copyAllBtn.addEventListener('click', () => {
+            function copyToClipboard(text, buttonElement) {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.top = 0;
+                textArea.style.left = 0;
+                textArea.style.opacity = 0;
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    document.execCommand('copy');
+                    const originalText = buttonElement.textContent;
+                    buttonElement.textContent = 'تم النسخ!';
+                    setTimeout(() => {
+                        buttonElement.textContent = originalText;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                    alert('فشل النسخ!');
+                }
+
+                document.body.removeChild(textArea);
+            }
+
+            copyAllBtn.addEventListener('click', (e) => {
                 const reportObjectives = document.getElementById('reportObjectives');
                 const reportOpinions = document.getElementById('reportOpinions');
                 const reportRecommendations = document.getElementById('reportRecommendations');
@@ -840,34 +882,28 @@
                     textToCopy += reportRecommendations.querySelector('p').innerText.trim();
                 }
 
-                const textArea = document.createElement("textarea");
-                textArea.value = textToCopy.trim();
-                textArea.style.position = "fixed";
-                textArea.style.top = 0;
-                textArea.style.left = 0;
-                textArea.style.opacity = 0;
-
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-
-                try {
-                    document.execCommand('copy');
-                    copyAllBtn.textContent = 'تم النسخ!';
-                    copyAllBtn.classList.replace('bg-blue-700', 'bg-green-600');
-                    copyAllBtn.classList.replace('hover:bg-blue-800', 'hover:bg-green-700');
-                    setTimeout(() => {
-                        copyAllBtn.textContent = 'نسخ الكل';
-                        copyAllBtn.classList.replace('bg-green-600', 'bg-blue-700');
-                        copyAllBtn.classList.replace('hover:bg-green-700', 'hover:bg-blue-800');
-                    }, 2000);
-                } catch (err) {
-                    console.error('Fallback: Oops, unable to copy', err);
-                    alert('فشل النسخ!');
-                }
-
-                document.body.removeChild(textArea);
+                copyToClipboard(textToCopy.trim(), e.target);
             });
+
+            reportPreviewContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('copy-section-btn')) {
+                    const targetId = e.target.dataset.target;
+                    const targetElement = document.getElementById(targetId);
+                    if (!targetElement) return;
+
+                    let textToCopy = "";
+                    if (targetId === 'reportRecommendations') {
+                        textToCopy = targetElement.querySelector('p').innerText.trim();
+                    } else {
+                        targetElement.querySelectorAll('li').forEach((li, index) => {
+                            textToCopy += `${index + 1}- ${li.textContent.trim()}\n`;
+                        });
+                    }
+
+                    copyToClipboard(textToCopy.trim(), e.target);
+                }
+            });
+
 
             reportsListContainer.addEventListener('click', (e) => {
                 const target = e.target;
