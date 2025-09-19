@@ -42,8 +42,19 @@
 </head>
 <body class="bg-gray-100">
 
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-gray-600">جاري التحميل والمزامنة...</p>
+        </div>
+    </div>
+
     <!-- Dashboard View -->
-    <div id="dashboardView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg">
+    <div id="dashboardView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden">
         <header class="flex justify-between items-center mb-8 border-b pb-4">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">سجل التقارير</h1>
@@ -233,12 +244,20 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            // --- STORAGE KEYS ---
-            const TYPES_STORAGE_KEY = 'visitTypesData';
-            const REPORTS_STORAGE_KEY = 'savedReportsData';
+        // --- GLOBAL FIREBASE VARIABLES ---
+        let app, db, auth;
+        let userId;
+        let unsubscribeReports = null;
+        let unsubscribeVisitTypes = null;
+
+        // --- MAIN APP LOGIC ---
+        document.addEventListener('DOMContentLoaded', function () {
 
             // --- DATABASE ---
             const schoolTeacherData = {
@@ -301,7 +320,7 @@
                         "تم مقابلة مديرة المدرسة وبغياب معلمة الرياضة المدرسية.",
                         "تم حضور الطابور المدرسي وكان الهتاف بصوت منخفض والانصراف غير منظم وتلاحظ اخطاء في مراسم رفع العلم وتم توجيه المعلم المسؤول عن الكشافة بتدريب الكشافة على المراسم الصحيحة.",
                         "قاعدة بيانات المعلمة بحاجة إلى تحديث، وتم التنبيه على ضرورة استكمالها عبر الرابط.",
-                        "المعلمة في اجراءات التعيين.", // Default for the dropdown
+                        "", // Placeholder for dropdown
                         "تم متابعة توفر الأدلة وتحديثها وكانت محدثة بصيغة (PDF).",
                         "تم متابعة توزيع الجدول المدرسي وتلاحظ وجود حصص موزعة في الجدول السابعة والثامنة وكذلك تفريغ المعلمة يوم الثلاثاء بدون عذر مقبول وتم توجيه ادارة المدرسة بتعديل ذلك والابتعاد عن الحصص الأخيرة.",
                         "تم متابعة الملاعب وتخطيطها والأدوات الرياضية وتلاحظ عدم وجود أدوات رياضية في المدرسة وتم توجيه إدارة المدرسة بتوفير الأدوات وتجديد تخطيط الملعب.",
@@ -330,11 +349,13 @@
             let currentAttachments = [];
             let currentVisitTypeKey = '';
             let previewSource = 'form';
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
             // --- MAIN VIEWS ---
             const dashboardView = document.getElementById('dashboardView');
             const formView = document.getElementById('formView');
             const reportPreviewContainer = document.getElementById('reportPreviewContainer');
+            const loadingSpinner = document.getElementById('loadingSpinner');
             
             // --- FORM ELEMENTS ---
             const reportForm = document.getElementById('reportForm');
@@ -376,16 +397,10 @@
             const generateRecsBtn = document.getElementById('generate-recommendations-btn');
 
             // --- DATA MANAGEMENT ---
-            function saveVisitTypes() { localStorage.setItem(TYPES_STORAGE_KEY, JSON.stringify(visitTypesData)); }
-            function saveReports() { localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(savedReports)); }
-
-            function loadData() {
-                const storedTypes = localStorage.getItem(TYPES_STORAGE_KEY);
-                visitTypesData = storedTypes ? JSON.parse(storedTypes) : defaultVisitTypesData;
-                const storedReports = localStorage.getItem(REPORTS_STORAGE_KEY);
-                savedReports = storedReports ? JSON.parse(storedReports) : [];
-                const keys = Object.keys(visitTypesData);
-                currentVisitTypeKey = keys.length > 0 ? keys[0] : '';
+            async function saveVisitTypesToFirestore() {
+                if (!userId) return;
+                const typesDocRef = doc(db, `artifacts/${appId}/users/${userId}/configuration/visitTypes`);
+                await setDoc(typesDocRef, { data: visitTypesData });
             }
 
             // --- GENDER/PLURALITY LOGIC ---
@@ -421,19 +436,20 @@
                 return text;
             }
 
-
             // --- VIEW MANAGEMENT ---
             function showDashboardView() {
                 renderDashboard();
                 dashboardView.classList.remove('hidden');
                 formView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
+                loadingSpinner.classList.add('hidden');
             }
 
             function showFormView(reportId = null) {
                 formView.classList.remove('hidden');
                 dashboardView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
+                loadingSpinner.classList.add('hidden');
                 if (reportId) {
                     const report = savedReports.find(r => r.id === reportId);
                     if (report) {
@@ -451,6 +467,7 @@
                 reportPreviewContainer.classList.remove('hidden');
                 dashboardView.classList.add('hidden');
                 formView.classList.add('hidden');
+                loadingSpinner.classList.add('hidden');
             }
 
             // --- DASHBOARD RENDERING ---
@@ -466,10 +483,10 @@
 
                 const list = document.createElement('div');
                 list.className = 'space-y-4';
-                savedReports.sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate)).forEach(report => {
+                savedReports.sort((a, b) => (b.visitDate.seconds || b.visitDate) - (a.visitDate.seconds || a.visitDate)).forEach(report => {
                     const item = document.createElement('div');
                     item.className = 'flex justify-between items-center p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow';
-                    const reportDate = new Date(report.visitDate).toLocaleDateString('ar-OM', { year: 'numeric', month: 'long', day: 'numeric' });
+                    const reportDate = new Date(report.visitDate.seconds ? report.visitDate.seconds * 1000 : report.visitDate).toLocaleDateString('ar-OM', { year: 'numeric', month: 'long', day: 'numeric' });
                     const attachmentIcon = (report.attachments && report.attachments.length > 0) ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a3 3 0 006 0V7a1 1 0 112 0v4a5 5 0 01-10 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>` : '';
                     item.innerHTML = `
                         <div class="flex items-center">
@@ -506,7 +523,7 @@
                 resetForm();
                 reportIdInput.value = report.id;
                 schoolNameSelect.value = report.schoolName;
-                document.getElementById('visitDate').value = report.visitDate;
+                document.getElementById('visitDate').value = new Date((report.visitDate.seconds ? report.visitDate.seconds * 1000 : report.visitDate)).toISOString().split('T')[0];
                 recommendationsTextarea.value = report.recommendations;
                 
                 currentVisitTypeKey = report.visitTypeKey;
@@ -719,7 +736,7 @@
             // --- REPORT PREVIEW ---
             function renderReportPreview(data) {
                 const reportContent = document.getElementById('reportContent');
-                const visitDate = new Date(data.visitDate).toLocaleDateString('ar-OM');
+                const visitDate = new Date(data.visitDate.seconds ? data.visitDate.seconds * 1000 : data.visitDate).toLocaleDateString('ar-OM');
                 let reportHTML = `<h2 class="text-2xl font-bold mb-4 text-center">تقرير زيارة إشرافية</h2>`;
                 reportHTML += `<div class="grid grid-cols-2 gap-4 mb-6 border-b pb-4">
                                 <p><strong>اسم المدرسة:</strong> ${data.schoolName}</p>
@@ -769,8 +786,10 @@
             addNewReportBtn.addEventListener('click', () => showFormView());
             backToDashboardBtn.addEventListener('click', showDashboardView);
             
-            reportForm.addEventListener('submit', (e) => {
+            reportForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                loadingSpinner.classList.remove('hidden');
+
                 const reportId = reportIdInput.value;
                 const checkedObjectives = Array.from(objectivesContainer.querySelectorAll('input:checked')).map(cb => cb.dataset.genderedValue);
                 const opinions = Array.from(objectivesContainer.querySelectorAll('input:checked')).map(cb => {
@@ -778,24 +797,30 @@
                 });
 
                 const reportData = {
-                    id: reportId ? reportId : `report_${Date.now()}`,
                     schoolName: document.getElementById('schoolName').value,
-                    visitDate: document.getElementById('visitDate').value,
+                    visitDate: new Date(document.getElementById('visitDate').value),
                     visitTypeKey: currentVisitTypeKey,
                     visitTypeName: visitTypesData[currentVisitTypeKey].name,
                     checkedObjectives, opinions,
                     recommendations: recommendationsTextarea.value,
-                    attachments: currentAttachments
+                    attachments: currentAttachments,
+                    updatedAt: serverTimestamp()
                 };
 
-                if (reportId) {
-                    const index = savedReports.findIndex(r => r.id === reportId);
-                    savedReports[index] = reportData;
-                } else {
-                    savedReports.push(reportData);
+                try {
+                    if (reportId) {
+                        const reportRef = doc(db, `artifacts/${appId}/users/${userId}/reports`, reportId);
+                        await setDoc(reportRef, reportData, { merge: true });
+                    } else {
+                        const reportsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/reports`);
+                        await addDoc(reportsCollectionRef, reportData);
+                    }
+                    showDashboardView();
+                } catch (error) {
+                    console.error("Error saving report:", error);
+                    alert("حدث خطأ أثناء حفظ التقرير.");
+                    loadingSpinner.classList.add('hidden');
                 }
-                saveReports();
-                showDashboardView();
             });
             
             prepareReportBtn.addEventListener('click', function() {
@@ -810,7 +835,7 @@
                 });
                 const reportData = {
                     schoolName: document.getElementById('schoolName').value,
-                    visitDate: document.getElementById('visitDate').value,
+                    visitDate: new Date(document.getElementById('visitDate').value),
                     visitTypeName: visitTypesData[currentVisitTypeKey].name,
                     checkedObjectives, opinions,
                     recommendations: recommendationsTextarea.value,
@@ -905,7 +930,7 @@
             });
 
 
-            reportsListContainer.addEventListener('click', (e) => {
+            reportsListContainer.addEventListener('click', async (e) => {
                 const target = e.target;
                 const reportId = target.dataset.id;
                 if (!reportId) return;
@@ -920,9 +945,16 @@
                 if (target.classList.contains('delete-btn')) {
                     const report = savedReports.find(r => r.id === reportId);
                     if (confirm(`هل أنت متأكد من حذف تقرير مدرسة "${report.schoolName}"؟`)) {
-                        savedReports = savedReports.filter(r => r.id !== reportId);
-                        saveReports();
-                        renderDashboard();
+                        loadingSpinner.classList.remove('hidden');
+                        try {
+                            const reportRef = doc(db, `artifacts/${appId}/users/${userId}/reports`, reportId);
+                            await deleteDoc(reportRef);
+                        } catch (error) {
+                            console.error("Error deleting report:", error);
+                            alert("حدث خطأ أثناء الحذف.");
+                        } finally {
+                            loadingSpinner.classList.add('hidden');
+                        }
                     }
                 }
             });
@@ -985,7 +1017,7 @@
                     } else if (e.target.matches('.remove-session-btn')) {
                          e.target.closest('.session-row').remove();
                     }
-                    return; // Prevent opinion text generation on these button clicks
+                    return;
                 }
 
                 if(e.target.matches('button[data-opinion]')) {
@@ -1002,7 +1034,7 @@
                     if (opinionType === 'incomplete') {
                         let baseOpinionText = visitTypesData[currentVisitTypeKey].incompleteOpinions[index];
                         generatedText = applyGender(baseOpinionText, context);
-                    } else { // opinionType === 'completed'
+                    } else {
                         const baseObjectiveText = visitTypesData[currentVisitTypeKey].objectives_list[index];
                         const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمة.";
                         const classSessionObjectiveText = "حضور حصة للمعلمة والمداولة الاشرافية.";
@@ -1132,11 +1164,7 @@
                     if (Object.keys(visitTypesData).length <= 1) { return alert("يجب أن يكون هناك نوع زيارة واحد على الأقل."); }
                     if (confirm(`هل أنت متأكد من حذف "${visitTypesData[key].name}"؟`)) {
                         delete visitTypesData[key];
-                        saveVisitTypes();
-                        loadData();
-                        populateVisitTypeDropdown();
-                        renderObjectivesForCurrentType();
-                        renderManagerModal();
+                        saveVisitTypesToFirestore();
                     }
                 }
             });
@@ -1157,11 +1185,8 @@
                     incompleteOpinions: objectives.map(o => `يوجد ملاحظات بخصوص ${o.replace(/\.$/, "")}`),
                     recommendations: objectives.map(o => `متابعة ${o.replace(/\.$/, "")}.`)
                 };
-                saveVisitTypes();
+                saveVisitTypesToFirestore();
                 currentVisitTypeKey = newKey;
-                populateVisitTypeDropdown();
-                renderObjectivesForCurrentType();
-                renderManagerModal();
                 addEditTypeModal.classList.add('hidden');
             });
 
@@ -1182,14 +1207,76 @@
                 });
             }
 
-            // --- INITIALIZE APP ---
-            function initializeApp() {
-                loadData();
-                populateVisitTypeDropdown();
-                renderObjectivesForCurrentType();
+            // --- FIREBASE INITIALIZATION ---
+            async function initializeFirebase() {
+                try {
+                    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
+                    onAuthStateChanged(auth, user => {
+                        if (user) {
+                            userId = user.uid;
+                            console.log("Authenticated with userId:", userId);
+                            initializeAppLogic();
+                        } else {
+                            console.log("No user signed in.");
+                            loadingSpinner.classList.add('hidden');
+                        }
+                    });
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                } catch (error) {
+                    console.error("Firebase initialization failed:", error);
+                    loadingSpinner.innerHTML = '<p class="text-red-500">فشل الاتصال، الرجاء تحديث الصفحة.</p>';
+                }
+            }
+
+            // --- APP INITIALIZATION ---
+            function initializeAppLogic() {
+                if(unsubscribeReports) unsubscribeReports();
+                if(unsubscribeVisitTypes) unsubscribeVisitTypes();
+
+                // Listen for visit types
+                const typesDocRef = doc(db, `artifacts/${appId}/users/${userId}/configuration/visitTypes`);
+                unsubscribeVisitTypes = onSnapshot(typesDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        visitTypesData = docSnap.data().data;
+                    } else {
+                        visitTypesData = defaultVisitTypesData;
+                        saveVisitTypesToFirestore(); // Save defaults if not exist
+                    }
+                    populateVisitTypeDropdown();
+                    renderObjectivesForCurrentType();
+                }, (error) => {
+                    console.error("Error listening to visit types:", error);
+                });
+
+                // Listen for reports
+                const reportsQuery = query(collection(db, `artifacts/${appId}/users/${userId}/reports`));
+                unsubscribeReports = onSnapshot(reportsQuery, (querySnapshot) => {
+                    savedReports = [];
+                    querySnapshot.forEach((doc) => {
+                        savedReports.push({ id: doc.id, ...doc.data() });
+                    });
+                    renderDashboard();
+                    loadingSpinner.classList.add('hidden');
+                    dashboardView.classList.remove('hidden');
+                }, (error) => {
+                    console.error("Error listening to reports:", error);
+                    loadingSpinner.classList.add('hidden');
+                    dashboardView.classList.remove('hidden');
+                });
+                
                 showDashboardView();
             }
-            initializeApp();
+            initializeFirebase();
         });
     </script>
 
