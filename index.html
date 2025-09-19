@@ -340,6 +340,45 @@
                         "متابعة استكمال سجلات المعلمة (التحضير+الزي والملاحظة+الخطة).",
                         "التنسيق المسبق مع المعلمة لحضور حصة دراسية."
                     ]
+                },
+                'supervisory_october': {
+                    name: 'زيارة اشرافية (أكتوبر)',
+                    objectives_list: [
+                        "الالتقاء بالفاضلة مديرة المدرسة ومعلمةالرياضة المدرسية.",
+                        "حضور الطابور المدرسي.",
+                        "متابعة تنفيذ خطة المنهاج والاطلاع على سجلات المتابعة (الزي والمشاركة).",
+                        "حضور موقف صفي مع المعلمة والمداولة الاشرافية.",
+                        "شرح اليه تنفيذ الحصة كتطبيقات تنافسية.",
+                        "حث المعلمة على الاطلاع على زياراته الاشرافية والحرص على الالتزام بتنفيذ النشرات الخاصة بالمادة.",
+                        "متابعة تنفيذ التوصيات السابقة."
+                    ],
+                    completedOpinions: [
+                        "تم الالتقاء بالفاضلة مديرة المدرسة ومعلمة الرياضة المدرسية.",
+                        "تم حضور الطابور المدرسي وكان منظماً.",
+                        "تم متابعة تنفيذ خطة المنهاج وسجلات المتابعة وكانت مكتملة.",
+                        "تم حضور موقف صفي مع المعلمة وكانت المداولة مثمرة.",
+                        "تم شرح اليه تنفيذ الحصة كتطبيقات تنافسية.",
+                        "تم حث المعلمة على الاطلاع على الزيارات الاشرافية والالتزام بالنشرات.",
+                        "تمت متابعة تنفيذ التوصيات السابقة وكانت مكتملة."
+                    ],
+                    incompleteOpinions: [
+                        "تم الالتقاء بالفاضلة مديرة المدرسة وبغياب معلمة الرياضة المدرسية.",
+                        "لوحظ وجود بعض الملاحظات في تنظيم الطابور المدرسي.",
+                        "سجلات المتابعة (الزي والمشاركة) غير مكتملة، وتم توجيه المعلمة لاستكمالها.",
+                        "تعذر حضور موقف صفي مع المعلمة.",
+                        "لوحظ ضعف في تطبيق الحصة كتطبيقات تنافسية، وتم إعادة شرح الآلية للمعلمة.",
+                        "لوحظ عدم اطلاع المعلمة على الزيارات السابقة، وتم التأكيد عليها بضرورة المتابعة.",
+                        "بعض التوصيات السابقة لم يتم تنفيذها، وتم مناقشة الأسباب مع المعلمة والإدارة."
+                    ],
+                    recommendations: [
+                        "متابعة التزام الهيئة التدريسية بالحضور.",
+                        "تحسين تنظيم الطابور الصباحي.",
+                        "ضرورة استكمال سجلات المتابعة (الزي والمشاركة) بشكل دوري.",
+                        "التنسيق المسبق لحضور موقف صفي.",
+                        "التأكيد على تنفيذ الحصص كتطبيقات تنافسية لزيادة تفاعل الطلبة.",
+                        "حث المعلمة على المتابعة الدورية للزيارات الإشرافية والنشرات.",
+                        "متابعة تنفيذ التوصيات السابقة وتقديم الدعم اللازم."
+                    ]
                 }
             };
             
@@ -419,14 +458,16 @@
             function applyGender(text, context) {
                 if (!text) return "";
                 if (context.count > 1) {
-                    return text.replace(/مديرة/g, 'مدير')
+                    return text.replace(/الفاضلة مديرة/g, 'الفاضل مدير')
+                               .replace(/مديرة/g, 'مدير')
                                .replace(/معلمةالرياضة/g, 'معلمي الرياضة')
                                .replace(/المعلمة/g, 'المعلمين')
                                .replace(/معلمة/g, 'معلمي')
                                .replace(/وهي /g, 'وهم ')
                                .replace(/لديها/g, 'لديهم');
                 } else if (context.gender === 'male') {
-                     return text.replace(/مديرة/g, 'مدير')
+                     return text.replace(/الفاضلة مديرة/g, 'الفاضل مدير')
+                               .replace(/مديرة/g, 'مدير')
                                .replace(/معلمةالرياضة/g, 'معلم الرياضة')
                                .replace(/المعلمة/g, 'المعلم')
                                .replace(/معلمة/g, 'معلم')
@@ -623,7 +664,7 @@
 
                     const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمة.";
                     const approvalObjectiveText = "متابعة موافقات التعيين.";
-                    const classSessionObjectiveText = "حضور حصة للمعلمة والمداولة الاشرافية.";
+                    const classSessionObjectiveTexts = ["حضور حصة للمعلمة والمداولة الاشرافية.", "حضور موقف صفي مع المعلمة والمداولة الاشرافية."];
 
                     if (baseObjectiveText === timetableObjectiveText) {
                          specialInputsHTML = `
@@ -657,7 +698,7 @@
                             </div>
                         `;
                         standardButtonsHTML = '';
-                    } else if (baseObjectiveText === classSessionObjectiveText) {
+                    } else if (classSessionObjectiveTexts.includes(baseObjectiveText)) {
                         specialInputsHTML = `
                             <div class="p-3 bg-gray-100 rounded-md border space-y-3">
                                 <div id="session-rows-container-${index}" class="space-y-2">
@@ -1037,7 +1078,7 @@
                     } else {
                         const baseObjectiveText = visitTypesData[currentVisitTypeKey].objectives_list[index];
                         const timetableObjectiveText = "متابعة توزيع الجدول ونصاب الحصص للمعلمة.";
-                        const classSessionObjectiveText = "حضور حصة للمعلمة والمداولة الاشرافية.";
+                        const classSessionObjectiveTexts = ["حضور حصة للمعلمة والمداولة الاشرافية.", "حضور موقف صفي مع المعلمة والمداولة الاشرافية."];
                         let baseOpinionText = visitTypesData[currentVisitTypeKey].completedOpinions[index];
                         generatedText = applyGender(baseOpinionText, context);
 
@@ -1058,7 +1099,7 @@
                                 }
                             });
                             if(detailsFound) generatedText = summary.trim();
-                        } else if (baseObjectiveText === classSessionObjectiveText) {
+                        } else if (classSessionObjectiveTexts.includes(baseObjectiveText)) {
                              let summary = "";
                             const sessionRows = opinionBlock.querySelectorAll('.session-row');
                             let detailsFound = false;
@@ -1246,7 +1287,7 @@
                 // Listen for visit types
                 const typesDocRef = doc(db, `artifacts/${appId}/users/${userId}/configuration/visitTypes`);
                 unsubscribeVisitTypes = onSnapshot(typesDocRef, (docSnap) => {
-                    if (docSnap.exists()) {
+                    if (docSnap.exists() && Object.keys(docSnap.data().data).length > 0) {
                         visitTypesData = docSnap.data().data;
                     } else {
                         visitTypesData = defaultVisitTypesData;
