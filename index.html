@@ -41,17 +41,50 @@
     </style>
 </head>
 <body class="bg-gray-100">
+    
+    <!-- Auth View -->
+    <div id="authView" class="container mx-auto max-w-md p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg">
+        <div id="authContainer">
+            <!-- Login Form -->
+            <div id="loginFormContainer">
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">تسجيل الدخول</h2>
+                <form id="loginForm" class="space-y-4">
+                    <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                    <input type="password" id="loginPassword" placeholder="كلمة المرور" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                    <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">دخول</button>
+                    <p class="text-sm text-center text-gray-600">ليس لديك حساب؟ <a href="#" id="showSignup" class="font-medium text-blue-600 hover:underline">إنشاء حساب جديد</a></p>
+                </form>
+            </div>
+            <!-- Signup Form -->
+            <div id="signupFormContainer" class="hidden">
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">إنشاء حساب جديد</h2>
+                <form id="signupForm" class="space-y-4">
+                    <input type="email" id="signupEmail" placeholder="البريد الإلكتروني" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                    <input type="password" id="signupPassword" placeholder="كلمة المرور" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                    <button type="submit" class="w-full text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">إنشاء الحساب</button>
+                    <p class="text-sm text-center text-gray-600">لديك حساب بالفعل؟ <a href="#" id="showLogin" class="font-medium text-blue-600 hover:underline">تسجيل الدخول</a></p>
+                </form>
+            </div>
+            <p id="authError" class="text-red-500 text-sm text-center mt-4"></p>
+        </div>
+    </div>
+
 
     <!-- Dashboard View -->
     <div id="dashboardView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden">
         <header class="flex justify-between items-center mb-8 border-b pb-4">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">سجل التقارير</h1>
-                <p class="text-gray-500 mt-2">عرض وإدارة جميع تقارير الزيارات المحفوظة</p>
+                <p id="welcomeMessage" class="text-gray-500 mt-2">عرض وإدارة جميع تقارير الزيارات المحفوظة</p>
             </div>
-            <button id="addNewReportBtn" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-6 py-3 whitespace-nowrap transition-colors">
-                + تقرير جديد
-            </button>
+            <div class="flex items-center gap-4">
+                 <button id="addNewReportBtn" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-6 py-3 whitespace-nowrap transition-colors">
+                    + تقرير جديد
+                </button>
+                <button id="logoutBtn" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-6 py-3 whitespace-nowrap transition-colors">
+                    تسجيل الخروج
+                </button>
+            </div>
         </header>
         <div id="reportsListContainer">
             <!-- Reports list will be dynamically populated here -->
@@ -233,12 +266,31 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            // --- STORAGE KEYS ---
-            const TYPES_STORAGE_KEY = 'visitTypesData';
-            const REPORTS_STORAGE_KEY = 'savedReportsData';
+        // --- PASTE FIREBASE CONFIG HERE ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyAEQsh6E351S1isxL4CFFGIpGSU2pVP5sc",
+          authDomain: "my-report-9b33f.firebaseapp.com",
+          projectId: "my-report-9b33f",
+          storageBucket: "my-report-9b33f.appspot.com",
+          messagingSenderId: "176527739587",
+          appId: "1:176527739587:web:7a524a73a2355b5a503076",
+          measurementId: "G-C24VPXRD1R"
+        };
+
+        // --- GLOBAL FIREBASE VARIABLES ---
+        let app, db, auth;
+        let userId;
+        let unsubscribeReports = null;
+        let unsubscribeVisitTypes = null;
+        
+        // --- MAIN APP LOGIC ---
+        document.addEventListener('DOMContentLoaded', function () {
 
             // --- DATABASE ---
             const schoolTeacherData = {
@@ -371,10 +423,20 @@
             let previewSource = 'form';
 
             // --- MAIN VIEWS ---
+            const authView = document.getElementById('authView');
             const dashboardView = document.getElementById('dashboardView');
             const formView = document.getElementById('formView');
             const reportPreviewContainer = document.getElementById('reportPreviewContainer');
             
+            // --- AUTH ELEMENTS ---
+            const loginForm = document.getElementById('loginForm');
+            const signupForm = document.getElementById('signupForm');
+            const showSignup = document.getElementById('showSignup');
+            const showLogin = document.getElementById('showLogin');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const authError = document.getElementById('authError');
+            const welcomeMessage = document.getElementById('welcomeMessage');
+
             // --- FORM ELEMENTS ---
             const reportForm = document.getElementById('reportForm');
             const reportIdInput = document.getElementById('reportId');
@@ -415,16 +477,10 @@
             const generateRecsBtn = document.getElementById('generate-recommendations-btn');
 
             // --- DATA MANAGEMENT ---
-            function saveVisitTypes() { localStorage.setItem(TYPES_STORAGE_KEY, JSON.stringify(visitTypesData)); }
-            function saveReports() { localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(savedReports)); }
-
-            function loadData() {
-                const storedTypes = localStorage.getItem(TYPES_STORAGE_KEY);
-                visitTypesData = storedTypes ? JSON.parse(storedTypes) : defaultVisitTypesData;
-                const storedReports = localStorage.getItem(REPORTS_STORAGE_KEY);
-                savedReports = storedReports ? JSON.parse(storedReports) : [];
-                const keys = Object.keys(visitTypesData);
-                currentVisitTypeKey = keys.length > 0 ? keys[0] : '';
+            async function saveVisitTypesToFirestore() {
+                if (!userId) return;
+                const typesDocRef = doc(db, `users/${userId}/configuration/visitTypes`);
+                await setDoc(typesDocRef, { data: visitTypesData });
             }
 
             // --- GENDER/PLURALITY LOGIC ---
@@ -463,17 +519,26 @@
             }
 
             // --- VIEW MANAGEMENT ---
+             function showAuthView() {
+                authView.classList.remove('hidden');
+                dashboardView.classList.add('hidden');
+                formView.classList.add('hidden');
+                reportPreviewContainer.classList.add('hidden');
+            }
+
             function showDashboardView() {
                 renderDashboard();
                 dashboardView.classList.remove('hidden');
                 formView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
+                authView.classList.add('hidden');
             }
 
             function showFormView(reportId = null) {
                 formView.classList.remove('hidden');
                 dashboardView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
+                authView.classList.add('hidden');
                 if (reportId) {
                     const report = savedReports.find(r => r.id === reportId);
                     if (report) {
@@ -491,6 +556,7 @@
                 reportPreviewContainer.classList.remove('hidden');
                 dashboardView.classList.add('hidden');
                 formView.classList.add('hidden');
+                authView.classList.add('hidden');
             }
 
             // --- DASHBOARD RENDERING ---
@@ -506,10 +572,10 @@
 
                 const list = document.createElement('div');
                 list.className = 'space-y-4';
-                savedReports.sort((a, b) => a.visitDate - b.visitDate).reverse().forEach(report => {
+                savedReports.sort((a, b) => (b.visitDate.seconds || b.visitDate) - (a.visitDate.seconds || a.visitDate)).forEach(report => {
                     const item = document.createElement('div');
                     item.className = 'flex justify-between items-center p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow';
-                    const reportDate = new Date(report.visitDate).toLocaleDateString('ar-OM', { year: 'numeric', month: 'long', day: 'numeric' });
+                    const reportDate = new Date(report.visitDate.seconds ? report.visitDate.seconds * 1000 : report.visitDate).toLocaleDateString('ar-OM', { year: 'numeric', month: 'long', day: 'numeric' });
                     const attachmentIcon = (report.attachments && report.attachments.length > 0) ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a3 3 0 006 0V7a1 1 0 112 0v4a5 5 0 01-10 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>` : '';
                     item.innerHTML = `
                         <div class="flex items-center">
@@ -546,7 +612,7 @@
                 resetForm();
                 reportIdInput.value = report.id;
                 schoolNameSelect.value = report.schoolName;
-                document.getElementById('visitDate').value = new Date(report.visitDate).toISOString().split('T')[0];
+                document.getElementById('visitDate').value = new Date((report.visitDate.seconds ? report.visitDate.seconds * 1000 : report.visitDate)).toISOString().split('T')[0];
                 recommendationsTextarea.value = report.recommendations;
                 
                 currentVisitTypeKey = report.visitTypeKey;
@@ -820,24 +886,28 @@
 
                 const reportData = {
                     schoolName: document.getElementById('schoolName').value,
-                    visitDate: new Date(document.getElementById('visitDate').value).getTime(), // Save as timestamp
+                    visitDate: new Date(document.getElementById('visitDate').value),
                     visitTypeKey: currentVisitTypeKey,
                     visitTypeName: visitTypesData[currentVisitTypeKey].name,
                     checkedObjectives, opinions,
                     recommendations: recommendationsTextarea.value,
                     attachments: currentAttachments,
+                    updatedAt: serverTimestamp()
                 };
 
-                const reportIndex = savedReports.findIndex(r => r.id === reportId);
-
-                if (reportIndex > -1) {
-                    savedReports[reportIndex] = { ...savedReports[reportIndex], ...reportData };
-                } else {
-                    reportData.id = `report_${Date.now()}`;
-                    savedReports.push(reportData);
+                try {
+                    if (reportId) {
+                        const reportRef = doc(db, `users/${userId}/reports`, reportId);
+                        await updateDoc(reportRef, reportData);
+                    } else {
+                        const reportsCollectionRef = collection(db, `users/${userId}/reports`);
+                        await addDoc(reportsCollectionRef, reportData);
+                    }
+                    showDashboardView();
+                } catch (error) {
+                    console.error("Error saving report:", error);
+                    alert("حدث خطأ أثناء حفظ التقرير.");
                 }
-                saveReports();
-                showDashboardView();
             });
             
             prepareReportBtn.addEventListener('click', function() {
@@ -962,9 +1032,13 @@
                 if (target.classList.contains('delete-btn')) {
                     const report = savedReports.find(r => r.id === reportId);
                     if (confirm(`هل أنت متأكد من حذف تقرير مدرسة "${report.schoolName}"؟`)) {
-                        savedReports = savedReports.filter(r => r.id !== reportId);
-                        saveReports();
-                        renderDashboard();
+                        try {
+                            const reportRef = doc(db, `users/${userId}/reports`, reportId);
+                            await deleteDoc(reportRef);
+                        } catch (error) {
+                            console.error("Error deleting report:", error);
+                            alert("حدث خطأ أثناء الحذف.");
+                        }
                     }
                 }
             });
@@ -1160,7 +1234,7 @@
                 addEditTypeForm.reset();
                 addEditTypeModal.classList.remove('hidden');
             });
-            visitTypesList.addEventListener('click', (e) => {
+            visitTypesList.addEventListener('click', async (e) => {
                 const key = e.target.dataset.key;
                 if (!key) return;
                 if (e.target.classList.contains('edit-btn')) {
@@ -1174,15 +1248,12 @@
                     if (Object.keys(visitTypesData).length <= 1) { return alert("يجب أن يكون هناك نوع زيارة واحد على الأقل."); }
                     if (confirm(`هل أنت متأكد من حذف "${visitTypesData[key].name}"؟`)) {
                         delete visitTypesData[key];
-                        saveVisitTypes();
-                        renderManagerModal();
-                        populateVisitTypeDropdown();
-                        renderObjectivesForCurrentType();
+                        await saveVisitTypesToFirestore();
                     }
                 }
             });
             cancelEditBtn.addEventListener('click', () => addEditTypeModal.classList.add('hidden'));
-            addEditTypeForm.addEventListener('submit', (e) => {
+            addEditTypeForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const key = editTypeKeyInput.value;
                 const name = typeNameInput.value.trim();
@@ -1198,11 +1269,8 @@
                     incompleteOpinions: objectives.map(o => `يوجد ملاحظات بخصوص ${o.replace(/\.$/, "")}`),
                     recommendations: objectives.map(o => `متابعة ${o.replace(/\.$/, "")}.`)
                 };
-                saveVisitTypes();
+                await saveVisitTypesToFirestore();
                 currentVisitTypeKey = newKey;
-                renderManagerModal();
-                populateVisitTypeDropdown();
-                renderObjectivesForCurrentType();
                 addEditTypeModal.classList.add('hidden');
             });
 
@@ -1223,15 +1291,99 @@
                 });
             }
 
-            // --- APP INITIALIZATION ---
-            function initializeApp() {
-                loadData();
-                populateVisitTypeDropdown();
-                renderObjectivesForCurrentType();
-                showDashboardView();
+            // --- FIREBASE INITIALIZATION ---
+            function initializeFirebase() {
+                 if (!firebaseConfig.apiKey) {
+                    document.body.innerHTML = `<div class="text-center p-10 text-red-600">
+                        <h1 class="text-2xl font-bold">خطأ في الإعدادات</h1>
+                        <p class="mt-4">الرجاء اتباع ملف التعليمات (INSTRUCTIONS.md) لإضافة إعدادات Firebase الخاصة بك إلى ملف HTML.</p>
+                    </div>`;
+                    return;
+                }
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                onAuthStateChanged(auth, user => {
+                    if (user) {
+                        userId = user.uid;
+                        welcomeMessage.textContent = `مرحباً بك، ${user.email}`;
+                        initializeAppLogic();
+                    } else {
+                        userId = null;
+                        if(unsubscribeReports) unsubscribeReports();
+                        if(unsubscribeVisitTypes) unsubscribeVisitTypes();
+                        showAuthView();
+                    }
+                });
             }
 
-            initializeApp();
+            // --- AUTH LOGIC ---
+            showSignup.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('loginFormContainer').classList.add('hidden');
+                document.getElementById('signupFormContainer').classList.remove('hidden');
+                authError.textContent = '';
+            });
+
+            showLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('signupFormContainer').classList.add('hidden');
+                document.getElementById('loginFormContainer').classList.remove('hidden');
+                authError.textContent = '';
+            });
+
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                signInWithEmailAndPassword(auth, email, password)
+                    .catch(error => { authError.textContent = "فشل تسجيل الدخول. تأكد من البريد وكلمة المرور."; });
+            });
+
+             signupForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = document.getElementById('signupEmail').value;
+                const password = document.getElementById('signupPassword').value;
+                createUserWithEmailAndPassword(auth, email, password)
+                    .catch(error => { authError.textContent = "فشل إنشاء الحساب. قد يكون البريد مستخدماً."; });
+            });
+
+            logoutBtn.addEventListener('click', () => {
+                signOut(auth);
+            });
+
+
+            // --- APP INITIALIZATION ---
+            function initializeAppLogic() {
+                if(unsubscribeReports) unsubscribeReports();
+                if(unsubscribeVisitTypes) unsubscribeVisitTypes();
+
+                const typesDocRef = doc(db, `users/${userId}/configuration/visitTypes`);
+                unsubscribeVisitTypes = onSnapshot(typesDocRef, (docSnap) => {
+                    if (docSnap.exists() && Object.keys(docSnap.data().data).length > 0) {
+                        visitTypesData = docSnap.data().data;
+                    } else {
+                        visitTypesData = defaultVisitTypesData;
+                        saveVisitTypesToFirestore();
+                    }
+                    populateVisitTypeDropdown();
+                    renderObjectivesForCurrentType();
+                }, (error) => console.error("Error listening to visit types:", error));
+
+                const reportsQuery = query(collection(db, `users/${userId}/reports`));
+                unsubscribeReports = onSnapshot(reportsQuery, (querySnapshot) => {
+                    savedReports = [];
+                    querySnapshot.forEach((doc) => {
+                        savedReports.push({ id: doc.id, ...doc.data() });
+                    });
+                    renderDashboard();
+                    dashboardView.classList.remove('hidden');
+                }, (error) => console.error("Error listening to reports:", error));
+                
+                showDashboardView();
+            }
+            initializeFirebase();
         });
     </script>
 
