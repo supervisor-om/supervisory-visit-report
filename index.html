@@ -44,29 +44,70 @@
 </head>
 <body class="bg-gray-100">
 
+    <!-- NEW: Auth View -->
+    <div id="authView" class="container mx-auto max-w-md p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden">
+        <h1 id="authTitle" class="text-3xl font-bold text-gray-800 text-center mb-6">تسجيل الدخول</h1>
+        <p id="authError" class="text-red-500 text-center mb-4"></p>
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="loginEmail" class="block mb-2 text-sm font-medium text-gray-900">البريد الإلكتروني</label>
+                <input type="email" id="loginEmail" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <div>
+                <label for="loginPassword" class="block mb-2 text-sm font-medium text-gray-900">كلمة المرور</label>
+                <input type="password" id="loginPassword" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">دخول</button>
+            <p class="text-sm text-center text-gray-500">
+                ليس لديك حساب؟ <button type="button" id="showRegister" class="font-medium text-blue-600 hover:underline">أنشئ حساباً جديداً</button>
+            </p>
+        </form>
+        <!-- Register Form -->
+        <form id="registerForm" class="space-y-6 hidden">
+            <div>
+                <label for="registerEmail" class="block mb-2 text-sm font-medium text-gray-900">البريد الإلكتروني</label>
+                <input type="email" id="registerEmail" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <div>
+                <label for="registerPassword" class="block mb-2 text-sm font-medium text-gray-900">كلمة المرور</label>
+                <input type="password" id="registerPassword" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <button type="submit" class="w-full text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">إنشاء حساب</button>
+            <p class="text-sm text-center text-gray-500">
+                لديك حساب بالفعل؟ <button type="button" id="showLogin" class="font-medium text-blue-600 hover:underline">سجل دخولك</button>
+            </p>
+        </form>
+    </div>
+
     <!-- Dashboard View -->
     <div id="dashboardView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden">
         <header class="flex flex-col sm:flex-row justify-between items-center mb-4 border-b pb-4 gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">سجل التقارير</h1>
-                <p class="text-gray-500 mt-2">عرض وإدارة جميع تقارير الزيارات المحفوظة</p>
+                <p id="userEmailDisplay" class="text-gray-500 mt-2"></p>
             </div>
              <div class="flex items-center gap-4 w-full sm:w-auto">
-                <div class="relative flex-grow">
-                     <input type="text" id="searchInput" placeholder="ابحث عن تقرير..." class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 pr-10">
-                     <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                     </div>
-                </div>
+                <button id="logoutBtn" class="text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-6 py-3 whitespace-nowrap transition-colors">
+                    تسجيل الخروج
+                </button>
                 <button id="addNewReportBtn" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-6 py-3 whitespace-nowrap transition-colors">
                     + تقرير جديد
                 </button>
             </div>
         </header>
-        <div class="flex justify-end gap-2 my-4 no-print">
-            <button id="exportDataBtn" class="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-100 transition-colors">تصدير البيانات</button>
-            <label for="importDataInput" class="cursor-pointer text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-100 transition-colors">استيراد البيانات</label>
-            <input type="file" id="importDataInput" class="hidden" accept=".json">
+        <div class="flex flex-col md:flex-row justify-between items-center my-4 gap-4">
+            <div class="relative flex-grow w-full md:w-auto">
+                 <input type="text" id="searchInput" placeholder="ابحث عن تقرير..." class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 pr-10">
+                 <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                 </div>
+            </div>
+            <div class="flex justify-end gap-2 no-print">
+                <button id="exportDataBtn" class="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-100 transition-colors">تصدير البيانات</button>
+                <label for="importDataInput" class="cursor-pointer text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-100 transition-colors">استيراد البيانات</label>
+                <input type="file" id="importDataInput" class="hidden" accept=".json">
+            </div>
         </div>
         <div id="reportsListContainer">
             <!-- Reports list will be dynamically populated here -->
@@ -296,7 +337,6 @@
             const auth = firebase.auth();
             let userId; // Will be set on auth state change
 
-
             // --- DATABASE (Original Data Structure) ---
             const schoolTeacherData = {
                 "أبو القاسم الزهراوي": { teachers: ["أيوب سلطان ناصر الوردي", "يحيى عبدالله اليوسفي"], gender: "male" },
@@ -352,10 +392,21 @@
             let previewSource = 'form';
 
             // --- MAIN VIEWS ---
+            const authView = document.getElementById('authView');
             const dashboardView = document.getElementById('dashboardView');
             const formView = document.getElementById('formView');
             const reportPreviewContainer = document.getElementById('reportPreviewContainer');
             
+            // --- AUTH ELEMENTS ---
+            const authTitle = document.getElementById('authTitle');
+            const authError = document.getElementById('authError');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const showRegisterBtn = document.getElementById('showRegister');
+            const showLoginBtn = document.getElementById('showLogin');
+            const userEmailDisplay = document.getElementById('userEmailDisplay');
+            const logoutBtn = document.getElementById('logoutBtn');
+
             // --- FORM ELEMENTS ---
             const reportForm = document.getElementById('reportForm');
             const reportIdInput = document.getElementById('reportId');
@@ -418,10 +469,17 @@
                 }
             }
 
+            let unsubscribeVisitTypes = () => {};
+            let unsubscribeReports = () => {};
+
             function subscribeToData(uid) {
+                // Unsubscribe from previous listeners if they exist
+                unsubscribeVisitTypes();
+                unsubscribeReports();
+                
                 // onSnapshot for visit types
                 const typesDocRef = db.collection('users').doc(uid).collection('settings').doc('visitTypes');
-                typesDocRef.onSnapshot((docSnap) => {
+                unsubscribeVisitTypes = typesDocRef.onSnapshot((docSnap) => {
                     if (docSnap.exists && docSnap.data().data && Object.keys(docSnap.data().data).length > 0) {
                         visitTypesData = docSnap.data().data;
                     } else {
@@ -437,7 +495,7 @@
 
                 // onSnapshot for reports
                 const reportsCollectionRef = db.collection('users').doc(uid).collection('reports');
-                reportsCollectionRef.onSnapshot((querySnapshot) => {
+                unsubscribeReports = reportsCollectionRef.onSnapshot((querySnapshot) => {
                     savedReports = [];
                     querySnapshot.forEach((doc) => {
                         savedReports.push({ id: doc.id, ...doc.data() });
@@ -475,12 +533,21 @@
             function showDashboardView() {
                 renderDashboard();
                 dashboardView.classList.remove('hidden');
+                authView.classList.add('hidden');
+                formView.classList.add('hidden');
+                reportPreviewContainer.classList.add('hidden');
+            }
+            
+            function showAuthView() {
+                authView.classList.remove('hidden');
+                dashboardView.classList.add('hidden');
                 formView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
             }
 
             function showFormView(reportId = null) {
                 formView.classList.remove('hidden');
+                authView.classList.add('hidden');
                 dashboardView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
                 if (reportId) {
@@ -499,6 +566,7 @@
                 renderReportPreview(reportData);
                 reportPreviewContainer.classList.remove('hidden');
                 dashboardView.classList.add('hidden');
+                authView.classList.add('hidden');
                 formView.classList.add('hidden');
             }
 
@@ -515,10 +583,17 @@
                            reportDate.includes(searchTerm);
                 });
 
-                if (filteredReports.length === 0) {
+                if (savedReports.length > 0 && filteredReports.length === 0) {
+                     reportsListContainer.innerHTML = `<div class="text-center py-10 px-6 bg-gray-50 rounded-lg">
+                        <h3 class="text-lg font-semibold text-gray-700">لا توجد تقارير تطابق بحثك</h3>
+                     </div>`;
+                     return;
+                }
+                
+                if (savedReports.length === 0) {
                     reportsListContainer.innerHTML = `<div class="text-center py-10 px-6 bg-gray-50 rounded-lg">
-                        <h3 class="text-lg font-semibold text-gray-700">لا توجد تقارير محفوظة تطابق البحث</h3>
-                        <p class="text-gray-500 mt-2">ابدأ بإضافة تقرير جديد أو قم بتغيير كلمة البحث.</p>
+                        <h3 class="text-lg font-semibold text-gray-700">لا توجد تقارير محفوظة بعد</h3>
+                        <p class="text-gray-500 mt-2">ابدأ بإضافة تقريرك الأول بالضغط على زر "+ تقرير جديد".</p>
                     </div>`;
                     return;
                 }
@@ -646,7 +721,6 @@
             }
 
             // --- OPINIONS & RECOMMENDATIONS SECTION LOGIC (UNCHANGED from original) ---
-            // This extensive logic is kept as is because it works perfectly.
             function updateSelectAllButtonState() {
                 const checkboxes = objectivesContainer.querySelectorAll('input[type="checkbox"]');
                 if (checkboxes.length === 0) {
@@ -742,7 +816,7 @@
                 reportContent.innerHTML = reportHTML;
             }
 
-            // --- EVENT LISTENERS ---
+            // --- EVENT LISTENERS (MAIN APP) ---
             addNewReportBtn.addEventListener('click', () => showFormView());
             backToDashboardBtn.addEventListener('click', showDashboardView);
             searchInput.addEventListener('input', renderDashboard);
@@ -1155,27 +1229,73 @@
             function initializeApp() {
                 auth.onAuthStateChanged((user) => {
                     if (user) {
-                        // User is signed in anonymously.
+                        // User is signed in
                         userId = user.uid;
+                        userEmailDisplay.textContent = `مرحباً بك، ${user.email}`;
                         console.log("Authenticated with userId:", userId);
-                        // Subscribe to real-time data now that we have a user ID
                         subscribeToData(userId); 
+                        showDashboardView();
                     } else {
                         // User is signed out.
                         userId = null;
                         console.log("User is not authenticated.");
-                        // Here you could clear the UI or show a login element if you expand auth
-                        reportsListContainer.innerHTML = `<p class="text-center text-gray-500">جاري المصادقة...</p>`;
+                        // Unsubscribe from data listeners
+                        unsubscribeVisitTypes();
+                        unsubscribeReports();
+                        // Clear local data
+                        savedReports = [];
+                        visitTypesData = {};
+                        showAuthView();
                     }
                 });
-
-                auth.signInAnonymously().catch((error) => {
-                    console.error("Anonymous sign-in failed:", error);
-                    reportsListContainer.innerHTML = `<p class="text-center text-red-500">فشل تسجيل الدخول. الرجاء تحديث الصفحة.</p>`;
-                });
-                
-                showDashboardView(); 
             }
+            
+            // --- AUTH EVENT LISTENERS ---
+            showRegisterBtn.addEventListener('click', () => {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                authTitle.textContent = 'إنشاء حساب جديد';
+                authError.textContent = '';
+            });
+
+            showLoginBtn.addEventListener('click', () => {
+                registerForm.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+                authTitle.textContent = 'تسجيل الدخول';
+                authError.textContent = '';
+            });
+
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = loginForm.loginEmail.value;
+                const password = loginForm.loginPassword.value;
+                auth.signInWithEmailAndPassword(email, password)
+                    .catch(error => {
+                        console.error("Login failed:", error);
+                        authError.textContent = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+                    });
+            });
+            
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = registerForm.registerEmail.value;
+                const password = registerForm.registerPassword.value;
+                auth.createUserWithEmailAndPassword(email, password)
+                     .catch(error => {
+                        console.error("Registration failed:", error);
+                        if(error.code == 'auth/weak-password') {
+                           authError.textContent = "كلمة المرور يجب أن تكون 6 أحرف على الأقل.";
+                        } else if (error.code == 'auth/email-already-in-use') {
+                            authError.textContent = "هذا البريد الإلكتروني مسجل بالفعل.";
+                        } else {
+                            authError.textContent = "حدث خطأ أثناء إنشاء الحساب.";
+                        }
+                    });
+            });
+
+            logoutBtn.addEventListener('click', () => {
+                auth.signOut();
+            });
 
             initializeApp();
         });
