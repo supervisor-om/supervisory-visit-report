@@ -43,7 +43,7 @@
 <body class="bg-gray-100">
 
     <!-- Dashboard View -->
-    <div id="dashboardView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg">
+    <div id="dashboardView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden">
         <header class="flex justify-between items-center mb-8 border-b pb-4">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">سجل التقارير</h1>
@@ -374,7 +374,6 @@
             const dashboardView = document.getElementById('dashboardView');
             const formView = document.getElementById('formView');
             const reportPreviewContainer = document.getElementById('reportPreviewContainer');
-            const loadingSpinner = document.getElementById('loadingSpinner');
             
             // --- FORM ELEMENTS ---
             const reportForm = document.getElementById('reportForm');
@@ -469,14 +468,12 @@
                 dashboardView.classList.remove('hidden');
                 formView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
-                loadingSpinner.classList.add('hidden');
             }
 
             function showFormView(reportId = null) {
                 formView.classList.remove('hidden');
                 dashboardView.classList.add('hidden');
                 reportPreviewContainer.classList.add('hidden');
-                loadingSpinner.classList.add('hidden');
                 if (reportId) {
                     const report = savedReports.find(r => r.id === reportId);
                     if (report) {
@@ -494,7 +491,6 @@
                 reportPreviewContainer.classList.remove('hidden');
                 dashboardView.classList.add('hidden');
                 formView.classList.add('hidden');
-                loadingSpinner.classList.add('hidden');
             }
 
             // --- DASHBOARD RENDERING ---
@@ -815,7 +811,6 @@
             
             reportForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                loadingSpinner.classList.remove('hidden');
 
                 const reportId = reportIdInput.value;
                 const checkedObjectives = Array.from(objectivesContainer.querySelectorAll('input:checked')).map(cb => cb.dataset.genderedValue);
