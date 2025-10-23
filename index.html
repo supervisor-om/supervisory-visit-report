@@ -1110,7 +1110,17 @@
         // --- GLOBAL INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+           //const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                    const firebaseConfig = {
+          apiKey: "AIzaSyAEQsh6E351S1isxL4CFFGIpGSU2pVP5sc",
+          authDomain: "my-report-9b33f.firebaseapp.com",
+          projectId: "my-report-9b33f",
+          storageBucket: "my-report-9b33f.appspot.com",
+          messagingSenderId: "176527739587",
+          appId: "1:176527739587:web:7a524a73a2355b5a503076",
+          measurementId: "G-C24VPXRD1R"
+        };
+
             let app, db, auth;
 
             try {
