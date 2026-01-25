@@ -1,1160 +1,666 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام التقارير الإشرافية المدمج</title>
-    
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> خطة سير المشرفين</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <style>
-        /* --- Global Styles --- */
-        body {
-            font-family: 'Cairo', sans-serif;
-        }
+    <!-- Import Map: تعريف مصادر المكتبات -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
+        "firebase/analytics": "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js",
+        "lucide-react": "https://esm.sh/lucide-react@0.294.0"
+      }
+    }
+    </script>
 
-        /* --- Supervisory Visits App Styles --- */
-        #supervisoryVisitsApp {
-            font-family: 'Tajawal', sans-serif; 
-        }
-
-        #supervisoryVisitsApp :root {
-            --primary-color: #007bff;
-            --primary-dark: #0056b3;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --info-color: #17a2b8;
-            --light-gray: #f8f9fa;
-            --medium-gray: #dee2e6;
-            --dark-gray: #6c757d;
-            --text-color: #333;
-            --bg-color: #f0f2f5;
-            --white-color: #ffffff;
-            --border-radius: 8px;
-            --shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-
-        #supervisoryVisitsApp body { 
-            margin: 0;
-            padding: 20px;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-        }
-
-        #supervisoryVisitsApp .main-container {
-            max-width: 900px;
-            margin: auto;
-            background-color: var(--white-color);
-            padding: 25px 30px;
-            border-radius: 12px;
-            box-shadow: var(--shadow);
-        }
-
-        #supervisoryVisitsApp #sv-form-view, #supervisoryVisitsApp #sv-dashboard-view, #supervisoryVisitsApp #sv-saved-reports-view { display: none; }
-        #supervisoryVisitsApp #sv-form-view.active, #supervisoryVisitsApp #sv-dashboard-view.active, #supervisoryVisitsApp #sv-saved-reports-view.active { display: block; }
-
-        #supervisoryVisitsApp .top-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        #supervisoryVisitsApp .nav-tabs {
-            display: flex;
-            border-bottom: 2px solid var(--medium-gray);
-            flex-grow: 1;
-        }
-        #supervisoryVisitsApp .nav-tab {
-            padding: 10px 20px;
-            cursor: pointer;
-            border: none;
-            background-color: transparent;
-            font-family: 'Tajawal', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: var(--dark-gray);
-            border-bottom: 3px solid transparent;
-            transition: color 0.2s, border-bottom-color 0.2s;
-        }
-        #supervisoryVisitsApp .nav-tab:hover { color: var(--primary-dark); }
-        #supervisoryVisitsApp .nav-tab.active {
-            color: var(--primary-dark);
-            font-weight: 700;
-            border-bottom-color: var(--primary-color);
-        }
-        
-        #supervisoryVisitsApp .page-header h1 { color: var(--primary-dark); margin: 0; text-align: center;}
-        #supervisoryVisitsApp .page-header p { margin: 5px 0 25px; color: #666; font-size: 1.1rem; text-align: center;}
-        #supervisoryVisitsApp h2 { color: var(--primary-dark); border-right: 4px solid var(--primary-color); padding-right: 10px; margin-top: 30px; }
-        #supervisoryVisitsApp details { border: 1px solid #e0e0e0; border-radius: var(--border-radius); padding: 10px 15px; margin-bottom: 20px; background-color: var(--light-gray); }
-        #supervisoryVisitsApp summary { cursor: pointer; font-weight: 700; font-size: 1.2rem; color: var(--primary-dark); list-style: none; display: flex; align-items: center; }
-        #supervisoryVisitsApp summary::-webkit-details-marker { display: none; }
-        #supervisoryVisitsApp summary::before { content: '◀'; margin-left: 10px; font-size: 0.8em; transition: transform 0.2s; }
-        #supervisoryVisitsApp details[open] > summary::before { transform: rotate(-90deg); }
-        #supervisoryVisitsApp .item-card { border: 1px solid #ccc; border-radius: var(--border-radius); padding: 15px; margin: 15px 0; background-color: #fdfdfd; transition: box-shadow 0.3s; }
-        #supervisoryVisitsApp .item-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-        #supervisoryVisitsApp .item-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
-        #supervisoryVisitsApp .item-header h4 { margin: 0; font-size: 1.1rem; color: var(--text-color); flex-grow: 1; }
-        #supervisoryVisitsApp .item-header h4 small { color: #555; font-weight: 400; font-size: 0.9rem;}
-        #supervisoryVisitsApp .score { font-size: 2rem; font-weight: bold; color: var(--text-color); background-color: var(--bg-color); border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; transition: color 0.3s, background-color 0.3s; }
-        
-        #supervisoryVisitsApp .rating-selector { display: flex; justify-content: space-around; padding: 10px 0; margin-top: 10px; border-top: 1px solid #eee;}
-        #supervisoryVisitsApp .rating-btn { padding: 8px 12px; border-radius: 5px; border: 1px solid #ccc; background-color: var(--light-gray); cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
-        #supervisoryVisitsApp .rating-btn:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        #supervisoryVisitsApp .rating-btn.active { font-weight: bold; color: white; border-color: transparent; }
-        #supervisoryVisitsApp .rating-btn.active.score-1 { background-color: #155724; }
-        #supervisoryVisitsApp .rating-btn.active.score-2 { background-color: #004085; }
-        #supervisoryVisitsApp .rating-btn.active.score-3 { background-color: #856404; }
-        #supervisoryVisitsApp .rating-btn.active.score-4 { background-color: #721c24; }
-        #supervisoryVisitsApp .rating-btn.active.score-5 { background-color: #dc3545; }
-
-        #supervisoryVisitsApp .notes-wrapper { position: relative; }
-        #supervisoryVisitsApp .item-notes { width: 100%; box-sizing: border-box; margin-top: 15px; padding: 8px; padding-left: 35px; border: 1px solid #ddd; border-radius: 4px; background-color: var(--light-gray); font-size: 0.95rem; min-height: 80px; }
-        #supervisoryVisitsApp .item-notes .highlight { color: var(--danger-color); font-weight: bold; }
-
-        #supervisoryVisitsApp .mic-btn { position: absolute; left: 8px; top: 25px; background: none; border: none; cursor: pointer; font-size: 1.2rem; color: var(--dark-gray); transition: color 0.2s;}
-        #supervisoryVisitsApp .mic-btn:hover { color: var(--primary-color); }
-        #supervisoryVisitsApp .mic-btn.recording { color: var(--danger-color); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
-        
-        #supervisoryVisitsApp .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; align-items: center;}
-        #supervisoryVisitsApp .info-grid input, #supervisoryVisitsApp .info-grid select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-family: 'Tajawal', sans-serif; font-size: 1rem; }
-        #supervisoryVisitsApp .info-grid .dropdown-wrapper { display: flex; flex-direction: column; gap: 5px; }
-        
-        #supervisoryVisitsApp .controls { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        #supervisoryVisitsApp .controls button { padding: 10px 20px; font-size: 1rem; font-family: 'Tajawal', sans-serif; font-weight: 700; cursor: pointer; border: none; border-radius: 5px; color: white; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        #supervisoryVisitsApp .controls button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
-        #supervisoryVisitsApp .print-btn { background-color: var(--success-color); }
-        #supervisoryVisitsApp .reset-btn { background-color: var(--danger-color); }
-        #supervisoryVisitsApp .generate-btn { background-color: var(--primary-color); }
-        #supervisoryVisitsApp .archive-btn { background-color: #3f51b5; }
-        #supervisoryVisitsApp .export-btn { background-color: var(--info-color); }
-        #supervisoryVisitsApp #status-message { text-align: center; color: green; margin-top: 15px; font-weight: 500; height: 20px; transition: opacity 0.5s; }
-        #supervisoryVisitsApp .report-section { margin-top: 40px; border-top: 2px solid var(--primary-color); padding-top: 20px; }
-        #supervisoryVisitsApp .report-box h3 { color: var(--primary-dark); margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
-        #supervisoryVisitsApp .report-content-area { width: 100%; box-sizing: border-box; border: 1px solid var(--medium-gray); border-radius: 4px; background-color: var(--light-gray); font-family: inherit; font-size: 1rem; line-height: 1.7; resize: vertical; min-height: 120px; padding: 8px; margin-top: 10px; }
-
-        #supervisoryVisitsApp .report-box-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
-        #supervisoryVisitsApp .report-box-header h3 { margin: 0; border-bottom: none; padding-bottom: 0; }
-        #supervisoryVisitsApp .copy-btn { background-color: var(--dark-gray); color: white; border: none; border-radius: 5px; padding: 5px 10px; font-size: 0.8rem; cursor: pointer; transition: background-color 0.2s; }
-        #supervisoryVisitsApp .copy-btn:hover { background-color: var(--primary-dark); }
-
-        #supervisoryVisitsApp .template-section { margin-top: 20px; padding: 15px; border: 1px dashed var(--primary-color); border-radius: var(--border-radius); background-color: var(--light-gray);}
-        #supervisoryVisitsApp .template-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;}
-        #supervisoryVisitsApp .template-controls select { flex-grow: 1; }
-        #supervisoryVisitsApp .template-controls button { padding: 8px 12px; font-size: 0.9rem; border-radius: 5px; border:none; color: white; cursor: pointer; }
-        #supervisoryVisitsApp .template-controls .load-tpl-btn { background-color: var(--primary-color); }
-        #supervisoryVisitsApp .template-controls .save-tpl-btn { background-color: var(--success-color); }
-
-        #supervisoryVisitsApp .dashboard-controls, #supervisoryVisitsApp .saved-reports-controls { display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap; }
-        #supervisoryVisitsApp .dashboard-controls .control-group, #supervisoryVisitsApp .saved-reports-controls .control-group { flex-grow: 1; }
-        #supervisoryVisitsApp .dashboard-controls label, #supervisoryVisitsApp .saved-reports-controls label { display: block; margin-bottom: 5px; font-weight: 500; }
-        #supervisoryVisitsApp .dashboard-controls input, #supervisoryVisitsApp .dashboard-controls select, #supervisoryVisitsApp .saved-reports-controls input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: 'Tajawal', sans-serif; font-size: 1rem;}
-        #supervisoryVisitsApp .dashboard-controls button, #supervisoryVisitsApp .saved-reports-controls button { padding: 10px 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer; height: 45px; }
-        #supervisoryVisitsApp #sv-chart-container { margin-top: 20px; height: 450px; }
-        #supervisoryVisitsApp .no-data-message { text-align: center; color: var(--dark-gray); font-size: 1.2rem; padding: 40px; background-color: var(--light-gray); border-radius: var(--border-radius); }
-        #supervisoryVisitsApp .saved-report-card { background-color: var(--light-gray); border: 1px solid var(--medium-gray); border-right: 5px solid var(--primary-color); border-radius: var(--border-radius); padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; transition: box-shadow 0.2s; }
-        #supervisoryVisitsApp .saved-report-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        #supervisoryVisitsApp .saved-report-info { font-size: 1.1rem; }
-        #supervisoryVisitsApp .saved-report-info strong { color: var(--primary-dark); }
-        #supervisoryVisitsApp .saved-report-actions button { padding: 8px 12px; margin-right: 5px; border:none; color:white; font-weight:500; border-radius:5px; cursor:pointer;}
-        #supervisoryVisitsApp .saved-report-actions .load-btn { background-color: var(--primary-color); }
-        #supervisoryVisitsApp .saved-report-actions .delete-btn { background-color: var(--danger-color); }
-
-        #supervisoryVisitsApp .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
-        #supervisoryVisitsApp .modal-content { background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; max-width: 400px; width: 90%; animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-        #supervisoryVisitsApp .modal-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
-        #supervisoryVisitsApp .modal-buttons button { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: 700; }
-        #supervisoryVisitsApp .modal-confirm-btn { background-color: var(--danger-color); color: white; }
-        #supervisoryVisitsApp .modal-cancel-btn { background-color: var(--dark-gray); color: white; }
-
-        #supervisoryVisitsApp .print-view { display: none; }
-
-        /* --- School Visits App Styles --- */
-        #schoolVisitsApp .modal-backdrop {
-            transition: opacity 0.3s ease-in-out;
-        }
-        #schoolVisitsApp .modal-content {
-            transition: transform 0.3s ease-in-out;
-        }
-
-
-        /* --- Print Styles --- */
-        @media print {
-            .no-print { display: none !important; }
-
-            /* Supervisory App Print */
-            #supervisoryVisitsApp body { background-color: #fff; padding: 0; margin: 0; font-family: 'Times New Roman', Times, serif; }
-            #supervisoryVisitsApp .main-container, #supervisoryVisitsApp .modal-overlay { display: none; }
-            #supervisoryVisitsApp .print-view { display: block; }
-            #supervisoryVisitsApp .print-logo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-            #supervisoryVisitsApp .print-logo-header img { max-height: 70px; }
-            #supervisoryVisitsApp .print-header-text, .print-title { text-align: center; font-weight: bold; margin-bottom: 15px; }
-            #supervisoryVisitsApp .print-main-table, .print-info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-            #supervisoryVisitsApp .print-main-table th, #supervisoryVisitsApp .print-main-table td, #supervisoryVisitsApp .print-info-table td { border: 1px solid #000; padding: 5px; text-align: center; vertical-align: middle; }
-            #supervisoryVisitsApp .print-main-table th { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
-            #supervisoryVisitsApp .print-info-table .label { font-weight: bold; background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; color-adjust: exact; width: 15%; }
-            #supervisoryVisitsApp .item-cell { text-align: right !important; }
-            #supervisoryVisitsApp .category-cell { font-weight: bold; }
-            #supervisoryVisitsApp .report-section-print { margin-top: 20px; border: 2px solid #000; padding: 10px; page-break-inside: avoid; }
-            #supervisoryVisitsApp .report-section-print h3 { margin: 0 0 10px 0; font-size: 1.2rem; background-color: #f2f2f2 !important; padding: 5px; text-align: center; -webkit-print-color-adjust: exact; color-adjust: exact; border-bottom: 1px solid #000; }
-            #supervisoryVisitsApp .print-report-box { white-space: pre-wrap; text-align: right; min-height: 80px; }
-            #supervisoryVisitsApp .signature-section { margin-top: 40px; page-break-inside: avoid; }
-            #supervisoryVisitsApp .evaluation-standard { text-align: center; font-size: 0.9em; margin-top: 20px; border-top: 1px solid #000; padding-top: 5px;}
-            
-            /* School App Print */
-            #schoolVisitsApp body * { visibility: hidden; }
-            #schoolVisitsApp #reportPreviewContainer, #schoolVisitsApp #reportPreviewContainer * { visibility: visible; }
-            #schoolVisitsApp #reportPreviewContainer { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: none; margin: 0; padding: 0; }
-        }
-    </style>
+    <style>
+        /* أنماط مخصصة */
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background-color: #f3f4f6; }
+        
+        /* أنماط الطباعة */
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            body, html, #root { width: 100%; margin: 0; padding: 0; background-color: white !important; }
+            body * { visibility: hidden; }
+            .printable-content, .printable-content * { visibility: visible; }
+            .printable-content { position: absolute; left: 0; top: 0; width: 100%; direction: rtl; }
+            .no-print { display: none !important; }
+            .only-print { display: block !important; visibility: visible !important; }
+            table { width: 100% !important; border-collapse: collapse; font-size: 12px; direction: rtl; }
+            th, td { border: 1px solid #000 !important; padding: 6px; text-align: right; color: black !important; }
+            thead th { background-color: #f0f0f0 !important; font-weight: bold; -webkit-print-color-adjust: exact; }
+            input { border: none !important; background: transparent !important; width: 100%; color: black !important; font-family: inherit; font-size: 12px; }
+            .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
+            .border-gray-200 { border-color: #000 !important; }
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
+<body>
+    <div id="root"></div>
 
-        <div id="welcomeView" class="flex flex-col items-center justify-center min-h-screen p-6">
-        <div class="text-center">
-            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">نظام التقارير الإشرافية</h1>
-            <p class="mt-4 text-lg text-gray-600">اختر نوع التقرير الذي تود العمل عليه</p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12 w-full max-w-4xl">
-                        <div id="showSupervisoryAppBtn" class="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-shadow cursor-pointer border-t-4 border-blue-500">
-                <h2 class="text-2xl font-bold text-gray-800">الزيارات الإشرافية</h2>
-                <p class="mt-2 text-gray-600">نموذج تقييم أداء المعلمين في مادة الرياضة المدرسية مع لوحة متابعة تحليلية.</p>
-            </div>
-                        <div id="showSchoolAppBtn" class="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-shadow cursor-pointer border-t-4 border-green-500">
-                <h2 class="text-2xl font-bold text-gray-800">الزيارات المدرسية</h2>
-                <p class="mt-2 text-gray-600">نظام لتوثيق الزيارات المدرسية وتحديد الأهداف والملاحظات، مع حفظ سحابي للبيانات.</p>
-            </div>
-        </div>
-    </div>
+    <!-- كود التطبيق -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo, Component } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { initializeApp } from 'firebase/app';
+        import { getAnalytics } from 'firebase/analytics';
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            onAuthStateChanged, 
+            signInWithCustomToken
+        } from 'firebase/auth';
+        import { 
+            getFirestore,
+            initializeFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            onSnapshot, 
+            query, 
+            serverTimestamp,
+            updateDoc,
+            deleteField,
+            getDoc
+        } from 'firebase/firestore';
+        import { 
+            Calendar, FileSpreadsheet, User, Lock, Unlock, Save, LogOut, CheckCircle, 
+            Users, ChevronRight, ChevronLeft, Search, AlertCircle, AlertTriangle, 
+            CalendarDays, Trash2, Plus, Edit, X, RefreshCw, Copyright, FileDown, 
+            History, Download, KeyRound, Settings 
+        } from 'lucide-react';
 
+        // -----------------------------------------------------------
+        // ⚠️ إعدادات فايربيس (تمت الإضافة)
+        // -----------------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "AIzaSyAUknGaMIWzeYLWlp-EUZtFzshNaewjwDc",
+            authDomain: "supervisor-plan.firebaseapp.com",
+            projectId: "supervisor-plan",
+            storageBucket: "supervisor-plan.firebasestorage.app",
+            messagingSenderId: "584751936902",
+            appId: "1:584751936902:web:ab89e36c7f173e9a1c2807",
+            measurementId: "G-9YSYCNSNCD"
+        };
+        // -----------------------------------------------------------
 
-        <div id="supervisoryVisitsApp" class="hidden">
-        <div class="main-container">
-            <header class="top-header">
-                <nav class="nav-tabs">
-                    <button class="nav-tab active" data-view="sv-form-view">نموذج التقييم</button>
-                    <button class="nav-tab" data-view="sv-dashboard-view">لوحة المتابعة</button>
-                    <button class="nav-tab" data-view="sv-saved-reports-view">التقارير المحفوظة</button>
-                </nav>
-                 <button id="backToWelcomeFromSupervisory" class="text-gray-700 bg-gray-200 hover:bg-gray-300 font-medium rounded-lg text-sm px-4 py-2 whitespace-nowrap transition-colors mt-2 sm:mt-0">
-                    العودة للقائمة الرئيسية
-                </button>
-            </header>
-    
-            <div id="sv-form-view" class="active">
-                <div class="page-header">
-                    <h1>استمارة زيارة إشرافية إلكترونية</h1>
-                    <p>نظام التقييم الإشرافي الرقمي المطور (الرياضة المدرسية)</p>
-                </div>
-                <main>
-                    <section class="visit-info">
-                        <h2>معلومات الزيارة</h2>
-                        <div class="info-grid">
-                            <div class="dropdown-wrapper">
-                                <label for="sv-school">المدرسة:</label>
-                                <select id="sv-school"></select>
-                                <input id="sv-school-other" type="text" placeholder="أو أدخل اسم المدرسة يدويًا" style="display: none; margin-top: 5px;">
-                            </div>
-                            <div class="dropdown-wrapper">
-                                <label for="sv-teacherName">اسم المعلم:</label>
-                                <select id="sv-teacherName"></select>
-                                 <input id="sv-teacherName-other" type="text" placeholder="أو أدخل اسم المعلم يدويًا" style="display: none; margin-top: 5px;">
-                            </div>
-                            <input id="sv-fileNumber" type="text" placeholder="رقم الملف">
-                            <input id="sv-subject" type="text" placeholder="المادة" value="الرياضة المدرسية">
-                            <input id="sv-visitNumber" type="text" placeholder="رقم الزيارة">
-                            <input id="sv-visitDate" type="date" placeholder="التاريخ">
-                            <input id="sv-class" type="text" placeholder="الصف">
-                            <input id="sv-lesson" type="text" placeholder="الحصة">
-                            <input id="sv-topic" type="text" placeholder="الموضوع">
-                        </div>
-                    </section>
-    
-                    <section class="template-section">
-                         <div class="template-controls">
-                            <select id="sv-template-select" class="info-grid-input"></select>
-                            <button id="sv-loadTemplateBtn" class="load-tpl-btn">تحميل قالب</button>
-                            <button id="sv-saveTemplateBtn" class="save-tpl-btn">حفظ كقالب</button>
-                        </div>
-                    </section>
-                    
-                    <details>
-                        <summary>اضغط هنا لعرض معيار التقييم</summary>
-                        <div style="padding: 10px;">
-                            <ul>
-                                <li><b>1 - متميز</b></li>
-                                <li><b>2 - جيد</b></li>
-                                <li><b>3 - ملائم</b></li>
-                                <li><b>4 - غير ملائم</b></li>
-                                <li><b>5 - يحتاج إلى تدخل سريع</b></li>
-                            </ul>
-                        </div>
-                    </details>
-    
-                    <form id="sv-evaluationForm">
-                                            </form>
-                    
-                    <section id="sv-reportSection" class="report-section" style="display: none;">
-                        <h2>التقرير النهائي</h2>
-                        <div class="report-box">
-                            <div class="report-box-header">
-                                <h3>جوانب الإجادة</h3>
-                                <button class="copy-btn" data-target="sv-strengthsContent">نسخ</button>
-                            </div>
-                            <textarea id="sv-strengthsContent" class="report-content-area" placeholder="..."></textarea>
-                        </div>
-                        <div class="report-box">
-                            <div class="report-box-header">
-                                <h3>الجوانب التي تحتاج إلى تطوير</h3>
-                                 <button class="copy-btn" data-target="sv-developmentContent">نسخ</button>
-                            </div>
-                            <textarea id="sv-developmentContent" class="report-content-area" placeholder="..."></textarea>
-                        </div>
-                        <div class="report-box">
-                            <div class="report-box-header">
-                                <h3>التوصيات</h3>
-                                <button class="copy-btn" data-target="sv-recommendationsContent">نسخ</button>
-                            </div>
-                            <textarea id="sv-recommendationsContent" class="report-content-area" placeholder="..."></textarea>
-                        </div>
-                    </section>
-    
-                    <section class="visitor-info">
-                        <h2>معلومات الزائر</h2>
-                        <div class="info-grid">
-                            <input id="sv-visitorName" type="text" placeholder="اسم الزائر">
-                            <input id="sv-visitorPosition" type="text" placeholder="الوظيفة (مثال: مشرف تربوي)">
-                        </div>
-                    </section>
-                    
-                    <p id="sv-status-message"></p>
-    
-                    <section class="controls">
-                        <button type="button" class="archive-btn" id="sv-savePermanentReportBtn">حفظ التقرير</button>
-                        <button type="button" class="generate-btn" id="sv-generateReportBtn">توليد تقرير</button>
-                        <button class="print-btn" id="sv-printOfficialReportBtn">طباعة</button>
-                        <button type="button" class="export-btn" id="sv-exportToWordBtn">تصدير Word</button>
-                        <button type="button" class="reset-btn" id="sv-showResetConfirmationBtn">إعادة تعيين</button>
-                    </section>
-                </main>
-            </div>
-    
-            <div id="sv-dashboard-view">
-                <h2>لوحة المتابعة التحليلية</h2>
-                 <div class="dashboard-controls">
-                    <div class="control-group">
-                        <label for="sv-teacher-dashboard-select">اختر المعلم:</label>
-                        <select id="sv-teacher-dashboard-select"></select>
-                    </div>
-                    <div class="control-group">
-                         <label for="sv-chartTypeSelect">نوع التحليل:</label>
-                         <select id="sv-chartTypeSelect">
-                            <option value="radar">تحليل زيارة واحدة (راداري)</option>
-                            <option value="line">تطور الأداء عبر الزيارات (خطي)</option>
-                            <option value="bar">متوسط الأداء العام (شريطي)</option>
-                        </select>
-                    </div>
-                     <div class="control-group" id="sv-visitDateGroup" style="display: none;">
-                        <label for="sv-visitDateSelect">اختر الزيارة:</label>
-                        <select id="sv-visitDateSelect"></select>
-                    </div>
-                    <button id="sv-updateDashboardViewBtn">عرض التحليل</button>
-                </div>
-                <div id="sv-chart-container">
-                    <canvas id="sv-performanceChart"></canvas>
-                </div>
-                <div id="sv-no-data-message" class="no-data-message" style="display: none;">
-                    <p>لا توجد بيانات محفوظة لهذا المعلم حتى الآن.</p>
-                </div>
-            </div>
-    
-            <div id="sv-saved-reports-view">
-                <h2>التقارير المحفوظة</h2>
-                 <div class="saved-reports-controls">
-                    <div class="control-group">
-                        <label for="sv-filter-reports-input">بحث بالاسم أو المدرسة:</label>
-                        <input type="text" id="sv-filter-reports-input" placeholder="ابحث...">
-                    </div>
-                </div>
-                <div id="sv-saved-reports-list">
-                                    </div>
-                <div id="sv-no-saved-reports-message" class="no-data-message" style="display: none;">
-                    <p>لا توجد تقارير محفوظة حتى الآن.</p>
-                </div>
-            </div>
-        </div>
-        
-        <div id="supervisoryConfirmationModal" class="modal-overlay">
-            <div class="modal-content">
-                <h3 id="supervisory-modal-title"></h3>
-                <p id="supervisory-modal-message"></p>
-                <div class="modal-buttons">
-                    <button id="supervisory-modal-confirm-btn" class="modal-confirm-btn">تأكيد</button>
-                    <button id="supervisory-modal-cancel-btn" class="modal-cancel-btn">إلغاء</button>
-                </div>
-            </div>
-        </div>
-    
-        <div class="print-view" id="sv-printView">
-            <div class="print-container">
-                 <div class="print-logo-header">
-                    <img src="https://i.ibb.co/567f2Pb/oman-vision-2040-logo.png" alt="شعار رؤية عمان 2040" onerror="this.style.display='none'">
-                    <img src="https://i.ibb.co/VMy4bJg/Oman-Ministry-of-Education-Logo-svg.png" alt="شعار وزارة التربية" onerror="this.style.display='none'">
-                    <img src="https://i.ibb.co/hK0yMGH/quality-logo.png" alt="شعار الجودة" onerror="this.style.display='none'">
-                </div>
-                <div class="print-header-text">نموذج رقم (5) استمارة زيارة إشرافية لمعلم مادة - مجال</div>
-                <div class="print-title"><h2>استمارة زيارة إشرافية لمعلم مادة/مجال</h2></div>
-                
-                <table class="print-info-table">
-                    <tbody>
-                        <tr><td class="label">اسم المعلم:</td><td class="value" id="sv-print-teacherName"></td><td class="label">المدرسة:</td><td class="value" id="sv-print-school"></td></tr>
-                        <tr><td class="label">المادة/المجال:</td><td class="value" id="sv-print-subject"></td><td class="label">رقم الملف:</td><td class="value" id="sv-print-fileNumber"></td></tr>
-                        <tr><td class="label">التاريخ:</td><td class="value" id="sv-print-visitDate"></td><td class="label">رقم الزيارة:</td><td class="value" id="sv-print-visitNumber"></td></tr>
-                        <tr><td class="label">الحصة:</td><td class="value" id="sv-print-lesson"></td><td class="label">الصف:</td><td class="value" id="sv-print-class"></td></tr>
-                        <tr><td class="label">الموضوع:</td><td colspan="3" class="value" id="sv-print-topic"></td></tr>
-                    </tbody>
-                </table>
-                
-                <table class="print-main-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 20%;">المجال</th>
-                            <th style="width: 15%;">المعيار</th>
-                            <th style="width: 3%;">م</th>
-                            <th>البند</th>
-                            <th style="width: 7%;">التقدير</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sv-print-main-tbody">
-                    </tbody>
-                </table>
-    
-                <div class="report-section-print">
-                    <h3>جوانب الإجادة في الأداء وأدلتها:</h3>
-                    <div id="sv-print-strengthsContent" class="print-report-box"></div>
-                </div>
-                <div class="report-section-print">
-                    <h3>الجوانب التي تحتاج إلى تطوير في الأداء وأدلتها:</h3>
-                    <div id="sv-print-developmentContent" class="print-report-box"></div>
-                </div>
-                <div class="report-section-print">
-                    <h3>التوصيات:</h3>
-                    <div id="sv-print-recommendationsContent" class="print-report-box"></div>
-                </div>
-    
-                <div class="signature-section">
-                    اسم الزائر: <span id="sv-print-visitorName" class="line"></span><br><br>
-                    الوظيفة: <span id="sv-print-visitorPosition" class="line"></span>
-                </div>
-                <div class="evaluation-standard">
-                    ● معيار التقييم: 1- متميز، 2- جيد، 3- ملائم، 4- غير ملائم، 5- يحتاج إلى تدخل سريع
-                </div>
-            </div>
-        </div>
-    </div>
+        let app, auth, db, analytics;
+        let firebaseError = null;
 
+        try {
+            // 1. الأولوية للإعدادات التلقائية (في بيئة المعاينة)
+            if (typeof __firebase_config !== 'undefined') {
+                const config = JSON.parse(__firebase_config);
+                app = initializeApp(config);
+                auth = getAuth(app);
+                db = initializeFirestore(app, { experimentalForceLongPolling: true });
+            } 
+            // 2. استخدام الإعدادات اليدوية (عند التشغيل محلياً أو بعد النشر)
+            else if (firebaseConfig.apiKey) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = initializeFirestore(app, { experimentalForceLongPolling: true });
+                analytics = getAnalytics(app); // تفعيل التحليلات
+            } 
+            // 3. خطأ: لا توجد إعدادات
+            else {
+                firebaseError = "إعدادات Firebase مفقودة. يرجى التأكد من نسخ الكود بشكل صحيح.";
+            }
+        } catch (e) {
+            console.error("Firebase Init Error:", e);
+            firebaseError = "خطأ في تهيئة قاعدة البيانات: " + e.message;
+        }
 
-        <div id="schoolVisitsApp" class="hidden">
-        <div id="schoolDashboardView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg">
-            <header class="flex flex-col sm:flex-row justify-between items-center mb-4 border-b pb-4 gap-4">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-800">سجل التقارير</h1>
-                    <p id="userEmailDisplay" class="text-gray-500 mt-2">جاري التحميل...</p>
-                </div>
-                <div class="flex items-center gap-4 w-full sm:w-auto">
-                    <button id="backToWelcomeFromSchool" class="text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-6 py-3 whitespace-nowrap transition-colors">
-                        القائمة الرئيسية
-                    </button>
-                    <button id="addNewReportBtn" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-6 py-3 whitespace-nowrap transition-colors">
-                        + تقرير جديد
-                    </button>
-                </div>
-            </header>
-            <div id="reportsListContainer">
-                 <div class="text-center py-10 px-6 bg-gray-50 rounded-lg"><h3 class="text-lg font-semibold text-gray-700">جاري تحميل التقارير...</h3></div>
-            </div>
-        </div>
-        <div id="schoolFormView" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden no-print">
-            <header class="text-center mb-8">
-                <h1 id="formTitle" class="text-3xl font-bold text-gray-800">إنشاء تقرير زيارة مدرسية</h1>
-                <p class="text-gray-500 mt-2">نموذج لتوثيق الزيارات المدرسية</p>
-            </header>
-            <form id="reportForm" class="space-y-8">
-                <input type="hidden" id="reportId" value="">
-                <fieldset class="border p-6 rounded-lg bg-gray-50/50">
-                    <legend class="text-lg font-semibold text-gray-700 px-2">معلومات أساسية</legend>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                        <div>
-                            <label for="schoolName" class="block mb-2 text-sm font-medium text-gray-900">اسم المدرسة</label>
-                            <select id="schoolName" name="schoolName" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
-                                 <option value="" selected disabled>اختر المدرسة</option>
-                                 <option value="أبو القاسم الزهراوي">أبو القاسم الزهراوي</option>
-                                 <option value="أبو أيوب الحضرمي">أبو أيوب الحضرمي</option>
-                                 <option value="أبو تمام">أبو تمام</option>
-                                 <option value="أحمد بن النعمان">أحمد بن النعمان</option>
-                                 <option value="الشيخ سالم السيابي">الشيخ سالم السيابي</option>
-                                 <option value="الشيخ سعيد الكندي مسائي">الشيخ سعيد الكندي مسائي</option>
-                                 <option value="الشيخ ناصر الخروصي">الشيخ ناصر الخروصي</option>
-                                 <option value="جنادة الازدى (موسى سابقا)">جنادة الازدى (موسى سابقا)</option>
-                                 <option value="حفص بن راشد">حفص بن راشد</option>
-                                 <option value="خريس الحبوس">خريس الحبوس</option>
-                                 <option value="سهيل بن عمرو العامري">سهيل بن عمرو العامري</option>
-                                 <option value="كعب بن زيد">كعب بن زيد</option>
-                                 <option value="يزيد الطائي">يزيد الطائي</option>
-                                 <option value="اجيال الثقافة">اجيال الثقافة</option>
-                                 <option value="اجيال الفردوس - الحيل">اجيال الفردوس - الحيل</option>
-                                 <option value="البيان">البيان</option>
-                                 <option value="الجيل المبدع">الجيل المبدع</option>
-                                 <option value="الريادة">الريادة</option>
-                                 <option value="السراج">السراج</option>
-                                 <option value="الصفوة المعبيلة">الصفوة المعبيلة</option>
-                                 <option value="المجد">المجد</option>
-                                 <option value="انس بن مالك (المنار سابقا)">انس بن مالك (المنار سابقا)</option>
-                                 <option value="جيفر بن الجلندي">جيفر بن الجلندي</option>
-                                 <option value="ضياء المستقبل">ضياء المستقبل</option>
-                                 <option value="مشاعل مسقط سور الحديد">مشاعل مسقط سور الحديد</option>
-                                 <option value="منابع التفوق">منابع التفوق</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="visitDate" class="block mb-2 text-sm font-medium text-gray-900">تاريخ الزيارة</label>
-                            <input type="date" id="visitDate" name="visitDate" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
-                        </div>
-                    </div>
-                </fieldset>
-                <fieldset class="border p-6 rounded-lg bg-gray-50/50">
-                    <legend class="text-lg font-semibold text-gray-700 px-2">نوع الزيارة</legend>
-                    <div class="flex items-center gap-4 mt-2">
-                        <select id="visitTypeSelect" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></select>
-                        <button type="button" id="manageVisitTypesBtn" class="p-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg border hover:bg-gray-200 transition-colors whitespace-nowrap">
-                            ⚙️ إدارة الأنواع
-                        </button>
-                    </div>
-                </fieldset>
-                <fieldset class="border p-6 rounded-lg bg-gray-50/50">
-                    <div class="flex justify-between items-center mb-4">
-                        <legend class="text-lg font-semibold text-gray-700 px-2">أهداف الزيارة</legend>
-                        <button type="button" id="selectAllObjectivesBtn" class="text-sm font-medium text-blue-600 hover:underline">اختيار الكل</button>
-                    </div>
-                    <div id="objectivesContainer" class="space-y-4"></div>
-                </fieldset>
-                <fieldset class="border p-6 rounded-lg bg-gray-50/50">
-                    <legend class="text-lg font-semibold text-gray-700 px-2">رأي الزائر</legend>
-                    <p class="text-sm text-gray-500 mb-4">اكتب ملاحظاتك لكل هدف من الأهداف المحددة أعلاه.</p>
-                    <div id="opinionsContainer" class="space-y-6"></div>
-                </fieldset>
-                <fieldset class="border p-6 rounded-lg bg-gray-50/50">
-                    <legend class="text-lg font-semibold text-gray-700 px-2">التوصيات</legend>
-                    <div class="mt-4">
-                        <div class="flex items-center justify-between mb-2 gap-4 flex-wrap">
-                            <label for="recommendations" class="block text-sm font-medium text-gray-900 sr-only">التوصيات</label>
-                            <div class="flex gap-4">
-                                <button type="button" id="generate-recommendations-btn" class="flex items-center text-sm text-blue-600 font-semibold hover:text-blue-800 transition-colors">
-                                    📋 توليد التوصيات
-                                </button>
-                            </div>
-                        </div>
-                        <textarea id="recommendations" name="recommendations" rows="5" class="block p-2.5 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="اكتب التوصيات والملاحظات النهائية هنا أو استخدم زر التوليد التلقائي..."></textarea>
-                    </div>
-                </fieldset>
-                <fieldset class="border p-6 rounded-lg bg-gray-50/50">
-                    <legend class="text-lg font-semibold text-gray-700 px-2">المرفقات (اختياري)</legend>
-                    <p class="text-sm text-gray-500 mb-4">ملاحظة: المرفقات يتم حفظها محلياً في المتصفح فقط ولا يتم رفعها للسحابة حالياً.</p>
-                    <div class="mt-4">
-                        <label for="attachmentsInput" class="block mb-2 text-sm font-medium text-gray-900">اختر ملفات (صور، مستندات...)</label>
-                        <input type="file" id="attachmentsInput" multiple class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
-                        <div id="attachmentsList" class="mt-4 space-y-2"></div>
-                    </div>
-                </fieldset>
-                <div class="flex justify-end pt-4 gap-4">
-                    <button type="button" id="backToDashboardBtn" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 font-medium rounded-lg text-sm w-full sm:w-auto px-8 py-3 text-center transition-colors">إلغاء</button>
-                    <button type="button" id="prepareReportBtn" class="text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm w-full sm:w-auto px-8 py-3 text-center transition-colors">معاينة التقرير</button>
-                    <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-8 py-3 text-center transition-colors">حفظ التقرير</button>
-                </div>
-            </form>
-        </div>
-        <div id="reportPreviewContainer" class="container mx-auto max-w-4xl p-6 md:p-8 my-10 bg-white rounded-2xl shadow-lg hidden">
-            <div id="reportContent" class="prose max-w-none prose-p:my-1 prose-ol:my-1 prose-h3:my-3"></div>
-            <div class="flex justify-end pt-6 mt-6 border-t no-print gap-4 flex-wrap">
-                <button id="backToBtn" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 font-medium rounded-lg text-sm px-8 py-3 text-center transition-colors">رجوع</button>
-                <button id="copyAllBtn" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-8 py-3 text-center transition-colors">نسخ الكل</button>
-                <button onclick="window.print()" class="text-white bg-gray-800 hover:bg-gray-900 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-8 py-3 text-center transition-colors">طباعة</button>
-            </div>
-            <div id="reportPreviewAttachments" class="mt-6"></div>
-        </div>
-        <div id="manageTypesModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
-            <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white modal-content">
-                <div class="flex justify-between items-center border-b pb-3">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">إدارة أنواع الزيارات</h3>
-                    <button id="closeManageModalBtn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
-                    </button>
-                </div>
-                <div class="mt-4">
-                    <div id="visitTypesList" class="space-y-2 max-h-60 overflow-y-auto pr-2"></div>
-                    <div class="mt-6 pt-4 border-t">
-                        <button id="addNewTypeBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-lg text-sm px-5 py-2.5 text-center">إضافة نوع زيارة جديد</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="addEditTypeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
-            <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white modal-content">
-                <h3 id="addEditModalTitle" class="text-lg leading-6 font-medium text-gray-900 mb-4"></h3>
-                <form id="addEditTypeForm">
-                    <input type="hidden" id="editTypeKey" value="">
-                    <div>
-                        <label for="typeName" class="block mb-2 text-sm font-medium text-gray-900">اسم نوع الزيارة</label>
-                        <input type="text" id="typeName" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
-                    </div>
-                    <div class="mt-4">
-                        <label for="typeObjectives" class="block mb-2 text-sm font-medium text-gray-900">الأهداف (كل هدف في سطر)</label>
-                        <textarea id="typeObjectives" rows="8" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" required></textarea>
-                    </div>
-                    <div class="items-center px-4 py-3 gap-3 flex justify-end mt-4 border-t pt-4">
-                        <button id="saveTypeBtn" type="submit" class="px-4 py-2 bg-green-500 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-green-700">حفظ</button>
-                        <button id="cancelEditBtn" type="button" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-300">إلغاء</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 modal-backdrop">
-            <div class="relative top-1/2 -translate-y-1/2 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white modal-content">
-                <div class="mt-3 text-center">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="confirmationModalTitle">هل أنت متأكد؟</h3>
-                    <div class="mt-2 px-7 py-3">
-                        <p class="text-sm text-gray-500" id="confirmationModalMessage"></p>
-                    </div>
-                    <div class="items-center px-4 py-3 gap-3 flex justify-center">
-                        <button id="confirmActionBtn" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-red-700">
-                            نعم, حذف
-                        </button>
-                        <button id="cancelActionBtn" type="button" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-300">
-                            إلغاء
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'supervisor-plan-v1'; // معرف ثابت للتطبيق
 
+        // --- الثوابت ---
+        const COLLECTIONS = { PLANS: 'supervisor_plans', CONFIG: 'app_config' };
+        
+        // القائمة الافتراضية للتهيئة
+        const INITIAL_SUPERVISORS = [
+            { id: '1', name: 'صباح المقبالي', password: '1234' },
+            { id: '2', name: 'ماجد الأخزمي', password: '1234' },
+            { id: '3', name: 'ناصر الرزيقي', password: '1234' },
+            { id: '4', name: 'هشام العدواني', password: '1234' },
+            { id: '5', name: 'ناصر الناعبي', password: '1234' },
+            { id: '6', name: 'أسعد الخصيبي', password: '1234' },
+            { id: '7', name: 'هند الهنائية', password: '1234' },
+            { id: '8', name: 'يسرى الذخرية', password: '1234' },
+            { id: '9', name: 'رؤى المحاربية', password: '1234' },
+            { id: '10', name: 'أمل النعمانية', password: '1234' },
+            { id: '11', name: 'رياء الشريقية', password: '1234' },
+            { id: '12', name: 'عائشة البلوشية', password: '1234' },
+            { id: '13', name: 'مهرة اليعقوبية', password: '1234' },
+            { id: '14', name: 'رقية العميرية', password: '1234' },
+            { id: '15', name: 'آسية الكندية', password: '1234' }
+        ];
 
-    <script type="module">
-        import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // --- VIEW MANAGEMENT ---
-        const welcomeView = document.getElementById('welcomeView');
-        const supervisoryApp = document.getElementById('supervisoryVisitsApp');
-        const schoolApp = document.getElementById('schoolVisitsApp');
+        // --- مكون حدود الخطأ ---
+        class ErrorBoundary extends Component {
+            constructor(props) { super(props); this.state = { hasError: false }; }
+            static getDerivedStateFromError() { return { hasError: true }; }
+            render() {
+                if (this.state.hasError) return <div className="flex h-screen items-center justify-center text-red-600 font-bold">حدث خطأ غير متوقع. يرجى تحديث الصفحة.</div>;
+                return this.props.children;
+            }
+        }
 
-        function showView(view) {
-            welcomeView.classList.add('hidden');
-            supervisoryApp.classList.add('hidden');
-            schoolApp.classList.add('hidden');
-            view.classList.remove('hidden');
-        }
+        // --- دوال مساعدة ---
+        const getDaysInMonth = (year, month) => {
+            const date = new Date(year, month, 1);
+            const days = [];
+            while (date.getMonth() === month) { days.push(new Date(date)); date.setDate(date.getDate() + 1); }
+            return days;
+        };
+        const getWorkingDaysInMonth = (year, month) => getDaysInMonth(year, month).filter(d => d.getDay() !== 5 && d.getDay() !== 6);
+        const getMandatoryKey = (y, m, d) => `${y}_${m}_${d}`;
 
-        document.getElementById('showSupervisoryAppBtn').addEventListener('click', () => showView(supervisoryApp));
-        document.getElementById('showSchoolAppBtn').addEventListener('click', () => showView(schoolApp));
-        document.getElementById('backToWelcomeFromSupervisory').addEventListener('click', () => showView(welcomeView));
-        
-        const backToWelcomeFromSchoolDashboard = schoolApp.querySelector('#schoolDashboardView #backToWelcomeFromSchool');
-        if(backToWelcomeFromSchoolDashboard) {
-            backToWelcomeFromSchoolDashboard.addEventListener('click', () => showView(welcomeView));
-        }
+        // --- المكونات (نسخة طبق الأصل من App.jsx) ---
 
-        // --- SUPERVISORY VISITS APP CODE ---
-        function initializeSupervisoryApp(db, auth) {
-             let userId, unsubscribeReports = null, unsubscribeVisitorData = null;
-            // ... All the code from the previous supervisory app version ...
-            let performanceChartInstance;
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognition = SpeechRecognition ? new SpeechRecognition() : null;
-            if (recognition) {
-                recognition.continuous = false;
-                recognition.lang = 'ar-SA';
-                recognition.interimResults = false;
-                recognition.maxAlternatives = 1;
-            }
+        function PrintHeader({ supervisorData, month, year }) {
+            return (
+                <div className="hidden only-print mb-8 font-serif text-black w-full">
+                <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
+                    <div className="text-center w-1/3"><p>سلطنة عمان</p><p>وزارة التربية والتعليم</p></div>
+                    <div className="text-center w-1/3"><h1 className="text-xl font-bold border-2 border-black px-4 py-2 rounded">خطة سير المشرف</h1></div>
+                    <div className="text-center w-1/3"><div className="border border-black p-2 text-sm">{year}/{year+1}</div></div>
+                </div>
+                <div className="flex justify-between border border-black p-2 mb-4">
+                    <div>الاسم: {supervisorData.name}</div><div>الشهر: {month+1}</div>
+                </div>
+                </div>
+            );
+        }
 
-            const schoolsList = [ "أبو القاسم الزهراوي", "أبو أيوب الحضرمي", "أبو تمام", "أحمد بن النعمان", "الشيخ سالم السيابي", "الشيخ سعيد الكندي", "الشيخ ناصر الخروصي", "جنادة الازدي", "حفص بن راشد", "خريس الحبوس", "سهيل بن عمرو العامري", "كعب بن زيد", "يزيد الطائي", "أجيال الثقافة", "أجيال الفردوس – الحيل", "البيان", "الجيل المبدع", "الريادة", "الصفوة -المعبيلة", "المجد", "جيفر بن الجلندى", "السراج", "ضياء المستقبل", "مشاعل مسقط سور ال حديد", "منابع التفوق" ];
-            const teachersBySchool = { "أحمد بن النعمان": ["طارق بن يوسف بن يسند البلوشي", "عمر بن سعيد بن عبيد الشحي", "سليمان بن سالم بن مبارك الرزيقي"], "أبو القاسم الزهراوي": ["أيوب بن سلطان بن ناصر الوردي"], "أبو الفضل الزهراوي": ["يحيى بن عبدالله بن سيف اليوسفي"], "حفص بن راشد": ["سعود بن سيف بن ناصر الراسبي", "سليمان بن سيف بن سالم الوهيبي", "عبدالحميد بن محمد بن عبدالرسول الزدجالي", "محمد بن أحمد بن خالد الخطوري", "حميد بن حمد بن هديب السعدي"], "الشيخ سالم السيابي": ["إبراهيم بن ناصر بن خميس البوسعيدي", "فهد بن محمد بن سعيد الخروصي"], "أبو أيوب الحضرمي": ["عبدالله بن سعيد بن عامر القلذي"], "خريس الحبوس": ["فيصل بن عبدالله بن راشد الحربي", "عبدالله بن فرج بن عبيد الحجري", "عمر سالم شدوم الهنائي", "هاشم بن راشد بن سيف الهاشمي"], "أبو تمام": ["المعتصم بن عبدالله بن علي القطيطي"], "الشيخ ناصر الخروصي": ["سعيد بن محمد بن راشد الغاوي المخمري", "عدنان بن حسن بن تبوك", "سيف بن سليمان بن سيف الفهدي"], "كعب بن زيد": ["أحمد بن سليمان بن سالم الحسيني", "يوسف بن عبدالله بن سيف اليوسفي", "علاء بن علي بن حمد الشبلي"], "جنادة الازدي": ["إبراهيم بن محمد بن حمود الراسبي", "سالم بن سعيد بن سعيد البوسعيدي", "أسامة بن سليمان الدهماني", "محمود بن محمد بن خلفان المحروقي", "منصور بن محمد بن جمعه الفارسي"], "سهيل بن عمرو العامري": ["السعد بن خليفة بن عبدالله السعدي", "محمد بن قاسم بن حمدان النبهاني", "راشد بن سالم بن خالد الرشيدي"], "الشيخ سعيد الكندي": ["محمد بن سعيد بن مجاد العمري", "راشد بن سالم بن خلفان المشيفري"], "الصفوة -المعبيلة": ["رحمة محمد شلقامي"], "جيفر بن الجلندى": ["إيهاب محسن محمد"], "أجيال الثقافة": ["اسماء حسن احمد"], "البيان": ["جيهان علي محمد"], "المجد": ["ايه رضا عبد الفتاح العليمي حلاوه"], "الريادة": ["اسماء سعد سعد ابراهيم سعد", "حسام محمد زايد"], "أجيال الفردوس – الحيل": ["رحاب عبد الحكم عبد الحليم"], "السراج": ["عذراء بنت محمد بن حمود المالكي"], "ضياء المستقبل": ["علاء احمد وزيري"], "مشاعل مسقط سور ال حديد": ["دينا اشرف حبيب"], "منابع التفوق": ["مها محمد السيد"], "الجيل المبدع": ["ايمان رمضان علي محمد هلال"] };
-            const evaluationItems = [ { id: 1, domain: 'الإنجاز الدراسي', standard: 'التحصيل الدراسي', title: 'تحصيل الطلبة في الأعمال الصفية وغير الصفية', desc: '(اكتساب المهارات الحركية والمعارف المرتبطة بها)' }, { id: 2, domain: 'الإنجاز الدراسي', standard: 'التقدم الدراسي', title: 'التقدم الدراسي للطلبة بما فيهم الطلبة ذوي الإعاقة/الاحتياجات التعليمية', desc: '(تطور الأداء المهاري والخططي)' }, { id: 3, domain: 'الإنجاز الدراسي', standard: 'مهارات التعلم', title: 'تطبيق مهارات التعلم (الذاتي- التعاوني - الرقمي - التفكير العليا) وربطها بالواقع', desc: '(القيادة، التعاون، التفكير الخططي في مواقف اللعب)' }, { id: 4, domain: 'النمو الشخصي', standard: 'القيم والسلوك', title: 'تمسك الطلبة بالهوية العمانية والقيم الإنسانية', desc: '(الروح الرياضية وأخلاقيات اللعب)' }, { id: 5, domain: 'مناخ المدرسة وبيئة التعلم', standard: 'جودة بيئة التعلم', title: 'متابعة جوانب الأمن والسلامة والنظافة في بيئة التعلم', desc: '(سلامة الأدوات والمرافق الرياضية)' }, { id: 6, domain: 'التدريس والتقويم', standard: 'تخطيط المنهاج الدراسي', title: 'تخطيط المنهاج الدراسي لتحقيق نواتج التعلم', desc: '(التخطيط لتنمية المهارات الحركية واللياقة البدنية)' }, { id: 7, domain: 'التدريس والتقويم', standard: 'إدارة الصف', title: 'فاعلية الإدارة الصفية', desc: '(إدارة وتنظيم النشاط البدني)' }, { id: 8, domain: 'التدريس والتقويم', standard: 'فاعلية التدريس', title: 'توظيف استراتيجيات التدريس الفعالة', desc: '(استراتيجيات التدريس المناسبة للنشاط البدني)' }, { id: 9, domain: 'التدريس والتقويم', standard: 'فاعلية التدريس', title: 'تفعيل المصادر والموارد التعليمية', desc: '(الأدوات والأجهزة والمرافق الرياضية)' }, { id: 10, domain: 'التدريس والتقويم', standard: 'التقويم ومساندة التقدم', title: 'توظيف أساليب تقويم متنوعة', desc: '(تقويم الأداء الحركي والمهاري للطلبة)' }, { id: 11, domain: 'القيادة والإدارة والحوكمة', standard: 'قيادة التغيير', title: 'توظيف التقويم الذاتي والتطوير المهني في تحسين الأداء', desc: '(التأمل في الممارسات التدريسية وتطويرها)' }, { id: 12, domain: 'القيادة والإدارة والحوكمة', standard: 'الحوكمة', title: 'تطبيق السياسات والأنظمة واللوائح المنظمة للعمل', desc: '(الالتزام بأخلاقيات المهنة واللوائح)' }, { id: 13, domain: 'القيادة والإدارة والحوكمة', standard: 'الحوكمة', title: 'تنفيذ مبادرات وأنشطة تربوية في المجتمع المدرسي', desc: '(تنظيم الفعاليات والمسابقات الرياضية)' } ];
-            const detailedDescriptions = { '1': { '1': "يتقن <span class='highlight'>جميع</span> الطلبة المهارات الحركية الأساسية والمعارف المرتبطة بها، ويطبقونها بفاعلية في مواقف اللعب.", '2': "يتقن <span class='highlight'>معظم</span> الطلبة المهارات الحركية الأساسية والمعارف المرتبطة بها، ويطبقونها بصورة جيدة في مواقف اللعب.", '3': "يكتسب <span class='highlight'>أغلب</span> الطلبة المهارات الحركية الأساسية والمعارف المرتبطة بها بمستوى ملائم.", '4': "يكتسب <span class='highlight'>قليل من</span> الطلبة المهارات الحركية الأساسية بصورة محدودة، مع صعوبة في تطبيقها.", '5': "يظهر <span class='highlight'>عدد نادر من</span> الطلبة اكتسابًا محدودًا جدًا للمهارات الحركية الأساسية." }, '2': { '1': "يُظهر <span class='highlight'>جميع</span> الطلبة، بمن فيهم ذوو الاحتياجات، تطورًا متميزًا ومستمرًا في أدائهم المهاري والخططي واللياقي.", '2': "يُظهر <span class='highlight'>معظم</span> الطلبة تطورًا جيدًا في أدائهم المهاري والخططي واللياقي.", '3': "يُظهر <span class='highlight'>أغلب</span> الطلبة تطورًا ملائمًا في أدائهم المهاري والخططي.", '4': "يُظهر <span class='highlight'>قليل من</span> الطلبة تطورًا محدودًا في أدائهم المهاري والخططي.", '5': "يُظهر <span class='highlight'>عدد نادر من</span> الطلبة تطورًا محدودًا جدًا أو معدومًا في الأداء." }, '3': { '1': "يوظف <span class='highlight'>جميع</span> الطلبة مهارات القيادة والتعاون والتفكير الخططي بفاعلية متميزة في مواقف اللعب المختلفة.", '2': "يوظف <span class='highlight'>معظم</span> الطلبة مهارات التعاون والتفكير الخططي بصورة جيدة في مواقف اللعب.", '3': "يوظف <span class='highlight'>أغلب</span> الطلبة مهارات التعاون والتفكير الخططي بمستوى ملائم.", '4': "يظهر لدى <span class='highlight'>قليل من</span> الطلبة توظيف محدود لمهارات التعاون والتفكير الخططي.", '5': "يظهر لدى <span class='highlight'>عدد نادر من</span> الطلبة توظيف محدود جدًا لمهارات التعاون والتفكير الخططي." }, '4': { '1': "يلتزم <span class='highlight'>جميع</span> الطلبة بقيم الروح الرياضية والاحترام المتبادل واللعب النظيف بمستوى متميز.", '2': "يلتزم <span class='highlight'>معظم</span> الطلبة بقيم الروح الرياضية والاحترام المتبادل واللعب النظيف.", '3': "يلتزم <span class='highlight'>أغلب</span> الطلبة بقيم الروح الرياضية والاحترام المتبادل.", '4': "يظهر <span class='highlight'>قليل من</span> الطلبة التزامًا محدودًا بقيم الروح الرياضية والاحترام.", '5': "يظهر <span class='highlight'>عدد نادر من</span> الطلبة سلوكيات تتنافى مع قيم الروح الرياضية." }, '5': { '1': "يضمن المعلم سلامة الأدوات والمرافق الرياضية، ويوفر بيئة تعلم آمنة ومحفزة <span class='highlight'>بشكل متميز</span>.", '2': "يحرص المعلم على سلامة الأدوات والمرافق الرياضية، ويوفر بيئة تعلم آمنة <span class='highlight'>بشكل جيد</span>.", '3': "يتابع المعلم سلامة الأدوات والمرافق الرياضية بصورة <span class='highlight'>ملائمة</span>.", '4': "متابعة المعلم لسلامة الأدوات والمرافق الرياضية <span class='highlight'>محدودة</span>.", '5': "إهمال واضح لسلامة الأدوات والمرافق الرياضية مما قد يعرض الطلبة للخطر." }, '6': { '1': "تخطيط: تتوافر خططه الفصلية وسجلاته منظمة بشكل متميز، ويدرج تحضيره اليومي لـ<span class='highlight'>جميع</span> أنشطته العملية في منصة نور، ويتميز تخطيطه بتسلسل وتنوع الأهداف وارتباطه بالخطة الفصلية ومحققًا لنواتج التعلم الحركي بصورة متميزة.", '2': "تخطيط: تتوافر خططه الفصلية وسجلاته منظمة بشكل جيد، ويدرج تحضيره اليومي لـ<span class='highlight'>معظم</span> أنشطته العملية في منصة نور، ويتميز تخطيطه بتسلسل وتنوع الأهداف وارتباطه بالخطة الفصلية ومحققًا لنواتج التعلم الحركي بصورة جيدة.", '3': "تخطيط: تتوافر خططه الفصلية وسجلاته منظمة، ويدرج تحضيره اليومي لـ<span class='highlight'>أغلب</span> أنشطته العملية في منصة نور، ويتميز تخطيطه بالارتباط المناسب بالخطة الفصلية.", '4': "تخطيط: تتوافر خططه الفصلية وسجلاته بشكل جزئي أو غير منظم، ويدرج تحضيره اليومي لـ<span class='highlight'>قليل من</span> أنشطته العملية في منصة نور، ويكون تخطيطه محدود الارتباط بنواتج التعلم الحركي.", '5': "تخطيط: تفتقر خططه الفصلية وسجلاته للتنظيم والتوفر، و<span class='highlight'>نادرًا</span> ما يدرج تحضيره اليومي في منصة نور، كما أن تخطيطه للأنشطة نادر أو غير مرتبط بنواتج التعلم." }, '7': { '1': "يدير المعلم وينظم النشاط البدني <span class='highlight'>بفاعلية متميزة</span>، ويضمن أقصى استغلال لوقت الحصة ومشاركة جميع الطلبة.", '2': "يدير المعلم وينظم النشاط البدني <span class='highlight'>بفاعلية جيدة</span>، مع استثمار جيد لوقت الحصة.", '3': "يدير المعلم وينظم النشاط البدني بصورة <span class='highlight'>ملائمة</span>.", '4': "إدارة المعلم للنشاط البدني <span class='highlight'>محدودة</span>، مع وجود فترات هدر في الوقت.", '5': "ضعف واضح في إدارة وتنظيم النشاط البدني، مما يؤثر سلبًا على تعلم الطلبة." }, '8': { '1': "يوظف استراتيجيات تدريس <span class='highlight'>متنوعة ومبتكرة</span> (كاللعب والأقران) ومناسبة للنشاط البدني، يستفيد منها جميع الطلبة.", '2': "يوظف استراتيجيات تدريس <span class='highlight'>فعالة</span> ومناسبة للنشاط البدني يستفيد منها معظم الطلبة.", '3': "يوظف استراتيجيات تدريس <span class='highlight'>ملائمة</span> للنشاط البدني.", '4': "توظيف المعلم لاستراتيجيات التدريس <span class='highlight'>محدود</span> وغير متنوع.", '5': "يعتمد المعلم على استراتيجية واحدة غير فعالة أو غير مناسبة للنشاط البدني." }, '9': { '1': "أدوات: يفعل ويستخدم المعلم الأدوات الرياضية في الحصة بفاعلية يستفيد منها <span class='highlight'>جميع</span> الطلبة في تعميق تعلمهم المهاري بمستوى متميز.", '2': "أدوات: يفعل ويستخدم المعلم الأدوات الرياضية في الحصة بفاعلية يستفيد منها <span class='highlight'>معظم</span> الطلبة في تعميق تعلمهم المهاري بمستوى جيد.", '3': "أدوات: يفعل ويستخدم المعلم الأدوات الرياضية في الحصة بفاعلية يستفيد منها <span class='highlight'>أغلب</span> الطلبة في تعميق تعلمهم المهاري بمستوى ملائم.", '4': "أدوات: يفعل ويستخدم المعلم الأدوات الرياضية في الحصة بفاعلية محدودة ويستفيد منها <span class='highlight'>قليل من</span> الطلبة.", '5': "أدوات: يفعل ويستخدم المعلم الأدوات الرياضية في الحصة بفاعلية نادرة أو يستفيد منها <span class='highlight'>عدد قليل جدًا</span> من الطلبة." }, '10': { '1': "يوظف أساليب تقويم متنوعة (ملاحظة، تقويم أقران) <span class='highlight'>بفاعلية متميزة</span> لتقويم الأداء الحركي والمهاري وتقديم تغذية راجعة فورية.", '2': "يوظف أساليب تقويم متنوعة <span class='highlight'>بفاعلية جيدة</span> لتقويم الأداء الحركي والمهاري.", '3': "يوظف أساليب تقويم <span class='highlight'>ملائمة</span> لتقويم الأداء الحركي والمهاري.", '4': "توظيف المعلم لأساليب التقويم <span class='highlight'>محدود</span> أو يقتصر على نوع واحد.", '5': "غياب شبه تام لأساليب التقويم المنظمة للأداء الحركي والمهاري." }, '11': { '1': "يتأمل المعلم في ممارساته التدريسية ويوظفها في تطوير أدائه <span class='highlight'>بصورة مستمرة ومتميزة</span>، مما ينعكس إيجابًا على تعلم الطلبة.", '2': "يتأمل المعلم في ممارساته التدريسية ويوظفها في تطوير أدائه <span class='highlight'>بصورة جيدة</span>.", '3': "يتأمل المعلم في ممارساته التدريسية ويوظفها في تطوير أدائه بصورة <span class='highlight'>ملائمة</span>.", '4': "تأمل المعلم في ممارساته التدريسية <span class='highlight'>محدود</span> ونادرًا ما يطور أداءه.", '5': "لا يظهر المعلم أي تأمل في ممارساته التدريسية أو اهتمام بتطوير أدائه." }, '12': { '1': "يلتزم المعلم بأخلاقيات المهنة واللوائح المنظمة للعمل (الأمن والسلامة، الزي الرياضي) <span class='highlight'>بشكل نموذجي ومتميز</span>.", '2': "يلتزم المعلم بأخلاقيات المهنة واللوائح المنظمة للعمل <span class='highlight'>بشكل جيد</span>.", '3': "يلتزم المعلم بأخلاقيات المهنة واللوائح المنظمة للعمل بصورة <span class='highlight'>ملائمة</span>.", '4': "التزام المعلم بأخلاقيات المهنة واللوائح المنظمة للعمل <span class='highlight'>محدود</span>.", '5': "يظهر المعلم عدم التزام واضح بأخلاقيات المهنة واللوائح المنظمة للعمل." }, '13': { '1': "يبادر بتنظيم فعاليات ومسابقات رياضية <span class='highlight'>متميزة وفعالة</span>، ويعزز المشاركة الإيجابية في الأنشطة على مستوى المدرسة والمجتمع.", '2': "يساهم <span class='highlight'>بفاعلية جيدة</span> في تنظيم فعاليات ومسابقات رياضية ويعزز المشاركة فيها.", '3': "يساهم بصورة <span class='highlight'>ملائمة</span> في تنظيم الفعاليات والمسابقات الرياضية.", '4': "مساهمة المعلم في تنظيم الفعاليات والمسابقات الرياضية <span class='highlight'>محدودة</span>.", '5': "<span class='highlight'>نادراً</span> ما يساهم المعلم في تنظيم أي فعاليات أو مسابقات رياضية." } };
-            const instructionalRecommendations = { '1': "احرص على تنويع الأنشطة والتدريبات العملية لضمان إتقان جميع الطلبة للمهارات الحركية المستهدفة وتطبيقها في مواقف لعب حقيقية.", '2': "اعمل على متابعة التقدم الفردي للطلبة في الجوانب المهارية والبدنية، وقدم لهم تحديات مناسبة لمستوياتهم لضمان تطورهم المستمر.", '3': "شجع الطلبة على اتخاذ القرارات التكتيكية أثناء اللعب، وقم بتصميم أنشطة تعزز العمل الجماعي وتوزيع الأدوار القيادية بينهم.", '4': "عزز قيم الروح الرياضية واللعب النظيف من خلال الممارسة العملية، وكن قدوة لهم في احترام المنافسين والزملاء والحكام.", '5': "قم بفحص دوري للملعب والأدوات الرياضية قبل كل درس، وعلم الطلبة قواعد الأمن والسلامة أثناء ممارسة الأنشطة البدنية.", '6': "استمر في التخطيط المنهجي للدروس بما يضمن التدرج في المهارات وتنمية عناصر اللياقة البدنية المرتبطة بالصحة بشكل متوازن.", '7': "وظف استراتيجيات فعالة لإدارة المجموعات وتوزيع الأدوات بسرعة، لزيادة وقت النشاط الفعلي للطلبة خلال الحصة.", '8': "نوّع في استخدام استراتيجيات التدريس كالتعلم باللعب والتدريس بالأقران، لزيادة الدافعية ومراعاة الفروق الفردية بين الطلبة.", '9': "استغل الموارد المتاحة من أدوات ومساحات بشكل إبداعي، وقم بتكييف الأنشطة لتتناسب مع الإمكانيات المتاحة في المدرسة.", '10': "استخدم قوائم الملاحظة وبطاقات تقويم الأداء لتقديم تغذية راجعة بناءة وفورية للطلبة، وساعدهم على تقييم أدائهم وأداء زملائهم.", '11': "استمر في التأمل في ممارساتك بعد كل درس، وابحث عن أفكار جديدة لتطوير أساليبك في تدريس التربية البدنية بما يتناسب مع احتياجات طلبتك.", '12': "التزم دائماً باللوائح الخاصة بالأمن والسلامة في حصص الرياضة المدرسية، وكن نموذجاً في الالتزام بالزي الرياضي والسلوك المهني.", '13': "بادر بتنظيم يوم رياضي أو دوري داخلي بين الفصول، وشجع على تكوين الفرق المدرسية للمشاركة في المسابقات الخارجية." };
+        function PrintSignatureSection() {
+            return <div className="hidden only-print mt-10 pt-10 border-t border-black flex justify-between"><div>المشرف</div><div>المسؤول</div><div>المدير</div></div>;
+        }
 
-            let allReports = [];
+        function AppFooter({ lightMode = false }) {
+            return (
+                <div className={`text-center py-6 mt-4 text-xs no-print ${lightMode ? 'text-emerald-100 opacity-90' : 'text-gray-400'}`}>
+                <div className="flex items-center justify-center gap-1 mb-1 font-bold">
+                    <span>إعداد وتصميم: أ. أسعد الخصيبي</span>
+                </div>
+                <p>مشرف الرياضة المدرسية</p>
+                </div>
+            );
+        }
 
-            function toggleView(viewId) {
-                supervisoryApp.querySelectorAll('#sv-form-view, #sv-dashboard-view, #sv-saved-reports-view').forEach(view => view.classList.remove('active'));
-                supervisoryApp.querySelector(`#${viewId}`).classList.add('active');
-                supervisoryApp.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-                supervisoryApp.querySelector(`.nav-tab[data-view="${viewId}"]`).classList.add('active');
-                if (viewId === 'sv-saved-reports-view') renderSavedReports();
-                else if (viewId === 'sv-dashboard-view') { populateTeacherDashboardDropdown(); updateDashboardView(); }
-            }
-            
-            function updateScore(itemId, score) {
-                const mainScoreDisplay = supervisoryApp.querySelector(`#sv-score-${itemId}`);
-                if (!mainScoreDisplay) return;
-                mainScoreDisplay.textContent = score;
-                updateScoreColor(mainScoreDisplay, score);
-                const ratingContainer = supervisoryApp.querySelector(`#sv-item-${itemId} .rating-selector`);
-                ratingContainer.querySelectorAll('.rating-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.score == score));
-                const notesDiv = supervisoryApp.querySelector(`#sv-notes-${itemId}`);
-                notesDiv.innerHTML = (detailedDescriptions[itemId] && detailedDescriptions[itemId][score]) ? detailedDescriptions[itemId][score] : '';
-            }
-            
-            function updateScoreColor(element, score) {
-                element.style.backgroundColor = '#f0f2f5';
-                element.style.color = '#333';
-                if (score == 1) { element.style.backgroundColor = '#d4edda'; element.style.color = '#155724'; }
-                else if (score == 2) { element.style.backgroundColor = '#cce5ff'; element.style.color = '#004085'; }
-                else if (score == 3) { element.style.backgroundColor = '#fff3cd'; element.style.color = '#856404'; }
-                else if (score == 4) { element.style.backgroundColor = '#f8d7da'; element.style.color = '#721c24'; }
-                else if (score == 5) { element.style.backgroundColor = '#dc3545'; element.style.color = '#fff'; }
-            }
-            
-            function generateEvaluationForm() {
-                const formContainer = supervisoryApp.querySelector('#sv-evaluationForm');
-                formContainer.innerHTML = '';
-                let currentDomain = '';
-                let detailsElement;
-                evaluationItems.forEach(item => {
-                    if (item.domain !== currentDomain) {
-                        currentDomain = item.domain;
-                        detailsElement = document.createElement('details');
-                        detailsElement.open = true;
-                        const summary = document.createElement('summary');
-                        summary.textContent = currentDomain;
-                        detailsElement.appendChild(summary);
-                        formContainer.appendChild(detailsElement);
-                    }
-                    detailsElement.innerHTML += `
-                        <div class="item-card" id="sv-item-${item.id}">
-                            <div class="item-header">
-                                <h4>${item.id}. ${item.title} <br><small>${item.desc}</small></h4>
-                                <div class="score" id="sv-score-${item.id}">3</div>
-                            </div>
-                            <div class="rating-selector">
-                               <button type="button" class="rating-btn score-1" data-score="1">متميز</button>
-                               <button type="button" class="rating-btn score-2" data-score="2">جيد</button>
-                               <button type="button" class="rating-btn score-3 active" data-score="3">ملائم</button>
-                               <button type="button" class="rating-btn score-4" data-score="4">غير ملائم</button>
-                               <button type="button" class="rating-btn score-5" data-score="5">تدخل سريع</button>
-                            </div>
-                            <div class="notes-wrapper">
-                                <div id="sv-notes-${item.id}" class="item-notes" contenteditable="true"></div>
-                                ${recognition ? `<button type="button" class="mic-btn">🎤</button>` : ''}
-                            </div>
-                        </div>`;
-                });
-                evaluationItems.forEach(item => updateScore(item.id, 3));
-            }
-            
-            function getSchoolName() { return supervisoryApp.querySelector('#sv-school').value === 'other' ? supervisoryApp.querySelector('#sv-school-other').value.trim() : supervisoryApp.querySelector('#sv-school').value; }
-            function getTeacherName() { return supervisoryApp.querySelector('#sv-teacherName').value === 'other' ? supervisoryApp.querySelector('#sv-teacherName-other').value.trim() : supervisoryApp.querySelector('#sv-teacherName').value; }
-            function populateDropdown(selectElement, dataArray, placeholderText) { selectElement.innerHTML = `<option value="">${placeholderText}</option>`; dataArray.forEach(item => { const option = document.createElement('option'); option.value = item; option.textContent = item; selectElement.appendChild(option); }); selectElement.innerHTML += `<option value="other">أخرى...</option>`; }
-            function handleOtherOption(selectElement, otherInputElement) { otherInputElement.style.display = (selectElement.value === 'other') ? 'block' : 'none'; if (selectElement.value !== 'other') otherInputElement.value = ''; }
-            function populateTeacherDropdown(schoolName) { populateDropdown(supervisoryApp.querySelector('#sv-teacherName'), teachersBySchool[schoolName] || [], 'اختر المعلم...'); }
+        function ChangePasswordModal({ isOpen, onClose, onSave, title }) {
+            const [currentPass, setCurrentPass] = useState('');
+            const [newPass, setNewPass] = useState('');
+            const [confirmPass, setConfirmPass] = useState('');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
 
-            function prepareOfficialPrint() {
-                const printTbody = supervisoryApp.querySelector('#sv-print-main-tbody');
-                printTbody.innerHTML = '';
-                ['school', 'teacherName', 'fileNumber', 'subject', 'visitNumber', 'visitDate', 'class', 'lesson', 'topic', 'visitorName', 'visitorPosition'].forEach(id => {
-                    supervisoryApp.querySelector(`#sv-print-${id}`).textContent = (id === 'school') ? getSchoolName() : (id === 'teacherName') ? getTeacherName() : supervisoryApp.querySelector(`#sv-${id}`).value;
-                });
-                ['strengthsContent', 'developmentContent', 'recommendationsContent'].forEach(id => { supervisoryApp.querySelector(`#sv-print-${id}`).innerText = supervisoryApp.querySelector(`#sv-${id}`).value; });
-                const groupedItems = evaluationItems.reduce((acc, item) => { acc[item.domain] = acc[item.domain] || {}; (acc[item.domain][item.standard] = acc[item.domain][item.standard] || []).push(item); return acc; }, {});
-                for (const domain in groupedItems) {
-                    const standards = groupedItems[domain];
-                    const domainItemCount = Object.values(standards).flat().length;
-                    let isFirstRowOfDomain = true;
-                    for (const standard in standards) {
-                        const items = standards[standard];
-                        const standardItemCount = items.length;
-                        items.forEach((item, itemIndex) => {
-                            const row = document.createElement('tr');
-                            const score = supervisoryApp.querySelector(`#sv-score-${item.id}`).textContent;
-                            let domainCell = (isFirstRowOfDomain && itemIndex === 0) ? `<td rowspan="${domainItemCount}" class="category-cell">${domain}</td>` : '';
-                            let standardCell = (itemIndex === 0) ? `<td rowspan="${standardItemCount}" class="category-cell">${standard}</td>` : '';
-                            row.innerHTML = `${domainCell}${standardCell}<td>${item.id}</td><td class="item-cell">${item.title}</td><td>${score}</td>`;
-                            printTbody.appendChild(row);
-                        });
-                        isFirstRowOfDomain = false;
-                    }
-                }
-            }
+            if (!isOpen) return null;
 
-            function printOfficialReport() { prepareOfficialPrint(); window.print(); }
-            
-            function exportToWord() {
-                prepareOfficialPrint();
-                const fileName = `${supervisoryApp.querySelector('#sv-visitNumber').value.trim() || 'زيارة'} - ${getSchoolName() || 'مدرسة'} - ${getTeacherName() || 'معلم'}.docx`;
-                const printStyles = ` body { font-family: 'Times New Roman', Times, serif; direction: rtl; } .print-view { display: block !important; } .print-logo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 10px; } .print-logo-header img { max-height: 70px; } .print-header-text, .print-title { text-align: center; font-weight: bold; margin-bottom: 15px; } .print-main-table, .print-info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; } .print-main-table th, .print-main-table td, .print-info-table td { border: 1px solid #000; padding: 5px; text-align: center; vertical-align: middle; } .print-main-table th { background-color: #f2f2f2 !important; } .print-info-table .label { font-weight: bold; background-color: #f2f2f2 !important; width: 15%; } .item-cell { text-align: right !important; } .category-cell { font-weight: bold; } .report-section-print { margin-top: 20px; border: 2px solid #000; padding: 10px; page-break-inside: avoid; } .report-section-print h3 { margin: 0 0 10px 0; font-size: 1.2rem; background-color: #f2f2f2 !important; padding: 5px; text-align: center; border-bottom: 1px solid #000; } .print-report-box { white-space: pre-wrap; text-align: right; min-height: 80px; } .signature-section { margin-top: 40px; page-break-inside: avoid; } .evaluation-standard { text-align: center; font-size: 0.9em; margin-top: 20px; border-top: 1px solid #000; padding-top: 5px;} `;
-                const content = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><style>${printStyles}</style></head><body>${supervisoryApp.querySelector("#sv-printView").innerHTML}</body></html>`;
-                const converted = htmlDocx.asBlob(content, { orientation: 'portrait', margins: { top: 720, right: 720, bottom: 720, left: 720 } });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(converted);
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-            
-            function generateReport() {
-                let itemsByScore = { 1: [], 2: [], 3: [], 4: [], 5: [] };
-                evaluationItems.forEach(item => {
-                    const score = parseInt(supervisoryApp.querySelector(`#sv-score-${item.id}`).textContent);
-                    itemsByScore[score].push({ id: item.id, title: item.title, standard: item.standard, notes: supervisoryApp.querySelector(`#sv-notes-${item.id}`).innerHTML });
-                });
+            const handleSubmit = async () => {
+                setError('');
+                if (!currentPass || !newPass || !confirmPass) return setError('جميع الحقول مطلوبة');
+                if (newPass !== confirmPass) return setError('كلمة المرور الجديدة غير متطابقة');
+                if (newPass.length < 4) return setError('كلمة المرور يجب أن تكون 4 أحرف على الأقل');
 
-                const strengths = [...itemsByScore[1], ...itemsByScore[2]].slice(0, 4);
-                const developments = [...itemsByScore[5], ...itemsByScore[4]].slice(0, 4);
-                
-                let recommendationsList = [...developments];
-                const extraRecs = itemsByScore[3].sort(() => 0.5 - Math.random()).slice(0, 2);
-                extraRecs.forEach(rec => { if (!recommendationsList.find(item => item.id === rec.id)) recommendationsList.push(rec); });
+                setLoading(true);
+                try {
+                await onSave(currentPass, newPass);
+                onClose();
+                alert('تم تغيير كلمة المرور بنجاح');
+                } catch (e) {
+                setError(e.message || 'حدث خطأ أثناء التغيير');
+                } finally {
+                setLoading(false);
+                }
+            };
 
-                supervisoryApp.querySelector('#sv-strengthsContent').value = strengths.map(s => `${s.standard}: ${s.notes.replace(/<[^>]*>?/gm, '')}`).join('\n\n');
-                supervisoryApp.querySelector('#sv-developmentContent').value = developments.map(d => `${d.standard}: ${d.notes.replace(/<[^>]*>?/gm, '')}`).join('\n\n');
-                let recommendationsText = "نوصي المعلم بالآتي:\n\n";
-                recommendationsList.forEach(rec => { if (instructionalRecommendations[rec.id]) recommendationsText += `• ${rec.standard} - ${rec.title}: ${instructionalRecommendations[rec.id]}\n\n`; });
-                supervisoryApp.querySelector('#sv-recommendationsContent').value = recommendationsText + "والله ولي التوفيق.";
+            return (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+                    <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
+                    <h3 className="font-bold flex items-center gap-2"><KeyRound size={20}/> {title || 'تغيير كلمة المرور'}</h3>
+                    <button onClick={onClose}><X size={20}/></button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                    {error && <div className="bg-red-50 text-red-600 p-3 rounded text-sm text-center">{error}</div>}
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور الحالية</label>
+                        <input type="password" value={currentPass} onChange={e=>setCurrentPass(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور الجديدة</label>
+                        <input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">تأكيد كلمة المرور الجديدة</label>
+                        <input type="password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
 
-                supervisoryApp.querySelector('#sv-reportSection').style.display = 'block';
-                supervisoryApp.querySelector('#sv-reportSection').scrollIntoView({ behavior: 'smooth' });
-            }
-            
-            function startDictation(textareaId, button) {
-                if (!recognition) { displayStatusMessage('عذراً، متصفحك لا يدعم خاصية الإملاء الصوتي.', 'red'); return; }
-                button.classList.add('recording'); button.textContent = '🔴';
-                recognition.start();
-                recognition.onresult = (event) => { supervisoryApp.querySelector(`#${textareaId}`).innerHTML += (supervisoryApp.querySelector(`#${textareaId}`).textContent.length > 0 ? ' ' : '') + event.results[0][0].transcript; };
-                recognition.onspeechend = () => recognition.stop();
-                recognition.onerror = (event) => console.error('Speech recognition error:', event.error);
-                recognition.onend = () => { button.classList.remove('recording'); button.textContent = '🎤'; };
-            }
+                    <div className="flex justify-end gap-3 mt-6">
+                        <button onClick={onClose} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">إلغاء</button>
+                        <button onClick={handleSubmit} disabled={loading} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                        {loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                        </button>
+                    </div>
+                    </div>
+                </div>
+                </div>
+            );
+        }
 
-            function copyReportContent(textareaId, buttonElement) {
-                const textareaToCopy = supervisoryApp.querySelector(`#${textareaId}`);
-                if (!textareaToCopy || !textareaToCopy.value) { displayStatusMessage('لا يوجد محتوى لنسخه.', 'orange'); return; }
-                const tempTextarea = document.createElement('textarea');
-                tempTextarea.value = textareaToCopy.value;
-                tempTextarea.style.position = 'absolute'; tempTextarea.style.left = '-9999px';
-                document.body.appendChild(tempTextarea);
-                tempTextarea.select();
-                try {
-                    const successful = document.execCommand('copy');
-                    if (successful) {
-                        const originalText = buttonElement.textContent;
-                        buttonElement.textContent = 'تم النسخ!';
-                        buttonElement.style.backgroundColor = 'var(--success-color)';
-                        displayStatusMessage(`تم نسخ المحتوى بنجاح.`, 'green');
-                        setTimeout(() => { buttonElement.textContent = originalText; buttonElement.style.backgroundColor = 'var(--dark-gray)'; }, 2000);
-                    } else { displayStatusMessage('فشل النسخ.', 'red'); }
-                } catch (err) { console.error('Failed to copy: ', err); displayStatusMessage('فشل النسخ.', 'red'); }
-                document.body.removeChild(tempTextarea);
-            }
+        function LoginScreen({ onLogin, user }) { // Receive user prop
+            const [name, setName] = useState('');
+            const [jobId, setJobId] = useState('');
+            const [password, setPassword] = useState('');
+            const [adminCode, setAdminCode] = useState('');
+            const [mode, setMode] = useState('supervisor'); 
+            const [msg, setMsg] = useState('');
+            const [supervisorsList, setSupervisorsList] = useState([]);
+            const [isLoadingData, setIsLoadingData] = useState(true);
 
-            function showConfirmationModal(title, message, onConfirm) {
-                supervisoryApp.querySelector('#supervisory-modal-title').textContent = title;
-                supervisoryApp.querySelector('#supervisory-modal-message').textContent = message;
-                const modal = supervisoryApp.querySelector('#supervisoryConfirmationModal');
-                modal.style.display = 'flex';
-                const confirmBtn = supervisoryApp.querySelector('#supervisory-modal-confirm-btn');
-                const cancelBtn = supervisoryApp.querySelector('#supervisory-modal-cancel-btn');
-                const confirmHandler = () => { onConfirm(); hideConfirmationModal(); };
-                confirmBtn.onclick = confirmHandler;
-                cancelBtn.onclick = hideConfirmationModal;
-            }
+            useEffect(() => {
+                if (!db || !user) return; // Guard against missing auth
+                const checkAndInitData = async () => {
+                    try {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'supervisors');
+                        const docSnap = await getDoc(docRef);
+                        if (!docSnap.exists()) await setDoc(docRef, { list: INITIAL_SUPERVISORS });
+                    } catch (e) { console.error(e); }
+                };
+                checkAndInitData();
+                const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'supervisors'), (doc) => {
+                    if (doc.exists() && doc.data().list) setSupervisorsList(doc.data().list);
+                    else setSupervisorsList(INITIAL_SUPERVISORS);
+                    setIsLoadingData(false);
+                });
+                return () => unsub();
+            }, [user]); // Add user to dependencies
 
-            function hideConfirmationModal() { supervisoryApp.querySelector('#supervisoryConfirmationModal').style.display = 'none'; }
-            function showResetConfirmation() { showConfirmationModal('تأكيد إعادة التعيين', 'هل أنت متأكد؟ سيتم فقدان جميع البيانات المدخلة.', performReset); }
-            function performReset() { clearForm(); displayStatusMessage('تم مسح النموذج الحالي بنجاح.', 'green'); }
-            
-            function clearForm() {
-                supervisoryApp.querySelector('#sv-evaluationForm').reset();
-                const schoolSelect = supervisoryApp.querySelector('#sv-school');
-                schoolSelect.selectedIndex = 0;
-                schoolSelect.dispatchEvent(new Event('change'));
-                supervisoryApp.querySelector('#sv-teacherName').innerHTML = '<option value="">اختر المعلم...</option>';
-                supervisoryApp.querySelectorAll('.info-grid input, .report-content-area').forEach(input => { if (input.id !== 'sv-visitorName' && input.id !== 'sv-visitorPosition') input.value = ''; });
-                supervisoryApp.querySelector('#sv-subject').value = 'الرياضة المدرسية';
-                supervisoryApp.querySelector('#sv-visitDate').value = new Date().toISOString().split('T')[0];
-                evaluationItems.forEach(item => updateScore(item.id, 3));
-                supervisoryApp.querySelector('#sv-reportSection').style.display = 'none';
-            }
+            const handleSupervisorChange = (e) => {
+                const selectedName = e.target.value;
+                setName(selectedName);
+                const supervisor = supervisorsList.find(s => s.name === selectedName);
+                if (supervisor) setJobId(supervisor.id); else setJobId('');
+            };
 
-            function displayStatusMessage(message, color) {
-                const statusElement = supervisoryApp.querySelector('#sv-status-message');
-                statusElement.textContent = message;
-                statusElement.style.color = color;
-                statusElement.style.opacity = 1;
-                setTimeout(() => { statusElement.style.opacity = 0; }, 3000);
-            }
-            
-            async function savePermanentReport() {
-                // Firestore save logic for supervisory reports
-            }
+            const handleSupervisorLogin = () => {
+                if (!name || !jobId) return setMsg('⚠️ يرجى اختيار اسم المشرف');
+                if (!password) return setMsg('⚠️ يرجى إدخال كلمة المرور');
+                const supervisor = supervisorsList.find(s => s.id === jobId);
+                if (supervisor && supervisor.password === password) onLogin('supervisor', { name, jobId });
+                else setMsg('❌ كلمة المرور غير صحيحة');
+            };
 
-            function loadPermanentReport(reportId) {
-                // Firestore load logic for supervisory reports
-            }
+            const handleAdminLogin = async () => {
+                if (!adminCode) return setMsg('⚠️ أدخل الرمز');
+                try {
+                    const settingsSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'settings'));
+                    const realAdminPass = settingsSnap.exists() && settingsSnap.data().adminPassword ? settingsSnap.data().adminPassword : '1234';
+                    if (adminCode === realAdminPass) onLogin('admin');
+                    else setMsg('⚠️ رمز المسؤول غير صحيح');
+                } catch (e) {
+                    if (adminCode === '1234') onLogin('admin'); else setMsg('حدث خطأ في الاتصال');
+                }
+            };
 
-            function deletePermanentReport(reportId) {
-                 // Firestore delete logic for supervisory reports
-            }
+            if (isLoadingData) return <div className="h-screen flex justify-center items-center text-emerald-600 font-bold">جاري تحميل البيانات...</div>;
 
-            function saveVisitorData() { /* ... save to firestore ... */ }
-            function loadVisitorData() { /* ... load from firestore ... */ }
-            function saveTemplate() { /* ... save to firestore ... */ }
-            function loadTemplate() { /* ... load from firestore ... */ }
-            function populateTemplateDropdown() { /* ... load from firestore ... */ }
-            
-            function renderSavedReports() {
-                 // ... render from firestore data ...
-            }
+            return (
+                <div className="min-h-screen bg-emerald-600 flex flex-col items-center justify-center p-4" dir="rtl">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+                    <div className="text-center mb-6">
+                    <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Calendar className="w-8 h-8 text-emerald-600" /></div>
+                    <h1 className="text-2xl font-bold text-gray-800">خطة سير المشرفين</h1>
+                    </div>
+                    <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
+                    <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${mode==='supervisor'?'bg-white shadow text-emerald-600':'text-gray-500'}`} onClick={() => {setMode('supervisor'); setMsg('')}}>دخول المشرف</button>
+                    <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${mode==='admin'?'bg-white shadow text-emerald-600':'text-gray-500'}`} onClick={() => {setMode('admin'); setMsg('')}}>دخول مسؤول النظام</button>
+                    </div>
+                    {msg && <div className="mb-4 text-center text-sm text-red-500 bg-red-50 p-2 rounded animate-pulse">{msg}</div>}
+                    
+                    {mode === 'supervisor' ? (
+                    <div className="space-y-4">
+                        <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">اسم المشرف *</label>
+                        <select value={name} onChange={handleSupervisorChange} className="w-full px-4 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="">-- اختر الاسم --</option>
+                            {supervisorsList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        </select>
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="w-1/3">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">الرقم</label>
+                                <input type="text" value={jobId} readOnly className="w-full px-4 py-2 border rounded-lg bg-gray-100 text-gray-500 text-center" />
+                            </div>
+                            <div className="w-2/3">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور *</label>
+                                <div className="relative">
+                                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="****" />
+                                    <KeyRound className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={handleSupervisorLogin} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition shadow-lg">دخول</button>
+                    </div>
+                    ) : (
+                    <div className="space-y-4">
+                        <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">رمز المسؤول</label>
+                        <input type="password" value={adminCode} onChange={e=>setAdminCode(e.target.value)} className="w-full px-4 py-2 border rounded-lg" placeholder="أدخل الرمز" />
+                        </div>
+                        <button onClick={handleAdminLogin} className="w-full bg-gray-800 text-white font-bold py-3 rounded-lg shadow-lg">دخول</button>
+                    </div>
+                    )}
+                </div>
+                <AppFooter lightMode={true} />
+                </div>
+            );
+        }
 
-            function populateTeacherDashboardDropdown() {
-                // ... populate from firestore data ...
-            }
+        function SupervisorDashboard({ user, supervisorData, onLogout }) {
+            const [settings, setSettings] = useState({ isOpen: false });
+            const [mandatoryEvents, setMandatoryEvents] = useState({});
+            const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+            const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+            const [planData, setPlanData] = useState({});
+            const [historyVisits, setHistoryVisits] = useState({}); 
+            const [isSaving, setIsSaving] = useState(false);
+            const [statusMsg, setStatusMsg] = useState('');
+            const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-            function updateDashboardView() {
-                // ... update from firestore data ...
-            }
-            
-            // --- EVENT LISTENERS ---
-            supervisoryApp.querySelectorAll('.nav-tab').forEach(tab => tab.addEventListener('click', () => toggleView(tab.dataset.view)));
-            supervisoryApp.querySelector('#sv-evaluationForm').addEventListener('click', e => {
-                if (e.target.matches('.rating-btn')) updateScore(e.target.closest('.item-card').id.split('-')[2], e.target.dataset.score);
-                if (e.target.matches('.mic-btn')) startDictation(e.target.previousElementSibling.id, e.target);
-            });
-            supervisoryApp.querySelector('#sv-school').addEventListener('change', e => { handleOtherOption(e.target, supervisoryApp.querySelector('#sv-school-other')); populateTeacherDropdown(e.target.value); });
-            supervisoryApp.querySelector('#sv-teacherName').addEventListener('change', e => handleOtherOption(e.target, supervisoryApp.querySelector('#sv-teacherName-other')));
-            ['sv-visitorName', 'sv-visitorPosition'].forEach(id => supervisoryApp.querySelector(`#${id}`).addEventListener('input', saveVisitorData));
-            ['sv-loadTemplateBtn', 'sv-saveTemplateBtn', 'sv-savePermanentReportBtn', 'sv-generateReportBtn', 'sv-printOfficialReportBtn', 'sv-exportToWordBtn', 'sv-showResetConfirmationBtn', 'sv-updateDashboardViewBtn'].forEach(id => {
-                const btn = supervisoryApp.querySelector(`#${id}`);
-                if(btn) btn.addEventListener('click', { 'sv-loadTemplate': loadTemplate, 'sv-saveTemplate': saveTemplate, 'sv-savePermanentReport': savePermanentReport, 'sv-generateReport': generateReport, 'sv-printOfficialReport': printOfficialReport, 'sv-exportToWord': exportToWord, 'sv-showResetConfirmation': showResetConfirmation, 'sv-updateDashboardView': updateDashboardView }[id.replace('Btn', '')]);
-            });
-            ['sv-teacher-dashboard-select', 'sv-chartTypeSelect', 'sv-visitDateSelect'].forEach(id => {
-                const el = supervisoryApp.querySelector(`#${id}`);
-                if (el) el.addEventListener('change', updateDashboardView)
-            });
-            supervisoryApp.querySelector('#sv-filter-reports-input').addEventListener('input', renderSavedReports);
-            supervisoryApp.querySelector('#sv-reportSection').addEventListener('click', e => { if(e.target.matches('.copy-btn')) copyReportContent(e.target.dataset.target, e.target); });
-            supervisoryApp.querySelector('#sv-saved-reports-list').addEventListener('click', e => {
-                if (e.target.matches('.load-btn')) loadPermanentReport(e.target.dataset.key);
-                if (e.target.matches('.delete-btn')) deletePermanentReport(e.target.dataset.key);
-            });
+            useEffect(() => {
+                if (!db || !user) return; // Guard
+                const unsub1 = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'settings'), s=>s.exists()&&setSettings(s.data()));
+                const unsub2 = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'mandatory_events'), s=>s.exists()&&setMandatoryEvents(s.data()));
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.PLANS));
+                const unsub3 = onSnapshot(q, (snapshot) => {
+                    const history = {};
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        if (data.supervisorId === supervisorData.jobId && (data.month !== currentMonth || data.year !== currentYear)) {
+                            if (data.visits) {
+                                Object.entries(data.visits).forEach(([key, task]) => {
+                                    if (!history[key]) history[key] = [];
+                                    history[key].push({ task, month: data.month, year: data.year });
+                                });
+                            }
+                        }
+                    });
+                    setHistoryVisits(history);
+                });
+                return () => { unsub1(); unsub2(); unsub3(); };
+            }, [supervisorData.jobId, currentMonth, currentYear, user]); 
 
-            // --- INITIALIZATION ---
-            generateEvaluationForm();
-            populateDropdown(supervisoryApp.querySelector('#sv-school'), schoolsList.sort((a, b) => a.localeCompare(b, 'ar')), 'اختر المدرسة...');
-            // loadVisitorData();
-            // populateTemplateDropdown();
-            supervisoryApp.querySelector('#sv-visitDate').value = new Date().toISOString().split('T')[0];
-            toggleView('sv-form-view');
-        }
+            useEffect(() => {
+                if (!user || !db) return; // Guard
+                const planId = `${supervisorData.jobId}_${currentYear}_${currentMonth}`;
+                return onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.PLANS, `plan_${planId}`), s => {
+                    setPlanData(s.exists() ? s.data().visits || {} : {});
+                });
+            }, [supervisorData.jobId, currentMonth, currentYear, user]);
 
+            const workingDays = useMemo(() => getWorkingDaysInMonth(currentYear, currentMonth), [currentYear, currentMonth]);
 
-        // --- SCHOOL VISITS APP CODE ---
-        function initializeSchoolApp(db, auth) {
-            let userId, unsubscribeReports = null, unsubscribeVisitTypes = null, confirmationCallback = null;
-            let visitTypesData = {}, savedReports = [], currentAttachments = [], currentVisitTypeKey = '', previewSource = 'form';
-            const defaultVisitTypesData = { 'custom_exploratory': { name: 'زيارة استطلاعية', objectives_list: ["مقابلة مديرة المدرسة معلمةالرياضة المدرسية.", "حضور الطابور المدرسي.", "تحديث قاعدة بيانات المعلمة.", "متابعة موافقات التعيين.", "متابعة توفر الأدلة وكتاب الطالب وتحديثها.", "متابعة توزيع الجدول ونصاب الحصص للمعلمة.", "متابعة الملاعب وتخطيطها والأدوات الرياضية.", "متابعة النشرات ووثائق التقويم ومناقشة مستجداتها.", "متابعة المنهاج وسجلات المعلمة.", "حضور حصة للمعلمة والمداولة الاشرافية."], completedOpinions: ["تم مقابلة الفاضلة مديرة المدرسة ومعلمة الرياضة المدرسية.", "تم حضور الطابور المدرسي وكان الهتاف بصوت عالي والانصراف منظم ومراسم رفع العلم صحيحة.", "تم تحديث قاعدة بيانات المعلمة عبر الرابط.", "تم متابعة موافقات التعيين والمعلمة على اقامة المدرسة.", "تم متابعة توفر الأدلة وتحديثها وكانت محدثة.", "تم متابعة توزيع الجدول المدرسي وكان متوافقًا مع الأنظمة.", "تم متابعة الملاعب وتخطيطها والأدوات الرياضية وكانت متوفرة.", "تم متابعة النشرات ووثائق التقويم ومناقشة مستجداتها.", "تم متابعة المنهاج وسجلات المعلمة وكانت مكتملة وتم اعتماد خطط المعلمة الفصلية.", "تم حضور موقف صفي للمعلمة وكان الأداء جيد جدا."], incompleteOpinions: ["تم مقابلة الفاضلة مديرة المدرسة وبغياب معلمة الرياضة المدرسية.", "تم حضور الطابور المدرسي وكان الهتاف بصوت منخفض والانصراف غير منظم وتلاحظ اخطاء في مراسم رفع العلم وتم توجيه المعلم المسؤول عن الكشافة بتدريب الكشافة على المراسم الصحيحة.", "قاعدة بيانات المعلمة بحاجة إلى تحديث، وتم التنبيه على ضرورة استكمالها عبر الرابط.", "", "تم متابعة توفر الأدلة وتحديثها وكانت محدثة بصيغة (PDF).", "تم متابعة توزيع الجدول المدرسي وتلاحظ وجود حصص موزعة في الجدول السابعة والثامنة وكذلك تفريغ المعلمة يوم الثلاثاء بدون عذر مقبول وتم توجيه ادارة المدرسة بتعديل ذلك والابتعاد عن الحصص الأخيرة.", "تم متابعة الملاعب وتخطيطها والأدوات الرياضية وتلاحظ عدم وجود أدوات رياضية في المدرسة وتم توجيه إدارة المدرسة بتوفير الأدوات وتجديد تخطيط الملعب.", "تم متابعة النشرات ووثائق التقويم ومناقشة مستجداتها ولوحظ عدم وصول النشرات الى المعلمين وتم ارسال النشرات والوثائق مرة اخرى الى المعلمين عبر الوتساب.", "تم متابعة المنهاج وسجلات المعلمة وكانت غير مكتملة، وتم توجيه المعلمة لاستكمالها.", "تعذر حضور حصة مع المعلمة."], recommendations: ["متابعة التزام الهيئة التدريسية بالحضور.", "متابعة تدريب الكشافة على مراسم رفع العلم الصحيحة وتحسين تنظيم انصراف الطلبة.", "التأكيد على تحديث قاعدة بيانات المعلمة بشكل دوري.", "ضرورة الإسراع في استكمال موافقات التعيين الرسمية.", "التواصل مع الجهات المعنية لتوفير الكتب المدرسية الناقصة.", "تغيير جدول المعلمة ليكون لديها حصة رياضة كل يوم، وتوزيع الحصص بحيث يتم الابتعاد عن الحصص السابعة والثامنة.", "توفير الأدوات الرياضية حسب الكشف المرفق ونخص بالذكر (جهاز الوثب العالي مع المرتبة الخاصة به، الصندوق المقسم، المقعد السويدي، مرمى لكرة اليد عدد (2)، قوائم للسلة عدد (2)، شبك لكرة الطائرة) بالإضافة لباقي الأدوات في الكشف، وتجديد تخطيط الملعب.", "التأكيد على وصول جميع النشرات والوثائق للمعلمين وتوثيق استلامهم لها.", "متابعة استكمال سجلات المعلمة (التحضير+الزي والملاحظة+الخطة).", "التنسيق المسبق مع المعلمة لحضور حصة دراسية."] }, 'supervisory_october': { name: 'زيارة اشرافية (أكتوبر)', objectives_list: ["الالتقاء بالفاضلة مديرة المدرسة ومعلمةالرياضة المدرسية.", "حضور الطابور المدرسي.", "متابعة تنفيذ خطة المنهاج والاطلاع على سجلات المتابعة (الزي والمشاركة).", "حضور موقف صفي مع المعلمة والمداولة الاشرافية.", "شرح اليه تنفيذ الحصة كتطبيقات تنافسية.", "حث المعلمة على الاطلاع على زياراته الاشرافية والحرص على الالتزام بتنفيذ النشرات الخاصة بالمادة.", "متابعة تنفيذ التوصيات السابقة."], completedOpinions: ["تم الالتقاء بالفاضلة مديرة المدرسة ومعلمة الرياضة المدرسية.", "تم حضور الطابور المدرسي وكان منظماً.", "تم متابعة تنفيذ خطة المنهاج وسجلات المتابعة وكانت مكتملة.", "تم حضور موقف صفي مع المعلمة وكانت المداولة مثمرة.", "تم شرح اليه تنفيذ الحصة كتطبيقات تنافسية.", "تم حث المعلمة على الاطلاع على الزيارات الاشرافية والالتزام بالنشرات.", "تمت متابعة تنفيذ التوصيات السابقة وكانت مكتملة."], incompleteOpinions: ["تم الالتقاء بالفاضلة مديرة المدرسة وبغياب معلمة الرياضة المدرسية.", "لوحظ وجود بعض الملاحظات في تنظيم الطابور المدرسي.", "سجلات المتابعة (الزي والمشاركة) غير مكتملة، وتم توجيه المعلمة لاستكمالها.", "تعذر حضور موقف صفي مع المعلمة.", "لوحظ ضعف في تطبيق الحصة كتطبيقات تنافسية، وتم إعادة شرح الآلية للمعلمة.", "لوحظ عدم اطلاع المعلمة على الزيارات السابقة، وتم التأكيد عليها بضرورة المتابعة.", "بعض التوصيات السابقة لم يتم تنفيذها، وتم مناقشة الأسباب مع المعلمة والإدارة."], recommendations: ["متابعة التزام الهيئة التدريسية بالحضور.", "تحسين تنظيم الطابور الصباحي.", "ضرورة استكمال سجلات المتابعة (الزي والمشاركة) بشكل دوري.", "التنسيق المسبق لحضور موقف صفي.", "التأكيد على تنفيذ الحصص كتطبيقات تنافسية لزيادة تفاعل الطلبة.", "حث المعلمة على المتابعة الدورية للزيارات الإشرافية والنشرات.", "متابعة تنفيذ التوصيات السابقة وتقديم الدعم اللازم."] } };
+            const handleInputChange = (key, value) => {
+                if (!settings.isOpen) return;
+                setPlanData(prev => ({ ...prev, [key]: value }));
+            };
 
-            const schoolDashboardView = schoolApp.querySelector('#schoolDashboardView');
-            const schoolFormView = schoolApp.querySelector('#schoolFormView');
-            const reportPreviewContainer = schoolApp.querySelector('#reportPreviewContainer');
-            const userEmailDisplay = schoolApp.querySelector('#userEmailDisplay');
-            const reportForm = schoolApp.querySelector('#reportForm');
-            const reportIdInput = schoolApp.querySelector('#reportId');
-            const formTitle = schoolApp.querySelector('#formTitle');
-            const schoolNameSelect = schoolApp.querySelector('#schoolName');
-            const visitTypeSelect = schoolApp.querySelector('#visitTypeSelect');
-            const objectivesContainer = schoolApp.querySelector('#objectivesContainer');
-            const opinionsContainer = schoolApp.querySelector('#opinionsContainer');
-            const recommendationsTextarea = schoolApp.querySelector('#recommendations');
-            const attachmentsInput = schoolApp.querySelector('#attachmentsInput');
-            const attachmentsList = schoolApp.querySelector('#attachmentsList');
-            const addNewReportBtn = schoolApp.querySelector('#addNewReportBtn');
-            const backToDashboardBtn = schoolApp.querySelector('#backToDashboardBtn');
-            const prepareReportBtn = schoolApp.querySelector('#prepareReportBtn');
-            const backToBtn = schoolApp.querySelector('#backToBtn');
-            const selectAllObjectivesBtn = schoolApp.querySelector('#selectAllObjectivesBtn');
-            const copyAllBtn = schoolApp.querySelector('#copyAllBtn');
-            const generateRecsBtn = schoolApp.querySelector('#generate-recommendations-btn');
-            const reportsListContainer = schoolApp.querySelector('#reportsListContainer');
-            const manageVisitTypesBtn = schoolApp.querySelector('#manageVisitTypesBtn');
-            const manageTypesModal = schoolApp.querySelector('#manageTypesModal');
-            const closeManageModalBtn = schoolApp.querySelector('#closeManageModalBtn');
-            const visitTypesList = schoolApp.querySelector('#visitTypesList');
-            const addNewTypeBtn = schoolApp.querySelector('#addNewTypeBtn');
-            const addEditTypeModal = schoolApp.querySelector('#addEditTypeModal');
-            const addEditModalTitle = schoolApp.querySelector('#addEditModalTitle');
-            const addEditTypeForm = schoolApp.querySelector('#addEditTypeForm');
-            const editTypeKeyInput = schoolApp.querySelector('#editTypeKey');
-            const typeNameInput = schoolApp.querySelector('#typeName');
-            const typeObjectivesTextarea = schoolApp.querySelector('#typeObjectives');
-            const cancelEditBtn = schoolApp.querySelector('#cancelEditBtn');
-            const confirmationModal = schoolApp.querySelector('#confirmationModal');
-            const confirmationModalMessage = schoolApp.querySelector('#confirmationModalMessage');
-            const confirmActionBtn = schoolApp.querySelector('#confirmActionBtn');
-            const cancelActionBtn = schoolApp.querySelector('#cancelActionBtn');
-            
-            userId = auth.currentUser.uid;
-            userEmailDisplay.textContent = auth.currentUser.isAnonymous ? `معرف المستخدم: ${userId}` : auth.currentUser.email;
-            setupFirestoreListeners(userId);
-            showDashboardView(); 
+            const handlePrint = () => {
+                const originalTitle = document.title;
+                document.title = `خطة_${supervisorData.name}_${currentMonth+1}`;
+                window.focus(); setTimeout(() => { window.print(); setTimeout(() => document.title = originalTitle, 1000); }, 100);
+            };
 
-            function setupFirestoreListeners(uid) {
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const reportsQuery = query(collection(db, "artifacts", appId, "users", uid, "school_reports"));
-                unsubscribeReports = onSnapshot(reportsQuery, (snap) => { savedReports = []; snap.forEach((doc) => savedReports.push({ id: doc.id, ...doc.data() })); renderDashboard(); }, (error) => console.error("Error fetching school reports:", error));
-                const typesQuery = query(collection(db, "artifacts", appId, "users", uid, "school_visit_types"));
-                unsubscribeVisitTypes = onSnapshot(typesQuery, (snap) => {
-                    if (snap.empty) { Object.keys(defaultVisitTypesData).forEach(key => addDoc(collection(db, "artifacts", appId, "users", uid, "school_visit_types"), defaultVisitTypesData[key])); } 
-                    else { visitTypesData = {}; snap.forEach((doc) => visitTypesData[doc.id] = doc.data()); }
-                    populateVisitTypeDropdown(); renderObjectivesForCurrentType();
-                }, (error) => console.error("Error fetching school visit types:", error));
-            }
+            const savePlan = async () => {
+                if (!settings.isOpen || !db) return;
+                setIsSaving(true);
+                try {
+                    const planId = `${supervisorData.jobId}_${currentYear}_${currentMonth}`;
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.PLANS, `plan_${planId}`), {
+                        supervisorName: supervisorData.name, 
+                        supervisorId: supervisorData.jobId,
+                        userId: user.uid,
+                        month: currentMonth, 
+                        year: currentYear, 
+                        visits: planData, 
+                        updatedAt: serverTimestamp()
+                    });
+                    setStatusMsg('✅ تم الحفظ'); setTimeout(() => setStatusMsg(''), 3000);
+                } catch { setStatusMsg('❌ خطأ'); } finally { setIsSaving(false); }
+            };
 
-            function showConfirmationModal(message, callback) { confirmationModalMessage.textContent = message; confirmationCallback = callback; confirmationModal.classList.remove('hidden'); }
-            confirmActionBtn.addEventListener('click', () => { if (confirmationCallback) confirmationCallback(); confirmationModal.classList.add('hidden'); });
-            cancelActionBtn.addEventListener('click', () => confirmationModal.classList.add('hidden'));
+            const handleChangePassword = async (currentPass, newPass) => {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'supervisors');
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) throw new Error('بيانات النظام غير متوفرة');
+                const currentList = docSnap.data().list;
+                const supervisorIndex = currentList.findIndex(s => s.id === supervisorData.jobId);
+                if (supervisorIndex === -1) throw new Error('المستخدم غير موجود');
+                if (currentList[supervisorIndex].password !== currentPass) throw new Error('كلمة المرور الحالية غير صحيحة');
+                const newList = [...currentList];
+                newList[supervisorIndex].password = newPass;
+                await updateDoc(docRef, { list: newList });
+            };
 
-            function showDashboardView() { renderDashboard(); schoolDashboardView.classList.remove('hidden'); schoolFormView.classList.add('hidden'); reportPreviewContainer.classList.add('hidden'); }
-            function showFormView(reportToEdit = null) { schoolFormView.classList.remove('hidden'); schoolDashboardView.classList.add('hidden'); reportPreviewContainer.classList.add('hidden'); if (reportToEdit) { populateForm(reportToEdit); formTitle.textContent = 'تعديل تقرير زيارة'; } else { resetForm(); formTitle.textContent = 'إنشاء تقرير زيارة مدرسية'; } }
-            function showPreviewView(reportData) { renderReportPreview(reportData); reportPreviewContainer.classList.remove('hidden'); schoolDashboardView.classList.add('hidden'); schoolFormView.classList.add('hidden'); }
-            
-            function renderDashboard() { reportsListContainer.innerHTML = ''; if (!savedReports || savedReports.length === 0) { reportsListContainer.innerHTML = `<div class="text-center py-10 px-6 bg-gray-50 rounded-lg"><h3 class="text-lg font-semibold text-gray-700">لا توجد تقارير</h3><p class="text-gray-500 mt-2">ابدأ بإضافة تقريرك الأول.</p></div>`; return; } const list = document.createElement('div'); list.className = 'space-y-4'; savedReports.sort((a, b) => b.visitDate - a.visitDate).forEach(report => { const item = document.createElement('div'); item.className = 'flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow gap-4'; const reportDate = new Date(report.visitDate).toLocaleDateString('ar-OM', { year: 'numeric', month: 'long', day: 'numeric' }); const attachmentIcon = (report.attachments && report.attachments.length > 0) ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a3 3 0 006 0V7a1 1 0 112 0v4a5 5 0 01-10 0V7a5 5 0 0110 0v4a1 1 0 11-2 0V7a3 3 0 00-3-3z" clip-rule="evenodd" /></svg>` : ''; item.innerHTML = `<div class="flex items-center">${attachmentIcon}<div><p class="font-bold text-gray-800">${report.schoolName}</p><p class="text-sm text-gray-500">${reportDate} - ${report.visitTypeName}</p></div></div><div class="flex gap-3 self-end sm:self-center"><button data-id="${report.id}" class="view-btn text-sm text-green-600 hover:underline">عرض</button><button data-id="${report.id}" class="edit-btn text-sm text-blue-600 hover:underline">تعديل</button><button data-id="${report.id}" class="delete-btn text-sm text-red-600 hover:underline">حذف</button></div>`; list.appendChild(item); }); reportsListContainer.appendChild(list); }
-            
-            function resetForm() { reportForm.reset(); reportIdInput.value = ''; schoolFormView.querySelector('#visitDate').valueAsDate = new Date(); const keys = Object.keys(visitTypesData); if (keys.length > 0) { currentVisitTypeKey = keys[0]; visitTypeSelect.value = currentVisitTypeKey; } currentAttachments = []; renderAttachmentsList(); renderObjectivesForCurrentType(); }
-            function populateForm(report) { resetForm(); reportIdInput.value = report.id; schoolNameSelect.value = report.schoolName; schoolFormView.querySelector('#visitDate').value = new Date(report.visitDate).toISOString().split('T')[0]; recommendationsTextarea.value = report.recommendations; currentVisitTypeKey = report.visitTypeKey; visitTypeSelect.value = currentVisitTypeKey; currentAttachments = report.attachments || []; renderAttachmentsList(); renderObjectivesForCurrentType(); const checkboxes = objectivesContainer.querySelectorAll('input[type="checkbox"]'); checkboxes.forEach(cb => { if (report.checkedObjectives.includes(cb.dataset.genderedValue)) cb.checked = true; }); updateOpinionsSection(); setTimeout(() => { if (report.opinions) { report.opinions.forEach(op => { const textarea = schoolApp.querySelector(`#opinion-${op.index}`); if (textarea) textarea.value = op.text; }); } }, 0); }
-            function populateVisitTypeDropdown() { visitTypeSelect.innerHTML = ''; const keys = Object.keys(visitTypesData); if (keys.length === 0) return; keys.forEach(key => { const option = document.createElement('option'); option.value = key; option.textContent = visitTypesData[key].name; visitTypeSelect.appendChild(option); }); currentVisitTypeKey = visitTypeSelect.value || keys[0]; if (currentVisitTypeKey) visitTypeSelect.value = currentVisitTypeKey; }
-            function renderObjectivesForCurrentType() { if (!currentVisitTypeKey || !visitTypesData[currentVisitTypeKey]) { objectivesContainer.innerHTML = ''; return; } const data = visitTypesData[currentVisitTypeKey]; objectivesContainer.innerHTML = ''; data.objectives_list.forEach((objective, index) => { objectivesContainer.innerHTML += `<div class="flex items-start"><input id="objective-${index}" type="checkbox" value="${objective}" data-gendered-value="${objective}" data-index="${index}" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 mt-1"><label for="objective-${index}" class="mr-2 text-sm font-medium text-gray-900">${index + 1}- ${objective}</label></div>`; }); updateOpinionsSection(); updateSelectAllButtonState(); }
-            
-            function updateOpinionsSection() { const savedOpinions = new Map(); opinionsContainer.querySelectorAll('.opinion-block textarea').forEach(t => savedOpinions.set(t.id, t.value)); opinionsContainer.innerHTML = ''; const checked = objectivesContainer.querySelectorAll('input:checked'); if (checked.length === 0) { opinionsContainer.innerHTML = '<p class="text-center text-gray-500">لم يتم تحديد هدف.</p>'; return; } checked.forEach(cb => { const index = cb.dataset.index; opinionsContainer.innerHTML += `<div class="opinion-block space-y-2"><label for="opinion-${index}" class="block text-sm font-semibold text-gray-800">${parseInt(index) + 1}- ${cb.dataset.genderedValue}</label><div class="flex gap-2 flex-wrap"><button type="button" data-opinion="completed" data-index="${index}" class="px-3 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full hover:bg-green-200">✅ مكتمل</button><button type="button" data-opinion="incomplete" data-index="${index}" class="px-3 py-1 text-xs font-medium text-red-800 bg-red-100 rounded-full hover:bg-red-200">❌ غير مكتمل</button></div><textarea id="opinion-${index}" rows="3" class="block p-2.5 w-full text-sm text-gray-900 bg-white rounded-lg border border-gray-300"></textarea></div>`; }); savedOpinions.forEach((val, id) => { const ta = schoolApp.querySelector(`#${id}`); if (ta) ta.value = val; }); }
-            
-            function renderAttachmentsList() { attachmentsList.innerHTML = ''; if (currentAttachments.length === 0) return; currentAttachments.forEach((file, index) => { attachmentsList.innerHTML += `<div class="flex justify-between items-center p-2 bg-gray-100 rounded-md text-sm"><span class="truncate">${file.name}</span><button type="button" data-index="${index}" class="remove-attachment-btn text-red-500">&times;</button></div>`; }); }
-            attachmentsInput.addEventListener('change', (e) => { Array.from(e.target.files).forEach(file => { const reader = new FileReader(); reader.onload = (event) => { currentAttachments.push({ name: file.name, data: event.target.result }); renderAttachmentsList(); }; reader.readAsDataURL(file); }); e.target.value = ''; });
-            attachmentsList.addEventListener('click', (e) => { if (e.target.classList.contains('remove-attachment-btn')) { currentAttachments.splice(e.target.dataset.index, 1); renderAttachmentsList(); } });
+            return (
+                <div className="bg-gray-50 min-h-screen flex flex-col" dir="rtl">
+                <ChangePasswordModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} onSave={handleChangePassword} />
+                <header className="bg-emerald-600 text-white p-4 shadow-md sticky top-0 z-10 no-print flex justify-between items-center">
+                    <div><h2 className="font-bold">خطة سير المشرف</h2><p className="text-xs">{supervisorData.name} ({supervisorData.jobId})</p></div>
+                    <div className="flex gap-2">
+                    <button onClick={() => setShowPasswordModal(true)} className="bg-emerald-800/50 hover:bg-emerald-800 p-2 rounded-full transition" title="تغيير كلمة المرور"><KeyRound size={18} /></button>
+                    <button onClick={handlePrint} className="bg-white/20 p-2 rounded-full hover:bg-white/30"><FileDown size={18} /></button>
+                    <button onClick={onLogout} className="bg-emerald-700 p-2 rounded-full hover:bg-emerald-800"><LogOut size={18} /></button>
+                    </div>
+                </header>
+                <div className={`p-2 text-center text-xs font-bold no-print ${settings.isOpen ? 'bg-green-100 text-green-800':'bg-red-100 text-red-800'}`}>{settings.isOpen ? '🟢 التسجيل متاح' : '🔴 التسجيل مغلق'}</div>
+                <div className="max-w-4xl mx-auto p-4 space-y-4 flex-grow w-full printable-content">
+                    <PrintHeader supervisorData={supervisorData} month={currentMonth} year={currentYear} /> 
+                    <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm no-print">
+                    <button onClick={()=>{if(currentMonth===0){setCurrentMonth(11);setCurrentYear(currentYear-1)}else setCurrentMonth(currentMonth-1)}} className="p-2 bg-gray-100 rounded-full"><ChevronRight/></button>
+                    <span className="font-bold">{new Date(currentYear, currentMonth).toLocaleDateString('ar-EG',{month:'long',year:'numeric'})}</span>
+                    <button onClick={()=>{if(currentMonth===11){setCurrentMonth(0);setCurrentYear(currentYear+1)}else setCurrentMonth(currentMonth+1)}} className="p-2 bg-gray-100 rounded-full"><ChevronLeft/></button>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <table className="w-full text-right">
+                        <thead className="bg-gray-50 border-b"><tr><th className="p-4 w-32">اليوم</th><th className="p-4">المهمة</th></tr></thead>
+                        <tbody className="divide-y">
+                        {workingDays.map(date => {
+                            const dayName = date.toLocaleDateString('ar-EG', { weekday: 'long' });
+                            const dayNum = date.getDate();
+                            const key = `d_${dayNum}`;
+                            const mandKey = getMandatoryKey(currentYear, currentMonth, dayNum);
+                            const mandEvt = mandatoryEvents[mandKey];
+                            const currentVal = planData[key] || '';
+                            let conflict = null;
+                            if (currentVal.trim().length > 2 && historyVisits[key]) conflict = historyVisits[key].find(h => h.task.trim() === currentVal.trim());
+                            return (
+                            <tr key={key} className={mandEvt ? 'bg-orange-50' : 'bg-white'}>
+                                <td className="p-4 border-l"><div className="font-bold">{dayName}</div><div className="text-xs text-gray-400">{dayNum}</div></td>
+                                <td className="p-2 relative">
+                                {mandEvt ? (<div className="flex items-center gap-2 text-orange-700 font-bold px-2"><Lock size={16} className="no-print"/>{mandEvt}</div>) : (
+                                    <div className="relative">
+                                        <input type="text" disabled={!settings.isOpen} value={currentVal} onChange={e=>handleInputChange(key, e.target.value)} placeholder={settings.isOpen?"...":""} className={`w-full p-2 border rounded outline-none focus:ring-2 focus:ring-emerald-500 bg-transparent ${conflict ? 'border-red-300 bg-red-50' : ''}`} />
+                                        {conflict && (<div className="absolute top-full right-0 mt-1 z-10 bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded shadow-sm border border-red-200 flex items-center gap-1 no-print animate-fade-in"><AlertCircle size={10} /><span>تكرار: شهر {conflict.month + 1}/{conflict.year}</span></div>)}
+                                    </div>
+                                )}
+                                </td>
+                            </tr>
+                            );
+                        })}
+                        </tbody>
+                    </table>
+                    </div>
+                    <PrintSignatureSection /> 
+                </div>
+                {settings.isOpen && (
+                    <div className="fixed bottom-6 left-6 right-6 max-w-4xl mx-auto flex flex-col items-end gap-2 pointer-events-none no-print">
+                    {statusMsg && <div className="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm mb-2">{statusMsg}</div>}
+                    <button onClick={savePlan} disabled={isSaving} className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg pointer-events-auto">{isSaving ? '...' : <><Save size={20} /><span>حفظ</span></>}</button>
+                    </div>
+                )}
+                <AppFooter />
+                </div>
+            );
+        }
 
-            function renderReportPreview(data) { const d = new Date(data.visitDate).toLocaleDateString('ar-OM'); let html = `<h2 class="text-2xl font-bold mb-4 text-center">تقرير زيارة إشرافية</h2><div class="grid grid-cols-2 gap-4 mb-6 border-b pb-4"><p><strong>المدرسة:</strong> ${data.schoolName}</p><p><strong>التاريخ:</strong> ${d}</p><p><strong>النوع:</strong> ${data.visitTypeName}</p></div>`; html += `<div id="reportObjectives"><div class="flex justify-between items-center mt-6 mb-3"><h3 class="text-xl font-semibold">الأهداف:</h3><button data-target="reportObjectives" class="copy-section-btn text-xs no-print">نسخ</button></div><ol class="list-decimal list-inside space-y-2">${data.checkedObjectives.map(o => `<li>${o}</li>`).join('')}</ol></div>`; html += `<div id="reportOpinions"><div class="flex justify-between items-center mt-6 mb-3"><h3 class="text-xl font-semibold">الرأي:</h3><button data-target="reportOpinions" class="copy-section-btn text-xs no-print">نسخ</button></div><ol class="list-decimal list-inside space-y-2">${(data.opinions || []).sort((a, b) => a.index - b.index).map(o => `<li class="text-gray-700">${o.text.replace(/\n/g, '<br>')}</li>`).join('')}</ol></div>`; if (data.recommendations) html += `<div id="reportRecommendations"><div class="flex justify-between items-center mt-6 mb-3"><h3 class="text-xl font-semibold">التوصيات:</h3><button data-target="reportRecommendations" class="copy-section-btn text-xs no-print">نسخ</button></div><p class="text-gray-700">${data.recommendations.replace(/\n/g, '<br>')}</p></div>`; schoolApp.querySelector('#reportContent').innerHTML = html; }
-            function copyToClipboard(text, button) { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = 0; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); const original = button.textContent; button.textContent = 'تم النسخ!'; setTimeout(() => { button.textContent = original; }, 2000); } catch (err) { console.error('Copy failed', err); } document.body.removeChild(ta); }
-            copyAllBtn.addEventListener('click', (e) => { let text = ""; ['reportObjectives', 'reportOpinions', 'reportRecommendations'].forEach(id => { const el = schoolApp.querySelector(`#${id}`); if (el) { text += el.querySelector('h3').innerText + "\n"; if (id === 'reportRecommendations') text += el.querySelector('p').innerText.trim() + "\n\n"; else el.querySelectorAll('li').forEach((li, i) => text += `${i + 1}- ${li.textContent.trim()}\n`); text += "\n"; } }); copyToClipboard(text.trim(), e.target); });
-            reportPreviewContainer.addEventListener('click', (e) => { if (e.target.classList.contains('copy-section-btn')) { const target = schoolApp.querySelector(`#${e.target.dataset.target}`); if (!target) return; let text = ""; if (e.target.dataset.target === 'reportRecommendations') text = target.querySelector('p').innerText.trim(); else target.querySelectorAll('li').forEach((li, i) => text += `${i + 1}- ${li.textContent.trim()}\n`); copyToClipboard(text.trim(), e.target); } });
-            
-            addNewReportBtn.addEventListener('click', () => showFormView());
-            backToDashboardBtn.addEventListener('click', showDashboardView);
-            
-            reportForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const reportId = reportIdInput.value;
-                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const data = { schoolName: schoolNameSelect.value, visitDate: new Date(schoolFormView.querySelector('#visitDate').value).getTime(), visitTypeKey: currentVisitTypeKey, visitTypeName: visitTypesData[currentVisitTypeKey].name, checkedObjectives: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(cb => cb.dataset.genderedValue), opinions: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(cb => ({ index: cb.dataset.index, text: schoolApp.querySelector(`#opinion-${cb.dataset.index}`).value })), recommendations: recommendationsTextarea.value, attachments: currentAttachments, updatedAt: serverTimestamp() };
-                try { if (reportId) await updateDoc(doc(db, "artifacts", appId, "users", userId, "school_reports", reportId), data); else await addDoc(collection(db, "artifacts", appId, "users", userId, "school_reports"), data); showDashboardView(); } catch (err) { console.error(err); alert("خطأ في الحفظ."); }
-            });
-            
-            prepareReportBtn.addEventListener('click', () => { if (!reportForm.checkValidity()) { reportForm.reportValidity(); return; } previewSource = 'form'; showPreviewView({ schoolName: schoolNameSelect.value, visitDate: new Date(schoolFormView.querySelector('#visitDate').value), visitTypeName: visitTypesData[currentVisitTypeKey].name, checkedObjectives: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(cb => cb.dataset.genderedValue), opinions: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(cb => ({ index: cb.dataset.index, text: schoolApp.querySelector(`#opinion-${cb.dataset.index}`).value })), recommendations: recommendationsTextarea.value, attachments: currentAttachments }); });
-            backToBtn.addEventListener('click', () => { if (previewSource === 'dashboard') showDashboardView(); else showFormView(savedReports.find(r => r.id === reportIdInput.value) || null); });
-            
-            reportsListContainer.addEventListener('click', async (e) => {
-                const id = e.target.dataset.id; if (!id) return;
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const report = savedReports.find(r => r.id === id);
-                if (e.target.classList.contains('view-btn')) { previewSource = 'dashboard'; showPreviewView(report); } 
-                else if (e.target.classList.contains('edit-btn')) { showFormView(report); } 
-                else if (e.target.classList.contains('delete-btn')) { showConfirmationModal(`هل أنت متأكد من حذف تقرير "${report.schoolName}"؟`, async () => { try { await deleteDoc(doc(db, "artifacts", appId, "users", userId, "school_reports", id)); renderDashboard(); } catch (err) { alert("خطأ في الحذف."); } }); }
-            });
-            
-            schoolNameSelect.addEventListener('change', renderObjectivesForCurrentType);
-            visitTypeSelect.addEventListener('change', (e) => { currentVisitTypeKey = e.target.value; renderObjectivesForCurrentType(); });
-            objectivesContainer.addEventListener('change', () => { updateOpinionsSection(); updateSelectAllButtonState(); });
-            selectAllObjectivesBtn.addEventListener('click', () => { const all = objectivesContainer.querySelectorAll('input'); if(all.length === 0) return; const allSelected = Array.from(all).every(cb => cb.checked); all.forEach(cb => cb.checked = !allSelected); updateOpinionsSection(); updateSelectAllButtonState(); });
-            opinionsContainer.addEventListener('click', (e) => { if (e.target.matches('button[data-opinion]')) { const ta = schoolApp.querySelector(`#opinion-${e.target.dataset.index}`); ta.value = (e.target.dataset.opinion === 'completed') ? visitTypesData[currentVisitTypeKey].completedOpinions[e.target.dataset.index] : visitTypesData[currentVisitTypeKey].incompleteOpinions[e.target.dataset.index]; } });
-            generateRecsBtn.addEventListener('click', () => { if (objectivesContainer.querySelectorAll('input:checked').length === 0) { alert("حدد هدفًا."); return; } const recs = []; objectivesContainer.querySelectorAll('input:checked').forEach(cb => { const index = cb.dataset.index; if (schoolApp.querySelector(`#opinion-${index}`).value.trim() === visitTypesData[currentVisitTypeKey].incompleteOpinions[index].trim()) recs.push(visitTypesData[currentVisitTypeKey].recommendations[index]); }); recommendationsTextarea.value = (recs.length > 0) ? "نوصي بالآتي:\n- " + recs.join('\n- ') + "\n\nوالله الموفق." : "سير العمل ممتاز."; });
+        // --- Admin Dashboard ---
+        function AdminDashboard({ user, onLogout }) {
+            const [settings, setSettings] = useState({ isOpen: false });
+            const [plans, setPlans] = useState([]);
+            const [mandatoryEvents, setMandatoryEvents] = useState({});
+            const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
+            const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+            const [editingPlan, setEditingPlan] = useState(null);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [newEventDay, setNewEventDay] = useState(1);
+            const [newEventText, setNewEventText] = useState('');
+            const [editingEventKey, setEditingEventKey] = useState(null);
+            const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-            manageVisitTypesBtn.addEventListener('click', () => { renderManagerModal(); manageTypesModal.classList.remove('hidden'); });
-            closeManageModalBtn.addEventListener('click', () => manageTypesModal.classList.add('hidden'));
-            addNewTypeBtn.addEventListener('click', () => { editTypeKeyInput.value = ''; addEditModalTitle.textContent = 'إضافة نوع'; addEditTypeForm.reset(); addEditTypeModal.classList.remove('hidden'); });
-            visitTypesList.addEventListener('click', (e) => { const key = e.target.dataset.key; if (!key) return; const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; if (e.target.classList.contains('edit-btn')) { editTypeKeyInput.value = key; addEditModalTitle.textContent = 'تعديل نوع'; typeNameInput.value = visitTypesData[key].name; typeObjectivesTextarea.value = visitTypesData[key].objectives_list.join('\n'); addEditTypeModal.classList.remove('hidden'); } if (e.target.classList.contains('delete-btn')) { if (Object.keys(visitTypesData).length <= 1) { alert("يجب وجود نوع واحد."); return; } showConfirmationModal(`هل تريد حذف "${visitTypesData[key].name}"؟`, async () => { await deleteDoc(doc(db, "artifacts", appId, "users", userId, "school_visit_types", key)); }); } });
-            cancelEditBtn.addEventListener('click', () => addEditTypeModal.classList.add('hidden'));
-            addEditTypeForm.addEventListener('submit', async (e) => { e.preventDefault(); const key = editTypeKeyInput.value; const name = typeNameInput.value.trim(); const objectives = typeObjectivesTextarea.value.trim().split('\n').filter(Boolean); if (!name || objectives.length === 0) { alert("أدخل اسمًا وهدفًا."); return; } const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; const data = { name, objectives_list: objectives, completedOpinions: objectives.map(o => `تم ${o} بنجاح.`), incompleteOpinions: objectives.map(o => `ملاحظات حول ${o}`), recommendations: objectives.map(o => `متابعة ${o}.`) }; if (key) await updateDoc(doc(db, "artifacts", appId, "users", userId, "school_visit_types", key), data); else currentVisitTypeKey = (await addDoc(collection(db, "artifacts", appId, "users", userId, "school_visit_types"), data)).id; addEditTypeModal.classList.add('hidden'); });
-            function renderManagerModal() { visitTypesList.innerHTML = ''; Object.keys(visitTypesData).forEach(key => visitTypesList.innerHTML += `<div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg"><span class="font-medium">${visitTypesData[key].name}</span><div class="flex gap-2"><button data-key="${key}" class="edit-btn text-sm text-blue-600">تعديل</button><button data-key="${key}" class="delete-btn text-sm text-red-600">حذف</button></div></div>`); }
-            function updateSelectAllButtonState() { const all = objectivesContainer.querySelectorAll('input'); selectAllObjectivesBtn.textContent = (all.length > 0 && Array.from(all).every(cb => cb.checked)) ? 'إلغاء الكل' : 'اختيار الكل'; }
-        }
+            const daysInSelectedMonth = useMemo(() => {
+                const days = getDaysInMonth(currentYear, filterMonth);
+                return days.map(d => ({ num: d.getDate(), name: d.toLocaleDateString('ar-EG', { weekday: 'long' }), isWeekend: d.getDay() === 5 || d.getDay() === 6 }));
+            }, [currentYear, filterMonth]);
+            const yearsList = useMemo(() => { const current = new Date().getFullYear(); return Array.from({length: 11}, (_, i) => current - 1 + i); }, []);
 
-        // --- GLOBAL INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', () => {
-            
-           //const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-                    const firebaseConfig = {
-          apiKey: "AIzaSyAEQsh6E351S1isxL4CFFGIpGSU2pVP5sc",
-          authDomain: "my-report-9b33f.firebaseapp.com",
-          projectId: "my-report-9b33f",
-          storageBucket: "my-report-9b33f.appspot.com",
-          messagingSenderId: "176527739587",
-          appId: "1:176527739587:web:7a524a73a2355b5a503076",
-          measurementId: "G-C24VPXRD1R"
-        };
+            useEffect(() => {
+                if (!db || !user) return; // Guard
+                const unsub1 = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'settings'), s=>s.exists()&&setSettings(s.data()));
+                const unsub2 = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'mandatory_events'), s=>s.exists()&&setMandatoryEvents(s.data()));
+                const unsub3 = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.PLANS)), snap => {
+                    const p = []; snap.forEach(d => { if(d.data().month === filterMonth) p.push(d.data()) }); setPlans(p);
+                });
+                return () => { unsub1(); unsub2(); unsub3(); };
+            }, [filterMonth, user]);
+                    
+            const toggleSubmission = async () => setDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'settings'), { isOpen: !settings.isOpen }, { merge: true });
+            const handleEventSubmit = async () => {
+                if (!newEventText.trim()) return;
+                const newKey = getMandatoryKey(currentYear, filterMonth, newEventDay);
+                if(editingEventKey && editingEventKey !== newKey) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'mandatory_events'), { [editingEventKey]: deleteField() });
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'mandatory_events'), { [newKey]: newEventText }, { merge: true });
+                setNewEventText(''); setNewEventDay(1); setEditingEventKey(null);
+            };
+            const deleteMandatoryEvent = async (k) => { if(confirm('حذف؟')) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'mandatory_events'), { [k]: deleteField() }); };
+            const saveAdminEdit = async (editedVisits) => {
+                if (!editingPlan) return;
+                const planId = `${editingPlan.supervisorId}_${editingPlan.year}_${editingPlan.month}`;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.PLANS, `plan_${planId}`), { visits: editedVisits });
+                setEditingPlan(null);
+            };
+            const handleChangeAdminPassword = async (currentPass, newPass) => {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', COLLECTIONS.CONFIG, 'settings');
+                const docSnap = await getDoc(docRef);
+                const storedPass = docSnap.exists() && docSnap.data().adminPassword ? docSnap.data().adminPassword : '1234';
+                if (currentPass !== storedPass) throw new Error('كلمة المرور الحالية غير صحيحة');
+                await setDoc(docRef, { adminPassword: newPass }, { merge: true });
+            };
+            const downloadSinglePlan = (plan) => {
+                const workingDaysInM = getWorkingDaysInMonth(currentYear, filterMonth);
+                const dateStr = new Date(currentYear, filterMonth).toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+                let table = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl"><head><meta charset="UTF-8"><style>table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; direction: rtl; } td, th { border: 1px solid #000000; text-align: center; vertical-align: middle; padding: 5px; font-size: 11pt; } .header-top { background-color: #92D050; font-weight: bold; font-size: 14pt; height: 40px; } .header-sub { background-color: #FFFF00; font-weight: bold; font-size: 12pt; } .data-row { background-color: #FFFFFF; } .gray-row { background-color: #F2F2F2; }</style></head><body><table><tr><td colspan="3" class="header-top">خطة سير المشرف: ${plan.supervisorName} - الفترة: ${dateStr}</td></tr><tr><td colspan="3" style="text-align:right; font-weight:bold; background-color:#f0f0f0;">الرقم الوظيفي: ${plan.supervisorId}</td></tr><tr class="header-sub"><td style="width: 100px;">اليوم</td><td style="width: 150px;">التاريخ</td><td style="width: 400px;">المهمة / المدرسة</td></tr>${workingDaysInM.map((d, index) => {
+                    const dayNum = d.getDate(); const dayName = d.toLocaleDateString('ar-EG', { weekday: 'long' }); const key = 'd_' + dayNum; const mandKey = getMandatoryKey(currentYear, filterMonth, dayNum); const task = mandatoryEvents[mandKey] || plan.visits[key] || ''; const rowClass = index % 2 === 0 ? 'data-row' : 'gray-row'; return `<tr class="${rowClass}"><td>${dayName}</td><td>${dayNum}/${filterMonth + 1}</td><td>${task}</td></tr>`; }).join('')}</table></body></html>`;
+                
+                const blob = new Blob([table], { type: 'application/vnd.ms-excel;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `خطة_${plan.supervisorName}.xls`; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            };
+            const exportToExcel = () => {
+                if (plans.length === 0) return alert('لا توجد بيانات');
+                const workingDaysInM = getWorkingDaysInMonth(currentYear, filterMonth);
+                const dateStr = new Date(currentYear, filterMonth).toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+                let table = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl"><head><meta charset="UTF-8"><style>table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; direction: rtl; } td, th { border: 1px solid #000000; text-align: center; vertical-align: middle; padding: 5px; font-size: 11pt; } .header-top { background-color: #92D050; font-weight: bold; font-size: 14pt; height: 40px; } .header-sub { background-color: #FFFF00; font-weight: bold; font-size: 12pt; } .data-row { background-color: #FFFFFF; } .gray-row { background-color: #F2F2F2; }</style></head><body><table><tr><td colspan="${workingDaysInM.length + 2}" class="header-top">خطط سير المشرفين - الفترة: ${dateStr}</td></tr><tr class="header-sub"><td rowspan="2" style="width: 50px;">م</td><td rowspan="2" style="width: 200px;">اسم المشرف</td>${workingDaysInM.map(d => `<td>${d.toLocaleDateString('ar-EG', { weekday: 'long' })}</td>`).join('')}</tr><tr class="header-sub">${workingDaysInM.map(d => `<td>${d.getDate()}/${filterMonth + 1}</td>`).join('')}</tr>${plans.map((plan, index) => { const rowClass = index % 2 === 0 ? 'data-row' : 'gray-row'; return `<tr class="${rowClass}"><td>${index + 1}</td><td style="font-weight: bold;">${plan.supervisorName}</td>${workingDaysInM.map(d => { const dayNum = d.getDate(); const key = 'd_' + dayNum; const mandKey = getMandatoryKey(currentYear, filterMonth, dayNum); const task = mandatoryEvents[mandKey] || plan.visits[key] || ''; return `<td>${task}</td>`; }).join('')}</tr>`; }).join('')}</table></body></html>`;
+                const blob = new Blob([table], { type: 'application/vnd.ms-excel;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `تقرير_${filterMonth+1}_${currentYear}.xls`; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            };
+            const filteredPlans = plans.filter(p => { const s = searchTerm.toLowerCase(); return (p.supervisorName || '').toLowerCase().includes(s) || (p.supervisorId || '').toLowerCase().includes(s); });
+            const currentMonthEvents = useMemo(() => Object.entries(mandatoryEvents).map(([k,t]) => { const [y, m, d] = k.split('_').map(Number); const eventDate = new Date(y, m, d); const dayName = eventDate.toLocaleDateString('ar-EG', { weekday: 'long' }); return {y,m,d,t,dayName,key:k}; }).filter(e => e.y === currentYear && e.m === filterMonth).sort((a,b)=>a.d-b.d), [mandatoryEvents, currentYear, filterMonth]);
 
-            let app, db, auth;
+            return (
+                <div className="min-h-screen bg-gray-100 font-sans" dir="rtl">
+                {editingPlan && <AdminPlanEditor plan={editingPlan} mandatoryEvents={mandatoryEvents} onClose={() => setEditingPlan(null)} onSave={saveAdminEdit} />}
+                <ChangePasswordModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} onSave={handleChangeAdminPassword} title="تغيير كلمة مرور المسؤول" />
+                <div className="bg-gray-900 text-white p-4 flex justify-between"><h1 className="font-bold flex gap-2 items-center"><Users/> لوحة الإدارة</h1><div className="flex gap-2"><button onClick={() => setShowPasswordModal(true)} className="flex items-center gap-1 text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded transition"><KeyRound size={16} /> تغيير الرمز</button><button onClick={onLogout} className="flex items-center gap-2 text-gray-300 hover:text-white px-3 py-1 rounded transition"><span>خروج</span><LogOut size={18} /></button></div></div>
+                <div className="max-w-7xl mx-auto p-6 space-y-6">
+                    <div className="grid md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded shadow"><h3 className="font-bold text-sm mb-2">التاريخ</h3><div className="flex gap-2"><select value={filterMonth} onChange={e=>setFilterMonth(parseInt(e.target.value))} className="w-1/2 border p-2 rounded">{Array.from({length:12},(_,i)=><option key={i} value={i}>شهر {i+1}</option>)}</select><select value={currentYear} onChange={e=>setCurrentYear(parseInt(e.target.value))} className="w-1/2 border p-2 rounded">{yearsList.map(y => <option key={y} value={y}>{y}</option>)}</select></div></div>
+                    <button onClick={toggleSubmission} className={`p-4 rounded font-bold shadow ${settings.isOpen?'bg-red-50 text-red-600':'bg-emerald-50 text-emerald-600'}`}>{settings.isOpen?'إغلاق التسجيل':'فتح التسجيل'}</button>
+                    <div className="md:col-span-2 bg-orange-50 p-4 rounded shadow border border-orange-200">
+                        <div className="flex gap-2"><select value={newEventDay} onChange={e=>setNewEventDay(parseInt(e.target.value))} className="p-2 rounded border w-32 text-xs">{daysInSelectedMonth.map(day => (<option key={day.num} value={day.num} className={day.isWeekend ? 'text-red-500' : ''}>{day.num} - {day.name} {day.isWeekend ? '(عطلة)' : ''}</option>))}</select><input value={newEventText} onChange={e=>setNewEventText(e.target.value)} placeholder="حدث إلزامي..." className="flex-1 p-2 rounded border" /><button onClick={handleEventSubmit} className="bg-orange-600 text-white px-4 rounded hover:bg-orange-700">{editingEventKey?'تعديل':'إضافة'}</button>{editingEventKey && <button onClick={()=>{setEditingEventKey(null);setNewEventText('');}} className="bg-gray-300 px-3 rounded">إلغاء</button>}</div>
+                        <div className="flex flex-wrap gap-2 mt-2">{currentMonthEvents.map(evt => (<div key={evt.key} className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex gap-1 items-center border border-orange-200"><b>{evt.d} ({evt.dayName}):</b> {evt.t}<button onClick={()=>{setNewEventDay(evt.d);setNewEventText(evt.t);setEditingEventKey(evt.key)}}><Edit size={12}/></button><button onClick={()=>deleteMandatoryEvent(evt.key)}><Trash2 size={12}/></button></div>))}</div>
+                    </div>
+                    </div>
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200"><h3 className="text-gray-500 text-sm font-bold mb-3">التقارير المجمعة</h3><button onClick={exportToExcel} className="w-full py-2 rounded-lg font-bold flex items-center justify-center gap-2 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"><FileSpreadsheet size={18} /> تصدير جميع خطط السير  </button></div>
+                    <div className="bg-white rounded shadow overflow-hidden">
+                    <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 justify-between items-center"><div className="flex items-center gap-2"><CheckCircle className="text-emerald-500" size={20} /><h2 className="font-bold text-gray-700">الخطط المستلمة ({filteredPlans.length})</h2></div><div className="relative w-full md:w-64"><Search className="absolute right-3 top-3 text-gray-400 w-4 h-4" /><input type="text" placeholder="بحث بالاسم..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" /></div></div>
+                    <table className="w-full text-right"><thead className="bg-gray-100 text-sm"><tr><th className="p-4">الاسم</th><th className="p-4">الرقم</th><th className="p-4">إجراءات</th></tr></thead><tbody className="divide-y">{filteredPlans.map((plan, idx) => (<tr key={idx} className="hover:bg-gray-50"><td className="p-4 font-bold">{plan.supervisorName}</td><td className="p-4 text-gray-500">{plan.supervisorId}</td><td className="p-4 flex gap-2"><button onClick={()=>setEditingPlan(plan)} className="bg-blue-50 text-blue-600 px-3 py-1 rounded text-sm hover:bg-blue-100"><Edit size={16}/> تعديل</button><button onClick={() => downloadSinglePlan(plan)} className="bg-green-50 text-green-600 px-3 py-1 rounded text-sm hover:bg-green-100 flex items-center gap-1" title="تنزيل الخطة"><Download size={16}/> تنزيل (Excel ملون)</button></td></tr>))} {plans.length===0 && <tr><td colSpan="3" className="p-8 text-center text-gray-400">لا توجد خطط</td></tr>}</tbody></table>
+                    </div>
+                </div>
+                <AppFooter />
+                </div>
+            );
+        }
 
-            try {
-                if (!getApps().length) {
-                    app = initializeApp(firebaseConfig);
-                } else {
-                    app = getApp();
-                }
-                db = getFirestore(app);
-                auth = getAuth(app);
-            } catch(e) {
-                console.error("Top-level Firebase init failed", e);
-                document.body.innerHTML = `<div class="p-8 text-center text-red-600">فشل تهيئة قاعدة البيانات.</div>`;
-                return;
-            }
+        // --- المكون الرئيسي الذي يدير العرض ---
+        function App() {
+            const [user, setUser] = useState(null);
+            const [role, setRole] = useState(null);
+            const [supervisorData, setSupervisorData] = useState({ name: '', jobId: '' });
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(firebaseError);
 
-            onAuthStateChanged(auth, user => {
-                if(user) {
-                    initializeSupervisoryApp(db, auth);
-                    initializeSchoolApp(db, auth);
-                } else {
-                     handleAuthentication();
-                }
-            });
+            useEffect(() => {
+                if (error) { setLoading(false); return; }
+                if (!auth) return;
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                        else await signInAnonymously(auth);
+                    } catch (err) { setError("فشل الاتصال."); setLoading(false); }
+                };
+                initAuth();
+                return onAuthStateChanged(auth, (u) => { if(u) { setUser(u); setLoading(false); } });
+            }, [error]);
 
-            async function handleAuthentication() {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Firebase Global Authentication Failed:", error);
-                    document.body.innerHTML = `<div class="p-8 text-center text-red-600">فشل المصادقة مع قاعدة البيانات. لا يمكن تحميل التطبيق.</div>`;
-                }
-            }
+            const handleLogout = () => { setRole(null); setSupervisorData({name:'', jobId:''}); };
 
+            if (error) return <div className="flex h-screen items-center justify-center text-red-600">{error}</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center text-emerald-600 font-bold">جاري التحميل...</div>;
 
-            showView(welcomeView); // Start with the welcome view
-        });
+            if (!role) return <LoginScreen onLogin={(r, d) => { setRole(r); if(d) setSupervisorData(d); }} user={user} />;
+            if (role === 'admin') return <AdminDashboard user={user} onLogout={handleLogout} />;
+            return <SupervisorDashboard user={user} supervisorData={supervisorData} onLogout={handleLogout} />;
+        }
 
-    </script>
+        // --- مكون تعديل الخطة (Admin) ---
+        function AdminPlanEditor({ plan, mandatoryEvents, onClose, onSave }) {
+            const [localVisits, setLocalVisits] = useState(plan.visits || {});
+            const [isSaving, setIsSaving] = useState(false);
+            const workingDays = useMemo(() => getWorkingDaysInMonth(plan.year, plan.month), [plan.year, plan.month]);
+            const handleSave = async () => { setIsSaving(true); await onSave(localVisits); setIsSaving(false); };
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"><div className="p-4 border-b flex justify-between bg-gray-50 rounded-t-2xl"><h3 className="font-bold">تعديل: {plan.supervisorName}</h3><button onClick={onClose}><X size={20}/></button></div><div className="overflow-y-auto p-4 flex-1 bg-gray-50"><div className="space-y-2">{workingDays.map((date) => { const dayNum = date.getDate(); const dayName = date.toLocaleDateString('ar-EG', { weekday: 'long' }); const key = `d_${dayNum}`; const mandKey = getMandatoryKey(plan.year, plan.month, dayNum); return (<div key={key} className={`flex gap-2 p-2 rounded border items-center ${mandatoryEvents[mandKey] ? 'bg-orange-100' : 'bg-white'}`}><div className="w-24 text-center border-l pl-2 ml-2 border-gray-200"><div className="font-bold text-gray-800 text-sm">{dayName}</div><div className="text-xs text-gray-500">{dayNum} / {plan.month + 1}</div></div>{mandatoryEvents[mandKey] ? (<div className="flex-1 text-orange-800 flex items-center gap-2"><Lock size={14}/> {mandatoryEvents[mandKey]}</div>) : (<input className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={localVisits[key]||''} onChange={e=>setLocalVisits({...localVisits, [key]: e.target.value})} placeholder="أدخل المهمة..." />)}</div>); })}</div></div><div className="p-4 border-t flex justify-end gap-2"><button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">إلغاء</button><button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition-colors flex items-center gap-2">{isSaving ? 'جاري الحفظ...' : <><Save size={18} /> حفظ التعديلات</>}</button></div></div></div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
