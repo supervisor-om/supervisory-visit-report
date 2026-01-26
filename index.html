@@ -1,4 +1,1115 @@
-function updateScore(itemId, score, forceUpdate = false) {
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام التقارير الإشرافية المدمج | النسخة الاحترافية</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Tajawal', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#1e40af',   // blue-800
+                        secondary: '#15803d', // green-700
+                        accent: '#b45309',    // amber-700
+                        danger: '#b91c1c',    // red-700
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        
+        .mic-btn.recording { animation: pulse-red 1.5s infinite; background-color: #fee2e2; color: #dc2626; border-color: #dc2626; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+
+        /* Rating Buttons Logic Styles */
+        .rating-btn.active { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .rating-btn.active.score-1 { background-color: #166534; color: white; border-color: #166534; }
+        .rating-btn.active.score-2 { background-color: #1e40af; color: white; border-color: #1e40af; }
+        .rating-btn.active.score-3 { background-color: #ca8a04; color: white; border-color: #ca8a04; }
+        .rating-btn.active.score-4 { background-color: #9f1239; color: white; border-color: #9f1239; }
+        .rating-btn.active.score-5 { background-color: #991b1b; color: white; border-color: #991b1b; }
+
+        /* Print Styles */
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            body { background: white; font-family: 'Times New Roman', serif; color: black; }
+            .no-print, .main-container, .modal-overlay, #welcomeView, .controls, .nav-tabs, #backToWelcomeFromSupervisory { display: none !important; }
+            .print-view { display: block !important; position: static !important; width: 100% !important; }
+            
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; }
+            th, td { border: 1px solid #000; padding: 4px 6px; text-align: center; }
+            th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+            .print-header-text { text-align: center; margin-bottom: 15px; }
+            .print-logo-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+            .print-logo-header img { height: 60px; filter: grayscale(100%); }
+            
+            #schoolVisitsApp #reportPreviewContainer { display: block !important; visibility: visible !important; position: static; box-shadow: none; }
+            #schoolVisitsApp #reportPreviewContainer * { visibility: visible; }
+            #schoolVisitsApp .no-print { display: none !important; }
+        }
+
+        /* Utility */
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 0.5); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen selection:bg-blue-100 selection:text-blue-900">
+
+    <div id="toast-container" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-[9999] transition-all duration-300 opacity-0 pointer-events-none">
+        <div id="toast-message" class="bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium">
+            <span id="toast-icon"></span>
+            <span id="toast-text"></span>
+        </div>
+    </div>
+
+    <div id="welcomeView" class="fade-in min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-blue-100 to-transparent -z-10"></div>
+        <div class="absolute -top-20 -right-20 w-64 h-64 bg-blue-200 rounded-full blur-3xl opacity-30 -z-10"></div>
+        <div class="absolute bottom-0 -left-20 w-80 h-80 bg-green-100 rounded-full blur-3xl opacity-30 -z-10"></div>
+
+        <div class="text-center mb-12 max-w-2xl">
+            <div class="inline-block p-3 bg-white rounded-2xl shadow-sm mb-6">
+                <img src="https://i.ibb.co/VMy4bJg/Oman-Ministry-of-Education-Logo-svg.png" alt="وزارة التربية" class="h-16 mx-auto">
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight leading-tight">نظام التقارير الإشرافية المدمج</h1>
+            <p class="text-lg text-slate-600">منصة موحدة لإدارة الزيارات الإشرافية والمدرسية بكفاءة (نسخة محلية)</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl px-4">
+            <div id="showSupervisoryAppBtn" class="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 cursor-pointer relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-2 h-full bg-blue-600 transition-all duration-300 group-hover:w-full group-hover:opacity-5"></div>
+                <div class="relative z-10 flex flex-col h-full">
+                    <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-chalkboard-user text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-3 group-hover:text-blue-700 transition-colors">الزيارات الإشرافية</h2>
+                    <p class="text-slate-500 leading-relaxed mb-6 flex-grow">تقييم أداء المعلمين في الرياضة المدرسية مع أدوات تحليلية ولوحات بيانات متقدمة.</p>
+                    <span class="inline-flex items-center text-blue-600 font-semibold group-hover:translate-x-[-5px] transition-transform">
+                        دخول النظام <i class="fa-solid fa-arrow-left mr-2"></i>
+                    </span>
+                </div>
+            </div>
+
+            <div id="showSchoolAppBtn" class="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 cursor-pointer relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-2 h-full bg-green-600 transition-all duration-300 group-hover:w-full group-hover:opacity-5"></div>
+                <div class="relative z-10 flex flex-col h-full">
+                    <div class="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-school text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-3 group-hover:text-green-700 transition-colors">الزيارات المدرسية</h2>
+                    <p class="text-slate-500 leading-relaxed mb-6 flex-grow">توثيق الزيارات المدرسية وتحديد الأهداف والملاحظات (تخزين محلي).</p>
+                    <span class="inline-flex items-center text-green-600 font-semibold group-hover:translate-x-[-5px] transition-transform">
+                        دخول النظام <i class="fa-solid fa-arrow-left mr-2"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="mt-16 text-slate-400 text-sm font-medium">
+            جميع الحقوق محفوظة © وزارة التربية والتعليم
+        </footer>
+    </div>
+
+    <div id="supervisoryVisitsApp" class="hidden min-h-screen bg-slate-50 pb-12">
+        <div class="main-container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+            
+            <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8 sticky top-4 z-40">
+                <div class="flex flex-col lg:flex-row justify-between items-center gap-4">
+                    <div class="flex bg-slate-100 p-1 rounded-xl w-full lg:w-auto overflow-x-auto">
+                        <button class="nav-tab active flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-bold transition-all duration-200" data-view="form-view">
+                            <i class="fa-solid fa-file-pen ml-2"></i>نموذج التقييم
+                        </button>
+                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="dashboard-view">
+                            <i class="fa-solid fa-chart-pie ml-2"></i>التحليل البياني
+                        </button>
+                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="saved-reports-view">
+                            <i class="fa-solid fa-box-archive ml-2"></i>الأرشيف
+                        </button>
+                    </div>
+                    <button id="backToWelcomeFromSupervisory" class="text-slate-500 hover:text-red-600 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors flex items-center">
+                        <i class="fa-solid fa-power-off ml-2"></i> خروج
+                    </button>
+                </div>
+            </header>
+
+            <div id="form-view" class="fade-in space-y-6">
+                <div class="bg-gradient-to-r from-blue-700 to-blue-900 rounded-2xl p-8 text-white shadow-lg text-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                    <h1 class="text-2xl md:text-3xl font-bold mb-2 relative z-10">استمارة زيارة إشرافية إلكترونية</h1>
+                    <p class="text-blue-100 relative z-10">نظام التقييم المطور لمادة الرياضة المدرسية</p>
+                </div>
+
+                <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-4 space-y-6">
+                        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                            <h2 class="text-lg font-bold text-slate-800 border-r-4 border-blue-500 pr-3 mb-6">بيانات الزيارة</h2>
+                            <div class="space-y-4">
+                                <div class="dropdown-wrapper">
+                                    <label class="block text-sm font-medium text-slate-600 mb-1">المدرسة</label>
+                                    <select id="school" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 transition-colors"></select>
+                                    <input id="school-other" type="text" placeholder="اسم المدرسة يدوياً" class="mt-2 w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm hidden focus:ring-blue-500">
+                                </div>
+                                <div class="dropdown-wrapper">
+                                    <label class="block text-sm font-medium text-slate-600 mb-1">المعلم</label>
+                                    <select id="teacherName" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 transition-colors"></select>
+                                    <input id="teacherName-other" type="text" placeholder="اسم المعلم يدوياً" class="mt-2 w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm hidden focus:ring-blue-500">
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">رقم الملف</label>
+                                        <input id="fileNumber" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">المادة</label>
+                                        <input id="subject" type="text" value="الرياضة المدرسية" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-blue-500">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">التاريخ</label>
+                                        <input id="visitDate" type="date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">رقم الزيارة</label>
+                                        <input id="visitNumber" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-blue-500">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">الصف</label>
+                                        <input id="class" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">الحصة</label>
+                                        <input id="lesson" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-blue-500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-500 mb-1">الموضوع</label>
+                                    <input id="topic" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-blue-500">
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                            <h2 class="text-lg font-bold text-slate-800 border-r-4 border-amber-500 pr-3 mb-4">القوالب الجاهزة</h2>
+                            <div class="space-y-3">
+                                <select id="template-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm mb-2"></select>
+                                <div class="flex gap-2">
+                                    <button id="loadTemplateBtn" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg text-sm px-3 py-2 transition-colors">
+                                        <i class="fa-solid fa-upload ml-1"></i> تحميل
+                                    </button>
+                                    <button id="saveTemplateBtn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm px-3 py-2 transition-colors">
+                                        <i class="fa-solid fa-floppy-disk ml-1"></i> حفظ
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="lg:col-span-8 space-y-6">
+                        
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <details class="group">
+                                <summary class="flex items-center cursor-pointer list-none text-blue-800 font-bold">
+                                    <span class="transition group-open:rotate-180 ml-2"><i class="fa-solid fa-chevron-down"></i></span>
+                                    دليل معايير التقييم
+                                </summary>
+                                <div class="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs text-center">
+                                    <span class="bg-green-100 text-green-800 py-1 px-2 rounded border border-green-200">1 - متميز</span>
+                                    <span class="bg-blue-100 text-blue-800 py-1 px-2 rounded border border-blue-200">2 - جيد</span>
+                                    <span class="bg-yellow-100 text-yellow-800 py-1 px-2 rounded border border-yellow-200">3 - ملائم</span>
+                                    <span class="bg-red-50 text-red-800 py-1 px-2 rounded border border-red-200">4 - غير ملائم</span>
+                                    <span class="bg-red-100 text-red-900 py-1 px-2 rounded border border-red-300">5 - تدخل سريع</span>
+                                </div>
+                            </details>
+                        </div>
+
+                        <form id="evaluationForm" class="space-y-6">
+                            </form>
+
+                        <section id="reportSection" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-primary">
+                            <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+                                <i class="fa-solid fa-file-contract ml-3 text-blue-600"></i> التقرير النهائي
+                            </h2>
+                            
+                            <div class="space-y-6">
+                                <div class="report-box">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h3 class="font-bold text-slate-700">جوانب الإجادة</h3>
+                                        <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="strengthsContent">
+                                            <i class="fa-regular fa-copy"></i> نسخ
+                                        </button>
+                                    </div>
+                                    <textarea id="strengthsContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[100px] focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                </div>
+
+                                <div class="report-box">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h3 class="font-bold text-slate-700">الجوانب التي تحتاج إلى تطوير</h3>
+                                        <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="developmentContent">
+                                            <i class="fa-regular fa-copy"></i> نسخ
+                                        </button>
+                                    </div>
+                                    <textarea id="developmentContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[100px] focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                </div>
+
+                                <div class="report-box">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h3 class="font-bold text-slate-700">التوصيات</h3>
+                                        <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="recommendationsContent">
+                                            <i class="fa-regular fa-copy"></i> نسخ
+                                        </button>
+                                    </div>
+                                    <textarea id="recommendationsContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[100px] focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="bg-slate-100 rounded-xl p-6 border border-slate-200">
+                            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">توقيع الزائر</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input id="visitorName" type="text" placeholder="اسم الزائر" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm">
+                                <input id="visitorPosition" type="text" placeholder="الوظيفة" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm">
+                            </div>
+                        </section>
+                        
+                        <p id="status-message" class="text-center font-medium opacity-0 transition-opacity duration-500 min-h-[20px]"></p>
+
+                        <section class="sticky bottom-4 z-30 bg-white/90 backdrop-blur border border-slate-200 shadow-xl rounded-2xl p-4 flex flex-wrap justify-center gap-3">
+                            <button type="button" id="generateReportBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-transform hover:-translate-y-1">
+                                <i class="fa-solid fa-wand-magic-sparkles ml-2"></i>توليد التقرير
+                            </button>
+                            <button type="button" id="savePermanentReportBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-transform hover:-translate-y-1">
+                                <i class="fa-solid fa-save ml-2"></i>حفظ بالأرشيف
+                            </button>
+                            <button id="printOfficialReportBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-transform hover:-translate-y-1">
+                                <i class="fa-solid fa-print ml-2"></i>طباعة
+                            </button>
+                            <button type="button" id="exportToWordBtn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-transform hover:-translate-y-1">
+                                <i class="fa-solid fa-file-word ml-2"></i>Word
+                            </button>
+                            <button type="button" id="showResetConfirmationBtn" class="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-600 font-bold py-2.5 px-6 rounded-lg shadow-sm transition-colors">
+                                <i class="fa-solid fa-rotate-right ml-2"></i>إعادة تعيين
+                            </button>
+                        </section>
+                    </div>
+                </main>
+            </div>
+
+            <div id="dashboard-view" class="hidden fade-in space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">لوحة المتابعة والتحليل</h2>
+                </div>
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">اختر المعلم</label>
+                            <select id="teacher-dashboard-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5"></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">نوع التحليل</label>
+                            <select id="chartTypeSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
+                                <option value="radar">تحليل زيارة واحدة (راداري)</option>
+                                <option value="line">تطور الأداء عبر الزيارات (خطي)</option>
+                                <option value="bar">متوسط الأداء العام (شريطي)</option>
+                            </select>
+                        </div>
+                        <div id="visitDateGroup" class="hidden">
+                            <label class="block text-sm font-medium text-slate-600 mb-1">تاريخ الزيارة</label>
+                            <select id="visitDateSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5"></select>
+                        </div>
+                    </div>
+                    
+                    <button id="updateDashboardViewBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-sm mb-6 transition-colors">
+                        عرض التحليل البياني
+                    </button>
+
+                    <div id="chart-container" class="relative h-[500px] w-full border rounded-xl p-4 bg-slate-50">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                    <div id="no-data-message" class="hidden text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300 mt-4">
+                        <i class="fa-solid fa-chart-simple text-4xl text-slate-300 mb-3"></i>
+                        <p class="text-slate-500">لا توجد بيانات محفوظة لهذا المعلم حتى الآن.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="saved-reports-view" class="hidden fade-in space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex-grow w-full md:w-auto">
+                        <label class="block text-sm font-medium text-slate-600 mb-1">بحث في الأرشيف</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-search"></i>
+                            </div>
+                            <input type="text" id="filter-reports-input" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pr-10 p-2.5" placeholder="ابحث باسم المعلم أو المدرسة...">
+                        </div>
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
+                        <input type="file" id="import-file-input" accept=".json" class="hidden">
+                        <button id="triggerImportBtn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fa-solid fa-file-import ml-1"></i> استيراد
+                        </button>
+                        <button id="exportAllDataBtn" class="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fa-solid fa-file-export ml-1"></i> تصدير الكل
+                        </button>
+                    </div>
+                </div>
+
+                <div id="saved-reports-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    </div>
+                
+                <div id="no-saved-reports-message" class="hidden text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                    <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
+                    <p class="text-slate-500">الأرشيف فارغ حالياً.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="supervisoryConfirmationModal" class="modal-overlay fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[100] flex justify-center items-center" role="dialog" aria-modal="true">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all scale-100">
+                <div class="text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                        <i class="fa-solid fa-triangle-exclamation text-red-600 text-xl"></i>
+                    </div>
+                    <h3 id="supervisory-modal-title" class="text-lg leading-6 font-bold text-slate-900"></h3>
+                    <div class="mt-2">
+                        <p id="supervisory-modal-message" class="text-sm text-slate-500"></p>
+                    </div>
+                    <div class="mt-5 flex justify-center gap-3">
+                        <button id="supervisory-modal-confirm-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex-1">تأكيد</button>
+                        <button id="supervisory-modal-cancel-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg flex-1">إلغاء</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="print-view hidden" id="printView">
+            <div class="print-container">
+                 <div class="print-logo-header">
+                    <img src="https://i.ibb.co/567f2Pb/oman-vision-2040-logo.png" alt="رؤية عمان" onerror="this.style.display='none'">
+                    <img src="https://i.ibb.co/VMy4bJg/Oman-Ministry-of-Education-Logo-svg.png" alt="وزارة التربية" onerror="this.style.display='none'">
+                    <img src="https://i.ibb.co/hK0yMGH/quality-logo.png" alt="الجودة" onerror="this.style.display='none'">
+                </div>
+                <div class="print-header-text">نموذج رقم (5) استمارة زيارة إشرافية لمعلم مادة - مجال</div>
+                <h2 class="text-center font-bold text-xl mb-4 underline">استمارة زيارة إشرافية لمعلم مادة/مجال</h2>
+                
+                <table class="print-info-table mb-4">
+                    <tbody>
+                        <tr><td class="bg-gray-100 font-bold w-[15%]">اسم المعلم:</td><td class="value" id="print-teacherName"></td><td class="bg-gray-100 font-bold w-[15%]">المدرسة:</td><td class="value" id="print-school"></td></tr>
+                        <tr><td class="bg-gray-100 font-bold">المادة/المجال:</td><td class="value" id="print-subject"></td><td class="bg-gray-100 font-bold">رقم الملف:</td><td class="value" id="print-fileNumber"></td></tr>
+                        <tr><td class="bg-gray-100 font-bold">التاريخ:</td><td class="value" id="print-visitDate"></td><td class="bg-gray-100 font-bold">رقم الزيارة:</td><td class="value" id="print-visitNumber"></td></tr>
+                        <tr><td class="bg-gray-100 font-bold">الحصة:</td><td class="value" id="print-lesson"></td><td class="bg-gray-100 font-bold">الصف:</td><td class="value" id="print-class"></td></tr>
+                        <tr><td class="bg-gray-100 font-bold">الموضوع:</td><td colspan="3" class="value" id="print-topic"></td></tr>
+                    </tbody>
+                </table>
+                
+                <table class="print-main-table mb-4">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">المجال</th>
+                            <th style="width: 15%;">المعيار</th>
+                            <th style="width: 5%;">م</th>
+                            <th>البند</th>
+                            <th style="width: 10%;">التقدير</th>
+                        </tr>
+                    </thead>
+                    <tbody id="print-main-tbody"></tbody>
+                </table>
+    
+                <div class="report-section-print border-2 border-black p-2 mb-2 break-inside-avoid">
+                    <h3 class="bg-gray-100 font-bold p-1 text-center border-b border-black mb-2">جوانب الإجادة في الأداء وأدلتها:</h3>
+                    <div id="print-strengthsContent" class="text-right whitespace-pre-wrap min-h-[60px]"></div>
+                </div>
+                <div class="report-section-print border-2 border-black p-2 mb-2 break-inside-avoid">
+                    <h3 class="bg-gray-100 font-bold p-1 text-center border-b border-black mb-2">الجوانب التي تحتاج إلى تطوير في الأداء وأدلتها:</h3>
+                    <div id="print-developmentContent" class="text-right whitespace-pre-wrap min-h-[60px]"></div>
+                </div>
+                <div class="report-section-print border-2 border-black p-2 mb-2 break-inside-avoid">
+                    <h3 class="bg-gray-100 font-bold p-1 text-center border-b border-black mb-2">التوصيات:</h3>
+                    <div id="print-recommendationsContent" class="text-right whitespace-pre-wrap min-h-[60px]"></div>
+                </div>
+    
+                <div class="signature-section mt-8 break-inside-avoid flex justify-between px-10">
+                    <div>اسم الزائر: <span id="print-visitorName" class="font-bold underline"></span></div>
+                    <div>الوظيفة: <span id="print-visitorPosition" class="font-bold underline"></span></div>
+                </div>
+                <div class="text-center text-xs mt-4 pt-2 border-t border-black">
+                    ● معيار التقييم: 1- متميز، 2- جيد، 3- ملائم، 4- غير ملائم، 5- يحتاج إلى تدخل سريع
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="schoolVisitsApp" class="hidden min-h-screen bg-slate-50">
+        
+        <div id="schoolDashboardView" class="container mx-auto max-w-6xl p-6 fade-in">
+            <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800 flex items-center">
+                        <span class="bg-green-100 text-green-600 p-2 rounded-lg ml-3"><i class="fa-solid fa-school"></i></span>
+                        سجل التقارير المدرسية
+                    </h1>
+                    <p id="userEmailDisplay" class="text-slate-500 mt-1 text-sm mr-12">الوضع المحلي (Offline)</p>
+                </div>
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <button id="backToWelcomeFromSchool" class="text-slate-600 bg-slate-100 hover:bg-slate-200 font-medium rounded-lg text-sm px-4 py-2.5 transition-colors">
+                        <i class="fa-solid fa-home ml-2"></i>الرئيسية
+                    </button>
+                    <button id="addNewReportBtn" class="text-white bg-green-600 hover:bg-green-700 font-bold rounded-lg text-sm px-6 py-2.5 transition-colors shadow-sm">
+                        <i class="fa-solid fa-plus ml-2"></i> تقرير جديد
+                    </button>
+                </div>
+            </header>
+
+            <div id="reportsListContainer" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[300px]">
+                 </div>
+        </div>
+
+        <div id="schoolFormView" class="container mx-auto max-w-5xl p-6 fade-in hidden no-print">
+            <header class="text-center mb-8">
+                <h1 id="formTitle" class="text-3xl font-bold text-slate-800">إنشاء تقرير زيارة</h1>
+                <p class="text-slate-500 mt-2">توثيق ومتابعة الزيارات الميدانية</p>
+            </header>
+
+            <form id="reportForm" class="space-y-6">
+                <input type="hidden" id="reportId" value="">
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-blue-100 text-blue-600 rounded-lg p-2 ml-3"><i class="fa-solid fa-circle-info"></i></div>
+                        <h3 class="text-lg font-bold text-slate-700">بيانات أساسية</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block mb-2 text-sm font-medium text-slate-700">المدرسة</label>
+                            <select id="schoolName" name="schoolName" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                                 <option value="" selected disabled>اختر المدرسة</option>
+                                 <option value="أبو القاسم الزهراوي">أبو القاسم الزهراوي</option><option value="أبو أيوب الحضرمي">أبو أيوب الحضرمي</option><option value="أبو تمام">أبو تمام</option><option value="أحمد بن النعمان">أحمد بن النعمان</option><option value="الشيخ سالم السيابي">الشيخ سالم السيابي</option><option value="الشيخ سعيد الكندي مسائي">الشيخ سعيد الكندي مسائي</option><option value="الشيخ ناصر الخروصي">الشيخ ناصر الخروصي</option><option value="جنادة الازدى (موسى سابقا)">جنادة الازدى (موسى سابقا)</option><option value="حفص بن راشد">حفص بن راشد</option><option value="خريس الحبوس">خريس الحبوس</option><option value="سهيل بن عمرو العامري">سهيل بن عمرو العامري</option><option value="كعب بن زيد">كعب بن زيد</option><option value="يزيد الطائي">يزيد الطائي</option><option value="اجيال الثقافة">اجيال الثقافة</option><option value="اجيال الفردوس - الحيل">اجيال الفردوس - الحيل</option><option value="البيان">البيان</option><option value="الجيل المبدع">الجيل المبدع</option><option value="الريادة">الريادة</option><option value="السراج">السراج</option><option value="الصفوة المعبيلة">الصفوة المعبيلة</option><option value="المجد">المجد</option><option value="انس بن مالك (المنار سابقا)">انس بن مالك (المنار سابقا)</option><option value="جيفر بن الجلندي">جيفر بن الجلندي</option><option value="ضياء المستقبل">ضياء المستقبل</option><option value="مشاعل مسقط سور الحديد">مشاعل مسقط سور الحديد</option><option value="منابع التفوق">منابع التفوق</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-2 text-sm font-medium text-slate-700">تاريخ الزيارة</label>
+                            <input type="date" id="visitDate" name="visitDate" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="bg-amber-100 text-amber-600 rounded-lg p-2 ml-3"><i class="fa-solid fa-bullseye"></i></div>
+                            <h3 class="text-lg font-bold text-slate-700">نوع وأهداف الزيارة</h3>
+                        </div>
+                        <button type="button" id="manageVisitTypesBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors">
+                            <i class="fa-solid fa-cog"></i> إدارة الأنواع
+                        </button>
+                    </div>
+                    <select id="visitTypeSelect" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 mb-4"></select>
+                    
+                    <div class="flex justify-between items-center mb-2">
+                         <span class="text-sm font-medium text-slate-500">الأهداف المحددة:</span>
+                         <button type="button" id="selectAllObjectivesBtn" class="text-xs text-blue-600 hover:underline">اختيار الكل</button>
+                    </div>
+                    <div id="objectivesContainer" class="space-y-2 max-h-60 overflow-y-auto p-2 border rounded-lg bg-slate-50"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-purple-100 text-purple-600 rounded-lg p-2 ml-3"><i class="fa-solid fa-pen-to-square"></i></div>
+                        <h3 class="text-lg font-bold text-slate-700">رأي الزائر والملاحظات</h3>
+                    </div>
+                    <div id="opinionsContainer" class="space-y-6"></div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                         <div class="flex items-center">
+                            <div class="bg-emerald-100 text-emerald-600 rounded-lg p-2 ml-3"><i class="fa-solid fa-check-double"></i></div>
+                            <h3 class="text-lg font-bold text-slate-700">التوصيات</h3>
+                        </div>
+                        <button type="button" id="generate-recommendations-btn" class="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-semibold transition-colors">
+                            <i class="fa-solid fa-magic ml-1"></i> اقتراح تلقائي
+                        </button>
+                    </div>
+                    <textarea id="recommendations" rows="4" class="block p-3 w-full text-sm text-slate-900 bg-slate-50 rounded-lg border border-slate-300 focus:ring-blue-500 focus:border-blue-500" placeholder="اكتب التوصيات النهائية..."></textarea>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex items-center mb-4">
+                         <div class="bg-gray-100 text-gray-600 rounded-lg p-2 ml-3"><i class="fa-solid fa-paperclip"></i></div>
+                         <h3 class="text-lg font-bold text-slate-700">المرفقات</h3>
+                    </div>
+                    <label class="block w-full text-center p-4 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                        <span class="text-slate-500 text-sm">اضغط هنا لرفع الملفات</span>
+                        <input type="file" id="attachmentsInput" multiple class="hidden">
+                    </label>
+                    <div id="attachmentsList" class="mt-4 space-y-2"></div>
+                </div>
+
+                <div class="sticky bottom-4 z-30 bg-white/90 backdrop-blur p-4 rounded-xl border border-slate-200 shadow-lg flex justify-end gap-3">
+                    <button type="button" id="backToDashboardBtn" class="px-6 py-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors">إلغاء</button>
+                    <button type="button" id="prepareReportBtn" class="px-6 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-bold shadow-sm transition-colors">معاينة</button>
+                    <button type="submit" class="px-6 py-2.5 text-white bg-green-600 hover:bg-green-700 rounded-lg font-bold shadow-sm transition-colors">حفظ التقرير</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="reportPreviewContainer" class="container mx-auto max-w-4xl p-8 my-10 bg-white rounded-2xl shadow-xl hidden">
+            <div id="reportContent" class="prose max-w-none font-sans"></div>
+            <div class="flex justify-center pt-8 mt-8 border-t border-slate-100 no-print gap-3">
+                <button id="backToBtn" class="px-6 py-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg font-medium transition-colors">رجوع</button>
+                <button id="copyAllBtn" class="px-6 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium shadow-sm transition-colors">نسخ النص</button>
+                <button onclick="window.print()" class="px-6 py-2 text-white bg-slate-800 hover:bg-slate-900 rounded-lg font-medium shadow-sm transition-colors">طباعة</button>
+            </div>
+        </div>
+
+        <div id="manageTypesModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 mx-4">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="text-xl font-bold text-slate-800">إدارة أنواع الزيارات</h3>
+                    <button id="closeManageModalBtn" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times text-xl"></i></button>
+                </div>
+                <div id="visitTypesList" class="space-y-2 max-h-[300px] overflow-y-auto mb-4 pr-2"></div>
+                <button id="addNewTypeBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg">إضافة نوع جديد</button>
+            </div>
+        </div>
+
+        <div id="addEditTypeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 mx-4">
+                <h3 id="addEditModalTitle" class="text-xl font-bold text-slate-800 mb-4"></h3>
+                <form id="addEditTypeForm" class="space-y-4">
+                    <input type="hidden" id="editTypeKey" value="">
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-slate-700">الاسم</label>
+                        <input type="text" id="typeName" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5" required>
+                    </div>
+                    <div>
+                        <label class="block mb-1 text-sm font-medium text-slate-700">الأهداف (هدف في كل سطر)</label>
+                        <textarea id="typeObjectives" rows="6" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5" required></textarea>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" id="cancelEditBtn" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg">إلغاء</button>
+                        <button type="submit" id="saveTypeBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg font-bold">حفظ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="confirmationModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+            <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                    <i class="fa-solid fa-trash-can text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">هل أنت متأكد؟</h3>
+                <p id="confirmationModalMessage" class="text-sm text-slate-500 mb-6"></p>
+                <div class="flex justify-center gap-3">
+                    <button id="confirmActionBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg">نعم، احذف</button>
+                    <button id="cancelActionBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-6 rounded-lg">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- UTILS: TOAST NOTIFICATIONS ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toastMsg = document.getElementById('toast-message');
+            const icon = document.getElementById('toast-icon');
+            const text = document.getElementById('toast-text');
+
+            container.classList.remove('opacity-0', 'translate-y-4');
+            
+            if (type === 'success') {
+                toastMsg.className = 'bg-emerald-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium';
+                icon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            } else if (type === 'error') {
+                toastMsg.className = 'bg-red-600 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium';
+                icon.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+            } else {
+                toastMsg.className = 'bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium';
+                icon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+            }
+            
+            text.textContent = message;
+            setTimeout(() => { container.classList.add('opacity-0', 'translate-y-4'); }, 3000);
+        }
+
+        // --- VIEW MANAGEMENT ---
+        const welcomeView = document.getElementById('welcomeView');
+        const supervisoryApp = document.getElementById('supervisoryVisitsApp');
+        const schoolApp = document.getElementById('schoolVisitsApp');
+
+        function showView(view) {
+            welcomeView.classList.add('hidden');
+            supervisoryApp.classList.add('hidden');
+            schoolApp.classList.add('hidden');
+            view.classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+
+        document.getElementById('showSupervisoryAppBtn').addEventListener('click', () => showView(supervisoryApp));
+        document.getElementById('showSchoolAppBtn').addEventListener('click', () => showView(schoolApp));
+        document.getElementById('backToWelcomeFromSupervisory').addEventListener('click', () => showView(welcomeView));
+        
+        const backToWelcomeFromSchoolDashboard = schoolApp.querySelector('#schoolDashboardView #backToWelcomeFromSchool');
+        if(backToWelcomeFromSchoolDashboard) {
+            backToWelcomeFromSchoolDashboard.addEventListener('click', () => showView(welcomeView));
+        }
+
+        // --- SUPERVISORY VISITS APP CODE ---
+        function initializeSupervisoryApp() {
+            let performanceChartInstance;
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+            if (recognition) {
+                recognition.continuous = false;
+                recognition.lang = 'ar-SA';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+            }
+
+            const schoolsList = [ "أبو القاسم الزهراوي", "أبو أيوب الحضرمي", "أبو تمام", "أحمد بن النعمان", "الشيخ سالم السيابي", "الشيخ سعيد الكندي", "الشيخ ناصر الخروصي", "جنادة الازدي", "حفص بن راشد", "خريس الحبوس", "سهيل بن عمرو العامري", "كعب بن زيد", "يزيد الطائي", "أجيال الثقافة", "أجيال الفردوس – الحيل", "البيان", "الجيل المبدع", "الريادة", "الصفوة -المعبيلة", "المجد", "جيفر بن الجلندى", "السراج", "ضياء المستقبل", "مشاعل مسقط سور ال حديد", "منابع التفوق" ];
+            const teachersBySchool = { "أحمد بن النعمان": ["طارق بن يوسف بن يسند البلوشي", "عمر بن سعيد بن عبيد الشحي", "سليمان بن سالم بن مبارك الرزيقي"], "أبو القاسم الزهراوي": ["أيوب بن سلطان بن ناصر الوردي"], "أبو الفضل الزهراوي": ["يحيى بن عبدالله بن سيف اليوسفي"], "حفص بن راشد": ["سعود بن سيف بن ناصر الراسبي", "سليمان بن سيف بن سالم الوهيبي", "عبدالحميد بن محمد بن عبدالرسول الزدجالي", "محمد بن أحمد بن خالد الخطوري", "حميد بن حمد بن هديب السعدي"], "الشيخ سالم السيابي": ["إبراهيم بن ناصر بن خميس البوسعيدي", "فهد بن محمد بن سعيد الخروصي"], "أبو أيوب الحضرمي": ["عبدالله بن سعيد بن عامر القلذي"], "خريس الحبوس": ["فيصل بن عبدالله بن راشد الحربي", "عبدالله بن فرج بن عبيد الحجري", "عمر سالم شدوم الهنائي", "هاشم بن راشد بن سيف الهاشمي"], "أبو تمام": ["المعتصم بن عبدالله بن علي القطيطي"], "الشيخ ناصر الخروصي": ["سعيد بن محمد بن راشد الغاوي المخمري", "عدنان بن حسن بن تبوك", "سيف بن سليمان بن سيف الفهدي"], "كعب بن زيد": ["أحمد بن سليمان بن سالم الحسيني", "يوسف بن عبدالله بن سيف اليوسفي", "علاء بن علي بن حمد الشبلي"], "جنادة الازدي": ["إبراهيم بن محمد بن حمود الراسبي", "سالم بن سعيد بن سعيد البوسعيدي", "أسامة بن سليمان الدهماني", "محمود بن محمد بن خلفان المحروقي", "منصور بن محمد بن جمعه الفارسي"], "سهيل بن عمرو العامري": ["السعد بن خليفة بن عبدالله السعدي", "محمد بن قاسم بن حمدان النبهاني", "راشد بن سالم بن خالد الرشيدي"], "الشيخ سعيد الكندي": ["محمد بن سعيد بن مجاد العمري", "راشد بن سالم بن خلفان المشيفري"], "الصفوة -المعبيلة": ["رحمة محمد شلقامي"], "جيفر بن الجلندى": ["إيهاب محسن محمد"], "أجيال الثقافة": ["اسماء حسن احمد"], "البيان": ["جيهان علي محمد"], "المجد": ["ايه رضا عبد الفتاح العليمي حلاوه"], "الريادة": ["اسماء سعد سعد ابراهيم سعد", "حسام محمد زايد"], "أجيال الفردوس – الحيل": ["رحاب عبد الحكم عبد الحليم"], "السراج": ["عذراء بنت محمد بن حمود المالكي"], "ضياء المستقبل": ["علاء احمد وزيري"], "مشاعل مسقط سور ال حديد": ["دينا اشرف حبيب"], "منابع التفوق": ["مها محمد السيد"], "الجيل المبدع": ["ايمان رمضان علي محمد هلال"] };
+            const evaluationItems = [ { id: 1, domain: 'الإنجاز الدراسي', standard: 'التحصيل الدراسي', title: 'تحصيل الطلبة في الأعمال الصفية وغير الصفية', desc: '(اكتساب المهارات الحركية والمعارف المرتبطة بها)' }, { id: 2, domain: 'الإنجاز الدراسي', standard: 'التقدم الدراسي', title: 'التقدم الدراسي للطلبة بما فيهم الطلبة ذوي الإعاقة/الاحتياجات التعليمية', desc: '(تطور الأداء المهاري والخططي)' }, { id: 3, domain: 'الإنجاز الدراسي', standard: 'مهارات التعلم', title: 'تطبيق مهارات التعلم (الذاتي- التعاوني - الرقمي - التفكير العليا) وربطها بالواقع', desc: '(القيادة، التعاون، التفكير الخططي في مواقف اللعب)' }, { id: 4, domain: 'النمو الشخصي', standard: 'القيم والسلوك', title: 'تمسك الطلبة بالهوية العمانية والقيم الإنسانية', desc: '(الروح الرياضية وأخلاقيات اللعب)' }, { id: 5, domain: 'مناخ المدرسة وبيئة التعلم', standard: 'جودة بيئة التعلم', title: 'متابعة جوانب الأمن والسلامة والنظافة في بيئة التعلم', desc: '(سلامة الأدوات والمرافق الرياضية)' }, { id: 6, domain: 'التدريس والتقويم', standard: 'تخطيط المنهاج الدراسي', title: 'تخطيط المنهاج الدراسي لتحقيق نواتج التعلم', desc: '(التخطيط لتنمية المهارات الحركية واللياقة البدنية)' }, { id: 7, domain: 'التدريس والتقويم', standard: 'إدارة الصف', title: 'فاعلية الإدارة الصفية', desc: '(إدارة وتنظيم النشاط البدني)' }, { id: 8, domain: 'التدريس والتقويم', standard: 'فاعلية التدريس', title: 'توظيف استراتيجيات التدريس الفعالة', desc: '(استراتيجيات التدريس المناسبة للنشاط البدني)' }, { id: 9, domain: 'التدريس والتقويم', standard: 'فاعلية التدريس', title: 'تفعيل المصادر والموارد التعليمية', desc: '(الأدوات والأجهزة والمرافق الرياضية)' }, { id: 10, domain: 'التدريس والتقويم', standard: 'التقويم ومساندة التقدم', title: 'توظيف أساليب تقويم متنوعة', desc: '(تقويم الأداء الحركي والمهاري للطلبة)' }, { id: 11, domain: 'القيادة والإدارة والحوكمة', standard: 'قيادة التغيير', title: 'توظيف التقويم الذاتي والتطوير المهني في تحسين الأداء', desc: '(التأمل في الممارسات التدريسية وتطويرها)' }, { id: 12, domain: 'القيادة والإدارة والحوكمة', standard: 'الحوكمة', title: 'تطبيق السياسات والأنظمة واللوائح المنظمة للعمل', desc: '(الالتزام بأخلاقيات المهنة واللوائح)' }, { id: 13, domain: 'القيادة والإدارة والحوكمة', standard: 'الحوكمة', title: 'تنفيذ مبادرات وأنشطة تربوية في المجتمع المدرسي', desc: '(تنظيم الفعاليات والمسابقات الرياضية)' } ];
+            
+            const detailedDescriptions = {
+                '1': { // التحصيل الدراسي
+                    '1': [
+                        "يتقن <span class='text-red-600 font-bold'>جميع</span> الطلبة المهارات الحركية والمعارف المرتبطة بها، ويطبقونها بفاعلية في اللعب.",
+                        "أداء متميز لـ<span class='text-red-600 font-bold'>كافة</span> الطلبة في المهارات الحركية الأساسية مع قدرة عالية على التطبيق العملي.",
+                        "يظهر <span class='text-red-600 font-bold'>الجميع</span> استيعاباً كاملاً للمهارات الحركية وتطبيقها بدقة في المواقف المختلفة."
+                    ],
+                    '2': [
+                        "يتقن <span class='text-red-600 font-bold'>معظم</span> الطلبة المهارات الحركية الأساسية، ويطبقونها بصورة جيدة في مواقف اللعب.",
+                        "يظهر <span class='text-red-600 font-bold'>الأغلبية</span> تحكماً جيداً في المهارات الحركية وتطبيقها ميدانياً.",
+                        "مستوى التحصيل المهاري والمعرفي جيد جداً لدى <span class='text-red-600 font-bold'>المعظم</span>."
+                    ],
+                    '3': [
+                        "يكتسب <span class='text-red-600 font-bold'>أغلب</span> الطلبة المهارات الحركية الأساسية والمعارف بمستوى ملائم.",
+                        "يؤدي <span class='text-red-600 font-bold'>أكثر</span> الطلبة المهارات بالحد المقبول الذي يسمح باستمرار النشاط.",
+                        "مستوى تحصيل <span class='text-red-600 font-bold'>الأغلبية</span> يتناسب مع التوقعات الأساسية للمنهج."
+                    ],
+                    '4': [
+                        "يكتسب <span class='text-red-600 font-bold'>قليل من</span> الطلبة المهارات الحركية الأساسية، مع صعوبة واضحة في التطبيق.",
+                        "ضعف في أداء المهارات لدى الغالبية، حيث يتقنها <span class='text-red-600 font-bold'>القلة</span> فقط.",
+                        "مستوى التحصيل دون المتوسط، ويقتصر الإتقان على <span class='text-red-600 font-bold'>عدد محدود</span>."
+                    ],
+                    '5': [
+                        "يظهر <span class='text-red-600 font-bold'>عدد نادر من</span> الطلبة اكتسابًا للمهارات الحركية، مع تدني عام في المستوى.",
+                        "قصور حاد في اكتساب المهارات لدى الفصل، والاستجابة <span class='text-red-600 font-bold'>نادرة</span>.",
+                        "عدم تحقق نواتج التعلم المهارية والمعرفية لدى السواد الأعظم من الطلبة."
+                    ]
+                },
+                '2': { // التقدم الدراسي
+                    '1': [
+                        "يُظهر <span class='text-red-600 font-bold'>جميع</span> الطلبة (بمن فيهم ذوو الاحتياجات) تطورًا متميزًا ومستمرًا في أدائهم.",
+                        "تقدم لافت وملموس في مستوى <span class='text-red-600 font-bold'>كافة</span> الطلبة مهاريًا وبدنيًا طوال الحصة.",
+                        "منحنى التعلم متصاعد بوضوح لدى <span class='text-red-600 font-bold'>الجميع</span> بلا استثناء."
+                    ],
+                    '2': [
+                        "يُظهر <span class='text-red-600 font-bold'>معظم</span> الطلبة تطورًا جيدًا في أدائهم المهاري والخططي واللياقي.",
+                        "هناك تحسن واضح في أداء <span class='text-red-600 font-bold'>الأغلبية</span> مقارنة ببداية الحصة.",
+                        "يتقدم مستوى <span class='text-red-600 font-bold'>المعظم</span> بشكل جيد خلال مراحل الدرس المختلفة."
+                    ],
+                    '3': [
+                        "يُظهر <span class='text-red-600 font-bold'>أغلب</span> الطلبة تطورًا ملائمًا ومقبولاً في أدائهم المهاري.",
+                        "معدل تقدم <span class='text-red-600 font-bold'>الأكثرية</span> يسير بوتيرة عادية وملائمة.",
+                        "تحسن نسبي في مستوى <span class='text-red-600 font-bold'>أغلب</span> الطلبة خلال الحصة."
+                    ],
+                    '4': [
+                        "يُظهر <span class='text-red-600 font-bold'>قليل من</span> الطلبة تطورًا محدودًا في أدائهم، مع ثبات مستوى البقية.",
+                        "التقدم الدراسي بطيء ويقتصر على <span class='text-red-600 font-bold'>فئة قليلة</span> من الموهوبين.",
+                        "لا يوجد تطور ملحوظ لدى الغالبية، والتحسن محصور في <span class='text-red-600 font-bold'>القلة</span>."
+                    ],
+                    '5': [
+                        "يُظهر <span class='text-red-600 font-bold'>عدد نادر من</span> الطلبة تطورًا، مع تراجع أو ثبات سلبي للبقية.",
+                        "جمود في المستوى المهاري والبدني لدى الجميع تقريباً.",
+                        "غياب أثر التعلم، ولا يوجد تقدم يذكر لدى الطلبة."
+                    ]
+                },
+                '3': { // مهارات التعلم
+                    '1': [
+                        "يوظف <span class='text-red-600 font-bold'>جميع</span> الطلبة مهارات القيادة والتعاون بفاعلية متميزة في مواقف اللعب.",
+                        "روح تعاونية وقيادية عالية جداً تظهر لدى <span class='text-red-600 font-bold'>كافة</span> الطلبة.",
+                        "تطبيق احترافي لمهارات التفكير الخططي والعمل الجماعي من قبل <span class='text-red-600 font-bold'>الجميع</span>."
+                    ],
+                    '2': [
+                        "يوظف <span class='text-red-600 font-bold'>معظم</span> الطلبة مهارات التعاون والتفكير الخططي بصورة جيدة.",
+                        "تفاعل إيجابي وعمل جماعي جيد يظهر لدى <span class='text-red-600 font-bold'>الأغلبية</span>.",
+                        "يشارك <span class='text-red-600 font-bold'>المعظم</span> في صنع القرارات الخططية والتعاون أثناء اللعب."
+                    ],
+                    '3': [
+                        "يوظف <span class='text-red-600 font-bold'>أغلب</span> الطلبة مهارات التعاون والتفكير الخططي بمستوى ملائم.",
+                        "الحد الأدنى من التعاون والعمل الجماعي متوفر لدى <span class='text-red-600 font-bold'>الأكثرية</span>.",
+                        "تظهر مهارات التعلم الذاتي والجماعي بشكل مقبول لدى <span class='text-red-600 font-bold'>أغلب</span> الطلبة."
+                    ],
+                    '4': [
+                        "يظهر لدى <span class='text-red-600 font-bold'>قليل من</span> الطلبة توظيف محدود لمهارات التعاون.",
+                        "غلبة الطابع الفردي والعشوائي، والتعاون يظهر لدى <span class='text-red-600 font-bold'>القلة</span>.",
+                        "ضعف في مهارات التواصل والقيادة لدى الغالبية العظمى."
+                    ],
+                    '5': [
+                        "يظهر لدى <span class='text-red-600 font-bold'>عدد نادر من</span> الطلبة توظيف لمهارات التعاون، مع شيوع الفوضى.",
+                        "انعدام العمل الجماعي والتفكير الخططي في الحصة.",
+                        "سلبية واضحة في مهارات التعلم والتفاعل الصفي."
+                    ]
+                },
+                '4': { // القيم والسلوك
+                    '1': [
+                        "يلتزم <span class='text-red-600 font-bold'>جميع</span> الطلبة بقيم الروح الرياضية والاحترام المتبادل بمستوى متميز.",
+                        "سلوك قيمي وأخلاقي راقٍ جداً من <span class='text-red-600 font-bold'>كافة</span> الطلبة.",
+                        "انضباط ذاتي واحترام للقوانين والمنافسين يظهر من <span class='text-red-600 font-bold'>الجميع</span>."
+                    ],
+                    '2': [
+                        "يلتزم <span class='text-red-600 font-bold'>معظم</span> الطلبة بقيم الروح الرياضية واللعب النظيف.",
+                        "سلوكيات إيجابية واحترام متبادل سائد بين <span class='text-red-600 font-bold'>الأغلبية</span>.",
+                        "يتحلى <span class='text-red-600 font-bold'>المعظم</span> بالأخلاق الرياضية وقبول النتائج بصدر رحب."
+                    ],
+                    '3': [
+                        "يلتزم <span class='text-red-600 font-bold'>أغلب</span> الطلبة بقيم الروح الرياضية والاحترام المتبادل.",
+                        "المستوى العام للسلوك القيمي <span class='text-red-600 font-bold'>ملائم</span> ومقبول.",
+                        "تظهر الروح الرياضية بشكل اعتيادي لدى <span class='text-red-600 font-bold'>أغلب</span> الطلبة."
+                    ],
+                    '4': [
+                        "يظهر <span class='text-red-600 font-bold'>قليل من</span> الطلبة التزامًا محدودًا بقيم الروح الرياضية.",
+                        "كثرة المشاحنات وغياب الروح الرياضية إلا لدى <span class='text-red-600 font-bold'>القلة</span>.",
+                        "سلوكيات غير مرغوبة تظهر بشكل متكرر وتؤثر على سير الدرس."
+                    ],
+                    '5': [
+                        "يظهر <span class='text-red-600 font-bold'>عدد نادر من</span> الطلبة التزاماً، مع شيوع سلوكيات تتنافى مع القيم.",
+                        "بيئة صفية تفتقر للاحترام والروح الرياضية بشكل لافت.",
+                        "تجاوزات سلوكية واضحة وعدم التزام بالقيم التربوية."
+                    ]
+                },
+                '5': { // بيئة التعلم
+                    '1': [
+                        "يضمن المعلم سلامة المرافق ويوفر بيئة تعلم آمنة ومحفزة <span class='text-red-600 font-bold'>بشكل متميز</span>.",
+                        "بيئة تعلم مثالية وآمنة جداً مع استغلال أمثل للمساحات.",
+                        "حرص شديد ومتميز على جوانب الأمن والسلامة والنظافة قبل وأثناء النشاط."
+                    ],
+                    '2': [
+                        "يحرص المعلم على سلامة الأدوات ويوفر بيئة تعلم آمنة <span class='text-red-600 font-bold'>بشكل جيد</span>.",
+                        "بيئة تعلم آمنة ومنظمة تساعد على تنفيذ الدرس بفاعلية.",
+                        "اهتمام جيد جداً بجوانب الأمن والسلامة وتوزيع الأدوات."
+                    ],
+                    '3': [
+                        "يتابع المعلم سلامة الأدوات والمرافق بصورة <span class='text-red-600 font-bold'>ملائمة</span>.",
+                        "بيئة التعلم مقبولة وتفي بمتطلبات الأمن والسلامة الأساسية.",
+                        "تأكد روتيني من سلامة المكان والأدوات."
+                    ],
+                    '4': [
+                        "متابعة المعلم لسلامة الأدوات والمرافق الرياضية <span class='text-red-600 font-bold'>محدودة</span>.",
+                        "وجود بعض الملاحظات على تنظيم وسلامة بيئة التعلم.",
+                        "بيئة التعلم تحتاج لمزيد من التنظيم والاهتمام بجوانب السلامة."
+                    ],
+                    '5': [
+                        "إهمال واضح لسلامة الأدوات والمرافق مما قد يعرض الطلبة للخطر.",
+                        "بيئة تعلم غير آمنة وغير مناسبة لممارسة النشاط.",
+                        "قصور شديد في تفقد عوامل الأمن والسلامة."
+                    ]
+                },
+                '6': { // التخطيط
+                    '1': [
+                        "خطط وسجلات متميزة، ويدرج تحضيره اليومي لـ<span class='text-red-600 font-bold'>جميع</span> أنشطته في منصة نور.",
+                        "تخطيط استثنائي وشامل، مع التزام تام برفع التحضير لـ<span class='text-red-600 font-bold'>كافة</span> الدروس إلكترونياً.",
+                        "سجلات متكاملة وتحضير إلكتروني يومي يغطي <span class='text-red-600 font-bold'>جميع</span> الجوانب."
+                    ],
+                    '2': [
+                        "خطط وسجلات منظمة جيداً، ويدرج تحضيره لـ<span class='text-red-600 font-bold'>معظم</span> أنشطته في منصة نور.",
+                        "أداء تخطيطي جيد، مع رفع التحضير لـ<span class='text-red-600 font-bold'>غالبية</span> الدروس.",
+                        "اهتمام واضح بالتخطيط والتوثيق الإلكتروني لـ<span class='text-red-600 font-bold'>معظم</span> الحصص."
+                    ],
+                    '3': [
+                        "خطط وسجلات منظمة، ويدرج تحضيره لـ<span class='text-red-600 font-bold'>أغلب</span> أنشطته في منصة نور.",
+                        "التزام ملائم بالتخطيط والتحضير الإلكتروني لـ<span class='text-red-600 font-bold'>أغلب</span> الدروس.",
+                        "السجلات والتحضير متوفرة بالحد المطلوب."
+                    ],
+                    '4': [
+                        "تخطيط جزئي، ويدرج تحضيره اليومي لـ<span class='text-red-600 font-bold'>قليل من</span> أنشطته.",
+                        "قصور في تنظيم السجلات، والتحضير الإلكتروني يشمل <span class='text-red-600 font-bold'>القلة</span> من الدروس.",
+                        "عدم انتظام في التخطيط والتحضير عبر المنصة."
+                    ],
+                    '5': [
+                        "تفتقر الخطط للتنظيم، و<span class='text-red-600 font-bold'>نادرًا</span> ما يدرج تحضيره في منصة نور.",
+                        "غياب شبه تام للتخطيط المسبق أو التوثيق الإلكتروني.",
+                        "عشوائية في العمل وعدم وجود تحضير للدروس."
+                    ]
+                },
+                '7': { // إدارة الصف
+                    '1': [
+                        "يدير وينظم النشاط البدني <span class='text-red-600 font-bold'>بفاعلية متميزة</span>، ويستغل الوقت بالكامل.",
+                        "سيطرة صفية ممتازة وتنظيم عالي المستوى يضمن مشاركة الجميع.",
+                        "إدارة وقت وجهد مثالية، وانتقالات سلسة جداً بين أجزاء الدرس."
+                    ],
+                    '2': [
+                        "يدير وينظم النشاط البدني <span class='text-red-600 font-bold'>بفاعلية جيدة</span> واستثمار جيد للوقت.",
+                        "تحكم صفي جيد وتنظيم يضمن سير الحصة بانتظام.",
+                        "إدارة ناجحة للمجموعات والوقت بشكل عام."
+                    ],
+                    '3': [
+                        "يدير وينظم النشاط البدني بصورة <span class='text-red-600 font-bold'>ملائمة</span> ومقبولة.",
+                        "مستوى السيطرة والتنظيم يسمح بتحقيق أهداف الدرس الأساسية.",
+                        "إدارة صفية عادية تفي بالغرض."
+                    ],
+                    '4': [
+                        "إدارة النشاط البدني <span class='text-red-600 font-bold'>محدودة</span>، مع وجود هدر في الوقت.",
+                        "ضعف في السيطرة على الطلاب وتنظيم المجموعات.",
+                        "فوضى نسبية تؤثر على زمن التعلم الفعلي."
+                    ],
+                    '5': [
+                        "ضعف واضح في إدارة وتنظيم النشاط، مما يؤثر سلبًا على التعلم.",
+                        "فقدان السيطرة على الصف وهدر كبير لوقت الحصة.",
+                        "عشوائية تامة في إدارة الطلاب والأدوات."
+                    ]
+                },
+                '8': { // استراتيجيات التدريس
+                    '1': [
+                        "يوظف استراتيجيات <span class='text-red-600 font-bold'>متنوعة ومبتكرة</span> يستفيد منها جميع الطلبة.",
+                        "إبداع في استخدام طرق تدريس حديثة تجذب <span class='text-red-600 font-bold'>كافة</span> الطلاب.",
+                        "تنويع ممتاز في الأساليب التعليمية بما يراعي الفروق الفردية للجميع."
+                    ],
+                    '2': [
+                        "يوظف استراتيجيات <span class='text-red-600 font-bold'>فعالة</span> ومناسبة يستفيد منها معظم الطلبة.",
+                        "استخدام جيد لطرق التدريس النشطة مع <span class='text-red-600 font-bold'>غالبية</span> الفصل.",
+                        "أساليب تدريس ناجحة تحقق التفاعل مع <span class='text-red-600 font-bold'>المعظم</span>."
+                    ],
+                    '3': [
+                        "يوظف استراتيجيات تدريس <span class='text-red-600 font-bold'>ملائمة</span> للنشاط البدني.",
+                        "اعتماد أساليب تدريس تقليدية لكنها مناسبة للموقف.",
+                        "طرق التدريس المستخدمة مقبولة وتناسب <span class='text-red-600 font-bold'>أغلب</span> الطلبة."
+                    ],
+                    '4': [
+                        "توظيف استراتيجيات التدريس <span class='text-red-600 font-bold'>محدود</span> وغير متنوع.",
+                        "جمود في الأسلوب التعليمي وعدم مناسبته لبعض الطلاب.",
+                        "الاعتماد على التلقين أو الأمر المباشر فقط."
+                    ],
+                    '5': [
+                        "يعتمد استراتيجية واحدة غير فعالة أو غير مناسبة للنشاط.",
+                        "طريقة تدريس عقيمة لا تحقق أي تفاعل.",
+                        "ضعف شديد في توصيل المعلومة أو المهارة."
+                    ]
+                },
+                '9': { // المصادر والموارد (الأدوات)
+                    '1': [
+                        "يفعل الأدوات الرياضية بفاعلية يستفيد منها <span class='text-red-600 font-bold'>جميع</span> الطلبة لتعميق تعلمهم.",
+                        "استغلال أمثل ومبتكر لكافة الإمكانات المتاحة لخدمة <span class='text-red-600 font-bold'>الجميع</span>.",
+                        "توفير أدوات بديلة ومبتكرة تضمن مشاركة <span class='text-red-600 font-bold'>كافة</span> الطلبة."
+                    ],
+                    '2': [
+                        "يفعل الأدوات الرياضية بفاعلية يستفيد منها <span class='text-red-600 font-bold'>معظم</span> الطلبة.",
+                        "استخدام جيد للأدوات المتاحة يخدم <span class='text-red-600 font-bold'>الأغلبية</span>.",
+                        "توظيف جيد للموارد التعليمية في الحصة."
+                    ],
+                    '3': [
+                        "يفعل الأدوات الرياضية بفاعلية يستفيد منها <span class='text-red-600 font-bold'>أغلب</span> الطلبة.",
+                        "استخدام الأدوات يتم بشكل ملائم ومقبول.",
+                        "الموارد المتاحة مستخدمة بالحد الأدنى المطلوب."
+                    ],
+                    '4': [
+                        "يفعل الأدوات بفاعلية محدودة ويستفيد منها <span class='text-red-600 font-bold'>قليل من</span> الطلبة.",
+                        "نقص في الأدوات المستخدمة مقارنة بعدد الطلاب.",
+                        "سوء توزيع أو استخدام للموارد المتاحة."
+                    ],
+                    '5': [
+                        "تفعيل الأدوات الرياضية نادر أو معدوم.",
+                        "عدم استخدام أي أدوات رغم توفرها أو الحاجة إليها.",
+                        "الحصة تتم بدون مصادر تعلم مساندة."
+                    ]
+                },
+                '10': { // التقويم
+                    '1': [
+                        "يوظف أساليب تقويم متنوعة <span class='text-red-600 font-bold'>بفاعلية متميزة</span> وتقديم تغذية راجعة فورية.",
+                        "دقة عالية في تشخيص الأخطاء وتصحيحها لـ<span class='text-red-600 font-bold'>جميع</span> الطلبة.",
+                        "استخدام أدوات قياس وتقويم شاملة ومبتكرة."
+                    ],
+                    '2': [
+                        "يوظف أساليب تقويم متنوعة <span class='text-red-600 font-bold'>بفاعلية جيدة</span> لتقويم الأداء.",
+                        "تغذية راجعة جيدة ومستمرة لـ<span class='text-red-600 font-bold'>معظم</span> الطلبة.",
+                        "اهتمام جيد بتقويم الجوانب المهارية والمعرفية."
+                    ],
+                    '3': [
+                        "يوظف أساليب تقويم <span class='text-red-600 font-bold'>ملائمة</span> للأداء الحركي.",
+                        "التقويم يتم بصورة تقليدية مقبولة.",
+                        "تقديم تغذية راجعة أساسية عند الحاجة."
+                    ],
+                    '4': [
+                        "توظيف أساليب التقويم <span class='text-red-600 font-bold'>محدود</span> أو يقتصر على نوع واحد.",
+                        "ضعف في تصحيح الأخطاء وتقديم التغذية الراجعة.",
+                        "التقويم غير دقيق ولا يغطي جوانب التعلم."
+                    ],
+                    '5': [
+                        "غياب شبه تام لأساليب التقويم المنظمة.",
+                        "إهمال تصحيح الأخطاء الفنية لدى الطلاب.",
+                        "لا يوجد أي سجل أو آلية لتقويم تعلم الطلبة."
+                    ]
+                },
+                '11': { // قيادة التغيير (التطوير المهني)
+                    '1': [
+                        "يتأمل في ممارساته ويوظفها في تطوير أدائه <span class='text-red-600 font-bold'>بصورة متميزة</span>.",
+                        "حرص دائم واستثنائي على النمو المهني وتطوير الذات.",
+                        "مبادرات ذاتية مبتكرة لتطوير الأداء التدريسي."
+                    ],
+                    '2': [
+                        "يتأمل في ممارساته ويوظفها في تطوير أدائه <span class='text-red-600 font-bold'>بصورة جيدة</span>.",
+                        "استجابة جيدة للتوجيهات وسعي واضح للتطوير.",
+                        "تحسن ملحوظ في الأداء نتيجة الاهتمام بالتنمية المهنية."
+                    ],
+                    '3': [
+                        "يتأمل في ممارساته ويوظفها في تطوير أدائه بصورة <span class='text-red-600 font-bold'>ملائمة</span>.",
+                        "مستوى التطوير المهني مقبول ويتناسب مع الخبرة.",
+                        "يتقبل الملاحظات ويعمل على تطبيقها بالحد المعقول."
+                    ],
+                    '4': [
+                        "تأمل المعلم في ممارساته <span class='text-red-600 font-bold'>محدود</span> ونادرًا ما يطور أداءه.",
+                        "بطء في الاستجابة للتوجيهات الإشرافية.",
+                        "تكرار نفس الأخطاء وعدم السعي للتغيير."
+                    ],
+                    '5': [
+                        "لا يظهر أي تأمل في ممارساته أو اهتمام بتطوير أدائه.",
+                        "رفض للتطوير وتمسك بأساليب غير فعالة.",
+                        "جمود تام في المستوى الفني والتربوي."
+                    ]
+                },
+                '12': { // الحوكمة (اللوائح)
+                    '1': [
+                        "يلتزم بأخلاقيات المهنة واللوائح <span class='text-red-600 font-bold'>بشكل نموذجي ومتميز</span>.",
+                        "قدوة حسنة جداً في الانضباط والالتزام بالقوانين المدرسية.",
+                        "دقة متناهية في تطبيق اللوائح والأنظمة."
+                    ],
+                    '2': [
+                        "يلتزم بأخلاقيات المهنة واللوائح <span class='text-red-600 font-bold'>بشكل جيد</span>.",
+                        "انضباط وظيفي جيد واحترام للنظم.",
+                        "سجل جيد في الالتزام بالمواعيد والمهام."
+                    ],
+                    '3': [
+                        "يلتزم بأخلاقيات المهنة واللوائح بصورة <span class='text-red-600 font-bold'>ملائمة</span>.",
+                        "الالتزام العام باللوائح مرضٍ ومقبول.",
+                        "لا توجد مخالفات صريحة للأنظمة."
+                    ],
+                    '4': [
+                        "التزام المعلم بأخلاقيات المهنة واللوائح <span class='text-red-600 font-bold'>محدود</span>.",
+                        "وجود بعض التجاوزات أو التقصير في تطبيق اللوائح.",
+                        "يحتاج لتذكير مستمر بالأنظمة والواجبات."
+                    ],
+                    '5': [
+                        "يظهر عدم التزام واضح بأخلاقيات المهنة واللوائح.",
+                        "مخالفات صريحة ومتكررة للأنظمة المدرسية.",
+                        "إهمال في المسؤوليات الوظيفية والأخلاقية."
+                    ]
+                },
+                '13': { // الحوكمة (المبادرات)
+                    '1': [
+                        "يبادر بتنظيم فعاليات رياضية <span class='text-red-600 font-bold'>متميزة وفعالة</span>.",
+                        "نشاط استثنائي في تفعيل الرياضة المدرسية والمسابقات.",
+                        "قيادة متميزة للأنشطة والفعاليات على مستوى المدرسة."
+                    ],
+                    '2': [
+                        "يساهم <span class='text-red-600 font-bold'>بفاعلية جيدة</span> في تنظيم فعاليات والمسابقات.",
+                        "دور فعال وإيجابي في الأنشطة الرياضية المدرسية.",
+                        "مشاركة جيدة في تفعيل المناسبات الرياضية."
+                    ],
+                    '3': [
+                        "يساهم بصورة <span class='text-red-600 font-bold'>ملائمة</span> في تنظيم الفعاليات.",
+                        "مشاركة عادية في الأنشطة المدرسية الروتينية.",
+                        "ينفذ المطلوب منه في مجال الأنشطة."
+                    ],
+                    '4': [
+                        "مساهمة المعلم في تنظيم الفعاليات <span class='text-red-600 font-bold'>محدودة</span>.",
+                        "قلة المبادرات والأنشطة الرياضية.",
+                        "دور سلبي أو هامشي في الفعاليات المدرسية."
+                    ],
+                    '5': [
+                        "<span class='text-red-600 font-bold'>نادراً</span> ما يساهم المعلم في تنظيم أي فعاليات.",
+                        "غياب تام عن مشهد الأنشطة المدرسية.",
+                        "لا توجد أي مبادرات رياضية تذكر."
+                    ]
+                }
+            };
+            const instructionalRecommendations = { '1': "احرص على تنويع الأنشطة والتدريبات العملية لضمان إتقان جميع الطلبة للمهارات الحركية المستهدفة وتطبيقها في مواقف لعب حقيقية.", '2': "اعمل على متابعة التقدم الفردي للطلبة في الجوانب المهارية والبدنية، وقدم لهم تحديات مناسبة لمستوياتهم لضمان تطورهم المستمر.", '3': "شجع الطلبة على اتخاذ القرارات التكتيكية أثناء اللعب، وقم بتصميم أنشطة تعزز العمل الجماعي وتوزيع الأدوار القيادية بينهم.", '4': "عزز قيم الروح الرياضية واللعب النظيف من خلال الممارسة العملية، وكن قدوة لهم في احترام المنافسين والزملاء والحكام.", '5': "قم بفحص دوري للملعب والأدوات الرياضية قبل كل درس، وعلم الطلبة قواعد الأمن والسلامة أثناء ممارسة الأنشطة البدنية.", '6': "استمر في التخطيط المنهجي للدروس بما يضمن التدرج في المهارات وتنمية عناصر اللياقة البدنية المرتبطة بالصحة بشكل متوازن.", '7': "وظف استراتيجيات فعالة لإدارة المجموعات وتوزيع الأدوات بسرعة، لزيادة وقت النشاط الفعلي للطلبة خلال الحصة.", '8': "نوّع في استخدام استراتيجيات التدريس كالتعلم باللعب والتدريس بالأقران، لزيادة الدافعية ومراعاة الفروق الفردية بين الطلبة.", '9': "استغل الموارد المتاحة من أدوات ومساحات بشكل إبداعي، وقم بتكييف الأنشطة لتتناسب مع الإمكانيات المتاحة في المدرسة.", '10': "استخدم قوائم الملاحظة وبطاقات تقويم الأداء لتقديم تغذية راجعة بناءة وفورية للطلبة، وساعدهم على تقييم أدائهم وأداء زملائهم.", '11': "استمر في التأمل في ممارساتك بعد كل درس، وابحث عن أفكار جديدة لتطوير أساليبك في تدريس التربية البدنية بما يتناسب مع احتياجات طلبتك.", '12': "التزم دائماً باللوائح الخاصة بالأمن والسلامة في حصص الرياضة المدرسية، وكن نموذجاً في الالتزام بالزي الرياضي والسلوك المهني.", '13': "بادر بتنظيم يوم رياضي أو دوري داخلي بين الفصول، وشجع على تكوين الفرق المدرسية للمشاركة في المسابقات الخارجية." };
+
+            // Initialize Form Generation
+            function generateEvaluationForm() {
+                const formContainer = supervisoryApp.querySelector('#evaluationForm');
+                formContainer.innerHTML = '';
+                let currentDomain = '';
+                let sectionDiv;
+                
+                evaluationItems.forEach(item => {
+                    if (item.domain !== currentDomain) {
+                        currentDomain = item.domain;
+                        sectionDiv = document.createElement('div');
+                        sectionDiv.className = 'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden';
+                        sectionDiv.innerHTML = `
+                            <div class="bg-slate-100 p-4 border-b border-slate-200">
+                                <h3 class="font-bold text-slate-700 flex items-center gap-2">
+                                    <span class="w-2 h-6 bg-blue-600 rounded-full"></span>
+                                    ${currentDomain}
+                                </h3>
+                            </div>
+                        `;
+                        formContainer.appendChild(sectionDiv);
+                    }
+                    
+                    const itemCard = document.createElement('div');
+                    itemCard.className = 'p-5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors item-card';
+                    itemCard.id = `item-${item.id}`;
+                    itemCard.innerHTML = `
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                            <div class="flex-grow">
+                                <h4 class="font-bold text-slate-800 text-lg mb-1">${item.id}. ${item.title}</h4>
+                                <p class="text-slate-500 text-sm">${item.desc}</p>
+                            </div>
+                            <div class="score w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xl text-slate-700 shadow-inner" id="score-${item.id}">3</div>
+                        </div>
+                        
+                        <div class="grid grid-cols-5 gap-2 mb-4 rating-selector">
+                           <button type="button" class="rating-btn score-1 py-2 px-1 rounded-lg border border-slate-200 bg-white text-xs md:text-sm font-medium transition-all" data-score="1">متميز</button>
+                           <button type="button" class="rating-btn score-2 py-2 px-1 rounded-lg border border-slate-200 bg-white text-xs md:text-sm font-medium transition-all" data-score="2">جيد</button>
+                           <button type="button" class="rating-btn score-3 active py-2 px-1 rounded-lg border border-slate-200 bg-white text-xs md:text-sm font-medium transition-all" data-score="3">ملائم</button>
+                           <button type="button" class="rating-btn score-4 py-2 px-1 rounded-lg border border-slate-200 bg-white text-xs md:text-sm font-medium transition-all" data-score="4">غير ملائم</button>
+                           <button type="button" class="rating-btn score-5 py-2 px-1 rounded-lg border border-slate-200 bg-white text-xs md:text-sm font-medium transition-all" data-score="5">تدخل سريع</button>
+                        </div>
+                        
+                        <div class="relative">
+                            <div id="notes-${item.id}" class="item-notes w-full min-h-[80px] p-3 pl-10 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow" contenteditable="true" placeholder="ملاحظات..."></div>
+                            ${recognition ? `<button type="button" class="mic-btn absolute top-2 left-2 text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-full"><i class="fa-solid fa-microphone"></i></button>` : ''}
+                        </div>
+                    `;
+                    sectionDiv.appendChild(itemCard);
+                });
+                evaluationItems.forEach(item => updateScore(item.id, 3, true));
+            }
+
+            function updateScore(itemId, score, forceUpdate = false) {
                 const mainScoreDisplay = supervisoryApp.querySelector(`#score-${itemId}`);
                 mainScoreDisplay.textContent = score;
                 updateScoreColor(mainScoreDisplay, score);
@@ -8,50 +1119,722 @@ function updateScore(itemId, score, forceUpdate = false) {
                 
                 const notesDiv = supervisoryApp.querySelector(`#notes-${itemId}`);
                 
-                // 1. تحديد النص الأساسي (Base Description)
-                // نحصل عليه من المخزن العشوائي إذا كان التحديث إجبارياً، أو نحافظ على النص الموجود
-                let baseText = "";
+                // Get options array for this score
                 const options = (detailedDescriptions[itemId] && detailedDescriptions[itemId][score]) ? detailedDescriptions[itemId][score] : [];
                 
-                // هل النص الحالي فارغ أو هو أحد النصوص القياسية؟
-                const currentContent = notesDiv.innerText; // استخدام innerText لتجاهل HTML القديم عند الفحص
-                const allPossibleOptions = Object.values(detailedDescriptions[itemId] || {}).flat();
-                // تنظيف النص الحالي من عبارة الشواهد للمقارنة
-                const currentBaseText = currentContent.split('\n🔹')[0].trim(); 
+                // Check if current text is standard (to avoid overwriting custom notes)
+                const currentText = notesDiv.innerHTML;
+                const allPossibleOptionsForThisItem = Object.values(detailedDescriptions[itemId] || {}).flat();
+                const isStandardDesc = allPossibleOptionsForThisItem.includes(currentText);
                 
-                // هل النص الحالي موجود في قاعدة البيانات؟ (مع تجاهل الـ HTML tags عند المقارنة البسيطة)
-                let isStandardDesc = false;
-                allPossibleOptions.forEach(opt => {
-                    if (opt.replace(/<[^>]*>?/gm, '') === currentBaseText) isStandardDesc = true;
+                if (notesDiv.innerHTML.trim() === '' || isStandardDesc || forceUpdate) {
+                     if (options.length > 0) {
+                         // Pick Random Description
+                         const randomDesc = options[Math.floor(Math.random() * options.length)];
+                         notesDiv.innerHTML = randomDesc;
+                     } else {
+                         notesDiv.innerHTML = '';
+                     }
+                }
+            }
+            
+            function updateScoreColor(element, score) {
+                element.className = 'score w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl shadow-inner transition-colors';
+                if (score == 1) element.classList.add('bg-green-100', 'text-green-800');
+                else if (score == 2) element.classList.add('bg-blue-100', 'text-blue-800');
+                else if (score == 3) element.classList.add('bg-amber-100', 'text-amber-800');
+                else if (score == 4) element.classList.add('bg-red-50', 'text-red-800');
+                else if (score == 5) element.classList.add('bg-red-600', 'text-white');
+            }
+
+            function toggleView(viewId) {
+                supervisoryApp.querySelectorAll('#form-view, #dashboard-view, #saved-reports-view').forEach(view => view.classList.add('hidden'));
+                supervisoryApp.querySelector(`#${viewId}`).classList.remove('hidden');
+                supervisoryApp.querySelectorAll('.nav-tab').forEach(tab => {
+                    tab.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                    tab.classList.add('text-slate-500');
+                    if(tab.dataset.view === viewId) {
+                        tab.classList.add('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                        tab.classList.remove('text-slate-500');
+                    }
+                });
+                if (viewId === 'saved-reports-view') renderSavedReports();
+                else if (viewId === 'dashboard-view') { populateTeacherDashboardDropdown(); updateDashboardView(); }
+            }
+
+            function getSchoolName() { return supervisoryApp.querySelector('#school').value === 'other' ? supervisoryApp.querySelector('#school-other').value.trim() : supervisoryApp.querySelector('#school').value; }
+            function getTeacherName() { return supervisoryApp.querySelector('#teacherName').value === 'other' ? supervisoryApp.querySelector('#teacherName-other').value.trim() : supervisoryApp.querySelector('#teacherName').value; }
+            function populateDropdown(selectElement, dataArray, placeholderText) { selectElement.innerHTML = `<option value="">${placeholderText}</option>`; dataArray.forEach(item => { const option = document.createElement('option'); option.value = item; option.textContent = item; selectElement.appendChild(option); }); selectElement.innerHTML += `<option value="other">أخرى...</option>`; }
+            function handleOtherOption(selectElement, otherInputElement) { 
+                if (selectElement.value === 'other') { otherInputElement.classList.remove('hidden'); otherInputElement.focus(); } 
+                else { otherInputElement.classList.add('hidden'); otherInputElement.value = ''; } 
+            }
+            function populateTeacherDropdown(schoolName) { populateDropdown(supervisoryApp.querySelector('#teacherName'), teachersBySchool[schoolName] || [], 'اختر المعلم...'); }
+
+            function prepareOfficialPrint() {
+                const printTbody = supervisoryApp.querySelector('#print-main-tbody');
+                printTbody.innerHTML = '';
+                ['school', 'teacherName', 'fileNumber', 'subject', 'visitNumber', 'visitDate', 'class', 'lesson', 'topic', 'visitorName', 'visitorPosition'].forEach(id => {
+                    supervisoryApp.querySelector(`#print-${id}`).textContent = (id === 'school') ? getSchoolName() : (id === 'teacherName') ? getTeacherName() : supervisoryApp.querySelector(`#${id}`).value;
+                });
+                ['strengthsContent', 'developmentContent', 'recommendationsContent'].forEach(id => { supervisoryApp.querySelector(`#print-${id}`).innerText = supervisoryApp.querySelector(`#${id}`).value; });
+                const groupedItems = evaluationItems.reduce((acc, item) => { acc[item.domain] = acc[item.domain] || {}; (acc[item.domain][item.standard] = acc[item.domain][item.standard] || []).push(item); return acc; }, {});
+                for (const domain in groupedItems) {
+                    const standards = groupedItems[domain];
+                    const domainItemCount = Object.values(standards).flat().length;
+                    let isFirstRowOfDomain = true;
+                    for (const standard in standards) {
+                        const items = standards[standard];
+                        const standardItemCount = items.length;
+                        items.forEach((item, itemIndex) => {
+                            const row = document.createElement('tr');
+                            const score = supervisoryApp.querySelector(`#score-${item.id}`).textContent;
+                            let domainCell = (isFirstRowOfDomain && itemIndex === 0) ? `<td rowspan="${domainItemCount}" class="font-bold bg-gray-50 align-top p-2">${domain}</td>` : '';
+                            let standardCell = (itemIndex === 0) ? `<td rowspan="${standardItemCount}" class="font-bold align-top p-2">${standard}</td>` : '';
+                            row.innerHTML = `${domainCell}${standardCell}<td class="text-center">${item.id}</td><td class="text-right p-2">${item.title}</td><td class="font-bold text-center">${score}</td>`;
+                            printTbody.appendChild(row);
+                        });
+                        isFirstRowOfDomain = false;
+                    }
+                }
+            }
+
+            function printOfficialReport() { prepareOfficialPrint(); window.print(); }
+            
+            function exportToWord() {
+                prepareOfficialPrint();
+                const fileName = `${supervisoryApp.querySelector('#visitNumber').value.trim() || 'زيارة'} - ${getSchoolName() || 'مدرسة'} - ${getTeacherName() || 'معلم'}.docx`;
+                const content = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"></head><body>${supervisoryApp.querySelector("#printView").innerHTML}</body></html>`;
+                const converted = htmlDocx.asBlob(content, { orientation: 'portrait' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(converted);
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('تم تصدير ملف Word بنجاح');
+            }
+
+            function generateReport() {
+                let itemsByScore = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+                evaluationItems.forEach(item => {
+                    const score = parseInt(supervisoryApp.querySelector(`#score-${item.id}`).textContent);
+                    itemsByScore[score].push({ id: item.id, title: item.title, standard: item.standard, notes: supervisoryApp.querySelector(`#notes-${item.id}`).innerHTML });
                 });
 
-                if (forceUpdate || notesDiv.innerHTML.trim() === '' || isStandardDesc) {
-                    if (options.length > 0) {
-                        baseText = options[Math.floor(Math.random() * options.length)];
-                    }
-                } else {
-                    // إذا لم يكن تحديث إجباري، نحتفظ بالنص الأساسي الموجود (قبل الشواهد)
-                    baseText = notesDiv.innerHTML.split('<br>')[0].split('\n🔹')[0]; 
-                }
-
-                // 2. تجميع الأدلة المختارة (Evidence)
-                const checkboxes = supervisoryApp.querySelectorAll(`#item-${itemId} .evidence-checkbox:checked`);
-                let evidenceText = "";
+                const strengths = [...itemsByScore[1], ...itemsByScore[2]].slice(0, 4);
+                const developments = [...itemsByScore[5], ...itemsByScore[4]].slice(0, 4);
                 
-                if (checkboxes.length > 0) {
-                    const selectedEvidences = Array.from(checkboxes).map(cb => cb.value).join('، ');
-                    
-                    // اختيار مقدمة مناسبة للأدلة بناءً على التقييم
-                    let prefix = "";
-                    if (score <= 2) prefix = "🔹 أبرز نقاط القوة: ";       // 1-2 (ممتاز/جيد)
-                    else if (score == 3) prefix = "🔹 الملاحظات الميدانية: "; // 3 (ملائم)
-                    else prefix = "🔹 يحتاج متابعة في: ";               // 4-5 (غير ملائم/تدخل)
-                    
-                    // تنسيق النص: سطر جديد + المقدمة + الأدلة
-                    // نستخدم <br> للفصل لأن contenteditable يتعامل مع HTML
-                    evidenceText = `<br><span class="text-slate-600 text-xs font-bold mt-1 block">${prefix}${selectedEvidences}</span>`;
+                let recommendationsList = [...developments];
+                const extraRecs = itemsByScore[3].sort(() => 0.5 - Math.random()).slice(0, 2);
+                extraRecs.forEach(rec => { if (!recommendationsList.find(item => item.id === rec.id)) recommendationsList.push(rec); });
+
+                supervisoryApp.querySelector('#strengthsContent').value = strengths.map(s => `• ${s.standard}: ${s.notes.replace(/<[^>]*>?/gm, '')}`).join('\n');
+                supervisoryApp.querySelector('#developmentContent').value = developments.map(d => `• ${d.standard}: ${d.notes.replace(/<[^>]*>?/gm, '')}`).join('\n');
+                let recommendationsText = "نوصي المعلم بالآتي:\n";
+                recommendationsList.forEach(rec => { if (instructionalRecommendations[rec.id]) recommendationsText += `• ${rec.standard}: ${instructionalRecommendations[rec.id]}\n`; });
+                supervisoryApp.querySelector('#recommendationsContent').value = recommendationsText + "\nوالله ولي التوفيق.";
+
+                supervisoryApp.querySelector('#reportSection').classList.remove('hidden');
+                supervisoryApp.querySelector('#reportSection').scrollIntoView({ behavior: 'smooth' });
+                showToast('تم توليد التقرير بنجاح');
+            }
+            
+            function startDictation(divId, button) {
+                if (!recognition) { showToast('المتصفح لا يدعم الإملاء الصوتي', 'error'); return; }
+                button.classList.add('recording'); 
+                recognition.start();
+                recognition.onresult = (event) => { supervisoryApp.querySelector(`#${divId}`).innerHTML += (supervisoryApp.querySelector(`#${divId}`).textContent.length > 0 ? ' ' : '') + event.results[0][0].transcript; };
+                recognition.onspeechend = () => recognition.stop();
+                recognition.onend = () => { button.classList.remove('recording'); };
+            }
+
+            function copyReportContent(textareaId) {
+                const textarea = supervisoryApp.querySelector(`#${textareaId}`);
+                if (!textarea.value) { showToast('لا يوجد محتوى لنسخه', 'error'); return; }
+                navigator.clipboard.writeText(textarea.value).then(() => showToast('تم نسخ النص')).catch(() => showToast('فشل النسخ', 'error'));
+            }
+
+            // Modal Logic
+            function showConfirmationModal(title, message, onConfirm) {
+                supervisoryApp.querySelector('#supervisory-modal-title').textContent = title;
+                supervisoryApp.querySelector('#supervisory-modal-message').textContent = message;
+                const modal = supervisoryApp.querySelector('#supervisoryConfirmationModal');
+                modal.classList.remove('hidden');
+                const confirmBtn = supervisoryApp.querySelector('#supervisory-modal-confirm-btn');
+                const cancelBtn = supervisoryApp.querySelector('#supervisory-modal-cancel-btn');
+                
+                const newConfirm = confirmBtn.cloneNode(true);
+                const newCancel = cancelBtn.cloneNode(true);
+                confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+                cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+
+                newConfirm.addEventListener('click', () => { onConfirm(); modal.classList.add('hidden'); });
+                newCancel.addEventListener('click', () => { modal.classList.add('hidden'); });
+            }
+
+            function performReset() {
+                supervisoryApp.querySelector('#evaluationForm').reset();
+                const schoolSelect = supervisoryApp.querySelector('#school');
+                schoolSelect.selectedIndex = 0;
+                schoolSelect.dispatchEvent(new Event('change'));
+                supervisoryApp.querySelectorAll('input:not([type="button"]), textarea').forEach(input => input.value = '');
+                supervisoryApp.querySelector('#visitDate').value = new Date().toISOString().split('T')[0];
+                evaluationItems.forEach(item => updateScore(item.id, 3, true));
+                supervisoryApp.querySelector('#reportSection').classList.add('hidden');
+                showToast('تم إعادة تعيين النموذج');
+            }
+
+            // Save/Load Logic (LocalStorage)
+            function savePermanentReport() {
+                const teacherName = getTeacherName();
+                const visitDate = supervisoryApp.querySelector('#visitDate').value;
+                if (!teacherName || !visitDate) { showToast('يرجى إدخال اسم المعلم والتاريخ', 'error'); return; }
+                const reportId = `visit_v5_${Date.now()}`;
+                const reportData = { id: reportId, teacherName, visitDate, school: getSchoolName(), formData: {} };
+                supervisoryApp.querySelectorAll('input, select, textarea').forEach(el => { if (el.id) reportData.formData[el.id] = el.value; });
+                evaluationItems.forEach(item => { reportData.formData[`score-${item.id}`] = supervisoryApp.querySelector(`#score-${item.id}`).textContent; reportData.formData[`notes-${item.id}`] = supervisoryApp.querySelector(`#notes-${item.id}`).innerHTML; });
+                localStorage.setItem(reportId, JSON.stringify(reportData));
+                
+                // Update Archive for Chart
+                const visitDataForDashboard = { date: visitDate, scores: {} };
+                evaluationItems.forEach(item => visitDataForDashboard.scores[`item-${item.id}`] = parseInt(supervisoryApp.querySelector(`#score-${item.id}`).textContent) || 3);
+                const teacherArchiveKey = `teacher_archive_v5_${teacherName}`;
+                let archive = JSON.parse(localStorage.getItem(teacherArchiveKey)) || [];
+                const existingVisitIndex = archive.findIndex(v => v.date === visitDate);
+                if (existingVisitIndex > -1) archive[existingVisitIndex] = visitDataForDashboard; else archive.push(visitDataForDashboard);
+                archive.sort((a, b) => new Date(a.date) - new Date(b.date));
+                localStorage.setItem(teacherArchiveKey, JSON.stringify(archive));
+                showToast('تم حفظ التقرير بنجاح');
+            }
+
+            function loadPermanentReport(reportKey) {
+                const data = JSON.parse(localStorage.getItem(reportKey));
+                if (data && data.formData) {
+                    performReset();
+                    Object.keys(data.formData).forEach(key => {
+                        const el = supervisoryApp.querySelector(`#${key}`);
+                        if (el) {
+                            if (el.classList.contains('item-notes')) el.innerHTML = data.formData[key];
+                            else if (el.classList.contains('score')) el.textContent = data.formData[key];
+                            else el.value = data.formData[key];
+                        }
+                    });
+                    const schoolEl = supervisoryApp.querySelector('#school');
+                    if(data.formData['school']) schoolEl.value = data.formData['school'];
+                    schoolEl.dispatchEvent(new Event('change'));
+                    setTimeout(() => {
+                         const teacherEl = supervisoryApp.querySelector('#teacherName');
+                         if(data.formData['teacherName']) teacherEl.value = data.formData['teacherName'];
+                    }, 100);
+
+                    evaluationItems.forEach(item => updateScore(item.id, parseInt(data.formData[`score-${item.id}`] || 3)));
+                    toggleView('form-view');
+                    showToast('تم تحميل التقرير');
+                }
+            }
+            
+            function renderSavedReports() {
+                const listContainer = supervisoryApp.querySelector('#saved-reports-list');
+                const noReportsMessage = supervisoryApp.querySelector('#no-saved-reports-message');
+                const filterText = supervisoryApp.querySelector('#filter-reports-input').value.toLowerCase();
+                listContainer.innerHTML = '';
+                let reports = [];
+                for (let i = 0; i < localStorage.length; i++) { if (localStorage.key(i).startsWith('visit_v5_')) reports.push({ key: localStorage.key(i), data: JSON.parse(localStorage.getItem(localStorage.key(i))) }); }
+                reports.sort((a, b) => new Date(b.data.visitDate) - new Date(a.data.visitDate));
+                
+                let found = false;
+                reports.forEach(({ key, data }) => {
+                    const schoolName = data.school === 'other' ? data.formData['school-other'] : data.school;
+                    if (data.teacherName.toLowerCase().includes(filterText) || (schoolName && schoolName.toLowerCase().includes(filterText))) {
+                        found = true;
+                        const card = document.createElement('div');
+                        card.className = 'bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col justify-between';
+                        card.innerHTML = `
+                            <div class="mb-4">
+                                <h4 class="font-bold text-slate-800 text-lg">${data.teacherName}</h4>
+                                <div class="text-sm text-slate-500 mt-1 flex flex-col gap-1">
+                                    <span><i class="fa-solid fa-school ml-1 text-slate-400"></i> ${schoolName || '-'}</span>
+                                    <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${data.visitDate}</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 mt-auto pt-4 border-t border-slate-100">
+                                <button class="load-btn flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">عرض</button>
+                                <button class="delete-btn flex-1 bg-red-50 text-red-600 hover:bg-red-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">حذف</button>
+                            </div>
+                        `;
+                        listContainer.appendChild(card);
+                    }
+                });
+                if(found) noReportsMessage.classList.add('hidden'); else noReportsMessage.classList.remove('hidden');
+            }
+            
+            function deletePermanentReport(key) {
+                 showConfirmationModal('تأكيد الحذف', 'سيتم حذف التقرير نهائياً', () => {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    localStorage.removeItem(key);
+                    if(data) {
+                        const teacherArchiveKey = `teacher_archive_v5_${data.teacherName}`;
+                         let archive = (JSON.parse(localStorage.getItem(teacherArchiveKey)) || []).filter(visit => visit.date !== data.visitDate);
+                         if (archive.length > 0) localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); else localStorage.removeItem(teacherArchiveKey);
+                    }
+                    renderSavedReports();
+                    showToast('تم الحذف بنجاح');
+                 });
+            }
+
+            // Dashboard & Charts
+            function populateTeacherDashboardDropdown() {
+                const teacherSelect = supervisoryApp.querySelector('#teacher-dashboard-select');
+                const teacherNames = new Set();
+                for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i).startsWith('teacher_archive_v5_')) teacherNames.add(localStorage.key(i).replace('teacher_archive_v5_', ''));
+                teacherSelect.innerHTML = '<option value="">اختر معلمًا...</option>';
+                teacherNames.forEach(name => teacherSelect.innerHTML += `<option value="${name}">${name}</option>`);
+            }
+
+            function updateDashboardView() {
+                if (performanceChartInstance) performanceChartInstance.destroy();
+                const teacherName = supervisoryApp.querySelector('#teacher-dashboard-select').value;
+                const chartContainer = supervisoryApp.querySelector('#chart-container');
+                const noDataMessage = supervisoryApp.querySelector('#no-data-message');
+                const chartType = supervisoryApp.querySelector('#chartTypeSelect').value;
+                const dateGroup = supervisoryApp.querySelector('#visitDateGroup');
+                dateGroup.classList.toggle('hidden', chartType !== 'radar');
+
+                if (!teacherName) { chartContainer.classList.add('hidden'); noDataMessage.classList.remove('hidden'); return; }
+                const archive = JSON.parse(localStorage.getItem(`teacher_archive_v5_${teacherName}`));
+                if (!archive || archive.length === 0) { chartContainer.classList.add('hidden'); noDataMessage.classList.remove('hidden'); return; }
+                
+                chartContainer.classList.remove('hidden');
+                noDataMessage.classList.add('hidden');
+                
+                const visitDateSelect = supervisoryApp.querySelector('#visitDateSelect');
+                if(chartType === 'radar') {
+                    if(visitDateSelect.children.length === 0 || visitDateSelect.children.length !== archive.length) {
+                        visitDateSelect.innerHTML = '';
+                        archive.forEach(visit => visitDateSelect.innerHTML += `<option value="${visit.date}">${visit.date}</option>`);
+                        visitDateSelect.value = archive[archive.length - 1].date;
+                    }
                 }
 
-                // 3. الدمج النهائي وعرض النتيجة
-                notesDiv.innerHTML = baseText + evidenceText;
+                const ctx = supervisoryApp.querySelector('#performanceChart').getContext('2d');
+                const labels = evaluationItems.map(item => `${item.id}. ${item.standard}`);
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+                
+                let chartConfig = {
+                    type: chartType,
+                    data: { labels: (chartType === 'line' ? archive.map(v=>v.date) : labels), datasets: [] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { r: { min: 0, max: 5, ticks: { stepSize: 1 } }, y: { min: 0, max: 5 } } }
+                };
+
+                if (chartType === 'line') {
+                    chartConfig.data.datasets = evaluationItems.map((item, i) => ({
+                        label: item.title.substring(0, 20) + '...',
+                        data: archive.map(v => v.scores[`item-${item.id}`] || 0),
+                        borderColor: colors[i % colors.length],
+                        tension: 0.2
+                    }));
+                } else if (chartType === 'radar') {
+                    const visitData = archive.find(v => v.date === visitDateSelect.value);
+                    const data = visitData ? evaluationItems.map(item => visitData.scores[`item-${item.id}`] || 0) : [];
+                    chartConfig.data.datasets = [{
+                        label: `أداء ${visitDateSelect.value}`,
+                        data: data,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#3b82f6',
+                        pointBackgroundColor: '#fff'
+                    }];
+                } else { // Bar
+                    const avgScores = evaluationItems.map(item => { const s = archive.map(v => v.scores[`item-${item.id}`]||0); return s.reduce((a,b)=>a+b,0)/s.length; });
+                     chartConfig.data.datasets = [{ label: 'المتوسط العام', data: avgScores, backgroundColor: '#3b82f6' }];
+                }
+                performanceChartInstance = new Chart(ctx, chartConfig);
             }
+
+            // Listeners
+            supervisoryApp.querySelectorAll('.nav-tab').forEach(tab => tab.addEventListener('click', () => toggleView(tab.dataset.view)));
+            supervisoryApp.querySelector('#evaluationForm').addEventListener('click', e => {
+                if (e.target.matches('.rating-btn')) updateScore(e.target.closest('.item-card').id.split('-')[1], e.target.dataset.score, true);
+                if (e.target.closest('.mic-btn')) startDictation(e.target.closest('.mic-btn').previousElementSibling.id, e.target.closest('.mic-btn'));
+            });
+            supervisoryApp.querySelector('#school').addEventListener('change', e => { handleOtherOption(e.target, supervisoryApp.querySelector('#school-other')); populateTeacherDropdown(e.target.value); });
+            supervisoryApp.querySelector('#teacherName').addEventListener('change', e => handleOtherOption(e.target, supervisoryApp.querySelector('#teacherName-other')));
+            
+            document.getElementById('savePermanentReportBtn').addEventListener('click', savePermanentReport);
+            document.getElementById('generateReportBtn').addEventListener('click', generateReport);
+            document.getElementById('printOfficialReportBtn').addEventListener('click', printOfficialReport);
+            document.getElementById('exportToWordBtn').addEventListener('click', exportToWord);
+            document.getElementById('showResetConfirmationBtn').addEventListener('click', () => showConfirmationModal('إعادة تعيين', 'هل أنت متأكد؟ ستفقد البيانات الحالية.', performReset));
+            document.getElementById('updateDashboardViewBtn').addEventListener('click', updateDashboardView);
+            
+            supervisoryApp.querySelector('#reportSection').addEventListener('click', e => {
+                if(e.target.closest('.copy-btn')) copyReportContent(e.target.closest('.copy-btn').dataset.target);
+            });
+            supervisoryApp.querySelector('#saved-reports-list').addEventListener('click', e => {
+                if(e.target.dataset.key) {
+                    if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key);
+                    if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key);
+                }
+            });
+            supervisoryApp.querySelector('#filter-reports-input').addEventListener('input', renderSavedReports);
+            
+            generateEvaluationForm();
+            populateDropdown(supervisoryApp.querySelector('#school'), schoolsList.sort((a, b) => a.localeCompare(b, 'ar')), 'اختر المدرسة...');
+            supervisoryApp.querySelector('#visitDate').value = new Date().toISOString().split('T')[0];
+            toggleView('form-view');
+        }
+
+        // --- SCHOOL VISITS APP CODE (LocalStorage Refactored) ---
+        function initializeSchoolApp() {
+            let visitTypesData = {}, currentAttachments = [], currentVisitTypeKey = '';
+            
+            const defaultVisitTypesData = { 'custom_exploratory': { name: 'زيارة استطلاعية', objectives_list: ["مقابلة مديرة المدرسة معلمةالرياضة المدرسية.", "حضور الطابور المدرسي.", "تحديث قاعدة بيانات المعلمة.", "متابعة موافقات التعيين.", "متابعة توفر الأدلة وكتاب الطالب وتحديثها.", "متابعة توزيع الجدول ونصاب الحصص للمعلمة.", "متابعة الملاعب وتخطيطها والأدوات الرياضية.", "متابعة النشرات ووثائق التقويم ومناقشة مستجداتها.", "متابعة المنهاج وسجلات المعلمة.", "حضور حصة للمعلمة والمداولة الاشرافية."], completedOpinions: ["تم مقابلة الفاضلة مديرة المدرسة ومعلمة الرياضة المدرسية.", "تم حضور الطابور المدرسي وكان الهتاف بصوت عالي والانصراف منظم ومراسم رفع العلم صحيحة.", "تم تحديث قاعدة بيانات المعلمة عبر الرابط.", "تم متابعة موافقات التعيين والمعلمة على اقامة المدرسة.", "تم متابعة توفر الأدلة وتحديثها وكانت محدثة.", "تم متابعة توزيع الجدول المدرسي وكان متوافقًا مع الأنظمة.", "تم متابعة الملاعب وتخطيطها والأدوات الرياضية وكانت متوفرة.", "تم متابعة النشرات ووثائق التقويم ومناقشة مستجداتها.", "تم متابعة المنهاج وسجلات المعلمة وكانت مكتملة وتم اعتماد خطط المعلمة الفصلية.", "تم حضور موقف صفي للمعلمة وكان الأداء جيد جدا."], incompleteOpinions: ["تم مقابلة الفاضلة مديرة المدرسة وبغياب معلمة الرياضة المدرسية.", "تم حضور الطابور المدرسي وكان الهتاف بصوت منخفض والانصراف غير منظم وتلاحظ اخطاء في مراسم رفع العلم وتم توجيه المعلم المسؤول عن الكشافة بتدريب الكشافة على المراسم الصحيحة.", "قاعدة بيانات المعلمة بحاجة إلى تحديث، وتم التنبيه على ضرورة استكمالها عبر الرابط.", "", "تم متابعة توفر الأدلة وتحديثها وكانت محدثة بصيغة (PDF).", "تم متابعة توزيع الجدول المدرسي وتلاحظ وجود حصص موزعة في الجدول السابعة والثامنة وكذلك تفريغ المعلمة يوم الثلاثاء بدون عذر مقبول وتم توجيه ادارة المدرسة بتعديل ذلك والابتعاد عن الحصص الأخيرة.", "تم متابعة الملاعب وتخطيطها والأدوات الرياضية وتلاحظ عدم وجود أدوات رياضية في المدرسة وتم توجيه إدارة المدرسة بتوفير الأدوات وتجديد تخطيط الملعب.", "تم متابعة النشرات ووثائق التقويم ومناقشة مستجداتها ولوحظ عدم وصول النشرات الى المعلمين وتم ارسال النشرات والوثائق مرة اخرى الى المعلمين عبر الوتساب.", "تم متابعة المنهاج وسجلات المعلمة وكانت غير مكتملة، وتم توجيه المعلمة لاستكمالها.", "تعذر حضور حصة مع المعلمة."], recommendations: ["متابعة التزام الهيئة التدريسية بالحضور.", "متابعة تدريب الكشافة على مراسم رفع العلم الصحيحة وتحسين تنظيم انصراف الطلبة.", "التأكيد على تحديث قاعدة بيانات المعلمة بشكل دوري.", "ضرورة الإسراع في استكمال موافقات التعيين الرسمية.", "التواصل مع الجهات المعنية لتوفير الكتب المدرسية الناقصة.", "تغيير جدول المعلمة ليكون لديها حصة رياضة كل يوم، وتوزيع الحصص بحيث يتم الابتعاد عن الحصص السابعة والثامنة.", "توفير الأدوات الرياضية حسب الكشف المرفق ونخص بالذكر (جهاز الوثب العالي مع المرتبة الخاصة به، الصندوق المقسم، المقعد السويدي، مرمى لكرة اليد عدد (2)، قوائم للسلة عدد (2)، شبك لكرة الطائرة) بالإضافة لباقي الأدوات في الكشف، وتجديد تخطيط الملعب.", "التأكيد على وصول جميع النشرات والوثائق للمعلمين وتوثيق استلامهم لها.", "متابعة استكمال سجلات المعلمة (التحضير+الزي والملاحظة+الخطة).", "التنسيق المسبق مع المعلمة لحضور حصة دراسية."] }, 'supervisory_october': { name: 'زيارة اشرافية (أكتوبر)', objectives_list: ["الالتقاء بالفاضلة مديرة المدرسة ومعلمةالرياضة المدرسية.", "حضور الطابور المدرسي.", "متابعة تنفيذ خطة المنهاج والاطلاع على سجلات المتابعة (الزي والمشاركة).", "حضور موقف صفي مع المعلمة والمداولة الاشرافية.", "شرح اليه تنفيذ الحصة كتطبيقات تنافسية.", "حث المعلمة على الاطلاع على زياراته الاشرافية والحرص على الالتزام بتنفيذ النشرات الخاصة بالمادة.", "متابعة تنفيذ التوصيات السابقة."], completedOpinions: ["تم الالتقاء بالفاضلة مديرة المدرسة ومعلمة الرياضة المدرسية.", "تم حضور الطابور المدرسي وكان منظماً.", "تم متابعة تنفيذ خطة المنهاج وسجلات المتابعة وكانت مكتملة.", "تم حضور موقف صفي مع المعلمة وكانت المداولة مثمرة.", "تم شرح اليه تنفيذ الحصة كتطبيقات تنافسية.", "تم حث المعلمة على الاطلاع على الزيارات الاشرافية والالتزام بالنشرات.", "تمت متابعة تنفيذ التوصيات السابقة وكانت مكتملة."], incompleteOpinions: ["تم الالتقاء بالفاضلة مديرة المدرسة وبغياب معلمة الرياضة المدرسية.", "لوحظ وجود بعض الملاحظات في تنظيم الطابور المدرسي.", "سجلات المتابعة (الزي والمشاركة) غير مكتملة، وتم توجيه المعلمة لاستكمالها.", "تعذر حضور موقف صفي مع المعلمة.", "لوحظ ضعف في تطبيق الحصة كتطبيقات تنافسية، وتم إعادة شرح الآلية للمعلمة.", "لوحظ عدم اطلاع المعلمة على الزيارات السابقة، وتم التأكيد عليها بضرورة المتابعة.", "بعض التوصيات السابقة لم يتم تنفيذها، وتم مناقشة الأسباب مع المعلمة والإدارة."], recommendations: ["متابعة التزام الهيئة التدريسية بالحضور.", "تحسين تنظيم الطابور الصباحي.", "ضرورة استكمال سجلات المتابعة (الزي والمشاركة) بشكل دوري.", "التنسيق المسبق لحضور موقف صفي.", "التأكيد على تنفيذ الحصص كتطبيقات تنافسية لزيادة تفاعل الطلبة.", "حث المعلمة على المتابعة الدورية للزيارات الإشرافية والنشرات.", "متابعة تنفيذ التوصيات السابقة وتقديم الدعم اللازم."] } };
+
+            // Load Data from LocalStorage
+            function loadVisitTypes() {
+                const storedTypes = localStorage.getItem('school_visit_types');
+                if (storedTypes) {
+                    visitTypesData = JSON.parse(storedTypes);
+                } else {
+                    visitTypesData = defaultVisitTypesData;
+                    localStorage.setItem('school_visit_types', JSON.stringify(visitTypesData));
+                }
+                populateVisitTypeDropdown();
+            }
+
+            function loadReports() {
+                let reports = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.startsWith('school_report_')) {
+                        reports.push({ id: key.replace('school_report_', ''), ...JSON.parse(localStorage.getItem(key)) });
+                    }
+                }
+                renderDashboard(reports);
+            }
+
+            // Views
+            const dashboardView = document.getElementById('schoolDashboardView');
+            const formView = document.getElementById('schoolFormView');
+            const previewView = document.getElementById('reportPreviewContainer');
+            
+            function showDashboardView() {
+                dashboardView.classList.remove('hidden');
+                formView.classList.add('hidden');
+                previewView.classList.add('hidden');
+                loadReports(); 
+            }
+            function showFormView(reportToEdit = null) {
+                dashboardView.classList.add('hidden');
+                formView.classList.remove('hidden');
+                previewView.classList.add('hidden');
+                if(reportToEdit) populateForm(reportToEdit); else resetForm();
+            }
+            function showPreviewView(data) {
+                renderReportPreview(data);
+                dashboardView.classList.add('hidden');
+                formView.classList.add('hidden');
+                previewView.classList.remove('hidden');
+            }
+
+            // Dashboard Render
+            function renderDashboard(reports) {
+                const container = document.getElementById('reportsListContainer');
+                container.innerHTML = '';
+                if(reports.length === 0) {
+                    container.innerHTML = `<div class="text-center py-12 text-slate-400 bg-slate-50 rounded-xl"><i class="fa-solid fa-folder-open text-4xl mb-3"></i><p>لا توجد تقارير محفوظة</p></div>`;
+                    return;
+                }
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-1 gap-4';
+                reports.sort((a,b) => b.visitDate - a.visitDate).forEach(report => {
+                    const el = document.createElement('div');
+                    el.className = 'bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row justify-between items-center gap-4';
+                    const dateStr = new Date(report.visitDate).toLocaleDateString('ar-OM');
+                    el.innerHTML = `
+                        <div class="flex items-center gap-4 w-full sm:w-auto">
+                            <div class="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold"><i class="fa-solid fa-file-lines"></i></div>
+                            <div>
+                                <h3 class="font-bold text-slate-800">${report.schoolName}</h3>
+                                <p class="text-xs text-slate-500">${report.visitTypeName} | ${dateStr}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button class="view-btn flex-1 sm:flex-none px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors" data-id="${report.id}"><i class="fa-solid fa-eye ml-1"></i> عرض</button>
+                            <button class="edit-btn flex-1 sm:flex-none px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors" data-id="${report.id}"><i class="fa-solid fa-pen ml-1"></i> تعديل</button>
+                            <button class="delete-btn flex-1 sm:flex-none px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors" data-id="${report.id}"><i class="fa-solid fa-trash ml-1"></i> حذف</button>
+                        </div>
+                    `;
+                    grid.appendChild(el);
+                });
+                container.appendChild(grid);
+            }
+
+            // Form Logic
+            const objectivesContainer = document.getElementById('objectivesContainer');
+            const opinionsContainer = document.getElementById('opinionsContainer');
+            const visitTypeSelect = document.getElementById('visitTypeSelect');
+
+            function populateVisitTypeDropdown() {
+                visitTypeSelect.innerHTML = '';
+                Object.keys(visitTypesData).forEach(key => {
+                    const opt = document.createElement('option');
+                    opt.value = key; opt.textContent = visitTypesData[key].name;
+                    visitTypeSelect.appendChild(opt);
+                });
+                if(!currentVisitTypeKey && Object.keys(visitTypesData).length > 0) {
+                    currentVisitTypeKey = Object.keys(visitTypesData)[0];
+                    renderObjectivesForCurrentType();
+                }
+            }
+
+            function renderObjectivesForCurrentType() {
+                if(!currentVisitTypeKey || !visitTypesData[currentVisitTypeKey]) return;
+                objectivesContainer.innerHTML = '';
+                const list = visitTypesData[currentVisitTypeKey].objectives_list;
+                list.forEach((obj, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-start p-2 hover:bg-slate-100 rounded cursor-pointer';
+                    div.innerHTML = `
+                        <input type="checkbox" id="obj-${idx}" class="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-index="${idx}" data-val="${obj}">
+                        <label for="obj-${idx}" class="mr-3 text-sm text-slate-700 cursor-pointer select-none">${obj}</label>
+                    `;
+                    objectivesContainer.appendChild(div);
+                });
+            }
+
+            function updateOpinionsSection() {
+                const checked = objectivesContainer.querySelectorAll('input:checked');
+                const currentVals = {};
+                opinionsContainer.querySelectorAll('textarea').forEach(ta => currentVals[ta.id] = ta.value);
+                
+                opinionsContainer.innerHTML = '';
+                if(checked.length === 0) { opinionsContainer.innerHTML = `<p class="text-center text-slate-400 py-4">حدد أهدافاً لإضافة ملاحظات</p>`; return; }
+
+                checked.forEach(cb => {
+                    const idx = cb.dataset.index;
+                    const div = document.createElement('div');
+                    div.className = 'bg-slate-50 p-4 rounded-xl border border-slate-200';
+                    div.innerHTML = `
+                        <label class="block text-sm font-bold text-slate-800 mb-2">${parseInt(idx)+1}. ${cb.dataset.val}</label>
+                        <div class="flex gap-2 mb-2">
+                            <button type="button" class="text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1 rounded-full transition-colors" onclick="this.closest('.bg-slate-50').querySelector('textarea').value = '${visitTypesData[currentVisitTypeKey].completedOpinions[idx]}'">
+                                <i class="fa-solid fa-check"></i> مكتمل
+                            </button>
+                            <button type="button" class="text-xs bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded-full transition-colors" onclick="this.closest('.bg-slate-50').querySelector('textarea').value = '${visitTypesData[currentVisitTypeKey].incompleteOpinions[idx]}'">
+                                <i class="fa-solid fa-xmark"></i> ملاحظات
+                            </button>
+                        </div>
+                        <textarea id="opinion-${idx}" class="w-full border-slate-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500" rows="2">${currentVals[`opinion-${idx}`] || ''}</textarea>
+                    `;
+                    opinionsContainer.appendChild(div);
+                });
+            }
+
+            // Events
+            visitTypeSelect.addEventListener('change', (e) => { currentVisitTypeKey = e.target.value; renderObjectivesForCurrentType(); updateOpinionsSection(); });
+            objectivesContainer.addEventListener('change', updateOpinionsSection);
+            
+            document.getElementById('selectAllObjectivesBtn').addEventListener('click', () => {
+                const cbs = objectivesContainer.querySelectorAll('input');
+                const allChecked = Array.from(cbs).every(c => c.checked);
+                cbs.forEach(c => c.checked = !allChecked);
+                updateOpinionsSection();
+            });
+
+            document.getElementById('reportForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button[type="submit"]');
+                const oldText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> حفظ...';
+                btn.disabled = true;
+
+                setTimeout(() => {
+                    const reportId = document.getElementById('reportId').value || `school_report_${Date.now()}`;
+                    const data = {
+                        schoolName: document.getElementById('schoolName').value,
+                        visitDate: new Date(document.getElementById('visitDate').value).getTime(),
+                        visitTypeKey: currentVisitTypeKey,
+                        visitTypeName: visitTypesData[currentVisitTypeKey].name,
+                        checkedObjectives: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(c => c.dataset.val),
+                        opinions: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(c => ({ index: c.dataset.index, text: document.getElementById(`opinion-${c.dataset.index}`).value })),
+                        recommendations: document.getElementById('recommendations').value,
+                        attachments: currentAttachments,
+                        updatedAt: new Date().toISOString()
+                    };
+
+                    try {
+                        const storageKey = reportId.startsWith('school_report_') ? reportId : `school_report_${reportId}`;
+                        localStorage.setItem(storageKey, JSON.stringify(data));
+                        showDashboardView();
+                        showToast('تم حفظ التقرير محلياً بنجاح');
+                    } catch(err) {
+                        console.error(err);
+                        showToast('حدث خطأ أثناء الحفظ', 'error');
+                    } finally {
+                        btn.innerHTML = oldText;
+                        btn.disabled = false;
+                    }
+                }, 500); // Simulate minimal delay for UX
+            });
+
+            // Preview
+            function renderReportPreview(data) {
+                const date = new Date(data.visitDate).toLocaleDateString('ar-OM');
+                let html = `
+                    <div class="text-center border-b-2 border-slate-100 pb-6 mb-6">
+                        <h2 class="text-3xl font-bold text-slate-800 mb-2">تقرير زيارة مدرسية</h2>
+                        <p class="text-slate-500">${data.visitTypeName}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div><span class="text-slate-500 text-sm">المدرسة:</span> <span class="font-bold text-slate-800 block">${data.schoolName}</span></div>
+                        <div><span class="text-slate-500 text-sm">التاريخ:</span> <span class="font-bold text-slate-800 block">${date}</span></div>
+                    </div>
+                    
+                    <div class="mb-8">
+                        <h3 class="text-lg font-bold text-blue-700 border-b border-blue-100 pb-2 mb-4">الأهداف</h3>
+                        <ul class="list-disc list-inside space-y-2 text-slate-700 marker:text-blue-500">
+                            ${data.checkedObjectives.map(o => `<li>${o}</li>`).join('')}
+                        </ul>
+                    </div>
+
+                    <div class="mb-8">
+                        <h3 class="text-lg font-bold text-blue-700 border-b border-blue-100 pb-2 mb-4">الملاحظات</h3>
+                        <div class="space-y-4">
+                            ${(data.opinions || []).map(op => `
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                                    <p class="text-slate-700 whitespace-pre-wrap">${op.text}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="mb-8">
+                        <h3 class="text-lg font-bold text-blue-700 border-b border-blue-100 pb-2 mb-4">التوصيات</h3>
+                        <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 text-slate-800 whitespace-pre-wrap leading-relaxed">${data.recommendations}</div>
+                    </div>
+                `;
+                document.getElementById('reportContent').innerHTML = html;
+            }
+
+            // Dashboard Actions
+            document.getElementById('reportsListContainer').addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if(!btn) return;
+                const id = btn.dataset.id;
+                const storageKey = `school_report_${id}`;
+                
+                if(btn.classList.contains('view-btn')) {
+                    const report = JSON.parse(localStorage.getItem(storageKey));
+                    if (report) showPreviewView(report);
+                }
+                
+                if(btn.classList.contains('edit-btn')) {
+                    const report = JSON.parse(localStorage.getItem(storageKey));
+                    if (report) {
+                        // Attach ID directly for editing
+                        report.id = id; 
+                        showFormView(report);
+                    }
+                }
+                
+                if(btn.classList.contains('delete-btn')) {
+                    const report = JSON.parse(localStorage.getItem(storageKey));
+                    const confirmModal = document.getElementById('confirmationModal');
+                    const confirmBtn = document.getElementById('confirmActionBtn');
+                    const cancelBtn = document.getElementById('cancelActionBtn');
+                    document.getElementById('confirmationModalMessage').textContent = `هل تريد حذف تقرير "${report ? report.schoolName : ''}"؟`;
+                    
+                    confirmModal.classList.remove('hidden');
+                    
+                    // Create new listeners to avoid stacking
+                    const newConfirm = confirmBtn.cloneNode(true);
+                    const newCancel = cancelBtn.cloneNode(true);
+                    confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+                    cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+
+                    newConfirm.addEventListener('click', () => {
+                        localStorage.removeItem(storageKey);
+                        confirmModal.classList.add('hidden');
+                        showToast('تم الحذف بنجاح');
+                        loadReports();
+                    });
+                    newCancel.onclick = () => { confirmModal.classList.add('hidden'); };
+                }
+            });
+
+            // Helper Functions
+            function resetForm() {
+                document.getElementById('reportForm').reset();
+                document.getElementById('reportId').value = '';
+                document.getElementById('visitDate').valueAsDate = new Date();
+                currentAttachments = [];
+                document.getElementById('attachmentsList').innerHTML = '';
+                populateVisitTypeDropdown();
+                updateOpinionsSection();
+            }
+            function populateForm(r) {
+                resetForm();
+                document.getElementById('reportId').value = r.id; // Use passed ID
+                document.getElementById('schoolName').value = r.schoolName;
+                document.getElementById('visitDate').value = new Date(r.visitDate).toISOString().split('T')[0];
+                document.getElementById('recommendations').value = r.recommendations;
+                currentVisitTypeKey = r.visitTypeKey;
+                visitTypeSelect.value = currentVisitTypeKey;
+                renderObjectivesForCurrentType();
+                r.checkedObjectives.forEach(obj => {
+                    const cb = Array.from(objectivesContainer.querySelectorAll('input')).find(i => i.dataset.val === obj);
+                    if(cb) cb.checked = true;
+                });
+                updateOpinionsSection();
+                setTimeout(() => {
+                    if(r.opinions) r.opinions.forEach(op => {
+                         const ta = document.getElementById(`opinion-${op.index}`);
+                         if(ta) ta.value = op.text;
+                    });
+                }, 50);
+            }
+            
+            // Nav Buttons
+            document.getElementById('backToDashboardBtn').addEventListener('click', showDashboardView);
+            document.getElementById('addNewReportBtn').addEventListener('click', () => showFormView());
+            document.getElementById('prepareReportBtn').addEventListener('click', () => { 
+                if(document.getElementById('reportForm').checkValidity()) {
+                    showPreviewView({
+                        schoolName: document.getElementById('schoolName').value,
+                        visitDate: new Date(document.getElementById('visitDate').value).getTime(),
+                        visitTypeName: visitTypesData[currentVisitTypeKey].name,
+                        checkedObjectives: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(c => c.dataset.val),
+                        opinions: Array.from(objectivesContainer.querySelectorAll('input:checked')).map(c => ({ index: c.dataset.index, text: document.getElementById(`opinion-${c.dataset.index}`).value })),
+                        recommendations: document.getElementById('recommendations').value
+                    });
+                } else {
+                    document.getElementById('reportForm').reportValidity();
+                }
+            });
+            document.getElementById('backToBtn').addEventListener('click', () => {
+                 // Try to find if we were editing
+                 const id = document.getElementById('reportId').value;
+                 if(id) {
+                     const report = JSON.parse(localStorage.getItem(`school_report_${id}`));
+                     if(report) { report.id = id; showFormView(report); return; }
+                 }
+                 showFormView();
+            });
+
+            // Initialize School App Data
+            loadVisitTypes();
+            loadReports();
+            showDashboardView(); // Default start for this app
+        }
+
+        // --- GLOBAL INIT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSupervisoryApp();
+            initializeSchoolApp();
+            showView(welcomeView);
+        });
+
+    </script>
+</body>
+</html>
