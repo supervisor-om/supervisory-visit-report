@@ -624,6 +624,14 @@
             window.scrollTo(0, 0);
         }
 
+        // Added missing functions to prevent reference errors if they are invoked
+        window.addCustomEvidence = function(itemId) {
+            showToast('ميزة إضافة شاهد مخصص قيد التطوير وسيتم توفيرها لاحقاً.', 'info');
+        };
+        window.deleteCustomEvidence = function(itemId, value) {
+            showToast('ميزة حذف شاهد مخصص قيد التطوير وسيتم توفيرها لاحقاً.', 'info');
+        };
+
         const getBase64Image = (url, targetHeight = 100) => {
             return new Promise((resolve) => {
                 let isResolved = false;
@@ -1256,7 +1264,11 @@
             });
             
             const teacherArchiveKey = `teacher_archive_v5_${teacherName}`; 
-            let archive = JSON.parse(localStorage.getItem(teacherArchiveKey)) || []; 
+            // حماية لتفادي مشاكل الحفظ القديم
+            let archive = [];
+            try {
+                archive = JSON.parse(localStorage.getItem(teacherArchiveKey)) || [];
+            } catch(e) { console.warn("Archived data overwritten due to parse error."); }
             
             const existingVisitIndex = archive.findIndex(v => v.date === visitDate); 
             if (existingVisitIndex > -1) {
@@ -1273,22 +1285,26 @@
         }
 
         function loadPermanentReport(reportKey) {
-            const data = JSON.parse(localStorage.getItem(reportKey));
-            if (data && data.formData) { 
-                performReset(); 
-                Object.keys(data.formData).forEach(key => { 
-                    const el = document.querySelector(`#${key}`); 
-                    if (el) { 
-                        if (el.classList.contains('item-notes')) el.textContent = data.formData[key]; 
-                        else if (el.classList.contains('score')) el.textContent = data.formData[key]; 
-                        else el.value = data.formData[key]; 
-                    } 
-                }); 
-                if(data.formData['school']) document.querySelector('#school').value = data.formData['school']; 
-                if(data.formData['teacherName']) document.querySelector('#teacherName').value = data.formData['teacherName']; 
-                evaluationItems.forEach(item => updateScore(item.id, parseInt(data.formData[`score-${item.id}`] || 3))); 
-                toggleSupervisoryView('form-view'); 
-                showToast('تم تحميل التقرير'); 
+            try {
+                const data = JSON.parse(localStorage.getItem(reportKey));
+                if (data && data.formData) { 
+                    performReset(); 
+                    Object.keys(data.formData).forEach(key => { 
+                        const el = document.querySelector(`#${key}`); 
+                        if (el) { 
+                            if (el.classList.contains('item-notes')) el.textContent = data.formData[key]; 
+                            else if (el.classList.contains('score')) el.textContent = data.formData[key]; 
+                            else el.value = data.formData[key]; 
+                        } 
+                    }); 
+                    if(data.formData['school']) document.querySelector('#school').value = data.formData['school']; 
+                    if(data.formData['teacherName']) document.querySelector('#teacherName').value = data.formData['teacherName']; 
+                    evaluationItems.forEach(item => updateScore(item.id, parseInt(data.formData[`score-${item.id}`] || 3))); 
+                    toggleSupervisoryView('form-view'); 
+                    showToast('تم تحميل التقرير'); 
+                }
+            } catch (e) {
+                showToast('خطأ في استرجاع التقرير', 'error');
             }
         }
 
@@ -1304,8 +1320,14 @@
             let reports = []; 
             
             for (let i = 0; i < localStorage.length; i++) { 
-                if (localStorage.key(i).startsWith('visit_v5_')) {
-                    reports.push({ key: localStorage.key(i), data: JSON.parse(localStorage.getItem(localStorage.key(i))) }); 
+                const key = localStorage.key(i);
+                if (key.startsWith('visit_v5_')) {
+                    try {
+                        const parsedData = JSON.parse(localStorage.getItem(key));
+                        if(parsedData) reports.push({ key: key, data: parsedData }); 
+                    } catch(e) {
+                        console.warn('Skipping unparsable report key:', key);
+                    }
                 }
             } 
             
@@ -1314,7 +1336,7 @@
             
             reports.forEach(({ key, data }) => { 
                 const schoolName = data.school || '-'; 
-                if (data.teacherName.toLowerCase().includes(filterText) || schoolName.toLowerCase().includes(filterText)) { 
+                if (data.teacherName && (data.teacherName.toLowerCase().includes(filterText) || schoolName.toLowerCase().includes(filterText))) { 
                     found = true; 
                     const card = document.createElement('div'); 
                     card.className = 'bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col justify-between'; 
@@ -1343,16 +1365,21 @@
 
         function deletePermanentReport(key) { 
             showConfirmationModal('تأكيد الحذف', 'سيتم حذف التقرير نهائياً', () => { 
-                const data = JSON.parse(localStorage.getItem(key)); 
-                localStorage.removeItem(key); 
-                if(data) { 
-                    const teacherArchiveKey = `teacher_archive_v5_${data.teacherName}`; 
-                    let archive = (JSON.parse(localStorage.getItem(teacherArchiveKey)) || []).filter(visit => visit.date !== data.visitDate); 
-                    if (archive.length > 0) localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); 
-                    else localStorage.removeItem(teacherArchiveKey); 
-                } 
-                renderSavedReports(); 
-                showToast('تم الحذف بنجاح'); 
+                try {
+                    const data = JSON.parse(localStorage.getItem(key)); 
+                    localStorage.removeItem(key); 
+                    if(data) { 
+                        const teacherArchiveKey = `teacher_archive_v5_${data.teacherName}`; 
+                        let archive = (JSON.parse(localStorage.getItem(teacherArchiveKey)) || []).filter(visit => visit.date !== data.visitDate); 
+                        if (archive.length > 0) localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); 
+                        else localStorage.removeItem(teacherArchiveKey); 
+                    } 
+                    renderSavedReports(); 
+                    showToast('تم الحذف بنجاح'); 
+                } catch(e) {
+                    localStorage.removeItem(key);
+                    renderSavedReports();
+                }
             }); 
         }
 
@@ -1392,7 +1419,10 @@
                 return; 
             } 
             
-            const archive = JSON.parse(localStorage.getItem(`teacher_archive_v5_${teacherName}`)); 
+            let archive = [];
+            try {
+                archive = JSON.parse(localStorage.getItem(`teacher_archive_v5_${teacherName}`)); 
+            } catch(e) {}
             
             if (!archive || archive.length === 0) { 
                 chartContainer.classList.add('hidden'); 
@@ -1469,7 +1499,12 @@
         function loadSchoolVisitTypes() {
             const storedTypes = localStorage.getItem('school_visit_types');
             if (storedTypes) { 
-                schoolVisitTypesData = JSON.parse(storedTypes); 
+                try {
+                    schoolVisitTypesData = JSON.parse(storedTypes); 
+                } catch(e) {
+                    console.warn('Invalid visit types storage overwritten with default');
+                    schoolVisitTypesData = defaultSchoolVisitTypesData;
+                }
             } else { 
                 schoolVisitTypesData = defaultSchoolVisitTypesData; 
                 localStorage.setItem('school_visit_types', JSON.stringify(schoolVisitTypesData)); 
@@ -1583,7 +1618,12 @@
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key.startsWith('school_report_')) {
-                    reports.push({ key, ...JSON.parse(localStorage.getItem(key)) });
+                    try {
+                        const parsedItem = JSON.parse(localStorage.getItem(key));
+                        if(parsedItem) reports.push({ key, ...parsedItem });
+                    } catch(e) {
+                        console.warn('Skipping invalid school report data structure for key:', key);
+                    }
                 }
             }
             
@@ -1707,39 +1747,47 @@
         }
 
         function editSchoolReport(key) {
-            const report = JSON.parse(localStorage.getItem(key));
-            if (!report) return;
-            
-            document.getElementById('reportId').value = key;
-            document.getElementById('schoolName').value = report.schoolName;
-            document.getElementById('schoolVisitDate').value = report.visitDate;
-            document.getElementById('visitTypeSelect').value = report.visitType;
-            document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
-            document.getElementById('recommendations').value = report.recommendations || '';
-            
-            schoolClassroomVisits = report.classroomVisits || [];
-            renderSchoolClassroomVisits();
-            renderSchoolObjectives(report.visitType);
-            
-            if (report.objectives) {
-                setTimeout(() => {
-                    report.objectives.forEach(objVal => {
-                        const cb = Array.from(document.querySelectorAll('input[name="objectives"]')).find(el => el.value === objVal);
-                        if (cb) cb.checked = true;
-                    });
-                }, 0);
+            try {
+                const report = JSON.parse(localStorage.getItem(key));
+                if (!report) return;
+                
+                document.getElementById('reportId').value = key;
+                document.getElementById('schoolName').value = report.schoolName;
+                document.getElementById('schoolVisitDate').value = report.visitDate;
+                document.getElementById('visitTypeSelect').value = report.visitType;
+                document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
+                document.getElementById('recommendations').value = report.recommendations || '';
+                
+                schoolClassroomVisits = report.classroomVisits || [];
+                renderSchoolClassroomVisits();
+                renderSchoolObjectives(report.visitType);
+                
+                if (report.objectives) {
+                    setTimeout(() => {
+                        report.objectives.forEach(objVal => {
+                            const cb = Array.from(document.querySelectorAll('input[name="objectives"]')).find(el => el.value === objVal);
+                            if (cb) cb.checked = true;
+                        });
+                    }, 0);
+                }
+                showSchoolForm();
+            } catch(e) {
+                showToast('خطأ في استرجاع التقرير', 'error');
             }
-            showSchoolForm();
         }
 
         function viewSchoolReport(key) {
-            const report = JSON.parse(localStorage.getItem(key));
-            if (!report) return;
-            
-            generateSchoolPreview(report);
-            document.getElementById('schoolFormView').classList.add('hidden');
-            document.getElementById('schoolDashboardView').classList.add('hidden');
-            document.getElementById('reportPreviewContainer').classList.remove('hidden');
+            try {
+                const report = JSON.parse(localStorage.getItem(key));
+                if (!report) return;
+                
+                generateSchoolPreview(report);
+                document.getElementById('schoolFormView').classList.add('hidden');
+                document.getElementById('schoolDashboardView').classList.add('hidden');
+                document.getElementById('reportPreviewContainer').classList.remove('hidden');
+            } catch (e) {
+                 showToast('لا يمكن قراءة ملف التقرير', 'error');
+            }
         }
 
         function generateSchoolPreview(report) {
@@ -1859,8 +1907,8 @@
         // =========================================================================
         // 6. INITIALIZATION & EVENT BINDINGS
         // =========================================================================
-        document.addEventListener('DOMContentLoaded', () => {
-            
+        
+        function initAppEnvironment() {
             // --- Welcome View Bindings ---
             const showSupBtn = document.getElementById('showSupervisoryAppBtn');
             if(showSupBtn) showSupBtn.addEventListener('click', () => showView(document.getElementById('supervisoryVisitsApp')));
@@ -1902,11 +1950,11 @@
                     } 
                     if (e.target.closest('.add-evidence-btn')) { 
                         const btn = e.target.closest('.add-evidence-btn'); 
-                        addCustomEvidence(btn.dataset.id); 
+                        if(typeof addCustomEvidence === 'function') addCustomEvidence(btn.dataset.id); 
                     } 
                     if (e.target.closest('.delete-evidence-btn')) { 
                         const btn = e.target.closest('.delete-evidence-btn'); 
-                        deleteCustomEvidence(btn.dataset.itemId, btn.dataset.value); 
+                        if(typeof deleteCustomEvidence === 'function') deleteCustomEvidence(btn.dataset.itemId, btn.dataset.value); 
                     } 
                 });
 
@@ -1920,7 +1968,7 @@
                 evalForm.addEventListener('keypress', e => { 
                     if (e.target.matches('.new-evidence-input') && e.key === 'Enter') { 
                         e.preventDefault(); 
-                        addCustomEvidence(e.target.dataset.id); 
+                        if(typeof addCustomEvidence === 'function') addCustomEvidence(e.target.dataset.id); 
                     } 
                 });
             }
@@ -2183,7 +2231,14 @@
 
             // Finally show welcome view
             showView(document.getElementById('welcomeView'));
-        });
+        }
+
+        // الطريقة الأكثر موثوقية لتفعيل السكربت وتهيئة النظام في كل بيئات التشغيل
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAppEnvironment);
+        } else {
+            initAppEnvironment();
+        }
 
     </script>
 </body>
