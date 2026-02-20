@@ -590,6 +590,7 @@
         // =========================================================================
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
+            if(!container) return;
             const toastMsg = document.getElementById('toast-message');
             const icon = document.getElementById('toast-icon');
             const text = document.getElementById('toast-text');
@@ -617,14 +618,14 @@
         }
 
         function showView(viewElement) {
-            document.getElementById('welcomeView').classList.add('hidden');
-            document.getElementById('supervisoryVisitsApp').classList.add('hidden');
-            document.getElementById('schoolVisitsApp').classList.add('hidden');
+            if(!viewElement) return;
+            document.getElementById('welcomeView')?.classList.add('hidden');
+            document.getElementById('supervisoryVisitsApp')?.classList.add('hidden');
+            document.getElementById('schoolVisitsApp')?.classList.add('hidden');
             viewElement.classList.remove('hidden');
             window.scrollTo(0, 0);
         }
 
-        // Added missing functions to prevent reference errors if they are invoked
         window.addCustomEvidence = function(itemId) {
             showToast('ميزة إضافة شاهد مخصص قيد التطوير وسيتم توفيرها لاحقاً.', 'info');
         };
@@ -1067,7 +1068,7 @@
                 view.classList.add('hidden');
             });
             
-            document.querySelector(`#${viewId}`).classList.remove('hidden');
+            document.querySelector(`#${viewId}`)?.classList.remove('hidden');
             
             document.querySelectorAll('.nav-tab').forEach(tab => {
                 tab.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
@@ -1237,7 +1238,7 @@
                 return; 
             }
             
-            const reportId = `visit_v5_${Date.now()}`; 
+            const reportId = `supervision_v6_visit_${Date.now()}`; 
             const reportData = { 
                 id: reportId, 
                 teacherName, 
@@ -1263,12 +1264,12 @@
                 visitDataForDashboard.scores[`item-${item.id}`] = parseInt(document.querySelector(`#score-${item.id}`).textContent) || 3;
             });
             
-            const teacherArchiveKey = `teacher_archive_v5_${teacherName}`; 
-            // حماية لتفادي مشاكل الحفظ القديم
+            const teacherArchiveKey = `supervision_v6_teacher_archive_${teacherName}`; 
             let archive = [];
             try {
                 archive = JSON.parse(localStorage.getItem(teacherArchiveKey)) || [];
-            } catch(e) { console.warn("Archived data overwritten due to parse error."); }
+                if(!Array.isArray(archive)) archive = [];
+            } catch(e) { archive = []; }
             
             const existingVisitIndex = archive.findIndex(v => v.date === visitDate); 
             if (existingVisitIndex > -1) {
@@ -1321,31 +1322,39 @@
             
             for (let i = 0; i < localStorage.length; i++) { 
                 const key = localStorage.key(i);
-                if (key.startsWith('visit_v5_')) {
+                if (key.startsWith('supervision_v6_visit_') || key.startsWith('visit_v5_')) {
                     try {
                         const parsedData = JSON.parse(localStorage.getItem(key));
-                        if(parsedData) reports.push({ key: key, data: parsedData }); 
+                        if(parsedData && typeof parsedData === 'object') {
+                            reports.push({ key: key, data: parsedData }); 
+                        }
                     } catch(e) {
                         console.warn('Skipping unparsable report key:', key);
                     }
                 }
             } 
             
-            reports.sort((a, b) => new Date(b.data.visitDate) - new Date(a.data.visitDate));
+            reports.sort((a, b) => {
+                const dateA = a.data?.visitDate ? new Date(a.data.visitDate).getTime() : 0;
+                const dateB = b.data?.visitDate ? new Date(b.data.visitDate).getTime() : 0;
+                return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+            });
             let found = false; 
             
             reports.forEach(({ key, data }) => { 
+                if(!data) return;
                 const schoolName = data.school || '-'; 
-                if (data.teacherName && (data.teacherName.toLowerCase().includes(filterText) || schoolName.toLowerCase().includes(filterText))) { 
+                const tName = data.teacherName || '';
+                if (tName.toLowerCase().includes(filterText) || schoolName.toLowerCase().includes(filterText)) { 
                     found = true; 
                     const card = document.createElement('div'); 
                     card.className = 'bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col justify-between'; 
                     card.innerHTML = `
                         <div class="mb-4">
-                            <h4 class="font-bold text-slate-800 text-lg">${data.teacherName}</h4>
+                            <h4 class="font-bold text-slate-800 text-lg">${tName || 'غير معروف'}</h4>
                             <div class="text-sm text-slate-500 mt-1 flex flex-col gap-1">
                                 <span><i class="fa-solid fa-school ml-1 text-slate-400"></i> ${schoolName}</span>
-                                <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${data.visitDate}</span>
+                                <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${data.visitDate || '-'}</span>
                             </div>
                         </div>
                         <div class="flex gap-2 mt-auto pt-4 border-t border-slate-100">
@@ -1368,11 +1377,22 @@
                 try {
                     const data = JSON.parse(localStorage.getItem(key)); 
                     localStorage.removeItem(key); 
-                    if(data) { 
-                        const teacherArchiveKey = `teacher_archive_v5_${data.teacherName}`; 
-                        let archive = (JSON.parse(localStorage.getItem(teacherArchiveKey)) || []).filter(visit => visit.date !== data.visitDate); 
-                        if (archive.length > 0) localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); 
-                        else localStorage.removeItem(teacherArchiveKey); 
+                    if(data && data.teacherName) { 
+                        const teacherArchiveKey = `supervision_v6_teacher_archive_${data.teacherName}`; 
+                        const oldArchiveKey = `teacher_archive_v5_${data.teacherName}`; 
+                        
+                        let archive = [];
+                        try { archive = JSON.parse(localStorage.getItem(teacherArchiveKey)) || JSON.parse(localStorage.getItem(oldArchiveKey)) || []; } catch(e){}
+                        
+                        if(Array.isArray(archive)) {
+                            archive = archive.filter(visit => visit.date !== data.visitDate); 
+                            if (archive.length > 0) {
+                                localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); 
+                            } else {
+                                localStorage.removeItem(teacherArchiveKey); 
+                                localStorage.removeItem(oldArchiveKey); 
+                            }
+                        }
                     } 
                     renderSavedReports(); 
                     showToast('تم الحذف بنجاح'); 
@@ -1390,8 +1410,11 @@
             const teacherNames = new Set(); 
             
             for (let i = 0; i < localStorage.length; i++) {
-                if (localStorage.key(i).startsWith('teacher_archive_v5_')) {
-                    teacherNames.add(localStorage.key(i).replace('teacher_archive_v5_', '')); 
+                const k = localStorage.key(i);
+                if (k.startsWith('supervision_v6_teacher_archive_')) {
+                    teacherNames.add(k.replace('supervision_v6_teacher_archive_', '')); 
+                } else if (k.startsWith('teacher_archive_v5_')) {
+                    teacherNames.add(k.replace('teacher_archive_v5_', '')); 
                 }
             }
             
@@ -1421,10 +1444,12 @@
             
             let archive = [];
             try {
-                archive = JSON.parse(localStorage.getItem(`teacher_archive_v5_${teacherName}`)); 
-            } catch(e) {}
+                archive = JSON.parse(localStorage.getItem(`supervision_v6_teacher_archive_${teacherName}`)) || 
+                          JSON.parse(localStorage.getItem(`teacher_archive_v5_${teacherName}`)) || []; 
+                if(!Array.isArray(archive)) archive = [];
+            } catch(e) { archive = []; }
             
-            if (!archive || archive.length === 0) { 
+            if (archive.length === 0) { 
                 chartContainer.classList.add('hidden'); 
                 noDataMessage.classList.remove('hidden'); 
                 return; 
@@ -1438,8 +1463,12 @@
             if(chartType === 'radar') { 
                 if(visitDateSelect.children.length === 0 || visitDateSelect.children.length !== archive.length) { 
                     visitDateSelect.innerHTML = ''; 
-                    archive.forEach(visit => visitDateSelect.innerHTML += `<option value="${visit.date}">${visit.date}</option>`); 
-                    visitDateSelect.value = archive[archive.length - 1].date; 
+                    archive.forEach(visit => {
+                        if(visit && visit.date) visitDateSelect.innerHTML += `<option value="${visit.date}">${visit.date}</option>`;
+                    }); 
+                    if(archive[archive.length - 1]?.date) {
+                        visitDateSelect.value = archive[archive.length - 1].date; 
+                    }
                 } 
             } 
             
@@ -1449,7 +1478,7 @@
             
             let chartConfig = { 
                 type: chartType, 
-                data: { labels: (chartType === 'line' ? archive.map(v=>v.date) : labels), datasets: [] }, 
+                data: { labels: (chartType === 'line' ? archive.map(v=>v.date||'') : labels), datasets: [] }, 
                 options: { 
                     responsive: true, 
                     maintainAspectRatio: false, 
@@ -1464,13 +1493,13 @@
             if (chartType === 'line') { 
                 chartConfig.data.datasets = evaluationItems.map((item, i) => ({ 
                     label: item.title.substring(0, 20) + '...', 
-                    data: archive.map(v => v.scores[`item-${item.id}`] || 0), 
+                    data: archive.map(v => v.scores && v.scores[`item-${item.id}`] ? v.scores[`item-${item.id}`] : 0), 
                     borderColor: colors[i % colors.length], 
                     tension: 0.2 
                 })); 
             } else if (chartType === 'radar') { 
                 const visitData = archive.find(v => v.date === visitDateSelect.value); 
-                const data = visitData ? evaluationItems.map(item => visitData.scores[`item-${item.id}`] || 0) : []; 
+                const data = visitData && visitData.scores ? evaluationItems.map(item => visitData.scores[`item-${item.id}`] || 0) : []; 
                 chartConfig.data.datasets = [{ 
                     label: `أداء ${visitDateSelect.value}`, 
                     data: data, 
@@ -1480,8 +1509,8 @@
                 }]; 
             } else { 
                 const avgScores = evaluationItems.map(item => { 
-                    const s = archive.map(v => v.scores[`item-${item.id}`]||0); 
-                    return s.reduce((a,b)=>a+b,0)/s.length; 
+                    const s = archive.map(v => v.scores && v.scores[`item-${item.id}`] ? v.scores[`item-${item.id}`] : 0); 
+                    return s.length > 0 ? (s.reduce((a,b)=>a+b,0)/s.length) : 0; 
                 }); 
                 chartConfig.data.datasets = [{ 
                     label: 'المتوسط العام', 
@@ -1497,17 +1526,36 @@
         // 5. SCHOOL APP FUNCTIONS
         // =========================================================================
         function loadSchoolVisitTypes() {
-            const storedTypes = localStorage.getItem('school_visit_types');
+            // استخدام مفتاح جديد تماماً لتجنب تعارض الـ Local Storage في Github Pages
+            const newKey = 'supervision_v6_school_visit_types';
+            const oldKey = 'school_visit_types';
+            
+            let storedTypes = localStorage.getItem(newKey) || localStorage.getItem(oldKey);
+            
             if (storedTypes) { 
                 try {
-                    schoolVisitTypesData = JSON.parse(storedTypes); 
+                    const parsed = JSON.parse(storedTypes); 
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        schoolVisitTypesData = parsed; 
+                        // تنظيف وحماية البيانات القادمة من التخزين
+                        Object.keys(schoolVisitTypesData).forEach(k => {
+                            if (!schoolVisitTypesData[k] || typeof schoolVisitTypesData[k] !== 'object') {
+                                schoolVisitTypesData[k] = { name: 'نوع غير محدد', objectives: [] };
+                            }
+                            if (!Array.isArray(schoolVisitTypesData[k].objectives)) {
+                                schoolVisitTypesData[k].objectives = [];
+                            }
+                        });
+                    } else {
+                        schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData));
+                    }
                 } catch(e) {
-                    console.warn('Invalid visit types storage overwritten with default');
-                    schoolVisitTypesData = defaultSchoolVisitTypesData;
+                    console.warn('تمت استعادة الإعدادات الافتراضية بسبب تلف في البيانات المخزنة.');
+                    schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData));
                 }
             } else { 
-                schoolVisitTypesData = defaultSchoolVisitTypesData; 
-                localStorage.setItem('school_visit_types', JSON.stringify(schoolVisitTypesData)); 
+                schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData)); 
+                localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData)); 
             }
             populateSchoolVisitTypeDropdown();
             renderSchoolVisitTypesList();
@@ -1518,10 +1566,13 @@
             if(!visitTypeSelect) return;
             
             visitTypeSelect.innerHTML = '<option value="" disabled selected>اختر نوع الزيارة</option>';
+            if(!schoolVisitTypesData || typeof schoolVisitTypesData !== 'object') return;
+            
             Object.keys(schoolVisitTypesData).forEach(key => {
+                if(!schoolVisitTypesData[key]) return;
                 const opt = document.createElement('option');
                 opt.value = key;
-                opt.textContent = schoolVisitTypesData[key].name;
+                opt.textContent = schoolVisitTypesData[key].name || 'نوع مخصص';
                 visitTypeSelect.appendChild(opt);
             });
         }
@@ -1531,9 +1582,12 @@
             if(!objectivesContainer) return;
             
             objectivesContainer.innerHTML = '';
+            if(!schoolVisitTypesData) return;
+            
             const typeData = schoolVisitTypesData[typeKey];
-            if (typeData && typeData.objectives) {
+            if (typeData && Array.isArray(typeData.objectives)) {
                 typeData.objectives.forEach((obj, index) => {
+                    if(!obj) return;
                     const div = document.createElement('div');
                     div.className = 'flex items-start gap-2 p-2 hover:bg-slate-100 rounded-lg';
                     div.innerHTML = `
@@ -1550,24 +1604,25 @@
             if(!classroomVisitsList) return;
             
             classroomVisitsList.innerHTML = '';
-            if (schoolClassroomVisits.length === 0) {
+            if (!Array.isArray(schoolClassroomVisits) || schoolClassroomVisits.length === 0) {
                 classroomVisitsList.innerHTML = '<p class="text-xs text-slate-400 italic p-2">لم تتم إضافة أي مواقف صفية بعد.</p>';
                 return;
             }
             schoolClassroomVisits.forEach((visit, index) => {
+                if(!visit) return;
                 const div = document.createElement('div');
                 div.className = 'flex justify-between items-center bg-indigo-50 p-2 rounded-lg text-sm';
                 div.innerHTML = `
                     <div class="flex-grow">
-                        <span class="font-bold text-indigo-700">${visit.teacher}</span> 
+                        <span class="font-bold text-indigo-700">${visit.teacher || '-'}</span> 
                         <span class="text-slate-500 mx-1">|</span> 
-                        <span class="text-slate-600">الصف ${visit.grade}</span>
+                        <span class="text-slate-600">الصف ${visit.grade || '-'}</span>
                         <span class="text-slate-500 mx-1">|</span>
-                        <span class="text-slate-600">الحصة ${visit.period}</span>
+                        <span class="text-slate-600">الحصة ${visit.period || '-'}</span>
                         <span class="text-slate-500 mx-1">|</span>
-                        <span class="text-slate-600">${visit.subject}</span>
+                        <span class="text-slate-600">${visit.subject || '-'}</span>
                         <span class="text-slate-500 mx-1">|</span>
-                        <span class="font-semibold text-slate-700">${visit.rating}</span>
+                        <span class="font-semibold text-slate-700">${visit.rating || '-'}</span>
                     </div>
                     <button type="button" class="text-red-500 hover:text-red-700 delete-visit-btn p-1" data-index="${index}">
                         <i class="fa-solid fa-times"></i>
@@ -1579,31 +1634,34 @@
             document.querySelectorAll('#classroomVisitsList .delete-visit-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const idx = e.currentTarget.dataset.index;
-                    schoolClassroomVisits.splice(idx, 1);
-                    renderSchoolClassroomVisits();
+                    if(schoolClassroomVisits && schoolClassroomVisits.length > idx) {
+                        schoolClassroomVisits.splice(idx, 1);
+                        renderSchoolClassroomVisits();
+                    }
                 });
             });
         }
 
         function addSchoolClassroomVisit() {
-            const teacher = document.getElementById('cvTeacher').value.trim();
-            const grade = document.getElementById('cvGrade').value.trim();
-            const period = document.getElementById('cvPeriod').value.trim();
-            const subject = document.getElementById('cvSubject').value.trim();
-            const rating = document.getElementById('cvRating').value;
+            const teacher = document.getElementById('cvTeacher')?.value.trim();
+            const grade = document.getElementById('cvGrade')?.value.trim();
+            const period = document.getElementById('cvPeriod')?.value.trim();
+            const subject = document.getElementById('cvSubject')?.value.trim();
+            const rating = document.getElementById('cvRating')?.value;
             
             if (!teacher || !grade || !subject || !period) {
                 showToast('يرجى تعبئة جميع بيانات الموقف الصفي', 'error');
                 return;
             }
             
+            if(!Array.isArray(schoolClassroomVisits)) schoolClassroomVisits = [];
             schoolClassroomVisits.push({ teacher, grade, period, subject, rating });
             renderSchoolClassroomVisits();
             
-            document.getElementById('cvTeacher').value = '';
-            document.getElementById('cvGrade').value = '';
-            document.getElementById('cvPeriod').value = '';
-            document.getElementById('cvSubject').value = '';
+            if(document.getElementById('cvTeacher')) document.getElementById('cvTeacher').value = '';
+            if(document.getElementById('cvGrade')) document.getElementById('cvGrade').value = '';
+            if(document.getElementById('cvPeriod')) document.getElementById('cvPeriod').value = '';
+            if(document.getElementById('cvSubject')) document.getElementById('cvSubject').value = '';
             
             showToast('تمت إضافة الموقف الصفي');
         }
@@ -1617,17 +1675,23 @@
             
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key.startsWith('school_report_')) {
+                if (key.startsWith('supervision_v6_school_report_') || key.startsWith('school_report_')) {
                     try {
                         const parsedItem = JSON.parse(localStorage.getItem(key));
-                        if(parsedItem) reports.push({ key, ...parsedItem });
+                        if(parsedItem && typeof parsedItem === 'object') {
+                            reports.push({ key, ...parsedItem });
+                        }
                     } catch(e) {
                         console.warn('Skipping invalid school report data structure for key:', key);
                     }
                 }
             }
             
-            reports.sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate));
+            reports.sort((a, b) => {
+                const dateA = a.visitDate ? new Date(a.visitDate).getTime() : 0;
+                const dateB = b.visitDate ? new Date(b.visitDate).getTime() : 0;
+                return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+            });
             
             if (reports.length === 0) {
                 reportsListContainer.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400"><i class="fa-solid fa-folder-open text-4xl mb-2"></i><p>لا توجد تقارير محفوظة.</p></div>';
@@ -1635,17 +1699,19 @@
             }
             
             reports.forEach(report => {
-                const typeName = schoolVisitTypesData[report.visitType]?.name || 'غير محدد';
+                const typeName = (schoolVisitTypesData && schoolVisitTypesData[report.visitType]) ? schoolVisitTypesData[report.visitType].name : 'غير محدد';
                 const card = document.createElement('div');
                 card.className = 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col';
+                const objLen = Array.isArray(report.objectives) ? report.objectives.length : 0;
+                
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-3">
-                        <h3 class="font-bold text-lg text-slate-800">${report.schoolName}</h3>
+                        <h3 class="font-bold text-lg text-slate-800">${report.schoolName || 'بدون اسم'}</h3>
                         <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200">${typeName}</span>
                     </div>
                     <div class="text-sm text-slate-500 mb-4 space-y-1">
-                        <div class="flex items-center"><i class="fa-regular fa-calendar ml-2 w-4"></i> ${report.visitDate}</div>
-                        <div class="flex items-center"><i class="fa-solid fa-check-double ml-2 w-4"></i> ${report.objectives?.length || 0} أهداف محققة</div>
+                        <div class="flex items-center"><i class="fa-regular fa-calendar ml-2 w-4"></i> ${report.visitDate || '-'}</div>
+                        <div class="flex items-center"><i class="fa-solid fa-check-double ml-2 w-4"></i> ${objLen} أهداف محققة</div>
                     </div>
                     <div class="mt-auto flex gap-2 pt-3 border-t border-slate-100">
                         <button class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium transition-colors view-report-btn" data-key="${report.key}">عرض</button>
@@ -1663,7 +1729,7 @@
             const objectives = [];
             reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
             
-            if (objectives.length === 0 && schoolClassroomVisits.length === 0) {
+            if (objectives.length === 0 && (!Array.isArray(schoolClassroomVisits) || schoolClassroomVisits.length === 0)) {
                 showToast('يرجى تحديد الأهداف أو إضافة مواقف صفية أولاً', 'error');
                 return;
             }
@@ -1688,7 +1754,7 @@
                 counter++;
             });
             
-            if (schoolClassroomVisits.length > 0) {
+            if (Array.isArray(schoolClassroomVisits) && schoolClassroomVisits.length > 0) {
                 opinionText += counter + "- تم حضور مواقف صفية وإجراء المداولة الإشرافية، وذلك على النحو الآتي:\n";
                 schoolClassroomVisits.forEach((cv, idx) => {
                     opinionText += `   • الحصة (${cv.period}): الأستاذ ${cv.teacher} – درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
@@ -1697,13 +1763,17 @@
                  opinionText += " (لم يتم إدراج تفاصيل الحصص).\n";
             }
             
-            document.getElementById('visitorOpinion').value = opinionText.trim();
-            showToast('تم توليد الرأي الذكي بنجاح');
+            const visOp = document.getElementById('visitorOpinion');
+            if(visOp) {
+                visOp.value = opinionText.trim();
+                showToast('تم توليد الرأي الذكي بنجاح');
+            }
         }
 
         function startSchoolDictation(targetId, btn) {
             if (!recognition) { showToast('المتصفح لا يدعم الإملاء الصوتي', 'error'); return; }
             const target = document.getElementById(targetId);
+            if(!target) return;
             btn.classList.add('recording');
             recognition.start();
             recognition.onresult = (event) => { 
@@ -1718,12 +1788,14 @@
         function saveSchoolReport(e) {
             e.preventDefault();
             const reportForm = document.getElementById('reportForm');
+            if(!reportForm) return;
             const formData = new FormData(reportForm);
             const objectives = [];
             reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
             
-            const reportId = document.getElementById('reportId').value || `school_report_${Date.now()}`;
-            const visitType = document.getElementById('visitTypeSelect').value;
+            const rId = document.getElementById('reportId')?.value;
+            const reportId = rId ? rId : `supervision_v6_school_report_${Date.now()}`;
+            const visitType = document.getElementById('visitTypeSelect')?.value;
             
             if (!visitType) { 
                 showToast('يرجى اختيار نوع الزيارة', 'error'); 
@@ -1732,37 +1804,41 @@
             
             const reportData = {
                 id: reportId,
-                schoolName: formData.get('schoolName'),
-                visitDate: formData.get('visitDate'),
+                schoolName: formData.get('schoolName') || '',
+                visitDate: formData.get('visitDate') || '',
                 visitType: visitType,
                 objectives: objectives,
-                classroomVisits: schoolClassroomVisits,
-                visitorOpinion: document.getElementById('visitorOpinion').value,
-                recommendations: document.getElementById('recommendations').value
+                classroomVisits: Array.isArray(schoolClassroomVisits) ? schoolClassroomVisits : [],
+                visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
+                recommendations: document.getElementById('recommendations')?.value || ''
             };
             
-            localStorage.setItem(reportId, JSON.stringify(reportData));
-            showToast('تم حفظ التقرير بنجاح');
-            showSchoolDashboard();
+            try {
+                localStorage.setItem(reportId, JSON.stringify(reportData));
+                showToast('تم حفظ التقرير بنجاح');
+                showSchoolDashboard();
+            } catch(error) {
+                showToast('خطأ: لا توجد مساحة كافية للحفظ', 'error');
+            }
         }
 
         function editSchoolReport(key) {
             try {
                 const report = JSON.parse(localStorage.getItem(key));
-                if (!report) return;
+                if (!report || typeof report !== 'object') return;
                 
-                document.getElementById('reportId').value = key;
-                document.getElementById('schoolName').value = report.schoolName;
-                document.getElementById('schoolVisitDate').value = report.visitDate;
-                document.getElementById('visitTypeSelect').value = report.visitType;
-                document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
-                document.getElementById('recommendations').value = report.recommendations || '';
+                if(document.getElementById('reportId')) document.getElementById('reportId').value = key;
+                if(document.getElementById('schoolName')) document.getElementById('schoolName').value = report.schoolName || '';
+                if(document.getElementById('schoolVisitDate')) document.getElementById('schoolVisitDate').value = report.visitDate || '';
+                if(document.getElementById('visitTypeSelect')) document.getElementById('visitTypeSelect').value = report.visitType || '';
+                if(document.getElementById('visitorOpinion')) document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
+                if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
                 
-                schoolClassroomVisits = report.classroomVisits || [];
+                schoolClassroomVisits = Array.isArray(report.classroomVisits) ? report.classroomVisits : [];
                 renderSchoolClassroomVisits();
                 renderSchoolObjectives(report.visitType);
                 
-                if (report.objectives) {
+                if (Array.isArray(report.objectives)) {
                     setTimeout(() => {
                         report.objectives.forEach(objVal => {
                             const cb = Array.from(document.querySelectorAll('input[name="objectives"]')).find(el => el.value === objVal);
@@ -1779,22 +1855,25 @@
         function viewSchoolReport(key) {
             try {
                 const report = JSON.parse(localStorage.getItem(key));
-                if (!report) return;
+                if (!report || typeof report !== 'object') {
+                    showToast('ملف التقرير تالف', 'error');
+                    return;
+                }
                 
                 generateSchoolPreview(report);
-                document.getElementById('schoolFormView').classList.add('hidden');
-                document.getElementById('schoolDashboardView').classList.add('hidden');
-                document.getElementById('reportPreviewContainer').classList.remove('hidden');
+                document.getElementById('schoolFormView')?.classList.add('hidden');
+                document.getElementById('schoolDashboardView')?.classList.add('hidden');
+                document.getElementById('reportPreviewContainer')?.classList.remove('hidden');
             } catch (e) {
                  showToast('لا يمكن قراءة ملف التقرير', 'error');
             }
         }
 
         function generateSchoolPreview(report) {
-            const typeName = schoolVisitTypesData[report.visitType]?.name || 'زيارة مدرسية';
+            const typeName = (schoolVisitTypesData && schoolVisitTypesData[report.visitType]) ? schoolVisitTypesData[report.visitType].name : 'زيارة مدرسية';
             let objectivesHtml = '<ol class="list-decimal list-inside space-y-1 text-slate-700 mt-2">';
             
-            if(report.objectives && report.objectives.length > 0) {
+            if(Array.isArray(report.objectives) && report.objectives.length > 0) {
                 report.objectives.forEach(obj => objectivesHtml += `<li>${obj}</li>`);
             } else {
                 objectivesHtml += '<li class="text-slate-400 italic">لا توجد أهداف محددة.</li>';
@@ -1809,11 +1888,11 @@
                 <div class="grid grid-cols-2 gap-6 mb-8 bg-slate-50 p-6 rounded-xl border border-slate-100">
                     <div>
                         <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">المدرسة</p>
-                        <p class="font-bold text-lg text-slate-800">${report.schoolName}</p>
+                        <p class="font-bold text-lg text-slate-800">${report.schoolName || '-'}</p>
                     </div>
                     <div>
                         <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">التاريخ</p>
-                        <p class="font-bold text-lg text-slate-800">${report.visitDate}</p>
+                        <p class="font-bold text-lg text-slate-800">${report.visitDate || '-'}</p>
                     </div>
                 </div>
                 <div class="mb-8">
@@ -1829,30 +1908,36 @@
                     <div class="bg-white border border-slate-200 rounded-xl p-5 min-h-[100px] whitespace-pre-wrap">${report.recommendations || 'لا توجد توصيات.'}</div>
                 </div>
             `;
-            document.getElementById('reportContent').innerHTML = content;
+            const repContent = document.getElementById('reportContent');
+            if(repContent) repContent.innerHTML = content;
             
-            document.getElementById('backToFormBtn').onclick = () => {
-                document.getElementById('reportId').value = report.id;
-                if(document.getElementById('reportId').value) {
-                    editSchoolReport(document.getElementById('reportId').value);
-                } else {
-                    document.getElementById('schoolName').value = report.schoolName;
-                    document.getElementById('schoolVisitDate').value = report.visitDate;
-                    document.getElementById('visitTypeSelect').value = report.visitType;
-                    document.getElementById('visitorOpinion').value = report.visitorOpinion;
-                    document.getElementById('recommendations').value = report.recommendations;
-                    schoolClassroomVisits = report.classroomVisits || [];
-                    renderSchoolClassroomVisits();
-                    renderSchoolObjectives(report.visitType);
-                    setTimeout(() => { 
-                        if(report.objectives) report.objectives.forEach(val => { 
-                            const cb = Array.from(document.querySelectorAll('input[name="objectives"]')).find(el => el.value === val); 
-                            if(cb) cb.checked = true; 
-                        });
-                    }, 0);
-                    showSchoolForm();
-                }
-            };
+            const btnBack = document.getElementById('backToFormBtn');
+            if(btnBack) {
+                btnBack.onclick = () => {
+                    if(document.getElementById('reportId')) document.getElementById('reportId').value = report.id || '';
+                    if(report.id) {
+                        editSchoolReport(report.id);
+                    } else {
+                        if(document.getElementById('schoolName')) document.getElementById('schoolName').value = report.schoolName || '';
+                        if(document.getElementById('schoolVisitDate')) document.getElementById('schoolVisitDate').value = report.visitDate || '';
+                        if(document.getElementById('visitTypeSelect')) document.getElementById('visitTypeSelect').value = report.visitType || '';
+                        if(document.getElementById('visitorOpinion')) document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
+                        if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
+                        schoolClassroomVisits = Array.isArray(report.classroomVisits) ? report.classroomVisits : [];
+                        renderSchoolClassroomVisits();
+                        renderSchoolObjectives(report.visitType);
+                        setTimeout(() => { 
+                            if(Array.isArray(report.objectives)) {
+                                report.objectives.forEach(val => { 
+                                    const cb = Array.from(document.querySelectorAll('input[name="objectives"]')).find(el => el.value === val); 
+                                    if(cb) cb.checked = true; 
+                                });
+                            }
+                        }, 0);
+                        showSchoolForm();
+                    }
+                };
+            }
         }
 
         function deleteSchoolReport(key) {
@@ -1868,14 +1953,21 @@
             if(!visitTypesList) return;
             
             visitTypesList.innerHTML = '';
+            if(!schoolVisitTypesData || typeof schoolVisitTypesData !== 'object') return;
+            
             Object.keys(schoolVisitTypesData).forEach(key => {
                 const type = schoolVisitTypesData[key];
+                if (!type || typeof type !== 'object') return; // حماية من البيانات التالفة
+                
                 const div = document.createElement('div');
                 div.className = 'p-3 bg-slate-50 rounded-lg border border-slate-200';
-                const objectivesList = type.objectives.map(obj => `<li class="text-xs text-slate-600 truncate">• ${obj}</li>`).join('');
+                
+                const objArray = Array.isArray(type.objectives) ? type.objectives : [];
+                const objectivesList = objArray.map(obj => `<li class="text-xs text-slate-600 truncate">• ${obj}</li>`).join('');
+                
                 div.innerHTML = `
                     <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-bold text-slate-700">${type.name}</h4>
+                        <h4 class="font-bold text-slate-700">${type.name || 'بدون اسم'}</h4>
                         <div class="flex gap-2">
                             <button class="text-blue-500 hover:text-blue-700 edit-type-btn p-1" data-key="${key}">
                                 <i class="fa-solid fa-pen-to-square"></i>
@@ -1892,16 +1984,16 @@
         }
 
         function showSchoolDashboard() {
-            document.getElementById('schoolDashboardView').classList.remove('hidden');
-            document.getElementById('schoolFormView').classList.add('hidden');
-            document.getElementById('reportPreviewContainer').classList.add('hidden');
+            document.getElementById('schoolDashboardView')?.classList.remove('hidden');
+            document.getElementById('schoolFormView')?.classList.add('hidden');
+            document.getElementById('reportPreviewContainer')?.classList.add('hidden');
             renderSchoolReportsList();
         }
         
         function showSchoolForm() {
-            document.getElementById('schoolDashboardView').classList.add('hidden');
-            document.getElementById('schoolFormView').classList.remove('hidden');
-            document.getElementById('reportPreviewContainer').classList.add('hidden');
+            document.getElementById('schoolDashboardView')?.classList.add('hidden');
+            document.getElementById('schoolFormView')?.classList.remove('hidden');
+            document.getElementById('reportPreviewContainer')?.classList.add('hidden');
         }
 
         // =========================================================================
@@ -1909,328 +2001,361 @@
         // =========================================================================
         
         function initAppEnvironment() {
-            // --- Welcome View Bindings ---
-            const showSupBtn = document.getElementById('showSupervisoryAppBtn');
-            if(showSupBtn) showSupBtn.addEventListener('click', () => showView(document.getElementById('supervisoryVisitsApp')));
-            
-            const showSchBtn = document.getElementById('showSchoolAppBtn');
-            if(showSchBtn) showSchBtn.addEventListener('click', () => showView(document.getElementById('schoolVisitsApp')));
-            
-            const backWelcomeBtn = document.getElementById('backToWelcomeFromSupervisory');
-            if(backWelcomeBtn) backWelcomeBtn.addEventListener('click', () => showView(document.getElementById('welcomeView')));
-            
-            const backWelcomeSchBtn = document.getElementById('backToWelcomeFromSchool');
-            if(backWelcomeSchBtn) backWelcomeSchBtn.addEventListener('click', () => showView(document.getElementById('welcomeView')));
+            try {
+                // --- Welcome View Bindings ---
+                const showSupBtn = document.getElementById('showSupervisoryAppBtn');
+                if(showSupBtn) showSupBtn.addEventListener('click', () => showView(document.getElementById('supervisoryVisitsApp')));
+                
+                const showSchBtn = document.getElementById('showSchoolAppBtn');
+                if(showSchBtn) showSchBtn.addEventListener('click', () => showView(document.getElementById('schoolVisitsApp')));
+                
+                const backWelcomeBtn = document.getElementById('backToWelcomeFromSupervisory');
+                if(backWelcomeBtn) backWelcomeBtn.addEventListener('click', () => showView(document.getElementById('welcomeView')));
+                
+                const backWelcomeSchBtn = document.getElementById('backToWelcomeFromSchool');
+                if(backWelcomeSchBtn) backWelcomeSchBtn.addEventListener('click', () => showView(document.getElementById('welcomeView')));
 
-            // --- Initialize Supervisory App ---
-            generateEvaluationForm();
-            const visitDateInput = document.querySelector('#visitDate');
-            if(visitDateInput) visitDateInput.value = new Date().toISOString().split('T')[0];
-            toggleSupervisoryView('form-view');
+                // --- Initialize Supervisory App ---
+                try {
+                    generateEvaluationForm();
+                    const visitDateInput = document.querySelector('#visitDate');
+                    if(visitDateInput) visitDateInput.value = new Date().toISOString().split('T')[0];
+                    toggleSupervisoryView('form-view');
+                } catch(e) { console.error('Supervisory Init Error', e); }
 
-            document.querySelectorAll('#supervisoryVisitsApp .nav-tab').forEach(tab => {
-                tab.addEventListener('click', () => toggleSupervisoryView(tab.dataset.view));
-            });
-            
-            const evalForm = document.querySelector('#evaluationForm');
-            if(evalForm) {
-                evalForm.addEventListener('click', e => { 
-                    if (e.target.matches('.rating-btn')) {
-                        updateScore(e.target.closest('.item-card').id.split('-')[1], e.target.dataset.score, true); 
-                    }
-                    if (e.target.closest('.mic-btn')) {
-                        startSupervisoryDictation(e.target.closest('.mic-btn').previousElementSibling.id, e.target.closest('.mic-btn')); 
-                    }
-                    if (e.target.closest('.edit-evidence-btn')) { 
-                        const itemId = e.target.closest('.edit-evidence-btn').dataset.id; 
-                        openEvidencePanel(itemId); 
-                    } 
-                    if (e.target.matches('.close-evidence-panel')) { 
-                        e.target.closest('.evidence-panel').classList.add('hidden'); 
-                    } 
-                    if (e.target.closest('.add-evidence-btn')) { 
-                        const btn = e.target.closest('.add-evidence-btn'); 
-                        if(typeof addCustomEvidence === 'function') addCustomEvidence(btn.dataset.id); 
-                    } 
-                    if (e.target.closest('.delete-evidence-btn')) { 
-                        const btn = e.target.closest('.delete-evidence-btn'); 
-                        if(typeof deleteCustomEvidence === 'function') deleteCustomEvidence(btn.dataset.itemId, btn.dataset.value); 
-                    } 
+                document.querySelectorAll('#supervisoryVisitsApp .nav-tab').forEach(tab => {
+                    tab.addEventListener('click', () => toggleSupervisoryView(tab.dataset.view));
                 });
-
-                evalForm.addEventListener('change', e => { 
-                    if (e.target.matches('.evidence-checkbox')) { 
-                        const itemId = e.target.dataset.itemId; 
-                        updateDescriptionFromPanel(itemId); 
-                    } 
-                });
-
-                evalForm.addEventListener('keypress', e => { 
-                    if (e.target.matches('.new-evidence-input') && e.key === 'Enter') { 
-                        e.preventDefault(); 
-                        if(typeof addCustomEvidence === 'function') addCustomEvidence(e.target.dataset.id); 
-                    } 
-                });
-            }
-
-            const savePermBtn = document.getElementById('savePermanentReportBtn');
-            if(savePermBtn) savePermBtn.addEventListener('click', savePermanentReport);
-            
-            const genReportBtn = document.getElementById('generateReportBtn');
-            if(genReportBtn) genReportBtn.addEventListener('click', generateReport);
-            
-            const printOfficialBtn = document.getElementById('printOfficialReportBtn');
-            if(printOfficialBtn) printOfficialBtn.addEventListener('click', prepareOfficialPrint);
-            
-            const exportWordBtn = document.getElementById('exportToWordBtn');
-            if(exportWordBtn) exportWordBtn.addEventListener('click', exportToWord);
-            
-            const resetConfBtn = document.getElementById('showResetConfirmationBtn');
-            if(resetConfBtn) resetConfBtn.addEventListener('click', () => showConfirmationModal('إعادة تعيين', 'هل أنت متأكد؟', performReset));
-            
-            const updateDashBtn = document.getElementById('updateDashboardViewBtn');
-            if(updateDashBtn) updateDashBtn.addEventListener('click', updateDashboardView);
-            
-            const reportSec = document.querySelector('#reportSection');
-            if(reportSec) {
-                reportSec.addEventListener('click', e => { 
-                    if(e.target.closest('.copy-btn')) {
-                        copyText(document.querySelector(`#${e.target.closest('.copy-btn').dataset.target}`).value); 
-                    }
-                });
-            }
-            
-            const supSavedList = document.querySelector('#saved-reports-list');
-            if(supSavedList) {
-                supSavedList.addEventListener('click', e => { 
-                    if(e.target.dataset.key) { 
-                        if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key); 
-                        if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key); 
-                    } 
-                });
-            }
-            
-            const supFilter = document.querySelector('#filter-reports-input');
-            if(supFilter) {
-                supFilter.addEventListener('input', renderSavedReports);
-            }
-
-            // --- Initialize School App ---
-            loadSchoolVisitTypes();
-            renderSchoolReportsList();
-
-            const addNewReportBtn = document.getElementById('addNewReportBtn');
-            if (addNewReportBtn) {
-                addNewReportBtn.addEventListener('click', () => {
-                    document.getElementById('reportForm').reset();
-                    document.getElementById('reportId').value = '';
-                    document.getElementById('schoolVisitDate').value = new Date().toISOString().split('T')[0];
-                    document.getElementById('objectivesContainer').innerHTML = '';
-                    schoolClassroomVisits = [];
-                    renderSchoolClassroomVisits();
-                    showSchoolForm();
-                });
-            }
-
-            const genVisOpBtn = document.getElementById('generateVisitorOpinionBtn');
-            if (genVisOpBtn) genVisOpBtn.addEventListener('click', generateSchoolSmartVisitorOpinion);
-            
-            const addCvBtn = document.getElementById('addClassroomVisitBtn');
-            if (addCvBtn) addCvBtn.addEventListener('click', addSchoolClassroomVisit);
-            
-            const schFormView = document.querySelector('#schoolFormView');
-            if (schFormView) {
-                schFormView.addEventListener('click', (e) => {
-                     if (e.target.closest('.mic-btn')) {
-                         const btn = e.target.closest('.mic-btn');
-                         const targetId = btn.previousElementSibling.id;
-                         startSchoolDictation(targetId, btn);
-                     }
-                });
-            }
-
-            const quickRecs = document.getElementById('quickRecs');
-            if (quickRecs) {
-                quickRecs.addEventListener('change', (e) => {
-                    const val = e.target.value;
-                    if(val) {
-                        const textarea = document.getElementById('recommendations');
-                        textarea.value += (textarea.value.length > 0 ? '\n- ' : '- ') + val;
-                        e.target.value = '';
-                    }
-                });
-            }
-
-            const copyObjBtn = document.getElementById('copyObjectivesBtn');
-            if (copyObjBtn) {
-                copyObjBtn.addEventListener('click', () => {
-                    const checked = Array.from(document.querySelectorAll('#objectivesContainer input:checked')).map((cb, index) => (index + 1) + '- ' + cb.value).join('\n');
-                    copyText(checked);
-                });
-            }
-            
-            const copyVisOpBtn = document.getElementById('copyVisitorOpinionBtn');
-            if (copyVisOpBtn) {
-                copyVisOpBtn.addEventListener('click', () => {
-                    copyText(document.getElementById('visitorOpinion').value);
-                });
-            }
-            
-            const copyRecBtn = document.getElementById('copyRecommendationsBtn');
-            if (copyRecBtn) {
-                copyRecBtn.addEventListener('click', () => {
-                    copyText(document.getElementById('recommendations').value);
-                });
-            }
-
-            const backToDashBtn = document.getElementById('backToDashboardBtn');
-            if (backToDashBtn) backToDashBtn.addEventListener('click', showSchoolDashboard);
-            
-            const backToFormBtn = document.getElementById('backToFormBtn');
-            if (backToFormBtn) backToFormBtn.addEventListener('click', showSchoolForm);
-
-            const visitTypeSel = document.getElementById('visitTypeSelect');
-            if (visitTypeSel) {
-                visitTypeSel.addEventListener('change', (e) => {
-                    renderSchoolObjectives(e.target.value);
-                });
-            }
-
-            const repForm = document.getElementById('reportForm');
-            if (repForm) repForm.addEventListener('submit', saveSchoolReport);
-
-            const prevRepBtn = document.getElementById('previewReportBtn');
-            if (prevRepBtn) {
-                prevRepBtn.addEventListener('click', () => {
-                    const reportForm = document.getElementById('reportForm');
-                    const formData = new FormData(reportForm);
-                    const objectives = [];
-                    reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
-                    
-                    const tempReport = {
-                        id: document.getElementById('reportId').value,
-                        schoolName: formData.get('schoolName'),
-                        visitDate: formData.get('visitDate'),
-                        visitType: document.getElementById('visitTypeSelect').value,
-                        objectives: objectives,
-                        classroomVisits: schoolClassroomVisits,
-                        visitorOpinion: document.getElementById('visitorOpinion').value,
-                        recommendations: document.getElementById('recommendations').value
-                    };
-                    
-                    if(!tempReport.visitType) { 
-                        showToast('اختر نوع الزيارة أولاً', 'error'); 
-                        return; 
-                    }
-                    
-                    generateSchoolPreview(tempReport);
-                    document.getElementById('schoolFormView').classList.add('hidden');
-                    document.getElementById('reportPreviewContainer').classList.remove('hidden');
-                });
-            }
-
-            const repListCont = document.querySelector('#schoolDashboardView #reportsListContainer');
-            if(repListCont) {
-                repListCont.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('delete-report-btn')) deleteSchoolReport(e.target.dataset.key);
-                    if (e.target.classList.contains('edit-report-btn')) editSchoolReport(e.target.dataset.key);
-                    if (e.target.classList.contains('view-report-btn')) viewSchoolReport(e.target.dataset.key);
-                });
-            }
-
-            const mgVisTypeBtn = document.getElementById('manageVisitTypesBtn');
-            if (mgVisTypeBtn) {
-                mgVisTypeBtn.addEventListener('click', () => {
-                    renderSchoolVisitTypesList();
-                    document.getElementById('manageTypesModal').classList.remove('hidden');
-                });
-            }
-            
-            const closeMgModalBtn = document.getElementById('closeManageModalBtn');
-            if (closeMgModalBtn) {
-                closeMgModalBtn.addEventListener('click', () => {
-                    document.getElementById('manageTypesModal').classList.add('hidden');
-                });
-            }
-            
-            const visTypeList = document.getElementById('visitTypesList');
-            if(visTypeList) {
-                visTypeList.addEventListener('click', (e) => {
-                    const deleteBtn = e.target.closest('.delete-type-btn');
-                    const editBtn = e.target.closest('.edit-type-btn');
-                    
-                    if (deleteBtn) {
-                        const key = deleteBtn.dataset.key;
-                        if (confirm('هل أنت متأكد من حذف هذا النوع؟')) {
-                            delete schoolVisitTypesData[key];
-                            localStorage.setItem('school_visit_types', JSON.stringify(schoolVisitTypesData));
-                            renderSchoolVisitTypesList();
-                            populateSchoolVisitTypeDropdown();
-                            showToast('تم حذف النوع بنجاح');
+                
+                const evalForm = document.querySelector('#evaluationForm');
+                if(evalForm) {
+                    evalForm.addEventListener('click', e => { 
+                        if (e.target.matches('.rating-btn')) {
+                            updateScore(e.target.closest('.item-card').id.split('-')[1], e.target.dataset.score, true); 
                         }
-                    }
-                    
-                    if (editBtn) {
-                        const key = editBtn.dataset.key;
-                        const type = schoolVisitTypesData[key];
-                        document.getElementById('typeName').value = type.name;
-                        document.getElementById('typeObjectives').value = type.objectives.join('\n');
-                        document.getElementById('editTypeKey').value = key;
-                        document.getElementById('addEditModalTitle').textContent = 'تعديل نوع زيارة';
-                        document.getElementById('manageTypesModal').classList.add('hidden');
-                        document.getElementById('addEditTypeModal').classList.remove('hidden');
-                    }
-                });
-            }
+                        if (e.target.closest('.mic-btn')) {
+                            startSupervisoryDictation(e.target.closest('.mic-btn').previousElementSibling.id, e.target.closest('.mic-btn')); 
+                        }
+                        if (e.target.closest('.edit-evidence-btn')) { 
+                            const itemId = e.target.closest('.edit-evidence-btn').dataset.id; 
+                            openEvidencePanel(itemId); 
+                        } 
+                        if (e.target.matches('.close-evidence-panel')) { 
+                            e.target.closest('.evidence-panel').classList.add('hidden'); 
+                        } 
+                        if (e.target.closest('.add-evidence-btn')) { 
+                            const btn = e.target.closest('.add-evidence-btn'); 
+                            if(typeof addCustomEvidence === 'function') addCustomEvidence(btn.dataset.id); 
+                        } 
+                        if (e.target.closest('.delete-evidence-btn')) { 
+                            const btn = e.target.closest('.delete-evidence-btn'); 
+                            if(typeof deleteCustomEvidence === 'function') deleteCustomEvidence(btn.dataset.itemId, btn.dataset.value); 
+                        } 
+                    });
 
-            const openAddTypeModalBtn = document.getElementById('openAddTypeModalBtn');
-            if (openAddTypeModalBtn) {
-                openAddTypeModalBtn.addEventListener('click', () => {
-                    document.getElementById('addEditTypeForm').reset();
-                    document.getElementById('editTypeKey').value = '';
-                    document.getElementById('addEditModalTitle').textContent = 'إضافة نوع زيارة';
-                    document.getElementById('manageTypesModal').classList.add('hidden');
-                    document.getElementById('addEditTypeModal').classList.remove('hidden');
-                });
-            }
-            
-            const cancelEditBtn = document.getElementById('cancelEditBtn');
-            if (cancelEditBtn) {
-                cancelEditBtn.addEventListener('click', () => {
-                    document.getElementById('addEditTypeModal').classList.add('hidden');
-                    document.getElementById('manageTypesModal').classList.remove('hidden');
-                });
-            }
+                    evalForm.addEventListener('change', e => { 
+                        if (e.target.matches('.evidence-checkbox')) { 
+                            const itemId = e.target.dataset.itemId; 
+                            updateDescriptionFromPanel(itemId); 
+                        } 
+                    });
 
-            const addEditTypeForm = document.getElementById('addEditTypeForm');
-            if (addEditTypeForm) {
-                addEditTypeForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const name = document.getElementById('typeName').value;
-                    const objectives = document.getElementById('typeObjectives').value.split('\n').filter(o => o.trim() !== '');
-                    let key = document.getElementById('editTypeKey').value;
-                    
-                    if (objectives.length === 0) {
-                        showToast('يرجى إضافة هدف واحد على الأقل', 'error');
-                        return;
-                    }
-                    
-                    if (!key) {
-                        key = 'custom_' + Date.now();
-                    }
-                    
-                    schoolVisitTypesData[key] = { name, objectives };
-                    localStorage.setItem('school_visit_types', JSON.stringify(schoolVisitTypesData));
-                    renderSchoolVisitTypesList();
-                    populateSchoolVisitTypeDropdown();
-                    document.getElementById('addEditTypeModal').classList.add('hidden');
-                    document.getElementById('manageTypesModal').classList.remove('hidden');
-                    showToast('تم حفظ النوع بنجاح');
-                });
-            }
+                    evalForm.addEventListener('keypress', e => { 
+                        if (e.target.matches('.new-evidence-input') && e.key === 'Enter') { 
+                            e.preventDefault(); 
+                            if(typeof addCustomEvidence === 'function') addCustomEvidence(e.target.dataset.id); 
+                        } 
+                    });
+                }
 
-            // Finally show welcome view
-            showView(document.getElementById('welcomeView'));
+                const savePermBtn = document.getElementById('savePermanentReportBtn');
+                if(savePermBtn) savePermBtn.addEventListener('click', savePermanentReport);
+                
+                const genReportBtn = document.getElementById('generateReportBtn');
+                if(genReportBtn) genReportBtn.addEventListener('click', generateReport);
+                
+                const printOfficialBtn = document.getElementById('printOfficialReportBtn');
+                if(printOfficialBtn) printOfficialBtn.addEventListener('click', prepareOfficialPrint);
+                
+                const exportWordBtn = document.getElementById('exportToWordBtn');
+                if(exportWordBtn) exportWordBtn.addEventListener('click', exportToWord);
+                
+                const resetConfBtn = document.getElementById('showResetConfirmationBtn');
+                if(resetConfBtn) resetConfBtn.addEventListener('click', () => showConfirmationModal('إعادة تعيين', 'هل أنت متأكد؟', performReset));
+                
+                const updateDashBtn = document.getElementById('updateDashboardViewBtn');
+                if(updateDashBtn) updateDashBtn.addEventListener('click', updateDashboardView);
+                
+                const reportSec = document.querySelector('#reportSection');
+                if(reportSec) {
+                    reportSec.addEventListener('click', e => { 
+                        if(e.target.closest('.copy-btn')) {
+                            copyText(document.querySelector(`#${e.target.closest('.copy-btn').dataset.target}`).value); 
+                        }
+                    });
+                }
+                
+                const supSavedList = document.querySelector('#saved-reports-list');
+                if(supSavedList) {
+                    supSavedList.addEventListener('click', e => { 
+                        if(e.target.dataset.key) { 
+                            if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key); 
+                            if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key); 
+                        } 
+                    });
+                }
+                
+                const supFilter = document.querySelector('#filter-reports-input');
+                if(supFilter) {
+                    supFilter.addEventListener('input', renderSavedReports);
+                }
+
+                // --- Initialize School App ---
+                try { loadSchoolVisitTypes(); } catch(e) { console.error('School Types Error', e); }
+                try { renderSchoolReportsList(); } catch(e) { console.error('School Reports Error', e); }
+
+                // --- إصلاح زر تقرير جديد وربط الحدث بأمان تام ---
+                const addNewReportBtn = document.getElementById('addNewReportBtn');
+                if (addNewReportBtn) {
+                    addNewReportBtn.addEventListener('click', () => {
+                        try {
+                            const repForm = document.getElementById('reportForm');
+                            if(repForm) repForm.reset();
+                            
+                            const repId = document.getElementById('reportId');
+                            if(repId) repId.value = '';
+                            
+                            const dateInput = document.getElementById('schoolVisitDate');
+                            if(dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+                            
+                            const objCont = document.getElementById('objectivesContainer');
+                            if(objCont) objCont.innerHTML = '';
+                            
+                            schoolClassroomVisits = [];
+                            renderSchoolClassroomVisits();
+                            
+                            const visSelect = document.getElementById('visitTypeSelect');
+                            if(visSelect && visSelect.options.length > 0) visSelect.selectedIndex = 0;
+
+                            showSchoolForm();
+                        } catch(err) {
+                            console.error("New Report Error: ", err);
+                            showToast('حدث خطأ أثناء محاولة فتح التقرير', 'error');
+                        }
+                    });
+                }
+
+                const genVisOpBtn = document.getElementById('generateVisitorOpinionBtn');
+                if (genVisOpBtn) genVisOpBtn.addEventListener('click', generateSchoolSmartVisitorOpinion);
+                
+                const addCvBtn = document.getElementById('addClassroomVisitBtn');
+                if (addCvBtn) addCvBtn.addEventListener('click', addSchoolClassroomVisit);
+                
+                const schFormView = document.querySelector('#schoolFormView');
+                if (schFormView) {
+                    schFormView.addEventListener('click', (e) => {
+                         if (e.target.closest('.mic-btn')) {
+                             const btn = e.target.closest('.mic-btn');
+                             const targetId = btn.previousElementSibling.id;
+                             startSchoolDictation(targetId, btn);
+                         }
+                    });
+                }
+
+                const quickRecs = document.getElementById('quickRecs');
+                if (quickRecs) {
+                    quickRecs.addEventListener('change', (e) => {
+                        const val = e.target.value;
+                        if(val) {
+                            const textarea = document.getElementById('recommendations');
+                            if(textarea) {
+                                textarea.value += (textarea.value.length > 0 ? '\n- ' : '- ') + val;
+                            }
+                            e.target.value = '';
+                        }
+                    });
+                }
+
+                const copyObjBtn = document.getElementById('copyObjectivesBtn');
+                if (copyObjBtn) {
+                    copyObjBtn.addEventListener('click', () => {
+                        const checked = Array.from(document.querySelectorAll('#objectivesContainer input:checked')).map((cb, index) => (index + 1) + '- ' + cb.value).join('\n');
+                        copyText(checked);
+                    });
+                }
+                
+                const copyVisOpBtn = document.getElementById('copyVisitorOpinionBtn');
+                if (copyVisOpBtn) {
+                    copyVisOpBtn.addEventListener('click', () => {
+                        copyText(document.getElementById('visitorOpinion')?.value);
+                    });
+                }
+                
+                const copyRecBtn = document.getElementById('copyRecommendationsBtn');
+                if (copyRecBtn) {
+                    copyRecBtn.addEventListener('click', () => {
+                        copyText(document.getElementById('recommendations')?.value);
+                    });
+                }
+
+                const backToDashBtn = document.getElementById('backToDashboardBtn');
+                if (backToDashBtn) backToDashBtn.addEventListener('click', showSchoolDashboard);
+                
+                const backToFormBtn = document.getElementById('backToFormBtn');
+                if (backToFormBtn) backToFormBtn.addEventListener('click', showSchoolForm);
+
+                const visitTypeSel = document.getElementById('visitTypeSelect');
+                if (visitTypeSel) {
+                    visitTypeSel.addEventListener('change', (e) => {
+                        renderSchoolObjectives(e.target.value);
+                    });
+                }
+
+                const repFormSubmit = document.getElementById('reportForm');
+                if (repFormSubmit) repFormSubmit.addEventListener('submit', saveSchoolReport);
+
+                const prevRepBtn = document.getElementById('previewReportBtn');
+                if (prevRepBtn) {
+                    prevRepBtn.addEventListener('click', () => {
+                        const reportForm = document.getElementById('reportForm');
+                        if(!reportForm) return;
+                        
+                        const formData = new FormData(reportForm);
+                        const objectives = [];
+                        reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
+                        
+                        const tempReport = {
+                            id: document.getElementById('reportId')?.value || '',
+                            schoolName: formData.get('schoolName') || '',
+                            visitDate: formData.get('visitDate') || '',
+                            visitType: document.getElementById('visitTypeSelect')?.value || '',
+                            objectives: objectives,
+                            classroomVisits: schoolClassroomVisits || [],
+                            visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
+                            recommendations: document.getElementById('recommendations')?.value || ''
+                        };
+                        
+                        if(!tempReport.visitType) { 
+                            showToast('اختر نوع الزيارة أولاً', 'error'); 
+                            return; 
+                        }
+                        
+                        generateSchoolPreview(tempReport);
+                        document.getElementById('schoolFormView')?.classList.add('hidden');
+                        document.getElementById('reportPreviewContainer')?.classList.remove('hidden');
+                    });
+                }
+
+                const repListCont = document.querySelector('#schoolDashboardView #reportsListContainer');
+                if(repListCont) {
+                    repListCont.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('delete-report-btn')) deleteSchoolReport(e.target.dataset.key);
+                        if (e.target.classList.contains('edit-report-btn')) editSchoolReport(e.target.dataset.key);
+                        if (e.target.classList.contains('view-report-btn')) viewSchoolReport(e.target.dataset.key);
+                    });
+                }
+
+                const mgVisTypeBtn = document.getElementById('manageVisitTypesBtn');
+                if (mgVisTypeBtn) {
+                    mgVisTypeBtn.addEventListener('click', () => {
+                        renderSchoolVisitTypesList();
+                        document.getElementById('manageTypesModal')?.classList.remove('hidden');
+                    });
+                }
+                
+                const closeMgModalBtn = document.getElementById('closeManageModalBtn');
+                if (closeMgModalBtn) {
+                    closeMgModalBtn.addEventListener('click', () => {
+                        document.getElementById('manageTypesModal')?.classList.add('hidden');
+                    });
+                }
+                
+                const visTypeList = document.getElementById('visitTypesList');
+                if(visTypeList) {
+                    visTypeList.addEventListener('click', (e) => {
+                        const deleteBtn = e.target.closest('.delete-type-btn');
+                        const editBtn = e.target.closest('.edit-type-btn');
+                        
+                        if (deleteBtn) {
+                            const key = deleteBtn.dataset.key;
+                            if (confirm('هل أنت متأكد من حذف هذا النوع؟')) {
+                                delete schoolVisitTypesData[key];
+                                localStorage.setItem('supervision_v6_school_visit_types', JSON.stringify(schoolVisitTypesData));
+                                renderSchoolVisitTypesList();
+                                populateSchoolVisitTypeDropdown();
+                                showToast('تم حذف النوع بنجاح');
+                            }
+                        }
+                        
+                        if (editBtn) {
+                            const key = editBtn.dataset.key;
+                            const type = schoolVisitTypesData[key];
+                            if(type) {
+                                if(document.getElementById('typeName')) document.getElementById('typeName').value = type.name || '';
+                                if(document.getElementById('typeObjectives')) document.getElementById('typeObjectives').value = (Array.isArray(type.objectives) ? type.objectives : []).join('\n');
+                                if(document.getElementById('editTypeKey')) document.getElementById('editTypeKey').value = key;
+                                if(document.getElementById('addEditModalTitle')) document.getElementById('addEditModalTitle').textContent = 'تعديل نوع زيارة';
+                                document.getElementById('manageTypesModal')?.classList.add('hidden');
+                                document.getElementById('addEditTypeModal')?.classList.remove('hidden');
+                            }
+                        }
+                    });
+                }
+
+                const openAddTypeModalBtn = document.getElementById('openAddTypeModalBtn');
+                if (openAddTypeModalBtn) {
+                    openAddTypeModalBtn.addEventListener('click', () => {
+                        document.getElementById('addEditTypeForm')?.reset();
+                        if(document.getElementById('editTypeKey')) document.getElementById('editTypeKey').value = '';
+                        if(document.getElementById('addEditModalTitle')) document.getElementById('addEditModalTitle').textContent = 'إضافة نوع زيارة';
+                        document.getElementById('manageTypesModal')?.classList.add('hidden');
+                        document.getElementById('addEditTypeModal')?.classList.remove('hidden');
+                    });
+                }
+                
+                const cancelEditBtn = document.getElementById('cancelEditBtn');
+                if (cancelEditBtn) {
+                    cancelEditBtn.addEventListener('click', () => {
+                        document.getElementById('addEditTypeModal')?.classList.add('hidden');
+                        document.getElementById('manageTypesModal')?.classList.remove('hidden');
+                    });
+                }
+
+                const addEditTypeForm = document.getElementById('addEditTypeForm');
+                if (addEditTypeForm) {
+                    addEditTypeForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const name = document.getElementById('typeName')?.value || 'نوع جديد';
+                        const objVal = document.getElementById('typeObjectives')?.value || '';
+                        const objectives = objVal.split('\n').filter(o => o.trim() !== '');
+                        let key = document.getElementById('editTypeKey')?.value;
+                        
+                        if (objectives.length === 0) {
+                            showToast('يرجى إضافة هدف واحد على الأقل', 'error');
+                            return;
+                        }
+                        
+                        if (!key) {
+                            key = 'custom_' + Date.now();
+                        }
+                        
+                        schoolVisitTypesData[key] = { name, objectives };
+                        localStorage.setItem('supervision_v6_school_visit_types', JSON.stringify(schoolVisitTypesData));
+                        renderSchoolVisitTypesList();
+                        populateSchoolVisitTypeDropdown();
+                        document.getElementById('addEditTypeModal')?.classList.add('hidden');
+                        document.getElementById('manageTypesModal')?.classList.remove('hidden');
+                        showToast('تم حفظ النوع بنجاح');
+                    });
+                }
+
+                // Finally show welcome view
+                showView(document.getElementById('welcomeView'));
+
+            } catch (fatalError) {
+                console.error("توقف السكربت كلياً بسبب خطأ:", fatalError);
+                showToast("حدث خطأ فادح في تحميل واجهة النظام.", "error");
+            }
         }
 
         // الطريقة الأكثر موثوقية لتفعيل السكربت وتهيئة النظام في كل بيئات التشغيل
