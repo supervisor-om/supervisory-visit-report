@@ -141,7 +141,7 @@
         
         <footer class="mt-16 text-center text-slate-400 text-sm font-medium">
             <p class="mb-2">جميع الحقوق محفوظة © وزارة التربية والتعليم</p>
-            <p class="text-slate-500 font-bold">اعداد وتصميم: اسعد الخصيبي – مشرف الرياضة المدرسية – محافظة مسقط</p>
+            <p class="text-slate-500 font-bold">حقوق الإعداد والتصميم: اسعد الخصيبي – مشرف الرياضة المدرسية – محافظة مسقط</p>
         </footer>
     </div>
 
@@ -323,7 +323,7 @@
                  <div class="print-logo-header">
                     <img src="https://i.imgur.com/TeE90J3.png" alt="شعار الوزارة">
                     <img src="https://i.imgur.com/tbfi4V4.png" alt="الجودة">
-                    <img src="https://i.imgur.com/hb8n3Us.jpeg" alt="رؤية عمان">
+                    <img src="https://i.imgur.com/AmHGqEM.jpeg" alt="رؤية عمان">
                 </div>
                 <div class="print-header-text">نموذج رقم (5) استمارة زيارة إشرافية لمعلم مادة - مجال</div>
                 <h2 class="text-center font-bold text-xl mb-4 underline">استمارة زيارة إشرافية لمعلم مادة/مجال</h2>
@@ -1008,7 +1008,7 @@
 
                 const imgMinistryUrl = "https://i.imgur.com/TeE90J3.png";
                 const imgQualityUrl = "https://i.imgur.com/tbfi4V4.png";
-                const imgVisionUrl = "https://i.imgur.com/hb8n3Us.jpeg";
+                const imgVisionUrl = "https://i.imgur.com/AmHGqEM.jpeg";
 
                 const [imgMinistry, imgQuality, imgVision] = await Promise.all([
                     getBase64Image(imgMinistryUrl, 80),
@@ -1072,7 +1072,7 @@
 
                 const wordHTML = `
                     <!DOCTYPE html>
-                    <html lang="ar" dir="rtl">
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40' lang="ar" dir="rtl">
                     <head>
                         <meta charset="utf-8">
                         <style>
@@ -1142,13 +1142,32 @@
                 `;
                 
                 const fileName = `${visitNo || 'زيارة'} - ${school} - ${teacher}.docx`;
+                
+                // تحويل HTML إلى Blob
                 const converted = htmlDocx.asBlob(wordHTML, { orientation: 'portrait', margins: { top: 720, bottom: 720, left: 720, right: 720 } });
+                
+                // إعادة تغليف الملف بنوع MIME الرسمي الدقيق لملفات الوورد لحل مشكلة الملف الفارغ في الهواتف والآيفون
+                const finalBlob = new Blob([converted], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+                
+                const url = window.URL.createObjectURL(finalBlob);
                 const link = document.createElement('a'); 
-                link.href = URL.createObjectURL(converted); 
+                link.href = url; 
                 link.download = fileName; 
+                link.target = '_blank'; // ضروري جداً لمتصفحات الهواتف
+                
                 document.body.appendChild(link); 
-                link.click(); 
+                
+                // محاكاة النقر بشكل برمجي دقيق ليتوافق مع أمان متصفح Safari
+                const clickEvent = new MouseEvent('click', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true
+                });
+                link.dispatchEvent(clickEvent);
+                
                 document.body.removeChild(link); 
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000); // تنظيف الذاكرة بعد التنزيل
+                
                 showToast('تم تصدير ملف Word');
             }
 
