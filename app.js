@@ -845,6 +845,57 @@
             }
         }
 
+        async function printArchivedReport(reportKey) {
+            try {
+                const stored = JSON.parse(localStorage.getItem(reportKey));
+                if (!stored || !stored.formData) {
+                    showToast('لا توجد بيانات لهذا التقرير', 'error');
+                    return;
+                }
+                const fd = stored.formData;
+                showToast('جاري تجهيز الطباعة...', 'info');
+
+                const imgMinistryUrl = "https://i.imgur.com/TeE90J3.png";
+                const imgQualityUrl = "https://i.imgur.com/tbfi4V4.png";
+                const imgVisionUrl = "https://i.imgur.com/AmHGqEM.jpeg";
+                const [imgMinistry, imgQuality, imgVision] = await Promise.all([
+                    getBase64Image(imgMinistryUrl, 60),
+                    getBase64Image(imgQualityUrl, 60),
+                    getBase64Image(imgVisionUrl, 60)
+                ]);
+
+                const scores = {};
+                evaluationItems.forEach(item => {
+                    scores[`item-${item.id}`] = fd[`score-${item.id}`] || '3';
+                });
+
+                const data = {
+                    imgMinistry, imgQuality, imgVision,
+                    school: fd.school || '',
+                    teacher: fd.teacherName || '',
+                    subject: fd.subject || '',
+                    date: fd.visitDate || '',
+                    fileNo: fd.fileNumber || '',
+                    visitNo: fd.visitNumber || '',
+                    className: fd.class || '',
+                    lesson: fd.lesson || '',
+                    topic: fd.topic || '',
+                    visitorName: fd.visitorName || '',
+                    visitorPosition: fd.visitorPosition || '',
+                    strengths: (fd.strengthsContent || '').replace(/\n/g, '<br>'),
+                    needs: (fd.developmentContent || '').replace(/\n/g, '<br>'),
+                    recs: (fd.recommendationsContent || '').replace(/\n/g, '<br>'),
+                    scores
+                };
+
+                const printView = document.getElementById('printView');
+                printView.innerHTML = getReportHTML(data, false);
+                setTimeout(() => window.print(), 500);
+            } catch (e) {
+                showToast('خطأ في تجهيز الطباعة', 'error');
+            }
+        }
+
         function renderSavedReports() {
             const listContainer = document.querySelector('#saved-reports-list'); 
             const noReportsMessage = document.querySelector('#no-saved-reports-message'); 
@@ -895,6 +946,7 @@
                         </div>
                         <div class="flex gap-2 mt-auto pt-4 border-t border-slate-100">
                             <button class="load-btn flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">عرض</button>
+                            <button class="print-archive-btn flex-1 bg-green-50 text-green-600 hover:bg-green-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}"><i class="fa-solid fa-print ml-1"></i>طباعة</button>
                             <button class="delete-btn flex-1 bg-red-50 text-red-600 hover:bg-red-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">حذف</button>
                         </div>
                     `; 
@@ -1635,8 +1687,12 @@
                 if(supSavedList) {
                     supSavedList.addEventListener('click', e => { 
                         if(e.target.dataset.key) { 
-                            if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key); 
-                            if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key); 
+                            if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key);
+                            if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key);
+                            if(e.target.classList.contains('print-archive-btn') || e.target.closest('.print-archive-btn')) {
+                                const btn = e.target.closest('.print-archive-btn') || e.target;
+                                printArchivedReport(btn.dataset.key);
+                            } 
                         } 
                     });
                 }
