@@ -1,0 +1,44 @@
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+        .mic-btn.recording { animation: pulse-red 1.5s infinite; background-color: #fee2e2; color: #dc2626; border-color: #dc2626; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+
+        .rating-btn.active { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .rating-btn.active.score-1 { background-color: #166534; color: white; border-color: #166534; }
+        .rating-btn.active.score-2 { background-color: #1e40af; color: white; border-color: #1e40af; }
+        .rating-btn.active.score-3 { background-color: #ca8a04; color: white; border-color: #ca8a04; }
+        .rating-btn.active.score-4 { background-color: #9f1239; color: white; border-color: #9f1239; }
+        .rating-btn.active.score-5 { background-color: #991b1b; color: white; border-color: #991b1b; }
+
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            body { background: white; font-family: 'Times New Roman', serif; color: black; }
+            .no-print, .main-container, .modal-overlay, #welcomeView, .controls, .nav-tabs, #backToWelcomeFromSupervisory, .edit-evidence-btn, .evidence-panel, #manageTypesModal, #addEditTypeModal, #schoolVisitsApp header button { display: none !important; }
+            .print-view { display: block !important; position: static !important; width: 100% !important; margin: 0; padding: 0; }
+            #schoolVisitsApp #reportPreviewContainer { display: block !important; visibility: visible !important; position: static; box-shadow: none; width: 100%; padding: 0; margin: 0; }
+            #schoolVisitsApp #schoolFormView, #schoolVisitsApp #schoolDashboardView { display: none !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 0.5); }
+        .edit-evidence-btn { font-size: 0.75rem; color: #4b5563; background-color: #f3f4f6; border: 1px solid #e5e7eb; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: bold; }
+        .edit-evidence-btn:hover { background-color: #e5e7eb; color: #1e40af; border-color: #cbd5e1; }
+
+        .evidence-panel {
+            animation: slideDown 0.2s ease-out forwards;
+            transform-origin: top center;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: scaleY(0.9); }
+            to { opacity: 1; transform: scaleY(1); }
+        }
+        .evidence-checkbox:checked + label { color: #166534; font-weight: bold; }
+
+        .delete-evidence-btn { visibility: hidden; }
+        .evidence-item:hover .delete-evidence-btn { visibility: visible; }
