@@ -1405,7 +1405,7 @@
             const visOp = document.getElementById('visitorOpinion');
             if(visOp) {
                 visOp.value = opinionText.trim();
-                showToast('تم توليد الرأي الذكي بنجاح');
+                showToast('تم توليد رأي الزائر بنجاح');
             }
         }
 
