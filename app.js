@@ -19,12 +19,14 @@
             'gov_exploratory': {
                 name: 'زيارة استطلاعية (حكومية)',
                 objectives: [
-                    '1- مقابلة [مدير/مدير/مديرة/مديرة] المدرسة و[معلمي/معلم/معلمات/معلمة] الرياضة المدرسية.\n*حضور الطابور المدرسي.\n*متابعة سجلات [المعلمين/المعلم/المعلمات/المعلمة].',
-                    '2- تحديث قاعدة بيانات [المعلمين/المعلم/المعلمات/المعلمة].',
-                    '3- متابعة تخطيط الملاعب والأدوات الرياضية.',
-                    '4- متابعة استلام الأدلة وكتاب الطالب والتأكد من طبعاتها الحديثة.',
-                    '5- متابعة النشرات والوثائق ومناقشتها.',
-                    '6- التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية.'
+                    '1- مقابلة [مدير/مدير/مديرة/مديرة] المدرسة و[معلمي/معلم/معلمات/معلمة] الرياضة المدرسية.',
+                    '2- حضور الطابور المدرسي.',
+                    '3- متابعة سجلات [المعلمين/المعلم/المعلمات/المعلمة].',
+                    '4- تحديث قاعدة بيانات [المعلمين/المعلم/المعلمات/المعلمة].',
+                    '5- متابعة تخطيط الملاعب والأدوات الرياضية.',
+                    '6- متابعة استلام الأدلة وكتاب الطالب والتأكد من طبعاتها الحديثة.',
+                    '7- متابعة النشرات والوثائق ومناقشتها.',
+                    '8- التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية.'
                 ]
             },
             'private_exploratory': {
@@ -1175,15 +1177,11 @@
                 schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData));
                 localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             }
-            // دمج أنواع الزيارات الافتراضية الجديدة إن لم تكن موجودة
-            let merged = false;
+            // تحديث الأنواع الافتراضية دائماً بأحدث نسخة من الكود
             Object.keys(defaultSchoolVisitTypesData).forEach(k => {
-                if (!schoolVisitTypesData[k]) {
-                    schoolVisitTypesData[k] = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData[k]));
-                    merged = true;
-                }
+                schoolVisitTypesData[k] = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData[k]));
             });
-            if (merged) localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
+            localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             populateSchoolVisitTypeDropdown();
             renderSchoolVisitTypesList();
         }
