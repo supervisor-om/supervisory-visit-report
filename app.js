@@ -29,17 +29,6 @@
                     '8- التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية.'
                 ]
             },
-            'private_exploratory': {
-                name: 'زيارة استطلاعية (خاصة)',
-                objectives: [
-                    '1- مقابلة [مدير/مدير/مديرة/مديرة] المدرسة و[معلمي/معلم/معلمات/معلمة] الرياضة المدرسية.\n*متابعة سجلات [المعلمين/المعلم/المعلمات/المعلمة].\n*متابعة موافقات التعيين.',
-                    '2- تحديث قاعدة بيانات [المعلمين/المعلم/المعلمات/المعلمة].',
-                    '3- متابعة تخطيط الملاعب والأدوات الرياضية.',
-                    '4- متابعة استلام الأدلة والتأكد من طبعاتها الحديثة.',
-                    '5- متابعة النشرات والوثائق ومناقشتها.',
-                    '6- التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية.'
-                ]
-            },
             'supervisory': {
                 name: 'زيارة إشرافية',
                 objectives: [
@@ -1177,6 +1166,9 @@
                 schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData));
                 localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             }
+            // حذف الأنواع القديمة غير المرغوب فيها
+            const removedKeys = ['private_exploratory', 'exploratory', 'technical', 'admin'];
+            removedKeys.forEach(k => { delete schoolVisitTypesData[k]; });
             // تحديث الأنواع الافتراضية دائماً بأحدث نسخة من الكود
             Object.keys(defaultSchoolVisitTypesData).forEach(k => {
                 schoolVisitTypesData[k] = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData[k]));
