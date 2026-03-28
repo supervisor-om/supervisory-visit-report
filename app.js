@@ -1384,7 +1384,8 @@
             let counter = 1;
             
             objectives.forEach(obj => {
-                let text = obj.trim();
+                // إزالة الترقيم الموجود في بداية الهدف (مثل "1- " أو "٢- ")
+                let text = obj.trim().replace(/^[\d٠-٩]+\s*[-–]\s*/, '');
                 if (text.startsWith("الالتقاء")) text = text.replace("الالتقاء", "تم الالتقاء");
                 else if (text.startsWith("حضور")) text = text.replace("حضور", "تم حضور");
                 else if (text.startsWith("متابعة")) text = text.replace("متابعة", "تمت متابعة");
