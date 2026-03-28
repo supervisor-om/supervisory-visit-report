@@ -14,11 +14,41 @@
         let schoolVisitTypesData = {};
         let schoolClassroomVisits = [];
 
+        // صيغة القوالب: [ذكر_جمع/ذكر_مفرد/أنثى_جمع/أنثى_مفرد]
         const defaultSchoolVisitTypesData = {
-            'supervisory': { name: 'زيارة إشرافية', objectives: ['الالتقاء بالفاضل مدير المدرسة ومعلمي مادة الرياضة المدرسية', 'حضور الطابور المدرسي والاطلاع على إجراءات التنظيم والانضباط', 'متابعة تنفيذ خطة المنهاج والاطلاع على سجلات المتابعة الخاصة بالزي والمشاركة', 'حضور مواقف صفية مع معلمي المادة وإجراء المداولة الإشرافية', 'متابعة التحضير في منصة «نور»'] },
-            'exploratory': { name: 'زيارة استطلاعية', objectives: ['متابعة انتظام الهيئات التدريسية والإدارية', 'متابعة نظافة المبنى المدرسي والمرافق', 'متابعة توفر الكتب الدراسية والأثاث', 'متابعة تفعيل طابور الصباح', 'الوقوف على التحديات التي تواجه المدرسة'] },
-            'technical': { name: 'زيارة فنية', objectives: ['متابعة أداء المعلمين في الغرف الصفية', 'متابعة خطط المعلمين وسجلاتهم', 'متابعة مستوى التحصيل الدراسي للطلبة', 'متابعة تفعيل المختبرات ومصادر التعلم'] },
-            'admin': { name: 'زيارة إدارية', objectives: ['متابعة السجلات الإدارية والمالية', 'متابعة تنفيذ اللوائح والأنظمة', 'متابعة خطة المبنى المدرسي والصيانة'] }
+            'gov_exploratory': {
+                name: 'زيارة استطلاعية (حكومية)',
+                objectives: [
+                    '1- مقابلة [مدير/مدير/مديرة/مديرة] المدرسة و[معلمي/معلم/معلمات/معلمة] الرياضة المدرسية.\n*حضور الطابور المدرسي.\n*متابعة سجلات [المعلمين/المعلم/المعلمات/المعلمة].',
+                    '2- تحديث قاعدة بيانات [المعلمين/المعلم/المعلمات/المعلمة].',
+                    '3- متابعة تخطيط الملاعب والأدوات الرياضية.',
+                    '4- متابعة استلام الأدلة وكتاب الطالب والتأكد من طبعاتها الحديثة.',
+                    '5- متابعة النشرات والوثائق ومناقشتها.',
+                    '6- التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية.'
+                ]
+            },
+            'private_exploratory': {
+                name: 'زيارة استطلاعية (خاصة)',
+                objectives: [
+                    '1- مقابلة [مدير/مدير/مديرة/مديرة] المدرسة و[معلمي/معلم/معلمات/معلمة] الرياضة المدرسية.\n*متابعة سجلات [المعلمين/المعلم/المعلمات/المعلمة].\n*متابعة موافقات التعيين.',
+                    '2- تحديث قاعدة بيانات [المعلمين/المعلم/المعلمات/المعلمة].',
+                    '3- متابعة تخطيط الملاعب والأدوات الرياضية.',
+                    '4- متابعة استلام الأدلة والتأكد من طبعاتها الحديثة.',
+                    '5- متابعة النشرات والوثائق ومناقشتها.',
+                    '6- التأكيد على تنفيذ الحصة على شكل منافسات وألعاب جماعية.'
+                ]
+            },
+            'supervisory': {
+                name: 'زيارة إشرافية',
+                objectives: [
+                    '1- الالتقاء ب[الفاضل/الفاضل/الفاضلة/الفاضلة] [مدير/مدير/مديرة/مديرة] المدرسة و[معلمي/معلم/معلمات/معلمة] الرياضة المدرسية.',
+                    '2- حضور الطابور المدرسي.',
+                    '3- متابعة تنفيذ خطة المنهاج والاطلاع على سجلات المتابعة (الزي والمشاركة).',
+                    '4- حضور موقف صفي مع [المعلمين/المعلم/المعلمات/المعلمة] والمداولة الإشرافية.',
+                    '5- شرح آلية تنفيذ الحصة كتطبيقات تنافسية.',
+                    '6- متابعة التحضير في منصة نور.'
+                ]
+            }
         };
 
         const evaluationItems = [ 
@@ -1141,10 +1171,19 @@
                     console.warn('تمت استعادة الإعدادات الافتراضية بسبب تلف في البيانات المخزنة.');
                     schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData));
                 }
-            } else { 
-                schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData)); 
-                localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData)); 
+            } else {
+                schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData));
+                localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             }
+            // دمج أنواع الزيارات الافتراضية الجديدة إن لم تكن موجودة
+            let merged = false;
+            Object.keys(defaultSchoolVisitTypesData).forEach(k => {
+                if (!schoolVisitTypesData[k]) {
+                    schoolVisitTypesData[k] = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData[k]));
+                    merged = true;
+                }
+            });
+            if (merged) localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             populateSchoolVisitTypeDropdown();
             renderSchoolVisitTypesList();
         }
@@ -1165,25 +1204,46 @@
             });
         }
 
+        // تطبيق فلتر التذكير/التأنيث والإفراد/الجمع على نص القالب
+        // الوضع: 0=ذكر_جمع، 1=ذكر_مفرد، 2=أنثى_جمع، 3=أنثى_مفرد
+        function applyGenderFilter(text, mode) {
+            return text.replace(/\[([^\]]+)\]/g, (match, options) => {
+                const parts = options.split('/');
+                return parts[mode] !== undefined ? parts[mode] : parts[0];
+            });
+        }
+
+        function getGenderMode() {
+            return parseInt(document.querySelector('input[name="genderMode"]:checked')?.value || '0');
+        }
+
         function renderSchoolObjectives(typeKey) {
             const objectivesContainer = document.getElementById('objectivesContainer');
             if(!objectivesContainer) return;
-            
+
+            const genderSelector = document.getElementById('genderNumberSelector');
+
             objectivesContainer.innerHTML = '';
             if(!schoolVisitTypesData) return;
-            
+
             const typeData = schoolVisitTypesData[typeKey];
             if (typeData && Array.isArray(typeData.objectives)) {
+                if (genderSelector) genderSelector.classList.remove('hidden');
+                const mode = getGenderMode();
                 typeData.objectives.forEach((obj, index) => {
                     if(!obj) return;
+                    const resolved = applyGenderFilter(obj, mode);
+                    const safeVal = resolved.replace(/"/g, '&quot;');
                     const div = document.createElement('div');
                     div.className = 'flex items-start gap-2 p-2 hover:bg-slate-100 rounded-lg';
                     div.innerHTML = `
-                        <input type="checkbox" name="objectives" value="${obj}" id="obj-${index}" class="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                        <label for="obj-${index}" class="text-sm font-medium text-gray-900 cursor-pointer select-none">${obj}</label>
+                        <input type="checkbox" name="objectives" value="${safeVal}" id="obj-${index}" class="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                        <label for="obj-${index}" class="text-sm font-medium text-gray-900 cursor-pointer select-none whitespace-pre-line">${resolved}</label>
                     `;
                     objectivesContainer.appendChild(div);
                 });
+            } else {
+                if (genderSelector) genderSelector.classList.add('hidden');
             }
         }
 
@@ -1802,6 +1862,13 @@
                         renderSchoolObjectives(e.target.value);
                     });
                 }
+
+                document.querySelectorAll('input[name="genderMode"]').forEach(input => {
+                    input.addEventListener('change', () => {
+                        const visitType = document.getElementById('visitTypeSelect')?.value;
+                        if (visitType) renderSchoolObjectives(visitType);
+                    });
+                });
 
                 const repFormSubmit = document.getElementById('reportForm');
                 if (repFormSubmit) repFormSubmit.addEventListener('submit', saveSchoolReport);
