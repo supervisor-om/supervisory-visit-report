@@ -39,7 +39,8 @@
                     '3- متابعة تنفيذ خطة المنهاج والاطلاع على سجلات المتابعة (الزي والمشاركة).',
                     '4- حضور موقف صفي مع [المعلمين/المعلم/المعلمات/المعلمة] والمداولة الإشرافية.',
                     '5- شرح آلية تنفيذ الحصة كتطبيقات تنافسية.',
-                    '6- متابعة التحضير في منصة نور.'
+                    '6- متابعة التحضير في منصة نور.',
+                    '7- متابعة التوصيات السابقة والتحقق من مستوى تنفيذها.'
                 ]
             }
         };
@@ -2056,7 +2057,9 @@
                 const copyObjBtn = document.getElementById('copyObjectivesBtn');
                 if (copyObjBtn) {
                     copyObjBtn.addEventListener('click', () => {
-                        const checked = Array.from(document.querySelectorAll('#objectivesContainer input:checked')).map((cb, index) => (index + 1) + '- ' + cb.value).join('\n');
+                        const checked = Array.from(document.querySelectorAll('#objectivesContainer input:checked'))
+                            .map((cb, index) => (index + 1) + '- ' + cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, ''))
+                            .join('\n');
                         copyText(checked);
                     });
                 }
