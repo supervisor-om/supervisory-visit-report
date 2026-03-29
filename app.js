@@ -13,7 +13,8 @@
         let performanceChartInstance = null;
         let schoolVisitTypesData = {};
         let schoolClassroomVisits = [];
-        let objectiveNotes = {}; // { index: noteText } - ملاحظات الأهداف
+        let objectiveNotes = {};
+        let prevRecommendationsStatus = []; // [{ text, status: 'done'|'partial'|'not-done'|null }]
 
         // صيغة القوالب: [ذكر_جمع/ذكر_مفرد/أنثى_جمع/أنثى_مفرد]
         const defaultSchoolVisitTypesData = {
@@ -1453,6 +1454,20 @@
             let opinionText = "";
             let counter = 1;
 
+            // إدراج متابعة التوصيات السابقة إن وُجدت
+            const ratedPrevRecs = prevRecommendationsStatus.filter(r => r.status);
+            if (ratedPrevRecs.length > 0) {
+                const prevDate = document.getElementById('prevRecsDate')?.textContent || '-';
+                opinionText += `${counter}- تمت متابعة توصيات الزيارة السابقة بتاريخ ${prevDate}، وتبيّن الآتي:\n`;
+                ratedPrevRecs.forEach(r => {
+                    const label = r.status === 'done'     ? 'تم تنفيذها ✅'
+                                : r.status === 'partial'  ? 'تم تنفيذها جزئياً ⚠️'
+                                :                           'لم يتم تنفيذها ❌';
+                    opinionText += `   • ${r.text}: ${label}.\n`;
+                });
+                counter++;
+            }
+
             checkedItems.forEach(({ text: obj, note }) => {
                 let text = obj.trim().replace(/^[\d٠-٩]+\s*[-–]\s*/, '');
                 text = convertObjectiveToPast(text);
@@ -1548,6 +1563,92 @@
             recognition.onend = () => { btn.classList.remove('recording'); };
         }
 
+        function getPreviousReportForSchool(schoolName, excludeId) {
+            const reports = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('supervision_v6_school_report_') || key.startsWith('school_report_')) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data && data.schoolName === schoolName && data.recommendations && key !== excludeId) {
+                            reports.push({ ...data, _key: key });
+                        }
+                    } catch(e) {}
+                }
+            }
+            reports.sort((a, b) => new Date(b.visitDate || 0) - new Date(a.visitDate || 0));
+            return reports[0] || null;
+        }
+
+        function parseRecommendationLines(recsText) {
+            if (!recsText) return [];
+            return recsText.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.startsWith('-'))
+                .map(l => l.replace(/^-\s*/, '').trim())
+                .filter(Boolean);
+        }
+
+        function loadPreviousRecommendations() {
+            const schoolName = document.getElementById('schoolName')?.value.trim();
+            const currentId  = document.getElementById('reportId')?.value;
+            const panel      = document.getElementById('prevRecsPanel');
+            if (!panel) return;
+
+            prevRecommendationsStatus = [];
+
+            if (!schoolName) { panel.classList.add('hidden'); return; }
+
+            const prev = getPreviousReportForSchool(schoolName, currentId);
+            if (!prev) { panel.classList.add('hidden'); return; }
+
+            const recs = parseRecommendationLines(prev.recommendations);
+            if (recs.length === 0) { panel.classList.add('hidden'); return; }
+
+            panel.classList.remove('hidden');
+            const dateEl = document.getElementById('prevRecsDate');
+            if (dateEl) dateEl.textContent = prev.visitDate || '-';
+
+            prevRecommendationsStatus = recs.map(r => ({ text: r, status: null }));
+
+            const listEl = document.getElementById('prevRecsList');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+
+            recs.forEach((rec, idx) => {
+                const div = document.createElement('div');
+                div.className = 'prev-rec-item bg-white rounded-xl border border-amber-100 p-3 space-y-2';
+                div.innerHTML = `
+                    <p class="text-sm text-slate-700 font-medium">${idx + 1}. ${rec}</p>
+                    <div class="flex gap-2">
+                        <button type="button" class="prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-green-400 hover:bg-green-50 hover:text-green-700 transition-all" data-idx="${idx}" data-status="done">✅ نُفِّذت</button>
+                        <button type="button" class="prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700 transition-all" data-idx="${idx}" data-status="partial">⚠️ جزئياً</button>
+                        <button type="button" class="prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-red-400 hover:bg-red-50 hover:text-red-700 transition-all" data-idx="${idx}" data-status="not-done">❌ لم تُنفَّذ</button>
+                    </div>
+                `;
+                listEl.appendChild(div);
+            });
+
+            listEl.querySelectorAll('.prev-rec-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx    = parseInt(btn.dataset.idx);
+                    const status = btn.dataset.status;
+                    prevRecommendationsStatus[idx].status = status;
+
+                    const siblings = btn.closest('.prev-rec-item').querySelectorAll('.prev-rec-btn');
+                    siblings.forEach(s => {
+                        s.className = 'prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-green-400 hover:bg-green-50 hover:text-green-700 transition-all';
+                    });
+                    if (status === 'done')
+                        btn.className = 'prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-green-400 bg-green-50 text-green-700 font-bold transition-all';
+                    else if (status === 'partial')
+                        btn.className = 'prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-amber-400 bg-amber-50 text-amber-700 font-bold transition-all';
+                    else
+                        btn.className = 'prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-red-400 bg-red-50 text-red-700 font-bold transition-all';
+                });
+            });
+        }
+
         function saveSchoolReport(e) {
             e.preventDefault();
             const reportForm = document.getElementById('reportForm');
@@ -1598,9 +1699,12 @@
                 if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
                 
                 schoolClassroomVisits = Array.isArray(report.classroomVisits) ? report.classroomVisits : [];
+                prevRecommendationsStatus = [];
                 renderSchoolClassroomVisits();
                 renderSchoolObjectives(report.visitType);
-                
+                // تحميل توصيات الزيارة السابقة لهذه المدرسة (باستثناء التقرير الحالي)
+                setTimeout(() => loadPreviousRecommendations(), 50);
+
                 if (Array.isArray(report.objectives)) {
                     setTimeout(() => {
                         report.objectives.forEach(objVal => {
@@ -1900,6 +2004,8 @@
                             
                             schoolClassroomVisits = [];
                             objectiveNotes = {};
+                            prevRecommendationsStatus = [];
+                            document.getElementById('prevRecsPanel')?.classList.add('hidden');
                             renderSchoolClassroomVisits();
 
                             const visSelect = document.getElementById('visitTypeSelect');
@@ -1979,6 +2085,16 @@
                 if (visitTypeSel) {
                     visitTypeSel.addEventListener('change', (e) => {
                         renderSchoolObjectives(e.target.value);
+                    });
+                }
+
+                const schoolNameInput = document.getElementById('schoolName');
+                if (schoolNameInput) {
+                    schoolNameInput.addEventListener('blur', loadPreviousRecommendations);
+                    schoolNameInput.addEventListener('input', () => {
+                        // إخفاء اللوحة عند تغيير الاسم
+                        document.getElementById('prevRecsPanel')?.classList.add('hidden');
+                        prevRecommendationsStatus = [];
                     });
                 }
 
