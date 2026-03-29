@@ -13,6 +13,7 @@
         let performanceChartInstance = null;
         let schoolVisitTypesData = {};
         let schoolClassroomVisits = [];
+        let objectiveNotes = {}; // { index: noteText } - ملاحظات الأهداف
 
         // صيغة القوالب: [ذكر_جمع/ذكر_مفرد/أنثى_جمع/أنثى_مفرد]
         const defaultSchoolVisitTypesData = {
@@ -1213,6 +1214,13 @@
 
             const genderSelector = document.getElementById('genderNumberSelector');
 
+            // حفظ الملاحظات والحالة قبل إعادة الرسم
+            objectivesContainer.querySelectorAll('.objective-item').forEach((item, i) => {
+                const noteInput = item.querySelector('.objective-note');
+                if (noteInput && noteInput.value.trim()) objectiveNotes[i] = noteInput.value.trim();
+                else delete objectiveNotes[i];
+            });
+
             objectivesContainer.innerHTML = '';
             if(!schoolVisitTypesData) return;
 
@@ -1224,17 +1232,63 @@
                     if(!obj) return;
                     const resolved = applyGenderFilter(obj, mode);
                     const safeVal = resolved.replace(/"/g, '&quot;');
+                    const savedNote = objectiveNotes[index] || '';
+                    const hasNote = !!savedNote;
+
                     const div = document.createElement('div');
-                    div.className = 'flex items-start gap-2 p-2 hover:bg-slate-100 rounded-lg';
+                    div.className = 'objective-item rounded-lg border ' + (hasNote ? 'border-amber-200 bg-amber-50' : 'border-transparent hover:bg-slate-50');
                     div.innerHTML = `
-                        <input type="checkbox" name="objectives" value="${safeVal}" id="obj-${index}" class="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                        <label for="obj-${index}" class="text-sm font-medium text-gray-900 cursor-pointer select-none whitespace-pre-line">${resolved}</label>
+                        <div class="flex items-start gap-2 p-2">
+                            <input type="checkbox" name="objectives" value="${safeVal}" id="obj-${index}" class="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="obj-${index}" class="flex-1 text-sm font-medium text-gray-900 cursor-pointer select-none whitespace-pre-line">${resolved}</label>
+                            <button type="button" class="note-toggle flex-shrink-0 text-xs px-2 py-1 rounded-full border transition-all ${hasNote ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-300'}" data-index="${index}" title="إضافة ملاحظة">
+                                <i class="fa-solid fa-flag"></i>
+                            </button>
+                        </div>
+                        <div class="note-area ${hasNote ? '' : 'hidden'} px-3 pb-2">
+                            <input type="text" class="objective-note w-full text-xs bg-white border border-amber-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400" placeholder="اكتب الملاحظة ← ستتحول تلقائياً إلى توصية..." value="${savedNote.replace(/"/g, '&quot;')}">
+                        </div>
                     `;
                     objectivesContainer.appendChild(div);
+                });
+
+                // ربط أزرار الملاحظة
+                objectivesContainer.querySelectorAll('.note-toggle').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const item = btn.closest('.objective-item');
+                        const noteArea = item.querySelector('.note-area');
+                        const noteInput = item.querySelector('.objective-note');
+                        const isHidden = noteArea.classList.toggle('hidden');
+                        if (!isHidden) {
+                            btn.className = btn.className.replace('bg-slate-100 text-slate-400 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-300', 'bg-amber-100 text-amber-700 border-amber-300');
+                            item.className = 'objective-item rounded-lg border border-amber-200 bg-amber-50';
+                            noteInput.focus();
+                        } else {
+                            noteInput.value = '';
+                            delete objectiveNotes[btn.dataset.index];
+                            btn.className = btn.className.replace('bg-amber-100 text-amber-700 border-amber-300', 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-300');
+                            item.className = 'objective-item rounded-lg border border-transparent hover:bg-slate-50';
+                        }
+                    });
                 });
             } else {
                 if (genderSelector) genderSelector.classList.add('hidden');
             }
+        }
+
+        // الجمل الإيجابية الافتراضية لكل نوع هدف
+        function getPositiveAddition(text) {
+            if (text.includes("الطابور")) return "، وكان الهتاف بصوت عالٍ والانصراف منظماً ومراسم رفع العلم صحيحة.";
+            if (text.includes("خطة المنهاج") || text.includes("سجلات المتابعة")) return "، ويسير التنفيذ وفق الخطة الزمنية المقررة.";
+            if (text.includes("قاعدة بيانات")) return " وتحديثها بصورة منتظمة.";
+            if (text.includes("الملاعب") || text.includes("الأدوات الرياضية")) return "، وكانت الملاعب مهيأة والأدوات في حالة جيدة.";
+            if (text.includes("الأدلة") || text.includes("كتاب الطالب")) return "، وتبين أن الطبعات حديثة ومتوفرة.";
+            if (text.includes("النشرات") || text.includes("الوثائق")) return " وإبداء الملاحظات اللازمة.";
+            if (text.includes("منافسات") || text.includes("ألعاب جماعية")) return " وتحقيق الأهداف المرجوة.";
+            if (text.includes("التحضير") || text.includes("نور")) return "، وكانت الخطط مستوفية للمعايير المطلوبة.";
+            if (text.includes("الالتقاء") || text.includes("مقابلة")) return "، وكانت الأجواء إيجابية وتعاونية.";
+            if (text.includes("الطابور") || text.includes("موقف صفي")) return "، وتمت المداولة الإشرافية.";
+            return ".";
         }
 
         function renderSchoolClassroomVisits() {
@@ -1361,52 +1415,97 @@
             });
         }
 
+        function collectCheckedObjectivesWithNotes() {
+            const result = [];
+            const reportForm = document.getElementById('reportForm');
+            if (!reportForm) return result;
+            reportForm.querySelectorAll('.objective-item').forEach(item => {
+                const cb = item.querySelector('input[name="objectives"]');
+                if (cb && cb.checked) {
+                    const noteInput = item.querySelector('.objective-note');
+                    result.push({ text: cb.value, note: noteInput ? noteInput.value.trim() : '' });
+                }
+            });
+            return result;
+        }
+
+        function convertObjectiveToPast(text) {
+            if (text.startsWith("الالتقاء")) return text.replace("الالتقاء", "تم الالتقاء");
+            if (text.startsWith("حضور")) return text.replace("حضور", "تم حضور");
+            if (text.startsWith("متابعة")) return text.replace("متابعة", "تمت متابعة");
+            if (text.startsWith("شرح")) return text.replace("شرح", "تم شرح");
+            if (text.startsWith("الاطلاع")) return text.replace("الاطلاع", "تم الاطلاع");
+            if (text.startsWith("تحديث")) return text.replace("تحديث", "تم تحديث");
+            if (text.startsWith("مقابلة")) return text.replace("مقابلة", "تمت مقابلة");
+            return "تم " + text;
+        }
+
         function generateSchoolSmartVisitorOpinion() {
             const reportForm = document.getElementById('reportForm');
             if (!reportForm) return;
-            const objectives = [];
-            reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
-            
-            if (objectives.length === 0 && (!Array.isArray(schoolClassroomVisits) || schoolClassroomVisits.length === 0)) {
+            const checkedItems = collectCheckedObjectivesWithNotes();
+
+            if (checkedItems.length === 0 && (!Array.isArray(schoolClassroomVisits) || schoolClassroomVisits.length === 0)) {
                 showToast('يرجى تحديد الأهداف أو إضافة مواقف صفية أولاً', 'error');
                 return;
             }
-            
+
             let opinionText = "";
             let counter = 1;
-            
-            objectives.forEach(obj => {
-                // إزالة الترقيم الموجود في بداية الهدف (مثل "1- " أو "٢- ")
+
+            checkedItems.forEach(({ text: obj, note }) => {
                 let text = obj.trim().replace(/^[\d٠-٩]+\s*[-–]\s*/, '');
-                if (text.startsWith("الالتقاء")) text = text.replace("الالتقاء", "تم الالتقاء");
-                else if (text.startsWith("حضور")) text = text.replace("حضور", "تم حضور");
-                else if (text.startsWith("متابعة")) text = text.replace("متابعة", "تمت متابعة");
-                else if (text.startsWith("شرح")) text = text.replace("شرح", "تم شرح");
-                else if (text.startsWith("الاطلاع")) text = text.replace("الاطلاع", "تم الاطلاع");
-                else text = "تم " + text;
-                
-                if (text.includes("الطابور المدرسي")) text += "، وقد لوحظ أن الهتاف كان واضحًا وبصوت عالٍ، كما كان انصراف الطلاب منظمًا وسلسًا.";
-                if (text.includes("خطة المنهاج")) text += "، والاطلاع على سجلات المتابعة (الزي والمشاركة).";
-                if (text.includes("التوصيات السابقة")) text += "، وتبين التزام المعلمين بما ورد فيها وتحسن مستوى الأداء العام.";
-                
+                text = convertObjectiveToPast(text);
+
+                if (note) {
+                    // عند وجود ملاحظة: تُذكر في رأي الزائر
+                    text += `، وقد لوحظ أن ${note}`;
+                    if (!text.endsWith('.')) text += '.';
+                } else {
+                    // بدون ملاحظة: جملة إيجابية
+                    text += getPositiveAddition(text);
+                }
+
                 opinionText += counter + "- " + text + "\n";
                 counter++;
             });
-            
+
             if (Array.isArray(schoolClassroomVisits) && schoolClassroomVisits.length > 0) {
                 opinionText += counter + "- تم حضور مواقف صفية وإجراء المداولة الإشرافية، وذلك على النحو الآتي:\n";
-                schoolClassroomVisits.forEach((cv, idx) => {
+                schoolClassroomVisits.forEach(cv => {
                     opinionText += `   • الحصة (${cv.period}): الأستاذ ${cv.teacher} – درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
                 });
-            } else if (opinionText.includes("مواقف صفية")) {
-                 opinionText += " (لم يتم إدراج تفاصيل الحصص).\n";
             }
-            
+
             const visOp = document.getElementById('visitorOpinion');
             if(visOp) {
                 visOp.value = opinionText.trim();
                 showToast('تم توليد رأي الزائر بنجاح');
             }
+        }
+
+        function generateSchoolRecommendations() {
+            const notedItems = collectCheckedObjectivesWithNotes().filter(i => i.note);
+
+            const recEl = document.getElementById('recommendations');
+            if (!recEl) return;
+
+            if (notedItems.length === 0) {
+                recEl.value = '';
+                showToast('لا توجد ملاحظات — لا توصيات مطلوبة', 'info');
+                return;
+            }
+
+            let rec = 'نوصي إدارة المدرسة بالآتي:\n';
+            notedItems.forEach(({ note }) => {
+                // تحويل الملاحظة إلى توصية
+                let recommendation = note.trim();
+                if (!recommendation.endsWith('.')) recommendation += '.';
+                rec += `- ${recommendation}\n`;
+            });
+
+            recEl.value = rec.trim();
+            showToast('تم توليد التوصيات بنجاح');
         }
 
         function startSchoolDictation(targetId, btn) {
@@ -1775,8 +1874,9 @@
                             if(objCont) objCont.innerHTML = '';
                             
                             schoolClassroomVisits = [];
+                            objectiveNotes = {};
                             renderSchoolClassroomVisits();
-                            
+
                             const visSelect = document.getElementById('visitTypeSelect');
                             if(visSelect && visSelect.options.length > 0) visSelect.selectedIndex = 0;
 
@@ -1790,6 +1890,9 @@
 
                 const genVisOpBtn = document.getElementById('generateVisitorOpinionBtn');
                 if (genVisOpBtn) genVisOpBtn.addEventListener('click', generateSchoolSmartVisitorOpinion);
+
+                const genRecsBtn = document.getElementById('generateRecommendationsBtn');
+                if (genRecsBtn) genRecsBtn.addEventListener('click', generateSchoolRecommendations);
                 
                 const addCvBtn = document.getElementById('addClassroomVisitBtn');
                 if (addCvBtn) addCvBtn.addEventListener('click', addSchoolClassroomVisit);
