@@ -1484,6 +1484,32 @@
             }
         }
 
+        function buildActionableRecommendation(objText) {
+            const t = objText.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim();
+            if (t.includes("خطة المنهاج") || t.includes("سجلات المتابعة") || t.includes("التحضير") || t.includes("نور"))
+                return "متابعة المعلمين بالتحضير بشكل مستمر وإعداد سجلاتهم المنظمة للعمل";
+            if (t.includes("الطابور"))
+                return "العمل على تحسين تنظيم الطابور المدرسي ورفع مستوى الهتاف وضبط الانضباط";
+            if (t.includes("الملاعب") || t.includes("الأدوات الرياضية"))
+                return "متابعة صيانة الملاعب وتجهيز الأدوات الرياضية وإزالة أي مخاطر تؤثر على سلامة الطلاب";
+            if (t.includes("الأدلة") || t.includes("كتاب الطالب"))
+                return "متابعة استلام الأدلة وكتب الطالب والتأكد من توافرها بطبعاتها الحديثة";
+            if (t.includes("النشرات") || t.includes("الوثائق"))
+                return "متابعة تطبيق النشرات والتعاميم الواردة والحرص على مناقشتها مع الكادر التعليمي";
+            if (t.includes("منافسات") || t.includes("ألعاب جماعية"))
+                return "التأكيد على تنفيذ الحصة في شكل منافسات وألعاب جماعية تحقق الأهداف المرجوة";
+            if (t.includes("قاعدة بيانات"))
+                return "إتمام تحديث قاعدة بيانات المعلمين وضمان دقة المعلومات المدخلة";
+            if (t.includes("موافقات التعيين") || t.includes("موافقات"))
+                return "متابعة استيفاء موافقات التعيين وإنجاز الإجراءات الرسمية المتعلقة بها";
+            if (t.includes("مقابلة") || t.includes("الالتقاء"))
+                return "الحرص على التواصل المستمر مع الكادر التعليمي وإدارة المدرسة ومتابعة المستجدات";
+            if (t.includes("موقف صفي") || t.includes("مداولة"))
+                return "متابعة تطوير الأداء التدريسي وتطبيق توصيات المداولة الإشرافية";
+            // عام
+            return "متابعة " + t.replace(/^(متابعة|حضور|تحديث|شرح|مقابلة)\s+/i, '');
+        }
+
         function generateSchoolRecommendations() {
             const notedItems = collectCheckedObjectivesWithNotes().filter(i => i.note);
 
@@ -1497,9 +1523,8 @@
             }
 
             let rec = 'نوصي إدارة المدرسة بالآتي:\n';
-            notedItems.forEach(({ note }) => {
-                // تحويل الملاحظة إلى توصية
-                let recommendation = note.trim();
+            notedItems.forEach(({ text: objText }) => {
+                let recommendation = buildActionableRecommendation(objText);
                 if (!recommendation.endsWith('.')) recommendation += '.';
                 rec += `- ${recommendation}\n`;
             });
