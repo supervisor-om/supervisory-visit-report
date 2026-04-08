@@ -875,14 +875,33 @@
  scores[`item-${item.id}`] = document.querySelector(`#score-${item.id}`).textContent;
  });
 
+ // التحقق من وجود التقرير المولد
+ const strengths = document.querySelector('#strengthsContent')?.value?.trim() || '';
+ const needsDev = document.querySelector('#developmentContent')?.value?.trim() || '';
+ const recs = document.querySelector('#recommendationsContent')?.value?.trim() || '';
+
+ if (!strengths && !needsDev && !recs) {
+ showToast('يرجى توليد التقرير أولاً قبل التصدير', 'error');
+ return;
+ }
+
+ // تحويل التاريخ من YYYY-MM-DD إلى DD/MM/YYYY
+ const rawDate = document.querySelector('#visitDate')?.value?.trim() || '';
+ let portalDate = rawDate;
+ if (rawDate && rawDate.includes('-')) {
+ const parts = rawDate.split('-');
+ portalDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+ }
+
  const moeData = {
- version: '1.0',
+ version: '2.0',
+ source: 'supervisor-om',
  exportDate: new Date().toISOString(),
  school: document.querySelector('#school')?.value?.trim() || '',
  teacherName: document.querySelector('#teacherName')?.value?.trim() || '',
  fileNumber: document.querySelector('#fileNumber')?.value?.trim() || '',
  subject: document.querySelector('#subject')?.value?.trim() || '',
- visitDate: document.querySelector('#visitDate')?.value?.trim() || '',
+ visitDate: portalDate,
  visitNumber: document.querySelector('#visitNumber')?.value?.trim() || '',
  className: document.querySelector('#class')?.value?.trim() || '',
  lesson: document.querySelector('#lesson')?.value?.trim() || '',
@@ -890,19 +909,13 @@
  visitorName: document.querySelector('#visitorName')?.value?.trim() || '',
  visitorPosition: document.querySelector('#visitorPosition')?.value?.trim() || '',
  scores: scores,
- notes: {},
- strengths: document.querySelector('#strengthsContent')?.value?.trim() || '',
- needsDevelopment: document.querySelector('#developmentContent')?.value?.trim() || '',
- recommendations: document.querySelector('#recommendationsContent')?.value?.trim() || ''
+ strengths: strengths,
+ needsDevelopment: needsDev,
+ recommendations: recs
  };
-
- evaluationItems.forEach(item => {
- moeData.notes[`item-${item.id}`] = document.querySelector(`#notes-${item.id}`)?.textContent?.trim() || '';
- });
 
  const jsonString = JSON.stringify(moeData, null, 2);
 
- // Create modal
  const overlay = document.createElement('div');
  overlay.id = 'moeExportModal';
  overlay.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4';
@@ -913,12 +926,14 @@
  <button onclick="document.getElementById('moeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
  </div>
  <div class="p-5 overflow-y-auto flex-1">
- <p class="text-sm text-slate-600 mb-3">انسخ البيانات التالية أو امسح كود QR عبر OpenClaw لنقل التقرير تلقائياً لبوابة الوزارة.</p>
- <div class="flex gap-2 mb-3">
- <button onclick="navigator.clipboard.writeText(document.getElementById('moeExportData').value).then(()=>showToast('تم النسخ'))" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">📋 نسخ البيانات</button>
- <button onclick="document.getElementById('moeExportData').select();document.execCommand('copy');showToast('تم النسخ')" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">📋 نسخ (بديل)</button>
+ <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
+ <strong>الخطوات:</strong> انسخ البيانات ← أرسلها لـ OpenClaw ← يتم النقل تلقائياً للبوابة
  </div>
- <textarea id="moeExportData" class="w-full h-48 font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-700" readonly>${jsonString.replace(/</g, '&lt;')}</textarea>
+ <div class="flex gap-2 mb-3">
+ <button onclick="navigator.clipboard.writeText(document.getElementById('moeExportData').value).then(()=>showToast('تم نسخ البيانات ✅'))" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1">📋 نسخ البيانات</button>
+ <button onclick="document.getElementById('moeExportModal').remove()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">إغلاق</button>
+ </div>
+ <textarea id="moeExportData" class="w-full h-56 font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-700" readonly>${jsonString.replace(/</g, '&lt;')}</textarea>
  </div>
  </div>
  `;
