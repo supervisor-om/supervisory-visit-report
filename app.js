@@ -869,7 +869,64 @@
             }
         }
 
-        async function printArchivedReport(reportKey) {
+        function exportToMoe() {
+ const scores = {};
+ evaluationItems.forEach(item => {
+ scores[`item-${item.id}`] = document.querySelector(`#score-${item.id}`).textContent;
+ });
+
+ const moeData = {
+ version: '1.0',
+ exportDate: new Date().toISOString(),
+ school: document.querySelector('#school')?.value?.trim() || '',
+ teacherName: document.querySelector('#teacherName')?.value?.trim() || '',
+ fileNumber: document.querySelector('#fileNumber')?.value?.trim() || '',
+ subject: document.querySelector('#subject')?.value?.trim() || '',
+ visitDate: document.querySelector('#visitDate')?.value?.trim() || '',
+ visitNumber: document.querySelector('#visitNumber')?.value?.trim() || '',
+ className: document.querySelector('#class')?.value?.trim() || '',
+ lesson: document.querySelector('#lesson')?.value?.trim() || '',
+ topic: document.querySelector('#topic')?.value?.trim() || '',
+ visitorName: document.querySelector('#visitorName')?.value?.trim() || '',
+ visitorPosition: document.querySelector('#visitorPosition')?.value?.trim() || '',
+ scores: scores,
+ notes: {},
+ strengths: document.querySelector('#strengthsContent')?.value?.trim() || '',
+ needsDevelopment: document.querySelector('#developmentContent')?.value?.trim() || '',
+ recommendations: document.querySelector('#recommendationsContent')?.value?.trim() || ''
+ };
+
+ evaluationItems.forEach(item => {
+ moeData.notes[`item-${item.id}`] = document.querySelector(`#notes-${item.id}`)?.textContent?.trim() || '';
+ });
+
+ const jsonString = JSON.stringify(moeData, null, 2);
+
+ // Create modal
+ const overlay = document.createElement('div');
+ overlay.id = 'moeExportModal';
+ overlay.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4';
+ overlay.innerHTML = `
+ <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col" dir="rtl">
+ <div class="flex items-center justify-between p-5 border-b border-slate-200">
+ <h3 class="text-xl font-bold text-slate-800">🚀 تصدير للوزارة</h3>
+ <button onclick="document.getElementById('moeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+ </div>
+ <div class="p-5 overflow-y-auto flex-1">
+ <p class="text-sm text-slate-600 mb-3">انسخ البيانات التالية أو امسح كود QR عبر OpenClaw لنقل التقرير تلقائياً لبوابة الوزارة.</p>
+ <div class="flex gap-2 mb-3">
+ <button onclick="navigator.clipboard.writeText(document.getElementById('moeExportData').value).then(()=>showToast('تم النسخ'))" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">📋 نسخ البيانات</button>
+ <button onclick="document.getElementById('moeExportData').select();document.execCommand('copy');showToast('تم النسخ')" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">📋 نسخ (بديل)</button>
+ </div>
+ <textarea id="moeExportData" class="w-full h-48 font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-700" readonly>${jsonString.replace(/</g, '&lt;')}</textarea>
+ </div>
+ </div>
+ `;
+ document.body.appendChild(overlay);
+ overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+ }
+
+ async function printArchivedReport(reportKey) {
             try {
                 const stored = JSON.parse(localStorage.getItem(reportKey));
                 if (!stored || !stored.formData) {
@@ -1948,6 +2005,9 @@
                 const exportWordBtn = document.getElementById('exportToWordBtn');
                 if(exportWordBtn) exportWordBtn.addEventListener('click', exportToWord);
                 
+                const exportToMoeBtn = document.getElementById('exportToMoeBtn');
+                if(exportToMoeBtn) exportToMoeBtn.addEventListener('click', exportToMoe);
+
                 const resetConfBtn = document.getElementById('showResetConfirmationBtn');
                 if(resetConfBtn) resetConfBtn.addEventListener('click', () => showConfirmationModal('إعادة تعيين', 'هل أنت متأكد؟', performReset));
                 
