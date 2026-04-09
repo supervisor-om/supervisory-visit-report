@@ -870,76 +870,194 @@
         }
 
         function exportToMoe() {
- const scores = {};
- evaluationItems.forEach(item => {
- scores[`item-${item.id}`] = document.querySelector(`#score-${item.id}`).textContent;
- });
+            const strengths = document.querySelector('#strengthsContent')?.value?.trim() || '';
+            const needsDev  = document.querySelector('#developmentContent')?.value?.trim() || '';
+            const recs      = document.querySelector('#recommendationsContent')?.value?.trim() || '';
 
- // التحقق من وجود التقرير المولد
- const strengths = document.querySelector('#strengthsContent')?.value?.trim() || '';
- const needsDev = document.querySelector('#developmentContent')?.value?.trim() || '';
- const recs = document.querySelector('#recommendationsContent')?.value?.trim() || '';
+            if (!strengths && !needsDev && !recs) {
+                showToast('يرجى توليد التقرير أولاً قبل التصدير', 'error');
+                return;
+            }
 
- if (!strengths && !needsDev && !recs) {
- showToast('يرجى توليد التقرير أولاً قبل التصدير', 'error');
- return;
- }
+            const rawDate = document.querySelector('#visitDate')?.value?.trim() || '';
+            let portalDate = rawDate;
+            if (rawDate.includes('-')) {
+                const [y, mo, d] = rawDate.split('-');
+                portalDate = d + '/' + mo + '/' + y;
+            }
 
- // تحويل التاريخ من YYYY-MM-DD إلى DD/MM/YYYY
- const rawDate = document.querySelector('#visitDate')?.value?.trim() || '';
- let portalDate = rawDate;
- if (rawDate && rawDate.includes('-')) {
- const parts = rawDate.split('-');
- portalDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
- }
+            const scores = {};
+            evaluationItems.forEach(item => {
+                scores['item-' + item.id] = document.querySelector('#score-' + item.id)?.textContent?.trim() || '3';
+            });
 
- const moeData = {
- version: '2.0',
- source: 'supervisor-om',
- exportDate: new Date().toISOString(),
- school: document.querySelector('#school')?.value?.trim() || '',
- teacherName: document.querySelector('#teacherName')?.value?.trim() || '',
- fileNumber: document.querySelector('#fileNumber')?.value?.trim() || '',
- subject: document.querySelector('#subject')?.value?.trim() || '',
- visitDate: portalDate,
- visitNumber: document.querySelector('#visitNumber')?.value?.trim() || '',
- className: document.querySelector('#class')?.value?.trim() || '',
- lesson: document.querySelector('#lesson')?.value?.trim() || '',
- topic: document.querySelector('#topic')?.value?.trim() || '',
- visitorName: document.querySelector('#visitorName')?.value?.trim() || '',
- visitorPosition: document.querySelector('#visitorPosition')?.value?.trim() || '',
- scores: scores,
- strengths: strengths,
- needsDevelopment: needsDev,
- recommendations: recs
- };
+            const moeData = {
+                v:               '3',
+                school:          document.querySelector('#school')?.value?.trim()          || '',
+                teacherName:     document.querySelector('#teacherName')?.value?.trim()     || '',
+                fileNumber:      document.querySelector('#fileNumber')?.value?.trim()      || '',
+                subject:         document.querySelector('#subject')?.value?.trim()         || '',
+                visitDate:       portalDate,
+                visitNumber:     document.querySelector('#visitNumber')?.value?.trim()     || '',
+                className:       document.querySelector('#class')?.value?.trim()           || '',
+                lesson:          document.querySelector('#lesson')?.value?.trim()          || '',
+                topic:           document.querySelector('#topic')?.value?.trim()           || '',
+                visitorName:     document.querySelector('#visitorName')?.value?.trim()     || '',
+                visitorPosition: document.querySelector('#visitorPosition')?.value?.trim() || '',
+                scores,
+                strengths,
+                needsDevelopment: needsDev,
+                recommendations:  recs
+            };
 
- const jsonString = JSON.stringify(moeData, null, 2);
+            let encoded;
+            try { encoded = btoa(unescape(encodeURIComponent(JSON.stringify(moeData)))); }
+            catch (e) { encoded = btoa(JSON.stringify(moeData)); }
 
- const overlay = document.createElement('div');
- overlay.id = 'moeExportModal';
- overlay.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4';
- overlay.innerHTML = `
- <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col" dir="rtl">
- <div class="flex items-center justify-between p-5 border-b border-slate-200">
- <h3 class="text-xl font-bold text-slate-800">🚀 تصدير للوزارة</h3>
- <button onclick="document.getElementById('moeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
- </div>
- <div class="p-5 overflow-y-auto flex-1">
- <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
- <strong>الخطوات:</strong> انسخ البيانات ← أرسلها لـ OpenClaw ← يتم النقل تلقائياً للبوابة
- </div>
- <div class="flex gap-2 mb-3">
- <button onclick="navigator.clipboard.writeText(document.getElementById('moeExportData').value).then(()=>showToast('تم نسخ البيانات ✅'))" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1">📋 نسخ البيانات</button>
- <button onclick="document.getElementById('moeExportModal').remove()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">إغلاق</button>
- </div>
- <textarea id="moeExportData" class="w-full h-56 font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 text-slate-700" readonly>${jsonString.replace(/</g, '&lt;')}</textarea>
- </div>
- </div>
- `;
- document.body.appendChild(overlay);
- overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
- }
+            // نسخ الرمز للحافظة تلقائياً
+            navigator.clipboard.writeText(encoded).catch(() => {});
+
+            const ministryUrl = 'https://moe.gov.om/SMS/SupervisionVisits/SupervisionVisitsModule.aspx?VisitMode=1';
+            const urlWithData = ministryUrl + '#svr_data=' + encodeURIComponent(encoded);
+
+            // ====== كود البوكمارك ======
+            // يُشغَّل في موقع الوزارة ويعبّئ الحقول النصية تلقائياً
+            const bmScript = `(function(){
+function dec(s){try{return JSON.parse(decodeURIComponent(escape(atob(s.trim()))))}catch(e){return null}}
+function getData(){
+  var h=window.location.hash||'',m=h.match(/svr_data=([^&\\s]+)/);
+  if(m){var d=dec(decodeURIComponent(m[1]));if(d){try{window.history.replaceState(null,'',window.location.pathname+window.location.search)}catch(e){}return d;}}
+  var inp=prompt('الصق رمز التصدير من نظام التقارير الإشرافية:');
+  if(!inp)return null;
+  var d=dec(inp.trim());
+  if(!d){alert('خطأ في قراءة البيانات. تأكد من نسخ الرمز كاملاً.');return null;}
+  return d;
+}
+function findEl(kws){
+  var all=document.querySelectorAll('label,th,td,legend,span,p');
+  for(var i=0;i<all.length;i++){
+    var t=all[i].textContent.trim();
+    for(var j=0;j<kws.length;j++){
+      if(t===kws[j]||t.includes(kws[j])){
+        var el=null,fid=all[i].getAttribute&&all[i].getAttribute('for');
+        if(fid)el=document.getElementById(fid);
+        if(!el){
+          var p=all[i].parentElement;
+          if(p){
+            el=p.querySelector('input:not([type=hidden]):not([type=radio]):not([type=checkbox]),select,textarea');
+            if(!el&&p.nextElementSibling)
+              el=p.nextElementSibling.querySelector('input:not([type=hidden]),select,textarea');
+          }
+        }
+        if(!el){
+          var ns=all[i].nextElementSibling;
+          if(ns&&/^(INPUT|SELECT|TEXTAREA)$/.test(ns.tagName))el=ns;
+          else if(ns&&ns.querySelector)el=ns.querySelector('input:not([type=hidden]),select,textarea');
+        }
+        if(el&&el.offsetParent!==null)return el;
+      }
+    }
+  }
+  return null;
+}
+function fill(el,val){
+  if(!el||val==null||val==='')return false;
+  if(el.tagName.toUpperCase()==='SELECT'){
+    for(var i=0;i<el.options.length;i++){
+      var ot=el.options[i].text.trim();
+      if(ot===val||ot.includes(val)||val.includes(ot)){
+        el.selectedIndex=i;el.dispatchEvent(new Event('change',{bubbles:true}));return true;
+      }
+    }
+    return false;
+  }
+  el.value=val;
+  ['input','change','blur'].forEach(function(ev){el.dispatchEvent(new Event(ev,{bubbles:true}));});
+  return true;
+}
+var data=getData();if(!data)return;
+var defs=[
+  {lb:['اسم المدرسة','المدرسة','مدرسة'],v:data.school,n:'المدرسة'},
+  {lb:['اسم المعلم','المعلم','اسم المدرس','معلم التربية البدنية'],v:data.teacherName,n:'المعلم'},
+  {lb:['الرقم الوظيفي','رقم الملف','رقم المعلم','رقم الموظف'],v:data.fileNumber,n:'رقم الملف'},
+  {lb:['المادة الدراسية','المادة','التخصص'],v:data.subject,n:'المادة'},
+  {lb:['تاريخ الزيارة','التاريخ','تاريخ'],v:data.visitDate,n:'التاريخ'},
+  {lb:['رقم الزيارة','عدد الزيارات','الزيارة رقم'],v:data.visitNumber,n:'رقم الزيارة'},
+  {lb:['الصف','الصف الدراسي','الفصل','الفصل الدراسي'],v:data.className,n:'الصف'},
+  {lb:['عنوان الدرس','الدرس','موضوع الدرس'],v:data.lesson,n:'الدرس'},
+  {lb:['الوحدة','الوحدة الدراسية','الموضوع'],v:data.topic,n:'الوحدة'},
+  {lb:['اسم الزائر','اسم المشرف','المشرف التربوي','المشرف'],v:data.visitorName,n:'الزائر'},
+  {lb:['المسمى الوظيفي','منصب الزائر','الوظيفة','وظيفة الزائر'],v:data.visitorPosition,n:'المسمى'},
+  {lb:['نقاط القوة','رأي الزائر','الإيجابيات','الملاحظات الإيجابية'],v:data.strengths,n:'نقاط القوة'},
+  {lb:['جوانب التطوير','يحتاج تطوير','مجالات التطوير','جوانب تستدعي التطوير'],v:data.needsDevelopment,n:'التطوير'},
+  {lb:['التوصيات','توصيات الزيارة','المقترحات'],v:data.recommendations,n:'التوصيات'}
+];
+var ok=[],fail=[];
+defs.forEach(function(d){if(fill(findEl(d.lb),d.v))ok.push(d.n);else fail.push(d.n);});
+var panel=document.createElement('div');
+panel.style.cssText='position:fixed;top:12px;right:12px;background:#fff;border:2px solid #10b981;border-radius:12px;padding:16px 20px;z-index:2147483647;min-width:260px;font-family:Arial,Tahoma,sans-serif;direction:rtl;box-shadow:0 8px 32px rgba(0,0,0,.3);font-size:13px;line-height:1.8';
+panel.innerHTML='<div style="font-weight:700;color:#065f46;font-size:15px;margin-bottom:10px;border-bottom:1px solid #d1fae5;padding-bottom:8px">📋 نظام التقارير الإشرافية</div>'
+  +(ok.length?'<div style="color:#065f46;margin-bottom:6px">&#x2705; <b>تم تعبئة:</b> '+ok.join(' ، ')+'</div>':'')
+  +(fail.length?'<div style="color:#92400e;margin-bottom:6px">&#x26A0;&#xFE0F; <b>لم يُعبَّأ:</b> '+fail.join(' ، ')+'</div>':'')
+  +'<div style="color:#1e40af;font-size:11px;margin-bottom:10px">&#x2139;&#xFE0F; حقول التقييم (1-5) تحتاج تعبئة يدوية</div>'
+  +'<div style="background:#f0fdf4;border-radius:8px;padding:8px;margin-bottom:10px;font-size:11px;color:#166534">'+data.school+' | '+data.teacherName+'</div>'
+  +'<button onclick="this.parentElement.remove()" style="background:#10b981;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;width:100%;font-size:13px">إغلاق</button>';
+document.body.appendChild(panel);
+})()`;
+
+            const bmHref = 'javascript:' + encodeURIComponent(bmScript);
+
+            const existingModal = document.getElementById('moeExportModal');
+            if (existingModal) existingModal.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'moeExportModal';
+            overlay.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4';
+            overlay.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col" dir="rtl">
+              <div class="flex items-center justify-between p-5 border-b border-slate-200">
+                <h3 class="text-lg font-bold text-slate-800">🚀 تصدير مباشر لموقع الوزارة</h3>
+                <button onclick="document.getElementById('moeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+              </div>
+              <div class="p-5 overflow-y-auto flex-1 space-y-4">
+
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div class="font-bold text-blue-800 mb-1">🔖 الخطوة 1 — ثبّت أداة التعبئة <span class="text-blue-500 font-normal text-sm">(مرة واحدة فقط)</span></div>
+                  <p class="text-sm text-blue-700 mb-3">اسحب الزر أدناه إلى شريط المفضلة في متصفحك:</p>
+                  <a href="${bmHref}" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-grab select-none" style="text-decoration:none">📋 أداة تعبئة الوزارة</a>
+                  <p class="text-xs text-blue-500 mt-2">💡 بديلاً: انقر بزر الأيمن على الزر ← إضافة إلى المفضلة</p>
+                </div>
+
+                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                  <div class="font-bold text-emerald-800 mb-1">🌐 الخطوة 2 — افتح موقع الوزارة</div>
+                  <p class="text-sm text-emerald-700 mb-3">سجّل دخولك، ثم افتح نموذج إدخال الزيارة الإشرافية.</p>
+                  <button onclick="window.open('${urlWithData}','_blank');document.getElementById('moeExportModal').remove()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    فتح موقع الوزارة ←
+                  </button>
+                  <p class="text-xs text-emerald-500 mt-2">✅ البيانات مُدمجة في الرابط — ستُقرأ تلقائياً</p>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <div class="font-bold text-amber-800 mb-1">⚡ الخطوة 3 — شغّل الأداة</div>
+                  <p class="text-sm text-amber-700">في صفحة نموذج الوزارة، انقر على <strong class="text-amber-900">📋 أداة تعبئة الوزارة</strong> من شريط المفضلة. ستُعبَّأ الحقول النصية فوراً.</p>
+                  <p class="text-xs text-amber-600 mt-2">⚠️ إذا طُلب منك لصق رمز: الرمز نُسخ تلقائياً — اضغط Ctrl+V أو Cmd+V</p>
+                </div>
+
+                <details class="text-sm">
+                  <summary class="cursor-pointer text-slate-500 hover:text-slate-700 py-1 select-none">▸ عرض رمز التصدير يدوياً</summary>
+                  <div class="mt-2 flex gap-2 items-start">
+                    <textarea class="flex-1 font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 h-16 resize-none" readonly>${encoded}</textarea>
+                    <button onclick="navigator.clipboard.writeText('${encoded}').then(()=>showToast('تم النسخ ✅'))" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-lg text-xs whitespace-nowrap">نسخ</button>
+                  </div>
+                </details>
+
+              </div>
+            </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+            showToast('تم نسخ رمز التصدير للحافظة ✅');
+        }
 
  async function printArchivedReport(reportKey) {
             try {
