@@ -624,12 +624,12 @@
         }
 
         function toggleSupervisoryView(viewId) {
-            document.querySelectorAll('#form-view, #dashboard-view, #saved-reports-view').forEach(view => {
+            document.querySelectorAll('#form-view, #dashboard-view, #saved-reports-view, #stats-view').forEach(view => {
                 view.classList.add('hidden');
             });
-            
+
             document.querySelector(`#${viewId}`)?.classList.remove('hidden');
-            
+
             document.querySelectorAll('.nav-tab').forEach(tab => {
                 tab.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
                 tab.classList.add('text-slate-500');
@@ -638,12 +638,14 @@
                     tab.classList.remove('text-slate-500');
                 }
             });
-            
+
             if (viewId === 'saved-reports-view') {
                 renderSavedReports();
-            } else if (viewId === 'dashboard-view') { 
-                populateTeacherDashboardDropdown(); 
-                updateDashboardView(); 
+            } else if (viewId === 'dashboard-view') {
+                populateTeacherDashboardDropdown();
+                updateDashboardView();
+            } else if (viewId === 'stats-view') {
+                renderStatistics();
             }
         }
 
@@ -869,6 +871,55 @@
             }
         }
 
+        // =========================================================================
+        // BACKUP / IMPORT
+        // =========================================================================
+        function exportBackup() {
+            const backup = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('supervision_v6_') || key.startsWith('visit_v5_')) {
+                    backup[key] = localStorage.getItem(key);
+                }
+            }
+            if (Object.keys(backup).length === 0) {
+                showToast('لا توجد بيانات للتصدير', 'error');
+                return;
+            }
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'نسخة_احتياطية_' + new Date().toISOString().slice(0, 10) + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('تم تصدير النسخة الاحتياطية بنجاح');
+        }
+
+        function importBackup(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    let count = 0;
+                    Object.keys(data).forEach(key => {
+                        if (key.startsWith('supervision_v6_') || key.startsWith('visit_v5_')) {
+                            localStorage.setItem(key, data[key]);
+                            count++;
+                        }
+                    });
+                    showToast('تم استيراد ' + count + ' سجل بنجاح');
+                    renderSavedReports();
+                    try { renderSchoolReportsList(); } catch(e) {}
+                } catch (err) {
+                    showToast('خطأ في قراءة الملف', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // =========================================================================
         function exportToMoe() {
             const strengths = document.querySelector('#strengthsContent')?.value?.trim() || '';
             const needsDev  = document.querySelector('#developmentContent')?.value?.trim() || '';
@@ -1000,51 +1051,63 @@
         }
 
         function renderSavedReports() {
-            const listContainer = document.querySelector('#saved-reports-list'); 
-            const noReportsMessage = document.querySelector('#no-saved-reports-message'); 
-            const filterInput = document.querySelector('#filter-reports-input');
-            const filterText = filterInput ? filterInput.value.toLowerCase() : ''; 
-            
-            if(!listContainer) return;
-            
+            const listContainer = document.querySelector('#saved-reports-list');
+            const noReportsMessage = document.querySelector('#no-saved-reports-message');
+            const filterText = (document.querySelector('#filter-reports-input')?.value || '').toLowerCase();
+            const filterMonth = document.querySelector('#filter-reports-month')?.value || '';
+
+            if (!listContainer) return;
+
             listContainer.innerHTML = '';
-            let reports = []; 
-            
-            for (let i = 0; i < localStorage.length; i++) { 
+            let reports = [];
+
+            for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key.startsWith('supervision_v6_visit_') || key.startsWith('visit_v5_')) {
                     try {
                         const parsedData = JSON.parse(localStorage.getItem(key));
-                        if(parsedData && typeof parsedData === 'object') {
-                            reports.push({ key: key, data: parsedData }); 
+                        if (parsedData && typeof parsedData === 'object') {
+                            reports.push({ key, data: parsedData });
                         }
-                    } catch(e) {
-                        console.warn('Skipping unparsable report key:', key);
-                    }
+                    } catch(e) {}
                 }
-            } 
-            
+            }
+
             reports.sort((a, b) => {
                 const dateA = a.data?.visitDate ? new Date(a.data.visitDate).getTime() : 0;
                 const dateB = b.data?.visitDate ? new Date(b.data.visitDate).getTime() : 0;
                 return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
             });
-            let found = false; 
-            
-            reports.forEach(({ key, data }) => { 
-                if(!data) return;
-                const schoolName = data.school || '-'; 
+
+            let found = false;
+
+            reports.forEach(({ key, data }) => {
+                if (!data) return;
+                const schoolName = data.school || '-';
                 const tName = data.teacherName || '';
-                if (tName.toLowerCase().includes(filterText) || schoolName.toLowerCase().includes(filterText)) { 
-                    found = true; 
-                    const card = document.createElement('div'); 
-                    card.className = 'bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col justify-between'; 
+                const visitDate = data.visitDate || '';
+
+                // Text filter (name or school)
+                const matchText = tName.toLowerCase().includes(filterText) || schoolName.toLowerCase().includes(filterText);
+
+                // Month filter (YYYY-MM format)
+                const matchMonth = !filterMonth || visitDate.startsWith(filterMonth);
+
+                if (matchText && matchMonth) {
+                    found = true;
+                    const scoreTotal = Array.isArray(data.scores) ? data.scores.reduce((s, v) => s + v, 0) : null;
+                    const scoreLabel = scoreTotal !== null
+                        ? `<span class="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full mt-1">${scoreTotal} / 65</span>`
+                        : '';
+                    const card = document.createElement('div');
+                    card.className = 'bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col justify-between';
                     card.innerHTML = `
                         <div class="mb-4">
                             <h4 class="font-bold text-slate-800 text-lg">${tName || 'غير معروف'}</h4>
                             <div class="text-sm text-slate-500 mt-1 flex flex-col gap-1">
                                 <span><i class="fa-solid fa-school ml-1 text-slate-400"></i> ${schoolName}</span>
-                                <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${data.visitDate || '-'}</span>
+                                <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${visitDate || '-'}</span>
+                                ${scoreLabel}
                             </div>
                         </div>
                         <div class="flex gap-2 mt-auto pt-4 border-t border-slate-100">
@@ -1052,19 +1115,183 @@
                             <button class="print-archive-btn flex-1 bg-green-50 text-green-600 hover:bg-green-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}"><i class="fa-solid fa-print ml-1"></i>طباعة</button>
                             <button class="delete-btn flex-1 bg-red-50 text-red-600 hover:bg-red-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">حذف</button>
                         </div>
-                    `; 
-                    listContainer.appendChild(card); 
-                } 
-            }); 
-            
-            if(noReportsMessage) {
-                if(found) noReportsMessage.classList.add('hidden'); 
+                    `;
+                    listContainer.appendChild(card);
+                }
+            });
+
+            if (noReportsMessage) {
+                if (found) noReportsMessage.classList.add('hidden');
                 else noReportsMessage.classList.remove('hidden');
             }
         }
 
-        function deletePermanentReport(key) { 
-            showConfirmationModal('تأكيد الحذف', 'سيتم حذف التقرير نهائياً', () => { 
+        // =========================================================================
+        // STATISTICS
+        // =========================================================================
+        function renderStatistics() {
+            const container = document.getElementById('stats-view');
+            if (!container) return;
+
+            // Collect all supervisory visit reports
+            const reports = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('supervision_v6_visit_') || key.startsWith('visit_v5_')) {
+                    try {
+                        const d = JSON.parse(localStorage.getItem(key));
+                        if (d && typeof d === 'object') reports.push(d);
+                    } catch(e) {}
+                }
+            }
+
+            // --- General counts ---
+            const totalVisits = reports.length;
+
+            // This month (YYYY-MM)
+            const now = new Date();
+            const thisMonth = now.toISOString().slice(0, 7);
+            const thisMonthVisits = reports.filter(r => (r.visitDate || '').startsWith(thisMonth)).length;
+
+            // This year
+            const thisYear = now.getFullYear().toString();
+            const thisYearVisits = reports.filter(r => (r.visitDate || '').startsWith(thisYear)).length;
+
+            // Unique teachers
+            const uniqueTeachers = new Set(reports.map(r => r.teacherName).filter(Boolean)).size;
+
+            // Score distribution across all reports
+            const scoreLevels = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+            let totalScoreEntries = 0;
+            reports.forEach(r => {
+                if (Array.isArray(r.scores)) {
+                    r.scores.forEach(s => {
+                        const v = parseInt(s);
+                        if (v >= 1 && v <= 5) { scoreLevels[v]++; totalScoreEntries++; }
+                    });
+                }
+            });
+
+            // Most visited schools (top 5)
+            const schoolCounts = {};
+            reports.forEach(r => {
+                const s = r.school || r.schoolName || 'غير محدد';
+                schoolCounts[s] = (schoolCounts[s] || 0) + 1;
+            });
+            const topSchools = Object.entries(schoolCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            // Monthly visits breakdown (last 6 months)
+            const monthlyData = {};
+            for (let m = 5; m >= 0; m--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+                const key = d.toISOString().slice(0, 7);
+                monthlyData[key] = 0;
+            }
+            reports.forEach(r => {
+                const mo = (r.visitDate || '').slice(0, 7);
+                if (mo in monthlyData) monthlyData[mo]++;
+            });
+
+            const scoreLabels = { 1: 'ممتاز', 2: 'جيد جداً', 3: 'جيد', 4: 'مقبول', 5: 'يحتاج تطوير' };
+            const scoreColors = { 1: 'bg-green-500', 2: 'bg-blue-500', 3: 'bg-amber-400', 4: 'bg-orange-500', 5: 'bg-red-600' };
+            const maxMonthly = Math.max(...Object.values(monthlyData), 1);
+            const monthNames = { '01':'يناير','02':'فبراير','03':'مارس','04':'أبريل','05':'مايو','06':'يونيو','07':'يوليو','08':'أغسطس','09':'سبتمبر','10':'أكتوبر','11':'نوفمبر','12':'ديسمبر' };
+            const getMonthName = (key) => {
+                const [, mo] = key.split('-');
+                return monthNames[mo] || key;
+            };
+
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Summary cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-2xl border border-slate-200 p-5 text-center shadow-sm">
+                            <div class="text-3xl font-extrabold text-blue-600">${totalVisits}</div>
+                            <div class="text-sm text-slate-500 mt-1">إجمالي الزيارات</div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 p-5 text-center shadow-sm">
+                            <div class="text-3xl font-extrabold text-green-600">${thisMonthVisits}</div>
+                            <div class="text-sm text-slate-500 mt-1">زيارات هذا الشهر</div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 p-5 text-center shadow-sm">
+                            <div class="text-3xl font-extrabold text-indigo-600">${thisYearVisits}</div>
+                            <div class="text-sm text-slate-500 mt-1">زيارات هذا العام</div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 p-5 text-center shadow-sm">
+                            <div class="text-3xl font-extrabold text-amber-600">${uniqueTeachers}</div>
+                            <div class="text-sm text-slate-500 mt-1">معلم تمت زيارته</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Score distribution -->
+                        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-chart-bar ml-2 text-blue-500"></i>توزيع درجات التقييم</h3>
+                            ${totalScoreEntries === 0
+                                ? '<p class="text-slate-400 text-sm text-center py-6">لا توجد بيانات كافية</p>'
+                                : Object.entries(scoreLevels).map(([level, count]) => {
+                                    const pct = totalScoreEntries > 0 ? Math.round(count / totalScoreEntries * 100) : 0;
+                                    return `<div class="mb-3">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="font-medium text-slate-600">${scoreLabels[level]}</span>
+                                            <span class="text-slate-400">${count} (${pct}%)</span>
+                                        </div>
+                                        <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div class="h-full ${scoreColors[level]} rounded-full transition-all" style="width:${pct}%"></div>
+                                        </div>
+                                    </div>`;
+                                }).join('')
+                            }
+                        </div>
+
+                        <!-- Monthly visits chart -->
+                        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                            <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-calendar-days ml-2 text-green-500"></i>الزيارات الشهرية (آخر 6 أشهر)</h3>
+                            <div class="flex items-end gap-2 h-32">
+                                ${Object.entries(monthlyData).map(([mo, cnt]) => {
+                                    const barH = maxMonthly > 0 ? Math.max(Math.round(cnt / maxMonthly * 100), cnt > 0 ? 8 : 0) : 0;
+                                    return `<div class="flex flex-col items-center flex-1">
+                                        <span class="text-xs font-bold text-slate-600 mb-1">${cnt || ''}</span>
+                                        <div class="w-full bg-blue-500 rounded-t-md" style="height:${barH}%"></div>
+                                        <span class="text-xs text-slate-400 mt-1 text-center leading-tight">${getMonthName(mo)}</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top schools -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                        <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-school ml-2 text-amber-500"></i>أكثر المدارس زيارةً</h3>
+                        ${topSchools.length === 0
+                            ? '<p class="text-slate-400 text-sm text-center py-4">لا توجد بيانات</p>'
+                            : `<div class="space-y-3">${topSchools.map(([school, cnt], idx) => {
+                                const maxC = topSchools[0][1];
+                                const pct = Math.round(cnt / maxC * 100);
+                                return `<div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-slate-400 w-5">${idx + 1}</span>
+                                    <div class="flex-grow">
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="font-medium text-slate-700">${school}</span>
+                                            <span class="text-slate-400">${cnt} زيارة</span>
+                                        </div>
+                                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div class="h-full bg-amber-400 rounded-full" style="width:${pct}%"></div>
+                                        </div>
+                                    </div>
+                                </div>`;
+                            }).join('')}</div>`
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        // =========================================================================
+        function deletePermanentReport(key) {
+            showConfirmationModal('تأكيد الحذف', 'سيتم حذف التقرير نهائياً', () => {
                 try {
                     const data = JSON.parse(localStorage.getItem(key)); 
                     localStorage.removeItem(key); 
@@ -2060,8 +2287,30 @@
                 }
                 
                 const supFilter = document.querySelector('#filter-reports-input');
-                if(supFilter) {
-                    supFilter.addEventListener('input', renderSavedReports);
+                if (supFilter) supFilter.addEventListener('input', renderSavedReports);
+
+                const monthFilter = document.querySelector('#filter-reports-month');
+                if (monthFilter) monthFilter.addEventListener('input', renderSavedReports);
+
+                // Backup / Import
+                const exportBackupBtn = document.getElementById('exportBackupBtn');
+                if (exportBackupBtn) exportBackupBtn.addEventListener('click', exportBackup);
+
+                const importBackupInput = document.getElementById('importBackupInput');
+                if (importBackupInput) {
+                    importBackupInput.addEventListener('change', (e) => {
+                        if (e.target.files[0]) {
+                            importBackup(e.target.files[0]);
+                            e.target.value = '';
+                        }
+                    });
+                }
+
+                const importBackupBtn = document.getElementById('importBackupBtn');
+                if (importBackupBtn) {
+                    importBackupBtn.addEventListener('click', () => {
+                        document.getElementById('importBackupInput')?.click();
+                    });
                 }
 
                 // --- Initialize School App ---
