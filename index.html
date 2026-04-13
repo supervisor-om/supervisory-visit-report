@@ -85,7 +85,20 @@
             </div>
         </div>
         
-        <footer class="mt-16 text-center text-slate-400 text-sm font-medium">
+        <div class="mt-10 flex flex-col items-center gap-3">
+            <p class="text-xs text-slate-400 font-medium">النسخ الاحتياطي والاستيراد</p>
+            <div class="flex gap-3">
+                <button id="exportBackupBtn" class="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50 text-slate-600 hover:text-blue-700 text-sm font-medium px-5 py-2.5 rounded-xl shadow-sm transition-all">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> تصدير نسخة احتياطية
+                </button>
+                <button id="importBackupBtn" class="flex items-center gap-2 bg-white border border-slate-200 hover:border-green-400 hover:bg-green-50 text-slate-600 hover:text-green-700 text-sm font-medium px-5 py-2.5 rounded-xl shadow-sm transition-all">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> استيراد نسخة احتياطية
+                </button>
+                <input type="file" id="importBackupInput" accept=".json" class="hidden">
+            </div>
+        </div>
+
+        <footer class="mt-10 text-center text-slate-400 text-sm font-medium">
             <p class="mb-2">جميع الحقوق محفوظة © وزارة التربية والتعليم</p>
             <p class="text-slate-500 font-bold">حقوق الإعداد والتصميم: اسعد الخصيبي – مشرف الرياضة المدرسية – محافظة مسقط</p>
         </footer>
@@ -105,6 +118,9 @@
                         </button>
                         <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="saved-reports-view">
                             <i class="fa-solid fa-box-archive ml-2"></i>الأرشيف
+                        </button>
+                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="stats-view">
+                            <i class="fa-solid fa-chart-column ml-2"></i>الإحصائيات
                         </button>
                     </div>
                     <button id="backToWelcomeFromSupervisory" class="text-slate-500 hover:text-red-600 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors flex items-center">
@@ -254,14 +270,22 @@
             </div>
 
             <div id="saved-reports-view" class="hidden fade-in space-y-6">
-                 <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <div class="flex-grow w-full md:w-auto">
                         <label class="block text-sm font-medium text-slate-600 mb-1">بحث في الأرشيف</label>
                         <input type="text" id="filter-reports-input" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5" placeholder="ابحث باسم المعلم أو المدرسة...">
                     </div>
+                    <div class="w-full md:w-48 shrink-0">
+                        <label class="block text-sm font-medium text-slate-600 mb-1">تصفية بالشهر</label>
+                        <input type="month" id="filter-reports-month" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
+                    </div>
                 </div>
                 <div id="saved-reports-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 <div id="no-saved-reports-message" class="hidden text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300"><p class="text-slate-500">الأرشيف فارغ حالياً.</p></div>
+            </div>
+
+            <div id="stats-view" class="hidden fade-in space-y-6">
+                <!-- Populated dynamically by renderStatistics() -->
             </div>
         </div>
 
@@ -447,6 +471,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=3"></script>
+    <script type="module" src="app.js?v=6"></script>
 </body>
 </html>
