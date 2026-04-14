@@ -146,8 +146,19 @@
                                     <input id="school" type="text" placeholder="اكتب اسم المدرسة" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
                                 </div>
                                 <div class="input-wrapper">
-                                    <label class="block text-sm font-medium text-slate-600 mb-1">المعلم</label>
-                                    <input id="teacherName" type="text" placeholder="اكتب اسم المعلم رباعياً" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
+                                    <label class="block text-sm font-medium text-slate-600 mb-1">المعلم / المعلمة</label>
+                                    <input id="teacherName" type="text" placeholder="اكتب الاسم رباعياً" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
+                                    <div class="flex items-center gap-4 mt-2">
+                                        <span class="text-xs font-medium text-slate-500">الجنس:</span>
+                                        <label class="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700 select-none">
+                                            <input type="radio" name="supervisoryTeacherGender" id="genderMale" value="0" checked class="accent-blue-600">
+                                            ذكر
+                                        </label>
+                                        <label class="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700 select-none">
+                                            <input type="radio" name="supervisoryTeacherGender" id="genderFemale" value="1" class="accent-pink-500">
+                                            أنثى
+                                        </label>
+                                    </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
@@ -471,6 +482,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=6"></script>
+    <script type="module" src="app.js?v=7"></script>
 </body>
 </html>
