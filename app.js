@@ -950,7 +950,6 @@
 
             const exportData = {
                 date:            portalDate,
-                school:          document.querySelector('#school')?.value?.trim()          || '',
                 teacher:         document.querySelector('#teacherName')?.value?.trim()     || '',
                 lesson:          document.querySelector('#lesson')?.value?.trim()          || '',
                 period:          document.querySelector('#visitNumber')?.value?.trim()     || '',
@@ -958,22 +957,11 @@
                 excellence:      strengths,
                 development:     needsDev,
                 support:         '',
-                recommendations: recs,
-                formId:          '1128'
+                recommendations: recs
             };
 
-            // أنواع الاستمارات المتاحة
-            const FORM_TYPES = [
-                { id: '1128', label: 'استمارة الزيارة الإشرافية لمعلم مجال/ مادة' },
-                { id: '1141', label: 'استمارة الزيارة الإشرافية لمعلم أول مجال/ مادة' },
-                { id: '1142', label: 'استمارة زيارة إشرافية لمعلم اللغة الإنجليزية' },
-                { id: '1144', label: 'استمارة الزيارة الإشرافية لمعلم تربية خاصة/ صعوبات تعلم' },
-                { id: '1131', label: 'استمارة الزيارة الإشرافية لوحدة كشفية/ إرشادية' },
-                { id: '1156', label: 'استمارة الزيارة الإشرافية لمتابعة خدمات التغذية المدرسية' },
-            ];
-            const formOptions = FORM_TYPES.map(f =>
-                `<option value="${f.id}">${f.label}</option>`
-            ).join('');
+            const jsonStr = JSON.stringify(exportData);
+            navigator.clipboard.writeText(jsonStr);
 
             const ministryUrl = 'https://moe.gov.om/SMS/SupervisionVisits/SupervisionVisitsModule.aspx?VisitMode=1';
 
@@ -992,43 +980,29 @@
               </div>
               <div class="p-5 space-y-4">
 
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700">
-                  <div class="grid grid-cols-3 gap-y-2">
-                    <span class="font-medium col-span-1">المدرسة</span>
-                    <span class="col-span-2">${exportData.school || '—'}</span>
-                    <span class="font-medium col-span-1">المعلم</span>
-                    <span class="col-span-2">${exportData.teacher || '—'}</span>
-                    <span class="font-medium col-span-1">التاريخ</span>
-                    <span class="col-span-2">${exportData.date || '—'}</span>
-                  </div>
+                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                  <div class="text-3xl mb-2">✅</div>
+                  <div class="font-bold text-emerald-800 mb-1">تم نسخ البيانات للحافظة</div>
+                  <p class="text-sm text-emerald-700">انتقل الآن لبوابة الوزارة والصق البيانات</p>
                 </div>
 
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <label class="block text-sm font-medium text-slate-700 mb-2">نوع الاستمارة</label>
-                  <select id="tmf-form-type" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    ${formOptions}
-                  </select>
+                  <div class="text-xs text-slate-500 mb-1 font-mono">البيانات المُصدَّرة (JSON)</div>
+                  <textarea id="moe-json-preview" class="w-full font-mono text-xs bg-white border border-slate-200 rounded-lg p-2 h-28 resize-none" readonly></textarea>
+                  <button onclick="navigator.clipboard.writeText(document.getElementById('moe-json-preview').value).then(()=>showToast('تم النسخ مجدداً ✅'))" class="mt-2 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs transition-colors">إعادة النسخ</button>
                 </div>
 
-                <button id="tmf-go-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-sm font-bold transition-colors">
-                  🚀 فتح موقع الوزارة تلقائياً
+                <button onclick="window.open('${ministryUrl}','_blank');document.getElementById('moeExportModal').remove()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
+                  فتح موقع الوزارة ←
                 </button>
 
               </div>
             </div>
             `;
             document.body.appendChild(overlay);
+            document.getElementById('moe-json-preview').value = jsonStr;
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-
-            document.getElementById('tmf-go-btn').addEventListener('click', () => {
-                const sel = document.getElementById('tmf-form-type');
-                exportData.formId = sel ? sel.value : '1128';
-                const json = JSON.stringify(exportData);
-                const b64  = btoa(unescape(encodeURIComponent(json)));
-                const url  = ministryUrl + '#tmf=' + b64;
-                overlay.remove();
-                window.open(url, '_blank');
-            });
+            showToast('تم نسخ البيانات للحافظة ✅');
         }
 
  async function printArchivedReport(reportKey) {
@@ -2635,4 +2609,3 @@
         } else {
             initAppEnvironment();
         }
-
