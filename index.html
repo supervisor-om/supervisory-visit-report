@@ -251,13 +251,15 @@
                         
                         <p id="status-message" class="text-center font-medium opacity-0 transition-opacity duration-500 min-h-[20px]"></p>
 
-                        <section class="sticky bottom-4 z-30 bg-white/90 backdrop-blur p-4 rounded-xl border border-slate-200 shadow-lg flex justify-end gap-3">
-                            <button type="button" id="generateReportBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm">توليد التقرير</button>
-                            <button type="button" id="savePermanentReportBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm">حفظ بالأرشيف</button>
-                            <button type="button" id="printOfficialReportBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm">طباعة</button>
-                            <button type="button" id="exportToWordBtn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm">Word</button>
-                            <button type="button" id="exportToMoeBtn" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm">🚀 تصدير للوزارة</button>
-                            <button type="button" id="showResetConfirmationBtn" class="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-600 font-bold py-2.5 px-6 rounded-lg shadow-sm">إعادة تعيين</button>
+                        <section class="sticky bottom-0 md:bottom-4 z-30 bg-white/95 backdrop-blur-sm px-3 py-2 md:p-4 border-t md:border md:rounded-xl border-slate-200 shadow-lg">
+                            <div class="grid grid-cols-3 gap-1.5 md:flex md:justify-end md:gap-3">
+                                <button type="button" id="generateReportBtn"       class="col-span-3 md:col-span-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 md:px-6 rounded-lg shadow-sm text-sm">توليد التقرير</button>
+                                <button type="button" id="savePermanentReportBtn"  class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">حفظ بالأرشيف</button>
+                                <button type="button" id="printOfficialReportBtn"  class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">طباعة</button>
+                                <button type="button" id="exportToWordBtn"         class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">Word</button>
+                                <button type="button" id="exportToMoeBtn"          class="col-span-2 md:col-span-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">🚀 تصدير للوزارة</button>
+                                <button type="button" id="showResetConfirmationBtn" class="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-600 font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">إعادة تعيين</button>
+                            </div>
                         </section>
                     </div>
                 </main>
@@ -491,6 +493,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=9"></script>
+    <script type="module" src="app.js?v=10"></script>
 </body>
 </html>
