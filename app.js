@@ -45,6 +45,38 @@
             }
         };
 
+        const supervisoryTemplates = [
+            { id: 'excellent',      label: 'متميز',                    icon: '🌟', color: 'green',  scores: [1,1,1,1,1,1,1,1,1,1,1,1,1] },
+            { id: 'very_good',      label: 'جيد جداً',                 icon: '✨', color: 'blue',   scores: [1,2,1,1,2,2,2,1,2,2,2,1,2] },
+            { id: 'good',           label: 'جيد',                      icon: '👍', color: 'amber',  scores: [2,3,2,2,3,3,3,2,3,3,3,2,3] },
+            { id: 'needs_dev',      label: 'يحتاج تطوير',              icon: '📈', color: 'orange', scores: [3,4,3,3,4,4,4,4,4,4,4,3,4] },
+            { id: 'below',          label: 'دون المستوى',              icon: '⚠️', color: 'red',    scores: [4,5,4,4,5,5,5,5,5,5,5,4,5] },
+            { id: 'strong_teach',   label: 'قوي تدريسياً / ضعيف توثيقاً', icon: '📚', color: 'teal', scores: [2,2,2,2,2,4,2,1,2,2,4,3,4] },
+            { id: 'strong_admin',   label: 'منضبط إدارياً / يحتاج تطوير طرق التدريس', icon: '🗂️', color: 'purple', scores: [3,3,4,2,1,3,2,4,3,4,2,1,3] },
+        ];
+
+        const colorMap = {
+            green:  { btn: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200',  active: 'ring-2 ring-green-400' },
+            blue:   { btn: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200',      active: 'ring-2 ring-blue-400' },
+            amber:  { btn: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200',  active: 'ring-2 ring-amber-400' },
+            orange: { btn: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200', active: 'ring-2 ring-orange-400' },
+            red:    { btn: 'bg-red-100 text-red-800 hover:bg-red-200 border-red-200',          active: 'ring-2 ring-red-400' },
+            teal:   { btn: 'bg-teal-100 text-teal-800 hover:bg-teal-200 border-teal-200',      active: 'ring-2 ring-teal-400' },
+            purple: { btn: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200', active: 'ring-2 ring-purple-400' },
+        };
+
+        function applyTemplate(templateId) {
+            const tpl = supervisoryTemplates.find(t => t.id === templateId);
+            if (!tpl) return;
+            evaluationItems.forEach((item, i) => updateScore(item.id, tpl.scores[i] ?? 3, true));
+            document.querySelectorAll('.tpl-btn').forEach(btn => {
+                const c = colorMap[supervisoryTemplates.find(t => t.id === btn.dataset.tpl)?.color] || {};
+                btn.className = `tpl-btn border text-xs font-medium px-3 py-1.5 rounded-full transition-all ${c.btn || ''}`;
+                if (btn.dataset.tpl === templateId) btn.classList.add(...(c.active?.split(' ') || []));
+            });
+            showToast(`تم تطبيق قالب: ${tpl.label}`, 'success');
+        }
+
         const evaluationItems = [ 
             { id: 1, domain: 'الإنجاز الدراسي', standard: 'التحصيل الدراسي', title: 'تحصيل الطلبة في الأعمال الصفية وغير الصفية', desc: '(اكتساب المهارات الحركية والمعارف المرتبطة بها)' }, 
             { id: 2, domain: 'الإنجاز الدراسي', standard: 'التقدم الدراسي', title: 'التقدم الدراسي للطلبة بما فيهم الطلبة ذوي الإعاقة/الاحتياجات التعليمية', desc: '(تطور الأداء المهاري والخططي)' }, 
@@ -534,6 +566,23 @@
                 `;
                 sectionDiv.appendChild(itemCard);
             });
+            // Template bar
+            const templateBar = document.querySelector('#template-bar');
+            if (templateBar) {
+                const btnContainer = templateBar.querySelector('#template-buttons');
+                btnContainer.innerHTML = '';
+                supervisoryTemplates.forEach(tpl => {
+                    const c = colorMap[tpl.color] || {};
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.dataset.tpl = tpl.id;
+                    btn.className = `tpl-btn border text-xs font-medium px-3 py-1.5 rounded-full transition-all ${c.btn || ''}`;
+                    btn.innerHTML = `${tpl.icon} ${tpl.label}`;
+                    btn.addEventListener('click', () => applyTemplate(tpl.id));
+                    btnContainer.appendChild(btn);
+                });
+            }
+
             evaluationItems.forEach(item => updateScore(item.id, 3, true));
         }
 
