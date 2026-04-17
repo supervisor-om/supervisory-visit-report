@@ -187,10 +187,33 @@
         }
 
         window.addCustomEvidence = function(itemId) {
-            showToast('ميزة إضافة شاهد مخصص قيد التطوير وسيتم توفيرها لاحقاً.', 'info');
+            const input = document.querySelector(`.new-evidence-input[data-id="${itemId}"]`);
+            const value = input?.value?.trim();
+            if (!value) return;
+            const content = evidenceBasedContent[itemId];
+            if (!content) return;
+            const rating = parseInt(document.querySelector(`#score-${itemId}`)?.textContent || '0');
+            const targetList = (rating >= 4) ? content.neg_evidences : content.evidences;
+            if (targetList.includes(value)) {
+                showToast('هذا الشاهد موجود مسبقاً.', 'info');
+                return;
+            }
+            targetList.push(value);
+            input.value = '';
+            openEvidencePanel(itemId);
+            const newCheckbox = document.querySelector(`#evidence-list-${itemId} input[value="${CSS.escape(value)}"]`);
+            if (newCheckbox) { newCheckbox.checked = true; }
+            updateDescriptionFromPanel(itemId);
+            showToast('تمت إضافة الشاهد.', 'success');
         };
         window.deleteCustomEvidence = function(itemId, value) {
-            showToast('ميزة حذف شاهد مخصص قيد التطوير وسيتم توفيرها لاحقاً.', 'info');
+            const content = evidenceBasedContent[itemId];
+            if (!content) return;
+            content.evidences = content.evidences.filter(e => e !== value);
+            content.neg_evidences = content.neg_evidences.filter(e => e !== value);
+            openEvidencePanel(itemId);
+            updateDescriptionFromPanel(itemId);
+            showToast('تم حذف الشاهد.', 'success');
         };
 
         const getBase64Image = (url, targetHeight = 100) => {
