@@ -1136,8 +1136,13 @@
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
                   <div class="text-xs text-slate-500 mb-1">البيانات المُصدَّرة (JSON)</div>
                   <textarea id="school-moe-json-preview" class="w-full font-mono text-xs bg-white border border-slate-200 rounded-lg p-2 h-28 resize-none" readonly></textarea>
-                  <button onclick="navigator.clipboard.writeText(document.getElementById('school-moe-json-preview').value).then(()=>showToast('تم النسخ مجدداً ✅'))" class="mt-2 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs transition-colors">إعادة النسخ</button>
+                  <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                  <b>طريقة الاستخدام:</b><br>
+                  1️⃣ ثبّت سكربت Tampermonkey من المستودع<br>
+                  2️⃣ افتح موقع الوزارة — سيظهر زر "📋 لصق البيانات"<br>
+                  3️⃣ اضغط الزر والصق — سيعبّأ النموذج تلقائياً
                 </div>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('school-moe-json-preview').value).then(()=>showToast('تم النسخ مجدداً ✅'))" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs transition-colors">إعادة النسخ للحافظة</button>
                 <button onclick="window.open('${ministryUrl}','_blank');document.getElementById('schoolMoeExportModal').remove()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
                   فتح موقع الوزارة ←
                 </button>
