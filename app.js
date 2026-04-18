@@ -1113,6 +1113,8 @@
             const jsonStr    = JSON.stringify(exportData);
             const ministryUrl = 'https://moe.gov.om/SMS/VariousRecords/SchoolVisits/SchoolVisitsMain.aspx';
 
+            // تخزين للسكربت التلقائي
+            localStorage.setItem('sv_moe_school_export', jsonStr);
             navigator.clipboard.writeText(jsonStr);
 
             const existingModal = document.getElementById('schoolMoeExportModal');
