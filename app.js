@@ -1838,6 +1838,7 @@
 
             let opinionText = "";
             let counter = 1;
+            let classroomVisitsHandled = false;
 
             // إدراج متابعة التوصيات السابقة إن وُجدت
             const ratedPrevRecs = prevRecommendationsStatus.filter(r => r.status);
@@ -1853,24 +1854,34 @@
                 counter++;
             }
 
+            const hasClassroomVisits = Array.isArray(schoolClassroomVisits) && schoolClassroomVisits.length > 0;
+
             checkedItems.forEach(({ text: obj, note }) => {
                 let text = obj.trim().replace(/^[\d٠-٩]+\s*[-–]\s*/, '');
                 text = convertObjectiveToPast(text);
 
-                if (note) {
-                    // عند وجود ملاحظة: تُذكر في رأي الزائر
+                const isClassroomObj = obj.includes("موقف صفي") || obj.includes("مداولة");
+
+                if (isClassroomObj && hasClassroomVisits) {
+                    // دمج تفاصيل المواقف الصفية داخل هذا الهدف مباشرةً
+                    opinionText += counter + "- " + text + "، وذلك على النحو الآتي:\n";
+                    schoolClassroomVisits.forEach(cv => {
+                        opinionText += `   • الحصة (${cv.period}): الأستاذ ${cv.teacher} – درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
+                    });
+                    classroomVisitsHandled = true;
+                } else if (note) {
                     text += `، وقد لوحظ أن ${note}`;
                     if (!text.endsWith('.')) text += '.';
+                    opinionText += counter + "- " + text + "\n";
                 } else {
-                    // بدون ملاحظة: جملة إيجابية
                     text += getPositiveAddition(text);
+                    opinionText += counter + "- " + text + "\n";
                 }
-
-                opinionText += counter + "- " + text + "\n";
                 counter++;
             });
 
-            if (Array.isArray(schoolClassroomVisits) && schoolClassroomVisits.length > 0) {
+            // إضافة المواقف الصفية كبند مستقل فقط إذا لم يُعالَج ضمن هدف "موقف صفي"
+            if (!classroomVisitsHandled && hasClassroomVisits) {
                 opinionText += counter + "- تم حضور مواقف صفية وإجراء المداولة الإشرافية، وذلك على النحو الآتي:\n";
                 schoolClassroomVisits.forEach(cv => {
                     opinionText += `   • الحصة (${cv.period}): الأستاذ ${cv.teacher} – درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
@@ -2481,6 +2492,16 @@
                             .map((cb, index) => (index + 1) + '- ' + cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, ''))
                             .join('\n');
                         copyText(checked);
+                    });
+                }
+
+                const toggleAllBtn = document.getElementById('toggleAllObjectivesBtn');
+                if (toggleAllBtn) {
+                    toggleAllBtn.addEventListener('click', () => {
+                        const checkboxes = [...document.querySelectorAll('#objectivesContainer input[name="objectives"]')];
+                        const allChecked = checkboxes.every(cb => cb.checked);
+                        checkboxes.forEach(cb => { cb.checked = !allChecked; });
+                        toggleAllBtn.textContent = allChecked ? 'تحديد الكل' : 'إلغاء الكل';
                     });
                 }
                 
