@@ -1077,6 +1077,78 @@
             showToast('تم نسخ البيانات للحافظة ✅');
         }
 
+        function exportSchoolVisitToMoe() {
+            const visitorOpinion  = document.getElementById('visitorOpinion')?.value?.trim()  || '';
+            const recommendations = document.getElementById('recommendations')?.value?.trim() || '';
+
+            if (!visitorOpinion) {
+                showToast('يرجى توليد رأي الزائر أولاً قبل التصدير', 'error');
+                return;
+            }
+
+            const rawDate = document.getElementById('schoolVisitDate')?.value?.trim() || '';
+            let portalDate = rawDate;
+            if (rawDate.includes('-')) {
+                const [y, mo, d] = rawDate.split('-');
+                portalDate = `${d}/${mo}/${y}`;
+            }
+
+            const typeKey  = document.getElementById('visitTypeSelect')?.value || '';
+            const typeName = schoolVisitTypesData?.[typeKey]?.name || typeKey;
+
+            const objectives = Array.from(document.querySelectorAll('#objectivesContainer input[name="objectives"]:checked'))
+                .map(cb => cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim());
+
+            const exportData = {
+                visitType:       typeKey,
+                visitTypeName:   typeName,
+                school:          document.getElementById('schoolName')?.value?.trim() || '',
+                date:            portalDate,
+                objectives,
+                classroomVisits: schoolClassroomVisits || [],
+                visitorOpinion,
+                recommendations
+            };
+
+            const jsonStr    = JSON.stringify(exportData);
+            const ministryUrl = 'https://moe.gov.om/SMS/VariousRecords/SchoolVisits/SchoolVisitsMain.aspx';
+
+            navigator.clipboard.writeText(jsonStr);
+
+            const existingModal = document.getElementById('schoolMoeExportModal');
+            if (existingModal) existingModal.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'schoolMoeExportModal';
+            overlay.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4';
+            overlay.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full" dir="rtl">
+              <div class="flex items-center justify-between p-5 border-b border-slate-200">
+                <h3 class="text-lg font-bold text-slate-800">🚀 تصدير زيارة مدرسية للوزارة</h3>
+                <button onclick="document.getElementById('schoolMoeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+              </div>
+              <div class="p-5 space-y-4">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                  <div class="text-3xl mb-2">✅</div>
+                  <div class="font-bold text-emerald-800 mb-1">تم نسخ البيانات للحافظة</div>
+                  <p class="text-sm text-emerald-700">انتقل الآن لبوابة الوزارة والصق البيانات في سكربت Tampermonkey</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                  <div class="text-xs text-slate-500 mb-1">البيانات المُصدَّرة (JSON)</div>
+                  <textarea id="school-moe-json-preview" class="w-full font-mono text-xs bg-white border border-slate-200 rounded-lg p-2 h-28 resize-none" readonly></textarea>
+                  <button onclick="navigator.clipboard.writeText(document.getElementById('school-moe-json-preview').value).then(()=>showToast('تم النسخ مجدداً ✅'))" class="mt-2 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs transition-colors">إعادة النسخ</button>
+                </div>
+                <button onclick="window.open('${ministryUrl}','_blank');document.getElementById('schoolMoeExportModal').remove()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
+                  فتح موقع الوزارة ←
+                </button>
+              </div>
+            </div>`;
+            document.body.appendChild(overlay);
+            document.getElementById('school-moe-json-preview').value = jsonStr;
+            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+            showToast('تم نسخ البيانات للحافظة ✅');
+        }
+
  async function printArchivedReport(reportKey) {
             try {
                 const stored = JSON.parse(localStorage.getItem(reportKey));
@@ -2518,6 +2590,9 @@
                         copyText(document.getElementById('recommendations')?.value);
                     });
                 }
+
+                const exportSchoolMoeBtn = document.getElementById('exportSchoolToMoeBtn');
+                if (exportSchoolMoeBtn) exportSchoolMoeBtn.addEventListener('click', exportSchoolVisitToMoe);
 
                 const backToDashBtn = document.getElementById('backToDashboardBtn');
                 if (backToDashBtn) backToDashBtn.addEventListener('click', showSchoolDashboard);

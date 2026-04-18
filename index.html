@@ -443,10 +443,13 @@
                     </div>
                 </div>
 
-                <div class="sticky bottom-4 z-30 bg-white/90 backdrop-blur p-4 rounded-xl border border-slate-200 shadow-lg flex justify-end gap-3">
-                    <button type="button" id="backToDashboardBtn" class="px-6 py-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium">إلغاء</button>
-                    <button type="button" id="previewReportBtn" class="px-6 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-bold">معاينة</button>
-                    <button type="submit" class="px-6 py-2.5 text-white bg-green-600 hover:bg-green-700 rounded-lg font-bold">حفظ التقرير</button>
+                <div class="sticky bottom-0 md:bottom-4 z-30 bg-white/95 backdrop-blur-sm px-3 py-2 md:p-4 border-t md:border md:rounded-xl border-slate-200 shadow-lg">
+                    <div class="grid grid-cols-2 gap-1.5 md:flex md:justify-end md:gap-3">
+                        <button type="button" id="backToDashboardBtn" class="col-span-2 md:col-span-1 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium py-2 px-3 text-sm md:px-6 md:py-2.5">إلغاء</button>
+                        <button type="button" id="previewReportBtn" class="text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-bold py-2 px-3 text-sm md:px-6 md:py-2.5">معاينة</button>
+                        <button type="submit" class="text-white bg-green-600 hover:bg-green-700 rounded-lg font-bold py-2 px-3 text-sm md:px-6 md:py-2.5">حفظ التقرير</button>
+                        <button type="button" id="exportSchoolToMoeBtn" class="col-span-2 md:col-span-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-2 px-3 md:px-6 rounded-lg shadow-sm text-sm">🚀 تصدير للوزارة</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -499,6 +502,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=11"></script>
+    <script type="module" src="app.js?v=12"></script>
 </body>
 </html>
