@@ -1104,6 +1104,8 @@
                 visitTypeName:   typeName,
                 school:          document.getElementById('schoolName')?.value?.trim() || '',
                 date:            portalDate,
+                arrivalTime:     document.getElementById('schoolArrivalTime')?.value || '08:00',
+                departureTime:   document.getElementById('schoolDepartureTime')?.value || '12:00',
                 objectives,
                 classroomVisits: schoolClassroomVisits || [],
                 visitorOpinion,
