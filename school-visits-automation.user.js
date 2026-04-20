@@ -27,6 +27,8 @@
     const VISIT_TYPE_MAP = {
         'اشرافية': '1',
         'إشرافية': '1',
+        'supervisory': '1',
+        'gov_exploratory': '2',
         'استطلاعية': '2',
         'إستطلاعية': '2',
         'اخرى': '3',
@@ -214,6 +216,50 @@
     if (location.hostname.includes('moe.gov.om')) {
 
         const wait = ms => new Promise(r => setTimeout(r, ms));
+
+        function aspNetPostBack(el) {
+            if (!el) return false;
+            const oc = el.getAttribute('onchange') || '';
+            const m = oc.match(/__doPostBack\(['"]([^'"]+)['"]/);
+            if (m && typeof __doPostBack === 'function') {
+                __doPostBack(m[1], '');
+                return true;
+            }
+            return false;
+        }
+
+        function waitForIframe(timeout) {
+            return new Promise(resolve => {
+                // تحقق فوري
+                const iframe = document.getElementById('dialog-bodyAddEditSchoolVisits');
+                if (iframe && iframe.contentDocument && iframe.contentDocument.getElementById('ddlVisitTypes')) {
+                    resolve(iframe); return;
+                }
+
+                const obs = new MutationObserver(() => {
+                    const iframe = document.getElementById('dialog-bodyAddEditSchoolVisits');
+                    if (iframe && iframe.contentDocument && iframe.contentDocument.getElementById('ddlVisitTypes')) {
+                        obs.disconnect(); clearTimeout(timer); resolve(iframe);
+                    }
+                });
+                obs.observe(document.body, { childList: true, subtree: true });
+
+                // أيضاً راقب تحميل الـ iframe نفسه
+                const checkInterval = setInterval(() => {
+                    const iframe = document.getElementById('dialog-bodyAddEditSchoolVisits');
+                    if (iframe && iframe.contentDocument && iframe.contentDocument.getElementById('ddlVisitTypes')) {
+                        clearInterval(checkInterval); obs.disconnect(); clearTimeout(timer); resolve(iframe);
+                    }
+                }, 500);
+
+                const timer = setTimeout(() => {
+                    obs.disconnect(); clearInterval(checkInterval);
+                    // آخر محاولة
+                    const iframe = document.getElementById('dialog-bodyAddEditSchoolVisits');
+                    resolve((iframe && iframe.contentDocument) ? iframe : null);
+                }, timeout || 15000);
+            });
+        }
 
         function setText(id, val) {
             const el = document.getElementById(id);
@@ -425,15 +471,13 @@
                     // انتظار تحميل iframe
                     setStatus('⏳ انتظار تحميل نموذج الإضافة...', '⏳');
                     log('انتظار تحميل iframe الإضافة...');
-                    await wait(5000);
 
-                    // محاولة التعبئة داخل iframe
-                    const iframe = document.getElementById('dialog-bodyAddEditSchoolVisits');
-                    if (iframe && iframe.contentDocument) {
+                    const iframe = await waitForIframe(15000);
+                    if (iframe) {
                         await fillIframeForm(iframe.contentDocument, data);
                     } else {
-                        log('⚠ iframe لم يتحمل بعد — اضغط تعبئة تلقائية مرة أخرى بعد فتح النموذج', 'warn');
-                        setStatus('اضغط تعبئة بعد فتح نموذج الإضافة', '⏳');
+                        log('⚠ iframe لم يتحمل — جرّب الضغط على تعبئة تلقائية مرة أخرى', 'warn');
+                        setStatus('اضغط تعبئة مرة أخرى', '⏳');
                     }
                 } else {
                     // نحن داخل صفحة AddEditSchoolVisits.aspx مباشرة
@@ -449,56 +493,154 @@
             }
         }
 
+        function aspNetPostBack(el) {
+            if (!el) return false;
+            const oc = el.getAttribute('onchange') || '';
+            const m = oc.match(/__doPostBack\(['"]([^'"]+)['"]/);
+            if (m && typeof __doPostBack === 'function') {
+                __doPostBack(m[1], '');
+                return true;
+            }
+            return false;
+        }
+
         async function stepSelectSchool(data) {
             log('خطوة 1: اختيار المدرسة...', 'info');
             setProgress(5);
 
+            // إذا المدرسة محددة مسبقاً في القائمة
             const schoolSel = document.getElementById('ctl00_content_SchoolFilterCtrl1_ddlSchools');
-            if (!schoolSel) {
-                log('⚠ قائمة المدارس غير موجودة', 'error');
-                return;
-            }
-
-            // محاولة اختيار المدرسة من البيانات
-            if (data.school) {
+            if (schoolSel && data.school) {
                 const target = data.school.trim();
                 const opts = Array.from(schoolSel.options);
-                const match = opts.find(o => o.text.includes(target)) ||
-                              opts.find(o => o.text.replace(/[\u064B-\u065F\u0670]/g, '').includes(target.replace(/[\u064B-\u065F\u0670]/g, '')));
+                const match = opts.find(o => o.text.includes(target));
                 if (match) {
                     schoolSel.value = match.value;
-                    schoolSel.dispatchEvent(new Event('change', { bubbles: true }));
                     log('✅ المدرسة: ' + match.text, 'success');
-                } else {
-                    log('⚠ المدرسة غير موجودة في القائمة: ' + target, 'warn');
+                    setProgress(15);
+                    return;
                 }
             }
-            await wait(1000);
+
+            // المدرسة ليست في القائمة — نحتاج نختار المحافظة أولاً
+            log('المدرسة غير محملة بعد — اختيار المحافظة...', 'info');
+
+            // 1) اختيار المحافظة (مسقط)
+            const zoneSel = document.getElementById('ctl00_content_SchoolFilterCtrl1_ddlZones');
+            if (zoneSel) {
+                const zoneOpts = Array.from(zoneSel.options);
+                const zoneMatch = zoneOpts.find(o => o.text.includes('مسقط'));
+                if (zoneMatch && zoneSel.value !== zoneMatch.value) {
+                    zoneSel.value = zoneMatch.value;
+                    log('✅ المحافظة: ' + zoneMatch.text, 'success');
+                    if (!aspNetPostBack(zoneSel)) {
+                        zoneSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    await wait(5000);
+                }
+            }
+
+            // 2) اختيار نظام التعليم (أساسي)
+            const sysSel = document.getElementById('ctl00_content_SchoolFilterCtrl1_ddlEducationSystems');
+            if (sysSel) {
+                const sysOpts = Array.from(sysSel.options);
+                const sysMatch = sysOpts.find(o => o.text.includes('أساسي'));
+                if (sysMatch && sysSel.value !== sysMatch.value) {
+                    sysSel.value = sysMatch.value;
+                    log('✅ نظام التعليم: أساسي', 'success');
+                    if (!aspNetPostBack(sysSel)) {
+                        sysSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    await wait(3000);
+                }
+            }
+
+            // 3) اختيار الولاية
+            const stateSel = document.getElementById('ctl00_content_SchoolFilterCtrl1_ddlStates');
+            if (stateSel) {
+                const stateOpts = Array.from(stateSel.options);
+                const stateMatch = stateOpts.find(o => o.text.includes('السيب') || o.text.includes('السـيب'));
+                if (stateMatch && stateSel.value !== stateMatch.value) {
+                    stateSel.value = stateMatch.value;
+                    log('✅ الولاية: ' + stateMatch.text, 'success');
+                    if (!aspNetPostBack(stateSel)) {
+                        stateSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    await wait(3000);
+                }
+            }
+
+            // 4) الآن نختار المدرسة
+            const schoolSel2 = document.getElementById('ctl00_content_SchoolFilterCtrl1_ddlSchools');
+            if (schoolSel2 && data.school) {
+                const target = data.school.trim();
+                const opts = Array.from(schoolSel2.options);
+                const match = opts.find(o => o.text.includes(target));
+                if (match) {
+                    schoolSel2.value = match.value;
+                    if (!aspNetPostBack(schoolSel2)) {
+                        schoolSel2.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    log('✅ المدرسة: ' + match.text, 'success');
+                } else {
+                    log('⚠ المدرسة غير موجودة: ' + target, 'warn');
+                    // عرض الخيارات المتاحة
+                    const avail = opts.slice(1, 6).map(o => o.text).join(' | ');
+                    log('خيارات متاحة: ' + avail, 'info');
+                }
+            }
+            await wait(2000);
             setProgress(15);
         }
 
         async function stepClickView() {
             log('خطوة 2: ضغط عرض...', 'info');
-            const viewBtn = document.querySelector('input[type=button][value="عرض"], button');
+            // زر عرض في ASP.NET يستخدم __doPostBack
             const btns = Array.from(document.querySelectorAll('input[type=button], input[type=submit], button'));
             const viewBtnEl = btns.find(b => (b.value || b.textContent || '').trim() === 'عرض');
             if (viewBtnEl) {
-                viewBtnEl.click();
-                log('✅ تم ضغط زر عرض', 'success');
+                // جرب __doPostBack أولاً
+                const oc = viewBtnEl.getAttribute('onclick') || '';
+                const m = oc.match(/__doPostBack\(['"]([^'"]+)['"]\s*,\s*['"]([^'"]*)['"]/);
+                if (m && typeof __doPostBack === 'function') {
+                    __doPostBack(m[1], m[2]);
+                    log('✅ __doPostBack عرض: ' + m[1], 'success');
+                } else {
+                    viewBtnEl.click();
+                    log('✅ click عرض', 'success');
+                }
+            } else {
+                log('⚠ زر عرض غير موجود', 'warn');
             }
-            await wait(2000);
+            await wait(4000);
             setProgress(25);
         }
 
         async function stepClickAdd() {
             log('خطوة 3: ضغط إضافة...', 'info');
-            const btns = Array.from(document.querySelectorAll('input[type=button], input[type=submit], button'));
-            const addBtn = btns.find(b => (b.value || b.textContent || '').trim() === 'إضافة');
+            // انتظار حتى يظهر زر الإضافة
+            let retries = 0;
+            let addBtn = null;
+            while (retries < 10 && !addBtn) {
+                const btns = Array.from(document.querySelectorAll('input[type=button], input[type=submit], button'));
+                addBtn = btns.find(b => (b.value || b.textContent || '').trim() === 'إضافة');
+                if (!addBtn) {
+                    await wait(2000);
+                    retries++;
+                }
+            }
             if (addBtn) {
-                addBtn.click();
-                log('✅ تم ضغط زر إضافة — يفتح نموذج الإضافة', 'success');
+                const oc = addBtn.getAttribute('onclick') || '';
+                const m = oc.match(/__doPostBack\(['"]([^'"]+)['"]\s*,\s*['"]([^'"]*)['"]/);
+                if (m && typeof __doPostBack === 'function') {
+                    __doPostBack(m[1], m[2]);
+                    log('✅ __doPostBack إضافة', 'success');
+                } else {
+                    addBtn.click();
+                    log('✅ تم ضغط زر إضافة', 'success');
+                }
             } else {
-                log('⚠ زر إضافة غير موجود', 'warn');
+                log('⚠ زر إضافة لم يظهر بعد 20 ثانية', 'error');
             }
             setProgress(35);
         }
