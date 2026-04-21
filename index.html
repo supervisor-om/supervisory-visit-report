@@ -34,6 +34,11 @@
     </script>
 
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="تقارير إشرافية">
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen selection:bg-blue-100 selection:text-blue-900">
 
@@ -504,6 +509,20 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=15"></script>
+    <script src="js/state.js"></script>
+    <script src="js/templates.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/supervisory.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/school.js"></script>
+    <script src="js/init.js"></script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW registration failed:', err));
+    }
+    </script>
 </body>
 </html>
