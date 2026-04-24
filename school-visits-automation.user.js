@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 مُصدِّر ومُعبِّئ الزيارات المدرسية
 // @namespace    supervisor-om
-// @version      6.0
+// @version      6.1
 // @description  يصدّر بيانات الزيارة المدرسية من موقع المشرف ويملأ استمارة الوزارة تلقائياً (اختيار المدرسة + عرض + إضافة + تعبئة)
 // @author       Abu Al-Muather
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
@@ -47,7 +47,7 @@
     const MAIN_IDS = {
         school:     'ctl00_content_SchoolFilterCtrl1_ddlSchools',
         showBtn:    'ctl00_content_btnShow',
-        addBtn:     'ctl00_content_btnAdd',
+        addBtn:     'ctl00_content_ImgAdd',
         iframe:     'dialog-bodyAddEditSchoolVisits',
     };
 
@@ -633,7 +633,9 @@
             var parts = timeStr.split(':');
             var hour24 = parseInt(parts[0], 10) || 8;
             var mins = parts[1] || '00';
-            var ampm = hour24 >= 12 ? 'PM' : 'AM';
+            // AM/PM بالعربي: ص=1 (AM), م=2 (PM)
+            var ampmVal = hour24 >= 12 ? '2' : '1';
+            var ampmLabel = hour24 >= 12 ? 'م' : 'ص';
             var hour12 = hour24 > 12 ? hour24 - 12 : (hour24 === 0 ? 12 : hour24);
             var timeVal = String(hour12).padStart(2, '0') + ':' + mins;
 
@@ -648,7 +650,7 @@
                 if (exact) {
                     timeEl.value = exact.value;
                     timeEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    log('✅ وقت: ' + timeVal + ' ' + ampm, 'success');
+                    log('✅ وقت: ' + timeVal + ' ' + ampmLabel, 'success');
                 } else {
                     log('⚠ لم أجد خيار الوقت: ' + timeVal, 'warn');
                 }
@@ -656,7 +658,7 @@
 
             var ampmEl = doc.getElementById(ampmId);
             if (ampmEl) {
-                ampmEl.value = ampm;
+                ampmEl.value = ampmVal;
                 ampmEl.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
