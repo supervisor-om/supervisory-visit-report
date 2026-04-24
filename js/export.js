@@ -352,11 +352,22 @@
             const typeKey  = document.getElementById('visitTypeSelect')?.value || '';
             const typeName = schoolVisitTypesData?.[typeKey]?.name || typeKey;
 
+            // تحويل نوع الزيارة لرقم البوابة
+            const VISIT_TYPE_MAP = {
+                'اشرافية': '1', 'إشرافية': '1', 'supervisory': '1',
+                'gov_exploratory': '2', 'استطلاعية': '2', 'إستطلاعية': '2',
+                'اخرى': '3', 'أخرى': '3',
+            };
+            let visitTypeNum = '1';
+            for (const [key, val] of Object.entries(VISIT_TYPE_MAP)) {
+                if ((typeName || typeKey).includes(key)) { visitTypeNum = val; break; }
+            }
+
             const objectives = Array.from(document.querySelectorAll('#objectivesContainer input[name="objectives"]:checked'))
                 .map(cb => cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim());
 
             const exportData = {
-                visitType:       typeKey,
+                visitType:       visitTypeNum,
                 visitTypeName:   typeName,
                 school:          document.getElementById('schoolName')?.value?.trim() || '',
                 date:            portalDate,
@@ -371,9 +382,13 @@
             const jsonStr    = JSON.stringify(exportData);
             const ministryUrl = 'https://moe.gov.om/SMS/VariousRecords/SchoolVisits/SchoolVisitsMain.aspx';
 
-            // تخزين للسكربت التلقائي
+            // تخزين للسكربت التلقائي — GM_setValue + localStorage + hash URL
+            try { if (typeof GM_setValue === 'function') GM_setValue('svf_school_visit_data', jsonStr); } catch(e) {}
             localStorage.setItem('sv_moe_school_export', jsonStr);
             navigator.clipboard.writeText(jsonStr);
+
+            const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+            const typeLabels = { '1': 'إشرافية', '2': 'استطلاعية', '3': 'أخرى' };
 
             const existingModal = document.getElementById('schoolMoeExportModal');
             if (existingModal) existingModal.remove();
@@ -384,33 +399,38 @@
             overlay.innerHTML = `
             <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full" dir="rtl">
               <div class="flex items-center justify-between p-5 border-b border-slate-200">
-                <h3 class="text-lg font-bold text-slate-800">🚀 تصدير زيارة مدرسية للوزارة</h3>
+                <h3 class="text-lg font-bold text-slate-800">🏫 تصدير زيارة مدرسية للوزارة</h3>
                 <button onclick="document.getElementById('schoolMoeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
               </div>
               <div class="p-5 space-y-4">
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-                  <div class="text-3xl mb-2">✅</div>
-                  <div class="font-bold text-emerald-800 mb-1">تم نسخ البيانات للحافظة</div>
-                  <p class="text-sm text-emerald-700">انتقل الآن لبوابة الوزارة والصق البيانات في سكربت Tampermonkey</p>
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                  سيتم نقلك لبوابة الوزارة وتعبئة استمارة الزيارة المدرسية تلقائياً بالبيانات التالية:
                 </div>
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <div class="text-xs text-slate-500 mb-1">البيانات المُصدَّرة (JSON)</div>
-                  <textarea id="school-moe-json-preview" class="w-full font-mono text-xs bg-white border border-slate-200 rounded-lg p-2 h-28 resize-none" readonly></textarea>
-                  <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-                  <b>طريقة الاستخدام:</b><br>
-                  1️⃣ ثبّت سكربت Tampermonkey من المستودع<br>
-                  2️⃣ افتح موقع الوزارة — سيظهر زر "📋 لصق البيانات"<br>
-                  3️⃣ اضغط الزر والصق — سيعبّأ النموذج تلقائياً
+                <table class="w-full text-sm border-collapse">
+                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500 w-2/5">المدرسة</td><td class="px-3 py-2 font-semibold">${exportData.school || '—'}</td></tr>
+                  <tr><td class="px-3 py-2 text-slate-500">التاريخ</td><td class="px-3 py-2 font-semibold">${exportData.date || '—'}</td></tr>
+                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">نوع الزيارة</td><td class="px-3 py-2 font-semibold">${typeLabels[visitTypeNum] || typeName || '—'}</td></tr>
+                  <tr><td class="px-3 py-2 text-slate-500">وقت الوصول</td><td class="px-3 py-2 font-semibold">${exportData.arrivalTime}</td></tr>
+                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">وقت الانصراف</td><td class="px-3 py-2 font-semibold">${exportData.departureTime}</td></tr>
+                  <tr><td class="px-3 py-2 text-slate-500">الأهداف</td><td class="px-3 py-2 text-xs">${objectives.length > 0 ? objectives.slice(0,3).join(' • ').substring(0, 80) + '...' : '—'}</td></tr>
+                </table>
+                <div class="flex gap-3">
+                  <button id="svf-go-btn" class="flex-1 bg-gradient-to-br from-amber-600 to-amber-800 hover:from-amber-700 hover:to-amber-900 text-white py-3 rounded-xl text-sm font-bold transition-colors">
+                    فتح موقع الوزارة والتعبئة التلقائية
+                  </button>
+                  <button onclick="document.getElementById('schoolMoeExportModal').remove()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-3 rounded-xl text-sm transition-colors">إلغاء</button>
                 </div>
-                <button onclick="navigator.clipboard.writeText(document.getElementById('school-moe-json-preview').value).then(()=>showToast('تم النسخ مجدداً ✅'))" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs transition-colors">إعادة النسخ للحافظة</button>
-                <button onclick="window.open('${ministryUrl}','_blank');document.getElementById('schoolMoeExportModal').remove()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
-                  فتح موقع الوزارة ←
-                </button>
               </div>
             </div>`;
             document.body.appendChild(overlay);
-            document.getElementById('school-moe-json-preview').value = jsonStr;
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+            document.getElementById('svf-go-btn').addEventListener('click', () => {
+                const url = ministryUrl + '#svf=' + b64;
+                window.open(url, '_blank');
+                overlay.remove();
+            });
+
             showToast('تم نسخ البيانات للحافظة ✅');
         }
 
