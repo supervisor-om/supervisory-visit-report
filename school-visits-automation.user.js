@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         🏫 مُصدِّر ومُعبِّئ الزيارات المدرسية
 // @namespace    supervisor-om
-// @version      5.1
-// @description  يصدّر بيانات الزيارة المدرسية من موقع المشرف ويملأ استمارة الوزارة تلقائياً
+// @version      6.0
+// @description  يصدّر بيانات الزيارة المدرسية من موقع المشرف ويملأ استمارة الوزارة تلقائياً (اختيار المدرسة + عرض + إضافة + تعبئة)
 // @author       Abu Al-Muather
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
 // @match        https://moe.gov.om/SMS/VariousRecords/SchoolVisits/*
@@ -24,17 +24,13 @@
     const MOE_MAIN_URL =
         'https://moe.gov.om/SMS/VariousRecords/SchoolVisits/SchoolVisitsMain.aspx';
 
-    const MOE_ADD_URL =
-        'https://moe.gov.om/SMS/VariousRecords/SchoolVisits/AddEditSchoolVisits.aspx' +
-        '?SchoolVisitID=-1&SchoolID=113&SchYearID=19&MyVisits=0&AttachmentFileID=-1';
-
     const VISIT_TYPE_MAP = {
         'اشرافية': '1', 'إشرافية': '1', 'supervisory': '1',
         'gov_exploratory': '2', 'استطلاعية': '2', 'إستطلاعية': '2',
         'اخرى': '3', 'أخرى': '3',
     };
 
-    // IDs نموذج الإضافة (داخل iframe أو صفحة AddEditSchoolVisits.aspx)
+    // IDs نموذج الإضافة
     const IDS = {
         visitType:       'ddlVisitTypes',
         visitDate:       'tbDate',
@@ -49,17 +45,9 @@
 
     // IDs صفحة العرض الرئيسية
     const MAIN_IDS = {
-        zone:       'ctl00_content_SchoolFilterCtrl1_ddlZones',
-        eduSystem:  'ctl00_content_SchoolFilterCtrl1_ddlEducationSystems',
-        year:       'ctl00_content_SchoolFilterCtrl1_ddlScholasticYears',
-        state:      'ctl00_content_SchoolFilterCtrl1_ddlStates',
         school:     'ctl00_content_SchoolFilterCtrl1_ddlSchools',
-        dept:       'ctl00_content_ddlDepartment',
-        job:        'ctl00_content_ddlJobs',
-        visitor:    'ctl00_content_ddlVisitors',
-        visitType:  'ctl00_content_ddlSchoolVisitTypes',
-        dateFrom:   'ctl00_content_dtpDateFrom_dateTextBox',
-        dateTo:     'ctl00_content_dtpDateTo_dateTextBox',
+        showBtn:    'ctl00_content_btnShow',
+        addBtn:     'ctl00_content_btnAdd',
         iframe:     'dialog-bodyAddEditSchoolVisits',
     };
 
@@ -115,22 +103,22 @@
         }
 
         function doExport() {
-            const visitorOpinion = document.querySelector('#visitorOpinion') && document.querySelector('#visitorOpinion').value.trim() || '';
-            const recommendations = document.querySelector('#recommendations') && document.querySelector('#recommendations').value.trim() || '';
+            const visitorOpinion = document.querySelector('#visitorOpinion')?.value?.trim() || '';
+            const recommendations = document.querySelector('#recommendations')?.value?.trim() || '';
 
             if (!visitorOpinion) {
                 toast('يرجى توليد رأي الزائر أولاً قبل التصدير', 'error');
                 return;
             }
 
-            const rawDate = (document.querySelector('#schoolVisitDate') || {}).value && document.querySelector('#schoolVisitDate').value.trim() || '';
+            const rawDate = document.querySelector('#schoolVisitDate')?.value?.trim() || '';
             let portalDate = rawDate;
             if (rawDate.includes('-')) {
                 var parts = rawDate.split('-');
                 portalDate = parts[2] + '/' + parts[1] + '/' + parts[0];
             }
 
-            var typeKey = (document.querySelector('#visitTypeSelect') || {}).value || '';
+            var typeKey = document.querySelector('#visitTypeSelect')?.value || '';
             var typeName = '';
             try { typeName = schoolVisitTypesData[typeKey].name || typeKey; } catch(e) { typeName = typeKey; }
 
@@ -140,10 +128,10 @@
             var data = {
                 visitType: parseVisitType(typeName || typeKey),
                 visitTypeName: typeName,
-                school: (document.querySelector('#schoolName') || {}).value && document.querySelector('#schoolName').value.trim() || '',
+                school: document.querySelector('#schoolName')?.value?.trim() || '',
                 date: portalDate,
-                arrivalTime: (document.querySelector('#schoolArrivalTime') || {}).value || '08:00',
-                departureTime: (document.querySelector('#schoolDepartureTime') || {}).value || '12:00',
+                arrivalTime: document.querySelector('#schoolArrivalTime')?.value || '08:00',
+                departureTime: document.querySelector('#schoolDepartureTime')?.value || '12:00',
                 objectives: objectives,
                 visitorOpinion: visitorOpinion,
                 recommendations: recommendations,
@@ -201,10 +189,8 @@
 
             document.getElementById('svf-go').addEventListener('click', function() {
                 var json = JSON.stringify(data);
-                var b64 = btoa(unescape(encodeURIComponent(json)));
-                var url = MOE_MAIN_URL + '#svf=' + b64;
                 try { GM_setValue(DATA_KEY, json); } catch(e) {}
-                window.open(url, '_blank');
+                window.open(MOE_MAIN_URL, '_blank');
                 overlay.remove();
             });
             document.getElementById('svf-close').addEventListener('click', function() { overlay.remove(); });
@@ -244,11 +230,11 @@
 
         var wait = function(ms) { return new Promise(function(r) { setTimeout(r, ms); }); };
 
-        // ── لوحة متابعة ──
+        // ── أنماط اللوحة ──
         GM_addStyle(
             '#svf-panel{' +
                 'position:fixed;top:70px;left:10px;z-index:99999;' +
-                'width:300px;background:#1a1207;color:#fef3c7;' +
+                'width:320px;background:#1a1207;color:#fef3c7;' +
                 'border-radius:12px;box-shadow:0 6px 30px rgba(0,0,0,.6);' +
                 'font-family:"Segoe UI",Arial,sans-serif;font-size:13px;' +
                 'direction:rtl;overflow:hidden}' +
@@ -264,25 +250,27 @@
             '#svf-data-box .row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #44403c}' +
             '#svf-data-box .row:last-child{border:none}' +
             '#svf-data-box .lbl{color:#fbbf24}' +
-            '#svf-data-box .val{color:#fff;font-weight:600;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+            '#svf-data-box .val{color:#fff;font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
             '#svf-status{background:#0c0a04;border-radius:6px;padding:7px 10px;margin-bottom:8px;font-size:11px;color:#fde68a}' +
             '#svf-pbar{height:5px;background:#0c0a04;border-radius:3px;margin-bottom:10px;overflow:hidden}' +
             '#svf-bar{height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,#d97706,#fbbf24);transition:width .4s}' +
-            '#svf-log{background:#0c0a04;border-radius:6px;padding:7px;height:140px;overflow-y:auto;font-size:10.5px;margin-bottom:10px;line-height:1.7}' +
+            '#svf-log{background:#0c0a04;border-radius:6px;padding:7px;height:160px;overflow-y:auto;font-size:10.5px;margin-bottom:10px;line-height:1.7}' +
             '.svf-log-info{color:#93c5fd}' +
             '.svf-log-warn{color:#fde68a}' +
             '.svf-log-error{color:#fca5a5}' +
             '.svf-log-success{color:#6ee7b7;font-weight:bold}' +
             '.svf-btn{width:100%;padding:9px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;margin-bottom:6px}' +
-            '#svf-btn-fill{background:linear-gradient(135deg,#d97706,#92400e);color:white;font-size:14px;padding:11px}' +
+            '#svf-btn-auto{background:linear-gradient(135deg,#d97706,#92400e);color:white;font-size:14px;padding:11px}' +
+            '#svf-btn-auto:disabled{background:#44403c;color:#78716c;cursor:not-allowed}' +
+            '#svf-btn-fill{background:#15803d;color:white;font-size:13px;padding:9px}' +
             '#svf-btn-fill:disabled{background:#44403c;color:#78716c;cursor:not-allowed}' +
             '#svf-btn-clear{background:#292524;color:#a8a29e;font-size:11px}' +
             '#svf-panel.collapsed #svf-body{display:none}'
         );
 
         var visitData = null;
+        var autoRunning = false;
         var filling = false;
-        var statusEl = null;
 
         function log(msg, type) {
             type = type || 'info';
@@ -345,17 +333,19 @@
             '</div>' +
             '<div id="svf-body">' +
                 dataBoxHTML +
-                '<div id="svf-status">⏳ ' + (hasData ? 'انتظر الصفحة ثم اضغط تعبئة تلقائية' : 'في انتظار البيانات') + '</div>' +
+                '<div id="svf-status">⏳ ' + (hasData ? 'جاهز للتشغيل التلقائي' : 'في انتظار البيانات') + '</div>' +
                 '<div id="svf-pbar"><div id="svf-bar"></div></div>' +
                 '<div id="svf-log"></div>' +
-                '<button class="svf-btn" id="svf-btn-fill"' + (!hasData ? ' disabled' : '') + '>⚡ تعبئة تلقائية</button>' +
+                '<button class="svf-btn" id="svf-btn-auto"' + (!hasData ? ' disabled' : '') + '>🚀 تشغيل تلقائي كامل</button>' +
+                '<button class="svf-btn" id="svf-btn-fill"' + (!hasData ? ' disabled' : '') + '>⚡ تعبئة النموذج فقط</button>' +
                 '<button class="svf-btn" id="svf-btn-clear">🗑 مسح السجل</button>' +
             '</div>';
 
             document.body.appendChild(panel);
 
             if (hasData) {
-                document.getElementById('svf-btn-fill').addEventListener('click', function() { startFill(data); });
+                document.getElementById('svf-btn-auto').addEventListener('click', function() { runAutoFull(data); });
+                document.getElementById('svf-btn-fill').addEventListener('click', function() { runFillOnly(data); });
             }
             document.getElementById('svf-btn-clear').addEventListener('click', function() {
                 var logEl = document.getElementById('svf-log');
@@ -383,11 +373,178 @@
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // التعبئة التلقائية — صفحة AddEditSchoolVisits.aspx
+        // التشغيل التلقائي الكامل: اختيار المدرسة → عرض → إضافة → تعبئة
+        // ═══════════════════════════════════════════════════════════════
+        async function runAutoFull(data) {
+            if (autoRunning) return;
+            autoRunning = true;
+            setProgress(0);
+
+            var autoBtn = document.getElementById('svf-btn-auto');
+            var fillBtn = document.getElementById('svf-btn-fill');
+            if (autoBtn) { autoBtn.disabled = true; autoBtn.textContent = '⏳ جارٍ التشغيل...'; }
+            if (fillBtn) fillBtn.disabled = true;
+
+            try {
+                // ── الخطوة 1: اختيار المدرسة ──
+                setStatus('اختيار المدرسة...', '🏫');
+                log('━━━ الخطوة 1: اختيار المدرسة ━━━', 'info');
+                setProgress(5);
+
+                var schoolDD = document.getElementById(MAIN_IDS.school);
+                if (!schoolDD) {
+                    log('❌ لم أجد قائمة المدارس — تأكد أنك في صفحة الزيارات المدرسية', 'error');
+                    setStatus('خطأ: قائمة المدارس غير موجودة', '❌');
+                    autoRunning = false;
+                    if (autoBtn) { autoBtn.disabled = false; autoBtn.textContent = '🚀 تشغيل تلقائي كامل'; }
+                    if (fillBtn) fillBtn.disabled = false;
+                    return;
+                }
+
+                var schoolName = data.school || '';
+                var schoolFound = false;
+
+                if (schoolName) {
+                    // بحث تطابقي في القائمة
+                    var opts = Array.from(schoolDD.options);
+                    var match = opts.find(function(o) {
+                        return o.text.trim() === schoolName.trim();
+                    });
+                    // بحث تقريبي لو ما لقينا تطابق كامل
+                    if (!match) {
+                        match = opts.find(function(o) {
+                            return o.text.includes(schoolName.trim()) || schoolName.trim().includes(o.text.trim());
+                        });
+                    }
+                    if (match) {
+                        schoolDD.value = match.value;
+                        schoolDD.dispatchEvent(new Event('change', { bubbles: true }));
+                        log('✅ تم اختيار المدرسة: ' + match.text, 'success');
+                        schoolFound = true;
+                    } else {
+                        log('⚠ لم أجد المدرسة "' + schoolName + '" في القائمة', 'warn');
+                        log('المدارس المتاحة: ' + opts.slice(1, 6).map(function(o) { return o.text; }).join(' | ') + '...', 'info');
+                    }
+                } else {
+                    log('⚠ لم يوجد اسم مدرسة في البيانات', 'warn');
+                }
+
+                if (!schoolFound) {
+                    log('⏸ اختر المدرسة يدوياً ثم اضغط 🚀 تشغيل تلقائي كامل', 'warn');
+                    setStatus('اختر المدرسة يدوياً أولاً', '⏸');
+                    autoRunning = false;
+                    if (autoBtn) { autoBtn.disabled = false; autoBtn.textContent = '🚀 تشغيل تلقائي كامل'; }
+                    if (fillBtn) fillBtn.disabled = false;
+                    return;
+                }
+
+                await wait(1500);
+                setProgress(15);
+
+                // ── الخطوة 2: اضغط عرض ──
+                setStatus('ضغط عرض...', '🔍');
+                log('━━━ الخطوة 2: ضغط عرض ━━━', 'info');
+
+                var showBtn = document.getElementById(MAIN_IDS.showBtn);
+                if (showBtn) {
+                    showBtn.click();
+                    log('✅ تم ضغط عرض', 'success');
+                } else {
+                    log('❌ لم أجد زر عرض', 'error');
+                }
+
+                await wait(3000);
+                setProgress(25);
+
+                // ── الخطوة 3: اضغط إضافة ──
+                setStatus('ضغط إضافة...', '➕');
+                log('━━━ الخطوة 3: ضغط إضافة ━━━', 'info');
+
+                var addBtn = document.getElementById(MAIN_IDS.addBtn);
+                if (addBtn) {
+                    addBtn.click();
+                    log('✅ تم ضغط إضافة', 'success');
+                } else {
+                    log('❌ لم أجد زر إضافة', 'error');
+                }
+
+                // انتظر ظهور iframe النموذج
+                setStatus('انتظار نموذج الإضافة...', '⏳');
+                log('⏳ انتظار ظهور نموذج الإضافة...', 'info');
+
+                var maxWait = 15000;
+                var waited = 0;
+                var formDoc = null;
+                while (waited < maxWait) {
+                    await wait(1000);
+                    waited += 1000;
+                    formDoc = findFormDoc();
+                    if (formDoc) break;
+                }
+                setProgress(35);
+
+                if (!formDoc) {
+                    log('❌ لم يظهر نموذج الإضافة بعد ' + (maxWait/1000) + ' ثانية', 'error');
+                    setStatus('لم يظهر نموذج الإضافة', '❌');
+                    autoRunning = false;
+                    if (autoBtn) { autoBtn.disabled = false; autoBtn.textContent = '🚀 تشغيل تلقائي كامل'; }
+                    if (fillBtn) fillBtn.disabled = false;
+                    return;
+                }
+
+                log('✅ ظهر نموذج الإضافة!', 'success');
+                await wait(1000);
+
+                // ── الخطوة 4: تعبئة النموذج ──
+                await fillAddForm(data, formDoc);
+
+            } catch (err) {
+                setStatus('خطأ: ' + err.message, '❌');
+                log('❌ خطأ: ' + err.message, 'error');
+            } finally {
+                autoRunning = false;
+                if (autoBtn) { autoBtn.disabled = false; autoBtn.textContent = '🚀 تشغيل تلقائي كامل'; }
+                if (fillBtn) fillBtn.disabled = false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // تعبئة النموذج فقط (لو النموذج مفتوح بالفعل)
+        // ═══════════════════════════════════════════════════════════════
+        async function runFillOnly(data) {
+            if (filling) return;
+            filling = true;
+
+            var fillBtn = document.getElementById('svf-btn-fill');
+            var autoBtn = document.getElementById('svf-btn-auto');
+            if (fillBtn) { fillBtn.disabled = true; fillBtn.textContent = '⏳ جارٍ التعبئة...'; }
+            if (autoBtn) autoBtn.disabled = true;
+
+            try {
+                var doc = findFormDoc();
+                if (doc) {
+                    await fillAddForm(data, doc);
+                } else {
+                    log('⚠ نموذج الإضافة غير موجود', 'warn');
+                    log('اضغط إضافة أولاً ثم اضغط ⚡ تعبئة النموذج فقط', 'info');
+                    setStatus('افتح نموذج الإضافة أولاً', '⏳');
+                }
+            } catch (err) {
+                setStatus('خطأ: ' + err.message, '❌');
+                log('❌ خطأ: ' + err.message, 'error');
+            } finally {
+                filling = false;
+                if (fillBtn) { fillBtn.disabled = false; fillBtn.textContent = '⚡ تعبئة النموذج فقط'; }
+                if (autoBtn) autoBtn.disabled = false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // تعبئة حقول النموذج
         // ═══════════════════════════════════════════════════════════════
         async function fillAddForm(data, doc) {
             doc = doc || document;
-            log('━━━ بدء التعبئة التلقائية ━━━', 'info');
+            log('━━━ الخطوة 4: تعبئة النموذج ━━━', 'info');
             setProgress(40);
 
             // 1. نوع الزيارة
@@ -457,17 +614,19 @@
                 recEl.dispatchEvent(new Event('input', { bubbles: true }));
                 recEl.dispatchEvent(new Event('change', { bubbles: true }));
                 log('✅ التوصيات', 'success');
+            } else if (recEl) {
+                log('ℹ لا توجد توصيات', 'info');
             }
             setProgress(100);
 
-            setStatus('تمت التعبئة التلقائية — احفظ يدوياً', '✅');
+            setStatus('تمت التعبئة — راجع واحفظ يدوياً ⚠️', '✅');
             log('━━━ اكتملت التعبئة! راجع واحفظ ━━━', 'success');
-            log('⚠ اضغط زر الحفظ بنفسك', 'warn');
+            log('⚠️ اضغط زر الحفظ بنفسك', 'warn');
 
             GM_deleteValue(DATA_KEY);
         }
 
-        // ملء حقول الوقت (ساعة:دقيقة + AM/PM)
+        // ملء حقول الوقت
         function fillTimeDropdown(doc, timeId, ampmId, timeStr) {
             if (!timeStr) return;
 
@@ -480,11 +639,9 @@
 
             var timeEl = doc.getElementById(timeId);
             if (timeEl) {
-                // ابحث عن أقرب خيار
                 var opts = Array.from(timeEl.options);
                 var exact = opts.find(function(o) { return o.value === timeVal || o.text.trim() === timeVal; });
                 if (!exact) {
-                    // مطابقة تقريبية بالساعة فقط
                     var hourStr = String(hour12).padStart(2, '0');
                     exact = opts.find(function(o) { return o.text.includes(hourStr + ':'); });
                 }
@@ -504,40 +661,9 @@
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // التعبئة التلقائية — يبحث عن النموذج ويملأه
-        // ═══════════════════════════════════════════════════════════════
-        async function startFill(data) {
-            if (filling) return;
-            filling = true;
-
-            var btn = document.getElementById('svf-btn-fill');
-            if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ التعبئة...'; }
-
-            try {
-                var doc = findFormDoc();
-                if (doc) {
-                    await fillAddForm(data, doc);
-                } else {
-                    log('⚠ نموذج الإضافة غير موجود بعد', 'warn');
-                    log('1️⃣ اختر المدرسة → اضغط عرض → اضغط إضافة', 'info');
-                    log('2️⃣ ثم اضغط ⚡ تعبئة تلقائية', 'info');
-                    setStatus('افتح نموذج الإضافة أولاً', '⏳');
-                }
-            } catch (err) {
-                setStatus('خطأ: ' + err.message, '❌');
-                log('خطأ: ' + err.message, 'error');
-            } finally {
-                filling = false;
-                if (btn) { btn.disabled = false; btn.textContent = '⚡ تعبئة تلقائية'; }
-            }
-        }
-
-        // ابحث عن نموذج الإضافة (صفحة مباشرة أو داخل iframe)
+        // ابحث عن نموذج الإضافة
         function findFormDoc() {
-            // 1) نموذج مباشر في الصفحة
             if (document.getElementById(IDS.visitType)) return document;
-            // 2) نموذج داخل iframe
             try {
                 var iframe = document.getElementById(MAIN_IDS.iframe);
                 if (iframe && iframe.contentDocument && iframe.contentDocument.getElementById(IDS.visitType)) {
@@ -550,68 +676,79 @@
         // ── اختصار ──
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.shiftKey && e.key === 'F') {
-                if (visitData) startFill(visitData);
+                if (visitData) runFillOnly(visitData);
+            }
+            if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+                if (visitData) runAutoFull(visitData);
             }
         });
 
         // ── التهيئة ──
+        // نقرأ البيانات فوراً (قبل load) عشان ما نفقد البيانات بسبب postback
+        (function readData() {
+            // 1) من hash الرابط
+            try {
+                var m = location.hash.match(/#svf=([A-Za-z0-9+/=]+)/);
+                if (m) {
+                    var json = decodeURIComponent(escape(atob(m[1])));
+                    visitData = JSON.parse(json);
+                    try { GM_setValue(DATA_KEY, json); } catch(e) {}
+                    history.replaceState(null, '', location.pathname + location.search);
+                }
+            } catch(e) {}
+
+            // 2) من تخزين Tampermonkey (المصدر الأساسي)
+            if (!visitData) {
+                try {
+                    var raw = GM_getValue(DATA_KEY, '');
+                    if (raw) visitData = JSON.parse(raw);
+                } catch(e) {}
+            }
+
+            // 3) من localStorage (fallback — نفس النطاق)
+            if (!visitData) {
+                try {
+                    var lsRaw = localStorage.getItem('sv_moe_school_export');
+                    if (lsRaw) visitData = JSON.parse(lsRaw);
+                } catch(e) {}
+            }
+        })();
+
+        // نبني اللوحة بعد ما الصفحة تتحمل
         window.addEventListener('load', function() {
             setTimeout(function() {
-                // 1) قراءة البيانات من hash الرابط
-                try {
-                    var m = location.hash.match(/#svf=([A-Za-z0-9+/=]+)/);
-                    if (m) {
-                        var json = decodeURIComponent(escape(atob(m[1])));
-                        visitData = JSON.parse(json);
-                        try { GM_setValue(DATA_KEY, json); } catch(e) {}
-                        history.replaceState(null, '', location.pathname + location.search);
-                    }
-                } catch(e) {}
-
-                // 2) من تخزين Tampermonkey
-                if (!visitData) {
-                    try {
-                        var raw = GM_getValue(DATA_KEY, '');
-                        if (raw) visitData = JSON.parse(raw);
-                    } catch(e) {}
-                }
-
                 buildPanel(visitData);
 
                 if (visitData) {
-                    log('تم استيراد البيانات من موقع المشرف', 'success');
-                    log('المدرسة: ' + (visitData.school || '—'), 'info');
-                    log('التاريخ: ' + (visitData.date || '—'), 'info');
-                    log('نوع الزيارة: ' + (visitData.visitTypeName || visitData.visitType), 'info');
+                    log('✅ تم استيراد البيانات من موقع المشرف', 'success');
+                    log('🏫 المدرسة: ' + (visitData.school || '—'), 'info');
+                    log('📅 التاريخ: ' + (visitData.date || '—'), 'info');
+                    log('📋 نوع الزيارة: ' + (visitData.visitTypeName || visitData.visitType), 'info');
                     log('', 'info');
-                    log('━━━ طريقة الاستخدام ━━━', 'info');
-                    log('1️⃣ اختر المدرسة واضغط عرض (يدوي)', 'info');
-                    log('2️⃣ اضغط إضافة (يدوي)', 'info');
-                    log('3️⃣ اضغط ⚡ تعبئة تلقائية', 'info');
-                    log('4️⃣ احفظ يدوياً ⚠️', 'warn');
-                    log('', 'info');
-                    log('اضغط ⚡ تعبئة تلقائية للبدء', 'info');
 
-                    // لو النموذج موجود — تعبئة تلقائية فورية
-                    if (findFormDoc()) {
-                        log('نموذج الإضافة محمل — تعبئة تلقائية...', 'success');
-                        setTimeout(function() { startFill(visitData); }, 1500);
+                    var formDoc = findFormDoc();
+                    if (formDoc) {
+                        log('✅ نموذج الإضافة مفتوح بالفعل', 'success');
+                        setStatus('النموذج مفتوح — اضغط تعبئة', '✅');
+                    } else {
+                        log('━━━ طريقتان للتشغيل ━━━', 'info');
+                        log('🚀 تشغيل تلقائي كامل: اختيار المدرسة + عرض + إضافة + تعبئة', 'info');
+                        log('⚡ تعبئة النموذج فقط: لو النموذج مفتوح بالفعل', 'info');
+                        log('', 'info');
+                        log('اختصارات: Ctrl+Shift+A = تلقائي كامل | Ctrl+Shift+F = تعبئة فقط', 'info');
                     }
-
-                    // راقب ظهور iframe النموذج (لما تضغط إضافة يدوياً)
-                    var autoFillObserver = new MutationObserver(function() {
-                        if (!visitData || filling) return;
-                        if (findFormDoc()) {
-                            log('✅ تم كشف نموذج الإضافة — تعبئة تلقائية...', 'success');
-                            setTimeout(function() { startFill(visitData); }, 1000);
-                        }
-                    });
-                    autoFillObserver.observe(document.body, { childList: true, subtree: true });
                 } else {
                     log('لا توجد بيانات — استخدم "تصدير للوزارة" من موقعك', 'warn');
                 }
             }, 2000);
         });
+
+        // راقب postbacks — أعد بناء اللوحة لو ضاعت
+        var panelCheckInterval = setInterval(function() {
+            if (!document.getElementById('svf-panel') && visitData) {
+                buildPanel(visitData);
+            }
+        }, 3000);
     }
 
 })();
