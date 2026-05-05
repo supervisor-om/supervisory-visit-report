@@ -286,6 +286,9 @@
     // ═══════════════════════════════════════════════════════════════
     if (location.hostname.includes('moe.gov.om')) {
 
+        // لا تشتغل داخل iframe (النموذج يفتح في iframe)
+        if (window.top !== window.self) return;
+
         // ─── استيراد البيانات من كل المصادر الممكنة ───
         let visitData = null;
 
@@ -953,8 +956,7 @@
             const subjectEl = doc.getElementById('txtVisitSubject')
                            || findFormField(doc, ['txtVisitSubject', 'txtSubject', 'txtVisitSubject']);
             if (subjectEl && data.objectives && data.objectives.length > 0) {
-                setFieldValue(subjectEl, data.objectives.join('
-'));
+                setFieldValue(subjectEl, data.objectives.join('\n'));
                 log('✅ أهداف الزيارة: ' + data.objectives.length + ' أهداف', 'success');
             } else if (subjectEl) {
                 log('ℹ️ لا توجد أهداف — اترك الحقل فارغاً', 'info');
