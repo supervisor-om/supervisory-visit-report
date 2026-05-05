@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      8.0
+// @version      8.1
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
@@ -508,6 +508,7 @@
                 if (logEl) logEl.innerHTML = '';
                 setProgress(0);
                 setAllStepsIdle();
+                sessionStorage.removeItem('svf_pilot_done');
             });
             $('#svf-btn-switch-v7')?.addEventListener('click', switchToBilingual);
             $('#svf-toggle-v7')?.addEventListener('click', () => {
@@ -878,6 +879,7 @@
                 log('🔴 لا يتم الحفظ تلقائياً — تأكد من صحة البيانات', 'error');
 
                 setProgress(100);
+                sessionStorage.setItem('svf_pilot_done', '1');
 
             } catch (err) {
                 log('❌ توقف: ' + err.message, 'error');
@@ -1082,15 +1084,22 @@
                     log('📅 ' + (visitData.date || '—'), 'info');
                     log('📋 ' + (visitData.visitTypeName || visitData.visitType || '—'), 'info');
                     log('', 'info');
-                    log('🛩️ تفعيل الطيار الآلي — سيبدأ التشغيل التلقائي بعد 3 ثوانٍ...', 'success');
-                    log('💡 Ctrl+Shift+A = تلقائي | Ctrl+Shift+F = تعبئة فقط | Ctrl+Shift+L = ثنائي اللغة', 'info');
                     log('⚠️ الحفظ يدوي — راجع البيانات قبل "حفظ"', 'warn');
 
-                    // الطيار الآلي: تشغيل تلقائي بدون ضغط المستخدم
-                    setTimeout(() => {
-                        log('🛩️ إقلاع الطيار الآلي...', 'success');
-                        runAutoFull(visitData);
-                    }, 3000);
+                    // الطيار الآلي: يشتغل مرة واحدة فقط لكل tab
+                    if (!sessionStorage.getItem('svf_pilot_done')) {
+                        log('🛩️ تفعيل الطيار الآلي — سيبدأ التشغيل التلقائي بعد 3 ثوانٍ...', 'success');
+                        log('💡 Ctrl+Shift+A = تلقائي | Ctrl+Shift+F = تعبئة فقط | Ctrl+Shift+L = ثنائي اللغة', 'info');
+
+                        setTimeout(() => {
+                            if (sessionStorage.getItem('svf_pilot_done')) return;
+                            log('🛩️ إقلاع الطيار الآلي...', 'success');
+                            runAutoFull(visitData);
+                        }, 3000);
+                    } else {
+                        log('ℹ️ الطيار الآلي اكتمل مسبقاً — استخدم الأزرار أدناه للتكرار', 'info');
+                        log('💡 Ctrl+Shift+A = تلقائي | Ctrl+Shift+F = تعبئة فقط | Ctrl+Shift+L = ثنائي اللغة', 'info');
+                    }
                 }
             }, 1500);
         });
