@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      7.1
+// @version      7.2
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
@@ -31,7 +31,7 @@
     const BAR_EL_ID    = 'svf-bar';
 
     const MOE_VISITS_URL =
-        'https://moe.gov.om/SMS/SupervisionVisits/SupervisionVisitsModule.aspx?VisitMode=1';
+        'https://moe.gov.om/SMS/VariousRecords/SchoolVisits/SchoolVisitsMain.aspx';
 
     const DEFAULT_SCHOOL = 'يزيد بن حاتم الازدى للبنين الصفوف(9-12)';
 
@@ -51,10 +51,14 @@
     const wait = ms => new Promise(r => setTimeout(r, ms));
 
     function b64Encode(str) {
-        try { return btoa(unescape(encodeURIComponent(str))); } catch (e) { return ''; }
+        try {
+            return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
+        } catch (e) { return ''; }
     }
     function b64Decode(b64) {
-        try { return decodeURIComponent(escape(atob(b64))); } catch (e) { return null; }
+        try {
+            return new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+        } catch (e) { return null; }
     }
 
     const TYPE_LABELS = { '1': 'إشرافية', '2': 'استطلاعية', '3': 'أخرى' };
@@ -949,7 +953,8 @@
             const subjectEl = doc.getElementById('txtVisitSubject')
                            || findFormField(doc, ['txtVisitSubject', 'txtSubject', 'txtVisitSubject']);
             if (subjectEl && data.objectives && data.objectives.length > 0) {
-                setFieldValue(subjectEl, data.objectives.join('\n'));
+                setFieldValue(subjectEl, data.objectives.join('
+'));
                 log('✅ أهداف الزيارة: ' + data.objectives.length + ' أهداف', 'success');
             } else if (subjectEl) {
                 log('ℹ️ لا توجد أهداف — اترك الحقل فارغاً', 'info');
