@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      7.2
+// @version      8.0
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
@@ -1082,9 +1082,15 @@
                     log('📅 ' + (visitData.date || '—'), 'info');
                     log('📋 ' + (visitData.visitTypeName || visitData.visitType || '—'), 'info');
                     log('', 'info');
-                    log('🚀 اضغط "تشغيل تلقائي" للبدء', 'info');
+                    log('🛩️ تفعيل الطيار الآلي — سيبدأ التشغيل التلقائي بعد 3 ثوانٍ...', 'success');
                     log('💡 Ctrl+Shift+A = تلقائي | Ctrl+Shift+F = تعبئة فقط | Ctrl+Shift+L = ثنائي اللغة', 'info');
                     log('⚠️ الحفظ يدوي — راجع البيانات قبل "حفظ"', 'warn');
+
+                    // الطيار الآلي: تشغيل تلقائي بدون ضغط المستخدم
+                    setTimeout(() => {
+                        log('🛩️ إقلاع الطيار الآلي...', 'success');
+                        runAutoFull(visitData);
+                    }, 3000);
                 }
             }, 1500);
         });
