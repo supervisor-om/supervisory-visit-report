@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      8.1
+// @version      8.5
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
@@ -781,13 +781,16 @@
         }
 
         // ═══════════════════════════════════════════════════════════════
-        //  التشغيل التلقائي الكامل
+        //  التشغيل التلقائي الكامل (مقاوم لـ postback)
+        //  البوابة تسوي postback عند ضغط "عرض" → نستخدم sessionStorage
+        //  لتتبع الخطوة ونكمل بعد كل إعادة تحميل
         // ═══════════════════════════════════════════════════════════════
         async function runAutoFull(data) {
             if (autoRunning) return;
             autoRunning = true;
-            setAllStepsIdle();
-            setProgress(0);
+
+            // حفظ البيانات مؤقتاً لاستخدامها بعد postback
+            try { sessionStorage.setItem('svf_pilot_data', JSON.stringify(data)); } catch(e) {}
 
             const autoBtn = $('#svf-btn-auto-v7');
             const fillBtn = $('#svf-btn-fill-v7');
@@ -795,95 +798,111 @@
             if (fillBtn) fillBtn.disabled = true;
 
             try {
-                // ── الخطوة 1: اختيار المدرسة (مع تحويل تلقائي لنظام التعليم) ──
-                updateStep('step1', 'active', 'جاري البحث...');
-                setStatus('🏫 الخطوة 1: اختيار المدرسة');
-                log('━━━ 1/5 ـ اختيار المدرسة ━━━', 'info');
-                setProgress(5);
+                // تحديد المرحلة الحالية
+                const phase = sessionStorage.getItem('svf_pilot_phase') || 'select_school';
 
-                const result = await findAndSelectSchool(data);
-                if (!result.found) {
-                    log('💡 يمكنك أيضاً الضغط على "🔤 التحويل لوضع ثنائي اللغة" يدوياً', 'warn');
-                    updateStep('step1', 'error', result.error || 'المدرسة غير موجودة');
-                    setStatus('⚠️ اختر المدرسة يدوياً أو حوّل لوضع ثنائي اللغة');
-                    throw new Error(result.error || 'المدرسة غير موجودة في القائمة');
-                }
+                if (phase === 'select_school') {
+                    // ── المرحلة 1: اختيار المدرسة → ضغط عرض ──
+                    updateStep('step1', 'active', 'جاري البحث...');
+                    setStatus('🏫 الخطوة 1: اختيار المدرسة');
+                    log('━━━ 1/3 ـ اختيار المدرسة ━━━', 'info');
+                    setProgress(10);
 
-                await wait(1200);
-                setProgress(20);
+                    const result = await findAndSelectSchool(data);
+                    if (!result.found) throw new Error(result.error || 'المدرسة غير موجودة في القائمة');
 
-                // ── الخطوة 2: ضغط عرض ──
-                updateStep('step2', 'active', 'جاري الضغط...');
-                setStatus('🔍 الخطوة 2: ضغط عرض');
-                log('━━━ 2/5 ـ ضغط عرض ━━━', 'info');
+                    await wait(800);
+                    updateStep('step1', 'done', 'تم');
 
-                const showBtn = findShowButton();
-                if (showBtn) {
+                    // ضغط عرض (سيسبب postback)
+                    updateStep('step2', 'active', 'جاري الضغط...');
+                    setStatus('🔍 الخطوة 2: ضغط عرض');
+                    log('━━━ 2/3 ـ ضغط عرض ━━━', 'info');
+                    setProgress(25);
+
+                    const showBtn = findShowButton();
+                    if (!showBtn) throw new Error('زر عرض غير موجود');
+
+                    // ⚠️ حدد المرحلة التالية قبل الضغط
+                    sessionStorage.setItem('svf_pilot_phase', 'after_show');
+                    // احفظ تاريخ اليوم عشان نعرف إن هذي جلسة جديدة
+                    sessionStorage.setItem('svf_pilot_ts', Date.now().toString());
+
                     showBtn.click();
-                    log('✅ تم ضغط عرض', 'success');
+                    // الكود بعد هذا السطر لن ينفذ بسبب postback
+                    return;
+
+                } else if (phase === 'after_show') {
+                    // ── المرحلة 2: الصفحة حملت بعد عرض → اضغط إضافة ──
+                    updateStep('step1', 'done', 'تم');
                     updateStep('step2', 'done', 'تم');
-                } else {
-                    log('❌ لم أجد زر عرض', 'error');
-                    updateStep('step2', 'error', 'الزر غير موجود');
-                    throw new Error('زر عرض غير موجود');
-                }
+                    updateStep('step3', 'active', 'جاري الضغط...');
+                    setStatus('➕ الخطوة 3: ضغط إضافة');
+                    log('━━━ 3/3 ـ ضغط إضافة وتعبئة ━━━', 'info');
+                    setProgress(40);
 
-                await wait(3000);
-                setProgress(35);
+                    // انتظر شوي عشان الصفحة تستقر بعد postback
+                    await wait(2500);
 
-                // ── الخطوة 3: ضغط إضافة ──
-                updateStep('step3', 'active', 'جاري الضغط...');
-                setStatus('➕ الخطوة 3: ضغط إضافة');
-                log('━━━ 3/5 ـ ضغط إضافة ━━━', 'info');
+                    const addBtn = findAddButton();
+                    if (!addBtn) {
+                        dumpPageElements();
+                        throw new Error('زر إضافة غير موجود');
+                    }
 
-                const addBtn = findAddButton();
-                if (addBtn) {
                     addBtn.click();
+                    updateStep('step3', 'active', 'انتظار النموذج...');
                     log('✅ تم ضغط إضافة', 'success');
-                    updateStep('step3', 'done', 'تم');
+
+                    // انتظار ظهور iframe
+                    setStatus('⏳ انتظار نموذج الإضافة...');
+                    log('⏳ انتظار ظهور النموذج...', 'info');
+
+                    let formDoc = null;
+                    for (let i = 0; i < 20; i++) {
+                        await wait(1000);
+                        formDoc = findFormDocument();
+                        if (formDoc) break;
+                    }
+
+                    if (!formDoc) throw new Error('نموذج الإضافة لم يظهر');
+
+                    log('✅ ظهر نموذج الإضافة!', 'success');
+                    setProgress(55);
+
+                    // ── تعبئة النموذج ──
+                    updateStep('step4', 'active', 'جاري التعبئة...');
+                    await fillAddForm(data, formDoc);
+
+                    // ── تنظيف ──
+                    updateStep('step5', 'active', '⚠️ بانتظارك');
+                    setStatus('🛑 الحفظ يدوي — راجع البيانات ثم اضغط "حفظ"');
+                    log('━━━ ✅ اكتمل! راجع ثم احفظ ━━━', 'success');
+                    log('🔴 لا يتم الحفظ تلقائياً — تأكد من صحة البيانات', 'error');
+                    setProgress(100);
+
+                    // تنظيف التخزين المؤقت
+                    sessionStorage.removeItem('svf_pilot_phase');
+                    sessionStorage.removeItem('svf_pilot_data');
+                    sessionStorage.removeItem('svf_pilot_ts');
+                    sessionStorage.setItem('svf_pilot_done', '1');
+
+                    // تنظيف بيانات التصدير
+                    try { GM_deleteValue(DATA_KEY); } catch (e) {}
+                    try { localStorage.removeItem('sv_moe_school_export'); } catch (e) {}
+
                 } else {
-                    log('❌ لم أجد زر إضافة', 'error');
-                    dumpPageElements();
-                    updateStep('step3', 'error', 'الزر غير موجود');
-                    throw new Error('زر إضافة غير موجود');
+                    // مرحلة غير معروفة — تنظيف
+                    log('⚠️ مرحلة غير معروفة: ' + phase + ' — جاري التنظيف', 'warn');
+                    sessionStorage.removeItem('svf_pilot_phase');
                 }
-
-                // انتظار ظهور iframe / النموذج
-                setStatus('⏳ انتظار نموذج الإضافة...');
-                log('⏳ انتظار ظهور النموذج...', 'info');
-
-                let formDoc = null;
-                for (let i = 0; i < 18; i++) {
-                    await wait(1000);
-                    formDoc = findFormDocument();
-                    if (formDoc) break;
-                }
-                setProgress(45);
-
-                if (!formDoc) {
-                    log('❌ لم يظهر نموذج الإضافة بعد 18 ثانية', 'error');
-                    updateStep('step3', 'error', 'النموذج لم يظهر');
-                    throw new Error('نموذج الإضافة لم يظهر');
-                }
-
-                log('✅ ظهر نموذج الإضافة!', 'success');
-                await wait(1000);
-
-                // ── الخطوة 4: تعبئة النموذج ──
-                await fillAddForm(data, formDoc);
-
-                // ── الخطوة 5: تنبيه الحفظ اليدوي ──
-                updateStep('step5', 'active', '⚠️ بانتظارك');
-                setStatus('🛑 الحفظ يدوي — راجع البيانات ثم اضغط "حفظ"');
-                log('━━━ 5/5 ـ ⚠️ الحفظ يدوي — راجع ثم احفظ ━━━', 'warn');
-                log('🔴 لا يتم الحفظ تلقائياً — تأكد من صحة البيانات', 'error');
-
-                setProgress(100);
-                sessionStorage.setItem('svf_pilot_done', '1');
 
             } catch (err) {
                 log('❌ توقف: ' + err.message, 'error');
                 setStatus('❌ ' + err.message);
+                // تنظيف عند الخطأ
+                sessionStorage.removeItem('svf_pilot_phase');
+                sessionStorage.removeItem('svf_pilot_data');
             } finally {
                 autoRunning = false;
                 if (autoBtn) { autoBtn.disabled = false; autoBtn.textContent = '🚀 تشغيل تلقائي كامل'; }
@@ -1086,13 +1105,22 @@
                     log('', 'info');
                     log('⚠️ الحفظ يدوي — راجع البيانات قبل "حفظ"', 'warn');
 
-                    // الطيار الآلي: يشتغل مرة واحدة فقط لكل tab
-                    if (!sessionStorage.getItem('svf_pilot_done')) {
+                    // الطيار الآلي: يشتغل تلقائياً ويكمل عبر postbacks
+                    const phase = sessionStorage.getItem('svf_pilot_phase');
+
+                    if (phase === 'after_show') {
+                        // الصفحة حملت بعد postback "عرض" — أكمل تلقائياً
+                        log('🔄 تم الكشف عن جلسة طيار آلي معلقة — جاري الاستكمال...', 'success');
+                        setTimeout(() => {
+                            log('🛩️ استكمال الطيار الآلي...', 'success');
+                            runAutoFull(visitData);
+                        }, 3000);
+                    } else if (!phase && !sessionStorage.getItem('svf_pilot_done')) {
+                        // بداية جديدة — إقلاع تلقائي
                         log('🛩️ تفعيل الطيار الآلي — سيبدأ التشغيل التلقائي بعد 3 ثوانٍ...', 'success');
                         log('💡 Ctrl+Shift+A = تلقائي | Ctrl+Shift+F = تعبئة فقط | Ctrl+Shift+L = ثنائي اللغة', 'info');
-
                         setTimeout(() => {
-                            if (sessionStorage.getItem('svf_pilot_done')) return;
+                            if (sessionStorage.getItem('svf_pilot_done') || sessionStorage.getItem('svf_pilot_phase')) return;
                             log('🛩️ إقلاع الطيار الآلي...', 'success');
                             runAutoFull(visitData);
                         }, 3000);
