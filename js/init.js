@@ -105,6 +105,7 @@
                     supSavedList.addEventListener('click', e => { 
                         if(e.target.dataset.key) { 
                             if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key);
+                            if(e.target.classList.contains('edit-btn')) loadPermanentReport(e.target.dataset.key);
                             if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key);
                             if(e.target.classList.contains('print-archive-btn') || e.target.closest('.print-archive-btn')) {
                                 const btn = e.target.closest('.print-archive-btn') || e.target;

@@ -1271,6 +1271,7 @@
                         </div>
                         <div class="flex gap-2 mt-auto pt-4 border-t border-slate-100">
                             <button class="load-btn flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">عرض</button>
+                            <button class="edit-btn flex-1 bg-amber-50 text-amber-600 hover:bg-amber-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">تعديل</button>
                             <button class="print-archive-btn flex-1 bg-green-50 text-green-600 hover:bg-green-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}"><i class="fa-solid fa-print ml-1"></i>طباعة</button>
                             <button class="delete-btn flex-1 bg-red-50 text-red-600 hover:bg-red-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">حذف</button>
                         </div>
@@ -2447,6 +2448,7 @@
                     supSavedList.addEventListener('click', e => { 
                         if(e.target.dataset.key) { 
                             if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key);
+                            if(e.target.classList.contains('edit-btn')) loadPermanentReport(e.target.dataset.key);
                             if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key);
                             if(e.target.classList.contains('print-archive-btn') || e.target.closest('.print-archive-btn')) {
                                 const btn = e.target.closest('.print-archive-btn') || e.target;
