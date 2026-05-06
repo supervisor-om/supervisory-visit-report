@@ -833,9 +833,17 @@
                     return;
 
                 } else if (phase === 'after_show') {
-                    // ── المرحلة 2: الصفحة حملت بعد عرض → اضغط إضافة ──
-                    updateStep('step1', 'done', 'تم');
+                    // ── المرحلة 2: الصفحة حملت بعد عرض → أعد اختيار المدرسة ثم اضغط إضافة ──
+                    updateStep('step1', 'active', 'إعادة الاختيار...');
                     updateStep('step2', 'done', 'تم');
+
+                    // نعيد اختيار المدرسة لأن البوابة تفقدها بعد postback
+                    const reResult = await findAndSelectSchool(data);
+                    if (!reResult.found) throw new Error('فقدت المدرسة بعد عرض — ' + (reResult.error || 'غير موجودة'));
+
+                    updateStep('step1', 'done', 'تم');
+                    await wait(1500);
+
                     updateStep('step3', 'active', 'جاري الضغط...');
                     setStatus('➕ الخطوة 3: ضغط إضافة');
                     log('━━━ 3/3 ـ ضغط إضافة وتعبئة ━━━', 'info');
