@@ -15,6 +15,7 @@
         let schoolClassroomVisits = [];
         let objectiveNotes = {};
         let prevRecommendationsStatus = []; // [{ text, status: 'done'|'partial'|'not-done'|null }]
+        let currentEditingKey = null;  // تتبع مفتاح التقرير المُعدَّل
 
         // صيغة القوالب: [ذكر_جمع/ذكر_مفرد/أنثى_جمع/أنثى_مفرد]
         const defaultSchoolVisitTypesData = {
@@ -859,6 +860,7 @@
             document.querySelector('#evaluationForm').reset(); 
             document.querySelectorAll('input:not([type="button"]), textarea').forEach(input => input.value = ''); 
             document.querySelector('#visitDate').value = new Date().toISOString().split('T')[0];
+            currentEditingKey = null;
             
             evaluationItems.forEach(item => { 
                 updateScore(item.id, 3, true); 
@@ -878,7 +880,14 @@
                 return; 
             }
             
-            const reportId = `supervision_v6_visit_${Date.now()}`; 
+            // إذا كان فيه تقرير مفتوح للتعديل، استخدم مفتاحه بدل إنشاء جديد
+            let reportId;
+            if (currentEditingKey) {
+                reportId = currentEditingKey;
+                localStorage.removeItem(currentEditingKey); // نحذف القديم أولاً
+            } else {
+                reportId = `supervision_v6_visit_${Date.now()}`;
+            } 
             const reportData = { 
                 id: reportId, 
                 teacherName, 
@@ -929,6 +938,8 @@
             try {
                 const data = JSON.parse(localStorage.getItem(reportKey));
                 if (data && data.formData) { 
+                    // تخزين المفتاح الأصلي للتعديل
+                    currentEditingKey = reportKey;
                     performReset(); 
                     Object.keys(data.formData).forEach(key => { 
                         const el = document.querySelector(`#${key}`); 
