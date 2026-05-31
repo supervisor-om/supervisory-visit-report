@@ -152,7 +152,7 @@
             if (text.includes("النشرات") || text.includes("الوثائق")) return " وإبداء الملاحظات اللازمة.";
             if (text.includes("منافسات") || text.includes("ألعاب جماعية")) return " وتحقيق الأهداف المرجوة.";
             if (text.includes("التحضير") || text.includes("نور")) return "، وكانت الخطط مستوفية للمعايير المطلوبة.";
-            if (text.includes("الالتقاء") || text.includes("مقابلة")) return "، وكانت الأجواء إيجابية وتعاونية.";
+            if (text.includes("الالتقاء") || text.includes("مقابلة")) return ".";
             if (text.includes("الطابور") || text.includes("موقف صفي")) return "، وتمت المداولة الإشرافية.";
             if (text.includes("درجات") || text.includes("الاختبارات القصيرة")) return " وكانت مكتملة ومطابقة للمواصفات.";
             return ".";
@@ -321,25 +321,27 @@
             let counter = 1;
             let classroomVisitsHandled = false;
 
-            // إدراج متابعة التوصيات السابقة إن وُجدت
             const ratedPrevRecs = prevRecommendationsStatus.filter(r => r.status);
-            if (ratedPrevRecs.length > 0) {
-                const prevDate = document.getElementById('prevRecsDate')?.textContent || '-';
-                opinionText += `${counter}- تمت متابعة توصيات الزيارة السابقة بتاريخ ${prevDate}، وتبيّن الآتي:\n`;
-                ratedPrevRecs.forEach(r => {
-                    const label = r.status === 'done'     ? 'تم تنفيذها ✅'
-                                : r.status === 'partial'  ? 'تم تنفيذها جزئياً ⚠️'
-                                :                           'لم يتم تنفيذها ❌';
-                    opinionText += `   • ${r.text}: ${label}.\n`;
-                });
-                counter++;
-            }
-
+            const prevDate = document.getElementById('prevRecsDate')?.textContent || '-';
             const hasClassroomVisits = Array.isArray(schoolClassroomVisits) && schoolClassroomVisits.length > 0;
 
             checkedItems.forEach(({ text: obj, note }) => {
                 let text = obj.trim().replace(/^[\d٠-٩]+\s*[-–]\s*/, '');
                 text = convertObjectiveToPast(text);
+
+                // دمج التوصيات السابقة داخل هدف "التوصيات السابقة" مباشرةً
+                const isPrevRecsObj = obj.includes("التوصيات السابقة");
+                if (isPrevRecsObj && ratedPrevRecs.length > 0) {
+                    opinionText += `${counter}- تمت متابعة التوصيات السابقة بتاريخ ${prevDate}، وتبيّن الآتي:\n`;
+                    ratedPrevRecs.forEach(r => {
+                        const label = r.status === 'done'    ? 'تم تنفيذها'
+                                    : r.status === 'partial' ? 'تم تنفيذها جزئياً'
+                                    :                          'لم يتم تنفيذها';
+                        opinionText += `   • ${r.text}: ${label}.\n`;
+                    });
+                    counter++;
+                    return;
+                }
 
                 const isClassroomObj = obj.includes("موقف صفي") || obj.includes("مداولة");
 
