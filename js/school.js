@@ -374,7 +374,7 @@
 
             const visOp = document.getElementById('visitorOpinion');
             if(visOp) {
-                visOp.value = opinionText.trim();
+                visOp.value = opinionText.trim().replace(/(\d[\d\/\-\.]*\d|\d)/g, '($1)');
                 showToast('تم توليد رأي الزائر بنجاح');
             }
         }
