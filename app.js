@@ -1767,6 +1767,7 @@
             if (text.includes("التحضير") || text.includes("نور")) return "، وكانت الخطط مستوفية للمعايير المطلوبة.";
             if (text.includes("الالتقاء") || text.includes("مقابلة")) return "، وكانت الأجواء إيجابية وتعاونية.";
             if (text.includes("الطابور") || text.includes("موقف صفي")) return "، وتمت المداولة الإشرافية.";
+            if (text.includes("درجات") || text.includes("الاختبارات القصيرة")) return " وكانت مكتملة ومطابقة للمواصفات.";
             return ".";
         }
 
@@ -1967,7 +1968,8 @@
                     if (!text.endsWith('.')) text += '.';
                     opinionText += counter + "- " + text + "\n";
                 } else {
-                    text += getPositiveAddition(text);
+                    const base = text.endsWith('.') ? text.slice(0, -1) : text;
+                    text = base + getPositiveAddition(base);
                     opinionText += counter + "- " + text + "\n";
                 }
                 counter++;
@@ -2230,7 +2232,7 @@
             let objectivesHtml = '<ol class="list-decimal list-inside space-y-1 text-slate-700 mt-2">';
             
             if(Array.isArray(report.objectives) && report.objectives.length > 0) {
-                report.objectives.forEach(obj => objectivesHtml += `<li>${obj}</li>`);
+                report.objectives.forEach(obj => objectivesHtml += `<li>${obj.replace(/^[\d٠-٩]+\s*[-–]\s*/, '')}</li>`);
             } else {
                 objectivesHtml += '<li class="text-slate-400 italic">لا توجد أهداف محددة.</li>';
             }
