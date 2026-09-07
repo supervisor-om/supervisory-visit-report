@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      8.8
+// @version      8.9
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -709,12 +709,19 @@
         }
 
         function findShowButton() {
-            return document.getElementById('ctl00_content_btnShow')
+            // المعرّف الفعلي في البوابة هو showImageButton من نوع input[type=image]،
+            // وهو بلا نص ولا value — لذلك تفشل المطابقة بالنص أو بالقيمة.
+            return document.getElementById('ctl00_content_showImageButton')
+                || document.getElementById('ctl00_content_btnShow')
+                || $('input[type="image"][id*="showImage"]')
+                || $('[id*="showImageButton"]')
+                || $('input[type="image"][alt*="عرض"], input[type="image"][title*="عرض"]')
                 || $('input[type="submit"][value*="عرض"]')
                 || $('input[type="button"][value*="عرض"]')
                 || $('button[id*="btnShow"]')
-                || [...$$('input[type="submit"], button, a')].find(el =>
-                    el.textContent?.trim() === 'عرض' || el.value === 'عرض');
+                || [...$$('input[type="submit"], input[type="button"], input[type="image"], button, a')].find(el =>
+                    el.textContent?.trim() === 'عرض' || el.value === 'عرض'
+                    || el.alt === 'عرض' || el.title === 'عرض');
         }
 
         function findAddButton() {
@@ -768,6 +775,18 @@
 
         function dumpPageElements() {
             log('═══ تشخيص الصفحة ═══', 'warn');
+
+            // ٠) أي صفحة نحن فيها؟ الخلط بين وحدتي الزيارات سبب شائع للفشل
+            log('العنوان: ' + location.pathname, 'info');
+            const path = location.pathname.toLowerCase();
+            if (path.includes('schoolvisits')) {
+                log('✅ وحدة الزيارات المدرسية — الصفحة الصحيحة لهذا السكربت', 'success');
+            } else if (path.includes('supervisionvisits')) {
+                log('❌ هذه وحدة الزيارات الإشرافية على الموظفين، لا الزيارات المدرسية', 'error');
+                log('👉 هذا السكربت يعمل على: VariousRecords/SchoolVisits/SchoolVisitsMain.aspx', 'warn');
+            } else {
+                log('⚠ صفحة غير معروفة — قد لا يعمل السكربت هنا', 'warn');
+            }
 
             // ١) أين النموذج؟
             const doc = findFormDocument();
