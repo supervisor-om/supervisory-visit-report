@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      8.5
+// @version      8.6
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
+// @match        https://supervisor-mct.com/*
+// @match        https://www.supervisor-mct.com/*
 // @match        https://moe.gov.om/SMS/SupervisionVisits/*
 // @match        https://moe.gov.om/SMS/VariousRecords/SchoolVisits/*
 // @match        https://moe.gov.om/Portal/Services/UserLoginnew.aspx
@@ -75,7 +77,7 @@
     // ═══════════════════════════════════════════════════════════════
     //  جزء 1: موقع المشرف — التصدير
     // ═══════════════════════════════════════════════════════════════
-    if (location.hostname.includes('supervisor-om.github.io')) {
+    if (/supervisor-om\.github\.io|supervisor-mct\.com/.test(location.hostname)) {
 
         function findExportBtn() {
             return $('#exportSchoolToMoeBtn')
