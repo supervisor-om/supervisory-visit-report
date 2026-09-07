@@ -1,9 +1,12 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      8.6
+// @version      8.7
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
+// @homepageURL  https://supervisor-mct.com/
+// @updateURL    https://supervisor-mct.com/school-visits-automation.user.js
+// @downloadURL  https://supervisor-mct.com/school-visits-automation.user.js
 // @match        https://supervisor-om.github.io/supervisory-visit-report/*
 // @match        https://supervisor-mct.com/*
 // @match        https://www.supervisor-mct.com/*
