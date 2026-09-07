@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      8.7
+// @version      8.8
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -388,6 +388,7 @@
             #svf-btn-fill-v7:disabled { background:#44403c; color:#78716c; cursor:not-allowed; }
             #svf-btn-clear-v7 { background:#292524; color:#a8a29e; font-size:11px; }
             #svf-btn-switch-v7 { background:#1e3a5f; color:#93c5fd; font-size:11px; }
+            #svf-btn-diag-v7 { background:#4c1d95; color:#ddd6fe; font-size:11px; }
             #svf-data-box-v7 { background:#1c1408; border:1px solid #78350f; border-radius:8px; padding:10px; margin-bottom:10px; font-size:11px; }
             #svf-data-box-v7 .d-row { display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #292524; }
             #svf-data-box-v7 .d-row:last-child { border:none; }
@@ -497,6 +498,7 @@
                     <button class="svf-btn-v7" id="svf-btn-auto-v7" ${!hasData ? 'disabled' : ''}>🚀 تشغيل تلقائي كامل</button>
                     <button class="svf-btn-v7" id="svf-btn-fill-v7" ${!hasData ? 'disabled' : ''}>⚡ تعبئة فقط (النموذج مفتوح)</button>
                     <button class="svf-btn-v7" id="svf-btn-switch-v7">🔤 التحويل لوضع ثنائي اللغة</button>
+                    <button class="svf-btn-v7" id="svf-btn-diag-v7">🔎 تشخيص الصفحة</button>
                     <button class="svf-btn-v7" id="svf-btn-clear-v7">🗑 مسح السجل</button>
                 </div>
             `;
@@ -516,6 +518,7 @@
                 sessionStorage.removeItem('svf_pilot_done');
             });
             $('#svf-btn-switch-v7')?.addEventListener('click', switchToBilingual);
+            $('#svf-btn-diag-v7')?.addEventListener('click', dumpPageElements);
             $('#svf-toggle-v7')?.addEventListener('click', () => {
                 panel.classList.toggle('collapsed');
                 $('#svf-toggle-v7').textContent = panel.classList.contains('collapsed') ? '▲' : '▼';
@@ -740,40 +743,80 @@
                     (el.textContent?.trim().includes('إضافة') || (el.value || '').includes('إضافة')));
         }
 
+        // علامة وجود نموذج الإضافة: أيٌّ من هذه الحقول يكفي.
+        // لا نعتمد على ddlVisitTypes وحده كي لا يفشل الكشف لو تغيّر معرّفه.
+        const FORM_MARKERS = ['ddlVisitTypes', 'tbDate', 'txtVisitSubject', 'txtVisitorOpinion'];
+
+        function docHasForm(doc) {
+            return !!findFieldFlexible(doc, FORM_MARKERS);
+        }
+
         function findFormDocument() {
             // مباشر
-            if ($('#ddlVisitTypes')) return document;
+            if (docHasForm(document)) return document;
 
-            // داخل iframe
-            try {
-                const iframe = document.getElementById('dialog-bodyAddEditSchoolVisits')
-                             || $('iframe[id*="dialog"]')
-                             || $('iframe[src*="AddEdit"]');
-                if (iframe?.contentDocument) {
+            // داخل أي إطار يمكن الوصول إليه — لا نقتصر على معرّفات بعينها
+            for (const iframe of $$('iframe')) {
+                try {
                     const doc = iframe.contentDocument;
-                    if (doc.getElementById('ddlVisitTypes')) return doc;
-                }
-            } catch (e) {}
+                    if (doc && docHasForm(doc)) return doc;
+                } catch (e) { /* إطار من أصل مختلف */ }
+            }
 
             return null;
         }
 
         function dumpPageElements() {
-            // طباعة تشخيصية لكل العناصر التفاعلية للـ debugging
             log('═══ تشخيص الصفحة ═══', 'warn');
-            const candidates = $$('input[type="submit"], input[type="button"], input[type="image"], button, a, span[onclick], img[onclick]');
-            candidates.forEach((el, i) => {
-                if (i >= 30) return; // أول 30 عنصر
-                const info = [
-                    el.tagName,
-                    el.type || '',
-                    'id=' + (el.id || '—'),
-                    'text=' + ((el.textContent || el.value || el.alt || el.title || '').trim().slice(0, 40) || '—'),
-                    'onclick=' + (el.getAttribute('onclick') ? '✓' : '✗')
-                ].join(' | ');
-                log('  [' + i + '] ' + info, 'info');
+
+            // ١) أين النموذج؟
+            const doc = findFormDocument();
+            if (!doc) {
+                log('❌ لم يُعثر على نموذج الإضافة في الصفحة ولا في أي إطار', 'error');
+            } else {
+                log('✅ النموذج في: ' + (doc === document ? 'الصفحة الرئيسية' : 'إطار iframe'), 'success');
+            }
+
+            // ٢) الإطارات الموجودة
+            const frames = $$('iframe');
+            log('عدد الإطارات: ' + frames.length, 'info');
+            frames.forEach((f, i) => {
+                let access = 'محجوب';
+                try { access = f.contentDocument ? 'متاح' : 'محجوب'; } catch (e) {}
+                log('  [إطار ' + i + '] id=' + (f.id || '—') + ' | الوصول: ' + access, 'info');
             });
+
+            // ٣) الحقول المتوقعة: هل وُجدت؟ وبأي معرّف فعلي؟
+            const target = doc || document;
+            const expected = [
+                ['نوع الزيارة',    ['ddlVisitTypes', 'ddlVisitType']],
+                ['التاريخ',        ['tbDate', 'txtVisitDate', 'txtDate']],
+                ['موضوع الزيارة',  ['txtVisitSubject', 'txtSubject']],
+                ['وقت الوصول',     ['ddlVisitArrivalTime']],
+                ['وقت الانصراف',   ['ddlVisitDepartureTime']],
+                ['رأي الزائر',     ['txtVisitorOpinion', 'txtOpinion']],
+                ['التوصيات',       ['txtVisitorRecomendation', 'txtVisitorRecommendation', 'txtRecommendations']]
+            ];
+            log('─── الحقول المتوقعة ───', 'warn');
+            expected.forEach(([label, names]) => {
+                const el = findFieldFlexible(target, names);
+                if (el) log('  ✅ ' + label + ' → #' + (el.id || '(بلا معرّف)') + ' [' + el.tagName + ']', 'success');
+                else    log('  ❌ ' + label + ' — غير موجود', 'error');
+            });
+
+            // ٤) كل حقول الإدخال الفعلية في المستند — لكشف المعرّفات الحقيقية
+            log('─── كل الحقول في المستند ───', 'warn');
+            const fields = $$('input:not([type="hidden"]), select, textarea', target);
+            log('العدد: ' + fields.length, 'info');
+            fields.forEach((el, i) => {
+                if (i >= 40) return;
+                log('  [' + i + '] ' + el.tagName + ' type=' + (el.type || '—') +
+                    ' id=' + (el.id || '—') + ' name=' + (el.name || '—'), 'info');
+            });
+            if (fields.length > 40) log('  ... و ' + (fields.length - 40) + ' حقلاً آخر', 'info');
+
             log('═══ نهاية التشخيص ═══', 'warn');
+            log('📋 انسخ هذا السجل كاملاً وأرسله للمطوّر', 'success');
         }
 
         function findFormField(doc, ids) {
@@ -781,6 +824,23 @@
             for (const id of ids) {
                 const el = doc.getElementById(id);
                 if (el) return el;
+            }
+            return null;
+        }
+
+        // بحث مرن: معرّف حرفي ← لاحقة ← تضمين.
+        // ASP.NET يسبق معرّفات عناصر التحكم بلواحق مثل ctl00_ContentPlaceHolder1_
+        // فالمطابقة الحرفية وحدها تفشل بصمت على صفحات القوالب الرئيسية.
+        function findFieldFlexible(doc, names) {
+            for (const n of names) {
+                const el = doc.getElementById(n);
+                if (el) return el;
+            }
+            for (const n of names) {
+                try { const el = doc.querySelector('[id$="' + n + '"]'); if (el) return el; } catch (e) {}
+            }
+            for (const n of names) {
+                try { const el = doc.querySelector('[id*="' + n + '"]'); if (el) return el; } catch (e) {}
             }
             return null;
         }
@@ -962,41 +1022,55 @@
             updateStep('step4', 'active', 'جاري التعبئة...');
             setProgress(48);
 
+            const filled  = [];
+            const missing = [];
+            const skipped = [];
+
+            // معالج موحّد لكل حقل نصّي: يبحث بمرونة ويبلّغ عن النتيجة صراحةً
+            function fillText(label, names, value, progress) {
+                const el = findFieldFlexible(doc, names);
+                if (!el) {
+                    missing.push(label);
+                    log('❌ لم يُعثر على حقل: ' + label, 'error');
+                } else if (!value) {
+                    skipped.push(label);
+                    log('ℹ️ ' + label + ': لا توجد بيانات لتعبئته', 'info');
+                } else {
+                    setFieldValue(el, value);
+                    filled.push(label);
+                    log('✅ ' + label + ' (' + String(value).length + ' حرف) → #' + (el.id || '?'), 'success');
+                }
+                setProgress(progress);
+            }
+
             // 1. نوع الزيارة
             setStatus('📝 تعبئة نوع الزيارة...');
-            const vtEl = doc.getElementById('ddlVisitTypes') || findFormField(doc, ['ddlVisitTypes', 'ddlVisitType']);
-            if (vtEl && data.visitType) {
+            const vtEl = findFieldFlexible(doc, ['ddlVisitTypes', 'ddlVisitType']);
+            if (!vtEl) {
+                missing.push('نوع الزيارة');
+                log('❌ لم يُعثر على حقل: نوع الزيارة', 'error');
+            } else if (!data.visitType) {
+                skipped.push('نوع الزيارة');
+                log('ℹ️ نوع الزيارة: لم يُحدد، اختَر يدوياً', 'info');
+            } else {
                 vtEl.value = data.visitType;
                 vtEl.dispatchEvent(new Event('change', { bubbles: true }));
+                filled.push('نوع الزيارة');
                 log('✅ نوع الزيارة: ' + (TYPE_LABELS[data.visitType] || data.visitType), 'success');
-            } else if (vtEl) {
-                log('ℹ️ نوع الزيارة: لم يُحدد، اختَر يدوياً', 'info');
             }
             await wait(400);
             setProgress(55);
 
             // 2. التاريخ
             setStatus('📅 تعبئة التاريخ...');
-            const dateEl = doc.getElementById('tbDate') || findFormField(doc, ['tbDate', 'txtVisitDate', 'txtDate']);
-            if (dateEl && data.date) {
-                setFieldValue(dateEl, data.date);
-                log('✅ التاريخ: ' + data.date, 'success');
-            }
+            fillText('التاريخ', ['tbDate', 'txtVisitDate', 'txtDate'], data.date, 62);
             await wait(300);
-            setProgress(62);
 
             // 3. موضوع الزيارة (الأهداف)
             setStatus('✍️ تعبئة موضوع الزيارة...');
-            const subjectEl = doc.getElementById('txtVisitSubject')
-                           || findFormField(doc, ['txtVisitSubject', 'txtSubject', 'txtVisitSubject']);
-            if (subjectEl && data.objectives && data.objectives.length > 0) {
-                setFieldValue(subjectEl, data.objectives.join('\n'));
-                log('✅ أهداف الزيارة: ' + data.objectives.length + ' أهداف', 'success');
-            } else if (subjectEl) {
-                log('ℹ️ لا توجد أهداف — اترك الحقل فارغاً', 'info');
-            }
+            const objText = (data.objectives && data.objectives.length) ? data.objectives.join('\n') : '';
+            fillText('موضوع الزيارة', ['txtVisitSubject', 'txtSubject'], objText, 70);
             await wait(300);
-            setProgress(70);
 
             // 4. وقت الوصول
             setStatus('🕐 تعبئة وقت الوصول...');
@@ -1012,35 +1086,35 @@
 
             // 6. رأي الزائر
             setStatus('✍️ تعبئة رأي الزائر...');
-            const opinionEl = doc.getElementById('txtVisitorOpinion')
-                           || findFormField(doc, ['txtVisitorOpinion', 'txtOpinion']);
-            if (opinionEl && data.visitorOpinion) {
-                setFieldValue(opinionEl, data.visitorOpinion);
-                log('✅ رأي الزائر (' + data.visitorOpinion.length + ' حرف)', 'success');
-            } else if (opinionEl) {
-                log('ℹ️ رأي الزائر فارغ', 'info');
-            }
+            fillText('رأي الزائر', ['txtVisitorOpinion', 'txtOpinion'], data.visitorOpinion, 90);
             await wait(300);
-            setProgress(90);
 
             // 7. التوصيات
             setStatus('✍️ تعبئة التوصيات...');
-            const recEl = doc.getElementById('txtVisitorRecomendation')
-                       || findFormField(doc, ['txtVisitorRecomendation', 'txtVisitorRecommendation', 'txtRecommendations', 'txtRecomendation']);
-            if (recEl && data.recommendations) {
-                setFieldValue(recEl, data.recommendations);
-                log('✅ التوصيات (' + data.recommendations.length + ' حرف)', 'success');
-            } else if (recEl) {
-                log('ℹ️ لا توجد توصيات', 'info');
+            fillText('التوصيات',
+                     ['txtVisitorRecomendation', 'txtVisitorRecommendation', 'txtRecommendations', 'txtRecomendation'],
+                     data.recommendations, 100);
+
+            // ─── تقرير صادق عن النتيجة ───
+            log('─────────────────────────', 'info');
+            log('عُبّئ: ' + filled.length + ' | غير موجود: ' + missing.length + ' | بلا بيانات: ' + skipped.length,
+                missing.length ? 'warn' : 'info');
+
+            if (missing.length) {
+                updateStep('step4', 'error', 'فشل جزئي');
+                setStatus('❌ تعذّرت تعبئة ' + missing.length + ' حقل — راجع السجل');
+                log('❌ حقول لم يُعثر عليها: ' + missing.join('، '), 'error');
+                log('👉 اضغط «🔎 تشخيص الصفحة» وأرسل النتيجة للمطوّر', 'warn');
+                log('💾 بياناتك محفوظة — لن تحتاج إعادة التصدير', 'success');
+                return; // لا نحذف البيانات عند الفشل
             }
-            setProgress(100);
 
             updateStep('step4', 'done', 'تمت التعبئة');
             setStatus('✅ تمت التعبئة — راجع ثم احفظ يدوياً');
             log('━━━ ✅ اكتملت التعبئة! ━━━', 'success');
             log('🛑 راجع البيانات ثم اضغط "حفظ" بنفسك', 'warn');
 
-            // تنظيف التخزين
+            // تُحذف البيانات فقط بعد نجاح كامل
             try { GM_deleteValue(DATA_KEY); } catch (e) {}
             try { localStorage.removeItem('sv_moe_school_export'); } catch (e) {}
         }
@@ -1063,7 +1137,7 @@
             const timeVal = String(hour12).padStart(2, '0') + ':' + mins;
 
             // وقت
-            const timeEl = doc.getElementById(timeId);
+            const timeEl = findFieldFlexible(doc, [timeId]);
             if (timeEl) {
                 const opts = Array.from(timeEl.options);
                 let match = opts.find(o => o.value === timeVal || o.text.trim() === timeVal);
@@ -1081,7 +1155,7 @@
             }
 
             // AM/PM
-            const ampmEl = doc.getElementById(ampmId);
+            const ampmEl = findFieldFlexible(doc, [ampmId]);
             if (ampmEl) {
                 ampmEl.value = ampmVal;
                 ampmEl.dispatchEvent(new Event('change', { bubbles: true }));
