@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      8.9
+// @version      9.0
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -823,16 +823,26 @@
                 else    log('  ❌ ' + label + ' — غير موجود', 'error');
             });
 
-            // ٤) كل حقول الإدخال الفعلية في المستند — لكشف المعرّفات الحقيقية
-            log('─── كل الحقول في المستند ───', 'warn');
-            const fields = $$('input:not([type="hidden"]), select, textarea', target);
-            log('العدد: ' + fields.length, 'info');
-            fields.forEach((el, i) => {
-                if (i >= 40) return;
-                log('  [' + i + '] ' + el.tagName + ' type=' + (el.type || '—') +
-                    ' id=' + (el.id || '—') + ' name=' + (el.name || '—'), 'info');
+            // ٤) كل حقول الإدخال — في المستند الرئيسي وفي كل إطار يمكن الوصول إليه.
+            //    نموذج الإضافة قد يُفتح داخل إطار، فلا يكفي مسح المستند الرئيسي.
+            function dumpFields(where, d) {
+                let fields = [];
+                try { fields = $$('input:not([type="hidden"]), select, textarea', d); } catch (e) { return; }
+                log('─── حقول: ' + where + ' (' + fields.length + ') ───', 'warn');
+                fields.forEach((el, i) => {
+                    if (i >= 60) return;
+                    log('  [' + i + '] ' + el.tagName + ' type=' + (el.type || '—') +
+                        ' id=' + (el.id || '—') + ' name=' + (el.name || '—'), 'info');
+                });
+                if (fields.length > 60) log('  ... و ' + (fields.length - 60) + ' حقلاً آخر', 'info');
+            }
+
+            dumpFields('المستند الرئيسي', document);
+            frames.forEach((f, i) => {
+                try {
+                    if (f.contentDocument) dumpFields('إطار ' + i + ' (' + (f.id || '—') + ')', f.contentDocument);
+                } catch (e) {}
             });
-            if (fields.length > 40) log('  ... و ' + (fields.length - 40) + ' حقلاً آخر', 'info');
 
             log('═══ نهاية التشخيص ═══', 'warn');
             log('📋 انسخ هذا السجل كاملاً وأرسله للمطوّر', 'success');
