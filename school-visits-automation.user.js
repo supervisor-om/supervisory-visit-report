@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      9.0
+// @version      10.0
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -263,6 +263,69 @@
         }
 
         // التهيئة — ننتظر جاهزية الصفحة
+        // ═══════════════════════════════════════════════════════════════
+        //  تصدير الزيارة الإشرافية (وحدة SupervisionVisits)
+        //  تختلف عن الزيارة المدرسية: ١٣ درجة تقييم + ثلاثة نصوص
+        // ═══════════════════════════════════════════════════════════════
+        const SUP_KEY = 'svf_supervision_visit_data';
+
+        function doExportSupervisory() {
+            const excellence      = $('#strengthsContent')?.value?.trim()       || '';
+            const development     = $('#developmentContent')?.value?.trim()     || '';
+            const recommendations = $('#recommendationsContent')?.value?.trim() || '';
+
+            if (!excellence && !development && !recommendations) {
+                showToastSupervisor('⚠️ ولّد التقرير أولاً قبل التصدير', 'error');
+                return;
+            }
+
+            const rawDate = $('#visitDate')?.value?.trim() || '';
+            let portalDate = rawDate;
+            if (rawDate && rawDate.includes('-')) {
+                const [y, mo, d] = rawDate.split('-');
+                portalDate = d + '/' + mo + '/' + y;
+            }
+
+            // ١٣ درجة تُقرأ من الواجهة مباشرة (لا من متغيّرات الصفحة،
+            // لأن السكربت يعمل في صندوق معزول لا يرى متغيّرات الصفحة)
+            const ratings = [];
+            for (let i = 1; i <= 13; i++) {
+                const el = document.querySelector('#score-' + i);
+                ratings.push(parseInt(el?.textContent?.trim() || '3', 10) || 3);
+            }
+
+            const notes = {};
+            for (let i = 1; i <= 13; i++) {
+                const el = document.querySelector('#notes-' + i);
+                const v = el?.textContent?.trim() || '';
+                if (v) notes[i] = v;
+            }
+
+            const data = {
+                kind:    'supervision',
+                teacher: $('#teacherName')?.value?.trim() || '',
+                school:  $('#school')?.value?.trim() || $('#schoolName')?.value?.trim() || '',
+                lesson:  $('#lesson')?.value?.trim() || '',
+                period:  $('#visitNumber')?.value?.trim() || '',
+                date:    portalDate,
+                ratings,
+                notes,
+                excellence,
+                development,
+                recommendations
+            };
+
+            const json = JSON.stringify(data);
+            try { GM_setValue(SUP_KEY, json); } catch (e) {}
+            try { navigator.clipboard.writeText(json); } catch (e) {}
+
+            const b64 = b64Encode(json);
+            const url = 'https://moe.gov.om/SMS/SupervisionVisits/SupervisionVisitsModule.aspx?VisitMode=1'
+                      + (b64 ? '#svfs=' + b64 : '');
+            window.open(url, '_blank');
+            showToastSupervisor('✅ صُدّرت الزيارة الإشرافية — افتح اللوحة في البوابة', 'success');
+        }
+
         function initSupervisor() {
             // زر exportSchoolToMoeBtn يتأخر ظهوره — نراقب بـ MutationObserver
             const obs = new MutationObserver(() => {
@@ -274,9 +337,31 @@
             });
             obs.observe(document.body, { childList: true, subtree: true });
 
+            // زر الزيارة الإشرافية — مسار مستقل تماماً
+            const obsSup = new MutationObserver(() => {
+                const b = $('#exportToMoeBtn');
+                if (b && !b._svfSupPatched) {
+                    b._svfSupPatched = true;
+                    b.addEventListener('click', e => {
+                        e.preventDefault(); e.stopPropagation();
+                        doExportSupervisory();
+                    }, true);
+                }
+            });
+            obsSup.observe(document.body, { childList: true, subtree: true });
+
             // محاولة أولى
             const firstBtn = findExportBtn();
             if (firstBtn) { firstBtn._svfPatched = true; patchExportBtn(firstBtn); }
+
+            const firstSup = $('#exportToMoeBtn');
+            if (firstSup) {
+                firstSup._svfSupPatched = true;
+                firstSup.addEventListener('click', e => {
+                    e.preventDefault(); e.stopPropagation();
+                    doExportSupervisory();
+                }, true);
+            }
         }
 
         if (document.readyState === 'loading') {
@@ -289,7 +374,7 @@
     // ═══════════════════════════════════════════════════════════════
     //  جزء 2: موقع الوزارة — التعبئة التلقائية مع نظام تتبع
     // ═══════════════════════════════════════════════════════════════
-    if (location.hostname.includes('moe.gov.om')) {
+    if (location.hostname.includes('moe.gov.om') && !/supervisionvisits/i.test(location.pathname)) {
 
         // لا تشتغل داخل iframe (النموذج يفتح في iframe)
         if (window.top !== window.self) return;
@@ -1265,6 +1350,218 @@
         setTimeout(() => {
             if (watchInterval) { clearInterval(watchInterval); watchInterval = null; }
         }, 10 * 60 * 1000);
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════
+    //  جزء 3: وحدة الزيارات الإشرافية على الموظفين
+    //  SMS/SupervisionVisits/SupervisionVisitsModule.aspx
+    // ═══════════════════════════════════════════════════════════════
+    if (location.hostname.includes('moe.gov.om') && /supervisionvisits/i.test(location.pathname)) {
+        if (window.top !== window.self) return;
+
+        const SUP_KEY = 'svf_supervision_visit_data';
+        const P = 'svfs-panel', L = 'svfs-log', S = 'svfs-status';
+
+        // ─── خريطة حقول البوابة ───
+        // مبدئية: البوابة لم تُفحص بعد وهي مفتوحة على نموذج الإضافة.
+        // البحث المرن يجرّب كل مرشّح، وزر «تشخيص» يكشف المعرّفات الحقيقية.
+        const SUP_FIELDS = {
+            'التاريخ':       ['tbDate', 'txtVisitDate', 'dtpVisitDate_dateTextBox', 'txtDate'],
+            'الحصة':         ['txtPeriod', 'txtVisitNumber', 'ddlPeriod'],
+            'المادة':        ['txtLesson', 'txtSubject', 'txtVisitSubject'],
+            'أوجه التميز':   ['txtExcellence', 'txtStrengths', 'txtVisitorOpinion', 'txtOpinion'],
+            'أوجه التطوير':  ['txtDevelopment', 'txtNeedsDevelopment', 'txtDevelopmentAspects'],
+            'التوصيات':      ['txtVisitorRecomendation', 'txtVisitorRecommendation', 'txtRecommendations']
+        };
+        const SUP_KEYMAP = {
+            'التاريخ': 'date', 'الحصة': 'period', 'المادة': 'lesson',
+            'أوجه التميز': 'excellence', 'أوجه التطوير': 'development', 'التوصيات': 'recommendations'
+        };
+        const ratingCandidates = i => ['ddlRating' + i, 'ddlItem' + i, 'ddlEvaluation' + i,
+                                       'ddlStandard' + i, 'ddlDegree' + i, 'ddlScore' + i];
+
+        let sup = null;
+        (function () {
+            try {
+                const m = location.hash.match(/#svfs=([A-Za-z0-9+/=]+)/);
+                if (m) {
+                    const json = b64Decode(m[1]);
+                    if (json) {
+                        sup = JSON.parse(json);
+                        try { GM_setValue(SUP_KEY, json); } catch (e) {}
+                        history.replaceState(null, '', location.pathname + location.search);
+                    }
+                }
+            } catch (e) {}
+            if (!sup) {
+                try { const raw = GM_getValue(SUP_KEY, ''); if (raw) sup = JSON.parse(raw); } catch (e) {}
+            }
+        })();
+
+        function findFlex(doc, names) {
+            for (const n of names) { const el = doc.getElementById(n); if (el) return el; }
+            for (const n of names) { try { const el = doc.querySelector('[id$="' + n + '"]'); if (el) return el; } catch (e) {} }
+            for (const n of names) { try { const el = doc.querySelector('[id*="' + n + '"]'); if (el) return el; } catch (e) {} }
+            return null;
+        }
+        function docs() {
+            const out = [document];
+            for (const f of $$('iframe')) { try { if (f.contentDocument) out.push(f.contentDocument); } catch (e) {} }
+            return out;
+        }
+        function findAnywhere(names) {
+            for (const d of docs()) { const el = findFlex(d, names); if (el) return el; }
+            return null;
+        }
+        function slog(msg, type) {
+            const box = document.getElementById(L);
+            if (!box) return;
+            const line = document.createElement('div');
+            line.className = 'svfs-l-' + (type || 'info');
+            line.textContent = new Date().toLocaleTimeString('ar-OM') + ' | ' + msg;
+            box.appendChild(line);
+            box.scrollTop = box.scrollHeight;
+        }
+        function sstat(t) { const e = document.getElementById(S); if (e) e.textContent = t; }
+        function setVal(el, v) {
+            el.value = v;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function supFill() {
+            const filled = [], missing = [], empty = [];
+            for (const [label, names] of Object.entries(SUP_FIELDS)) {
+                const el = findAnywhere(names);
+                const val = sup[SUP_KEYMAP[label]];
+                if (!el) { missing.push(label); slog('لم يُعثر على: ' + label, 'error'); }
+                else if (!val) { empty.push(label); slog(label + ': لا بيانات', 'info'); }
+                else { setVal(el, val); filled.push(label); slog('عُبّئ ' + label + ' → #' + (el.id || '?'), 'success'); }
+            }
+            let rOk = 0, rMiss = 0;
+            (sup.ratings || []).forEach((score, idx) => {
+                const el = findAnywhere(ratingCandidates(idx + 1));
+                if (!el) { rMiss++; return; }
+                const v = String(score);
+                if (el.tagName === 'SELECT') {
+                    const opt = Array.from(el.options).find(o => o.value === v || o.text.trim() === v);
+                    if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); rOk++; }
+                    else rMiss++;
+                } else { setVal(el, v); rOk++; }
+            });
+            slog('الدرجات: ' + rOk + ' من ' + (sup.ratings || []).length + (rMiss ? ' | تعذّر ' + rMiss : ''),
+                 rMiss ? 'warn' : 'success');
+            slog('---------------------', 'info');
+            slog('عُبّئ ' + filled.length + ' | مفقود ' + missing.length + ' | بلا بيانات ' + empty.length,
+                 missing.length ? 'warn' : 'success');
+            if (missing.length || rMiss) {
+                sstat('تعذّرت تعبئة بعض الحقول');
+                slog('مفقود: ' + (missing.join('، ') || '—'), 'error');
+                slog('اضغط «تشخيص» وأرسل السجل للمطوّر', 'warn');
+                slog('بياناتك محفوظة — لن تحتاج إعادة التصدير', 'success');
+                return;
+            }
+            sstat('تمت التعبئة — راجع ثم احفظ يدوياً');
+            slog('راجع البيانات ثم اضغط «حفظ» بنفسك', 'warn');
+        }
+
+        function supDiag() {
+            slog('=== تشخيص وحدة الزيارات الإشرافية ===', 'warn');
+            slog('العنوان: ' + location.pathname, 'info');
+            const ds = docs();
+            slog('المستندات: ' + ds.length + ' (رئيسي + ' + (ds.length - 1) + ' إطار)', 'info');
+            slog('--- الحقول المتوقعة ---', 'warn');
+            for (const [label, names] of Object.entries(SUP_FIELDS)) {
+                const el = findAnywhere(names);
+                slog(el ? '  [موجود] ' + label + ' → #' + (el.id || '?') + ' [' + el.tagName + ']'
+                        : '  [مفقود] ' + label, el ? 'success' : 'error');
+            }
+            let found = 0;
+            for (let i = 1; i <= 13; i++) { if (findAnywhere(ratingCandidates(i))) found++; }
+            slog('--- حقول الدرجات: وُجد ' + found + ' من 13 ---', found ? 'success' : 'error');
+            ds.forEach((d, di) => {
+                let fs = [];
+                try { fs = $$('input:not([type="hidden"]), select, textarea', d); } catch (e) { return; }
+                slog('--- حقول ' + (di === 0 ? 'المستند الرئيسي' : 'إطار ' + di) + ' (' + fs.length + ') ---', 'warn');
+                fs.forEach((el, i) => {
+                    if (i >= 60) return;
+                    slog('  [' + i + '] ' + el.tagName + ' type=' + (el.type || '—') +
+                         ' id=' + (el.id || '—') + ' name=' + (el.name || '—'), 'info');
+                });
+                if (fs.length > 60) slog('  ... و ' + (fs.length - 60) + ' آخر', 'info');
+            });
+            slog('=== نهاية التشخيص ===', 'warn');
+            slog('انسخ السجل كاملاً وأرسله للمطوّر', 'success');
+        }
+
+        GM_addStyle(
+            '#svfs-panel{position:fixed;top:70px;right:12px;z-index:99999;width:340px;' +
+            'background:#0b0f14;color:#dbeafe;border:1px solid #1e3a5f;border-radius:12px;' +
+            'font-family:Tahoma,sans-serif;font-size:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);direction:rtl}' +
+            '#svfs-panel .h{padding:10px 12px;background:linear-gradient(135deg,#1d4ed8,#1e3a8a);' +
+            'border-radius:11px 11px 0 0;font-weight:bold;cursor:move}' +
+            '#svfs-panel .b{padding:12px}' +
+            '#svfs-panel button{width:100%;padding:9px;border:none;border-radius:8px;cursor:pointer;' +
+            'font-size:12.5px;font-weight:bold;margin-bottom:6px}' +
+            '#svfs-fill{background:#15803d;color:#fff}' +
+            '#svfs-diag{background:#4c1d95;color:#ddd6fe;font-size:11px}' +
+            '#svfs-clear{background:#1f2937;color:#9ca3af;font-size:11px}' +
+            '#svfs-status{padding:7px;background:#0f172a;border-radius:7px;margin-bottom:8px;' +
+            'text-align:center;font-size:11.5px}' +
+            '#svfs-log{background:#020617;border:1px solid #1e293b;border-radius:7px;padding:8px;' +
+            'height:190px;overflow-y:auto;font-family:monospace;font-size:10.5px;line-height:1.6}' +
+            '.svfs-l-error{color:#fca5a5}.svfs-l-success{color:#6ee7b7;font-weight:bold}' +
+            '.svfs-l-warn{color:#fcd34d}.svfs-l-info{color:#93c5fd}' +
+            '#svfs-data{background:#0f172a;border:1px solid #1e3a5f;border-radius:7px;' +
+            'padding:8px;margin-bottom:8px;font-size:11px}'
+        );
+
+        const panel = document.createElement('div');
+        panel.id = P;
+        panel.innerHTML =
+            '<div class="h">أتمتة الزيارات الإشرافية</div>' +
+            '<div class="b">' +
+              (sup
+                ? '<div id="svfs-data">المعلم: ' + esc(sup.teacher || '—') +
+                  '<br>المدرسة: ' + esc(sup.school || '—') +
+                  '<br>التاريخ: ' + esc(sup.date || '—') +
+                  ' | تقييمات: ' + (sup.ratings || []).length + '</div>'
+                : '<div id="svfs-data">لا توجد بيانات — صدّر زيارة من الموقع أولاً</div>') +
+              '<div id="' + S + '">' + (sup ? 'جاهز — افتح نموذج الإضافة ثم اضغط تعبئة' : 'بانتظار البيانات') + '</div>' +
+              (sup ? '<button id="svfs-fill">تعبئة النموذج</button>' : '') +
+              '<button id="svfs-diag">تشخيص الصفحة</button>' +
+              '<button id="svfs-clear">مسح السجل</button>' +
+              '<div id="' + L + '"></div>' +
+            '</div>';
+        document.body.appendChild(panel);
+
+        document.getElementById('svfs-fill')?.addEventListener('click', supFill);
+        document.getElementById('svfs-diag')?.addEventListener('click', supDiag);
+        document.getElementById('svfs-clear')?.addEventListener('click', () => {
+            const b = document.getElementById(L); if (b) b.innerHTML = '';
+        });
+
+        (function (h) {
+            h.addEventListener('mousedown', e => {
+                const sx = e.clientX, sy = e.clientY;
+                const r = panel.getBoundingClientRect(), il = r.left, it = r.top;
+                const mv = ev => {
+                    panel.style.left = (il + ev.clientX - sx) + 'px';
+                    panel.style.top = (it + ev.clientY - sy) + 'px';
+                    panel.style.right = 'auto';
+                };
+                const up = () => {
+                    document.removeEventListener('mousemove', mv);
+                    document.removeEventListener('mouseup', up);
+                };
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            });
+        })(panel.querySelector('.h'));
+
+        slog('وحدة الزيارات الإشرافية جاهزة', 'success');
+        if (!sup) slog('صدّر زيارة إشرافية من الموقع أولاً', 'warn');
     }
 
 })();
