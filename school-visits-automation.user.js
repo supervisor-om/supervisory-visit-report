@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      10.0
+// @version      10.1
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -1430,6 +1430,19 @@
             el.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
+        // نموذج الإضافة في هذه الوحدة صفحة مستقلة لا نافذة منبثقة،
+        // فوجود زر «إضافة» يعني أننا ما زلنا على صفحة القائمة.
+        function supAddBtn() {
+            return document.getElementById('ctl00_content_ImgAdd')
+                || document.querySelector('[id$="ImgAdd"]')
+                || document.querySelector('input[type="image"][id*="Add"]');
+        }
+        function onListPage() { return !!supAddBtn(); }
+        function formFieldsPresent() {
+            for (const names of Object.values(SUP_FIELDS)) { if (findAnywhere(names)) return true; }
+            return false;
+        }
+
         function supFill() {
             const filled = [], missing = [], empty = [];
             for (const [label, names] of Object.entries(SUP_FIELDS)) {
@@ -1505,6 +1518,7 @@
             '#svfs-panel button{width:100%;padding:9px;border:none;border-radius:8px;cursor:pointer;' +
             'font-size:12.5px;font-weight:bold;margin-bottom:6px}' +
             '#svfs-fill{background:#15803d;color:#fff}' +
+            '#svfs-add{background:#b45309;color:#fff}' +
             '#svfs-diag{background:#4c1d95;color:#ddd6fe;font-size:11px}' +
             '#svfs-clear{background:#1f2937;color:#9ca3af;font-size:11px}' +
             '#svfs-status{padding:7px;background:#0f172a;border-radius:7px;margin-bottom:8px;' +
@@ -1529,6 +1543,7 @@
                   ' | تقييمات: ' + (sup.ratings || []).length + '</div>'
                 : '<div id="svfs-data">لا توجد بيانات — صدّر زيارة من الموقع أولاً</div>') +
               '<div id="' + S + '">' + (sup ? 'جاهز — افتح نموذج الإضافة ثم اضغط تعبئة' : 'بانتظار البيانات') + '</div>' +
+              '<button id="svfs-add">فتح نموذج الإضافة</button>' +
               (sup ? '<button id="svfs-fill">تعبئة النموذج</button>' : '') +
               '<button id="svfs-diag">تشخيص الصفحة</button>' +
               '<button id="svfs-clear">مسح السجل</button>' +
@@ -1536,6 +1551,12 @@
             '</div>';
         document.body.appendChild(panel);
 
+        document.getElementById('svfs-add')?.addEventListener('click', () => {
+            const btn = supAddBtn();
+            if (!btn) { slog('لا يوجد زر «إضافة» في هذه الصفحة', 'warn'); return; }
+            slog('فتح نموذج الإضافة... ستُعاد اللوحة بعد تحميل الصفحة', 'info');
+            btn.click();
+        });
         document.getElementById('svfs-fill')?.addEventListener('click', supFill);
         document.getElementById('svfs-diag')?.addEventListener('click', supDiag);
         document.getElementById('svfs-clear')?.addEventListener('click', () => {
@@ -1562,6 +1583,17 @@
 
         slog('وحدة الزيارات الإشرافية جاهزة', 'success');
         if (!sup) slog('صدّر زيارة إشرافية من الموقع أولاً', 'warn');
+
+        if (formFieldsPresent()) {
+            sstat('نموذج الإضافة مفتوح — اضغط «تعبئة»');
+            slog('تم التعرّف على نموذج الإضافة', 'success');
+        } else if (onListPage()) {
+            sstat('أنت على صفحة القائمة — اضغط «فتح نموذج الإضافة»');
+            slog('هذه صفحة القائمة، لا نموذج الإضافة', 'warn');
+            slog('نموذج الإضافة صفحة مستقلة — اضغط الزر البرتقالي', 'info');
+        } else {
+            sstat('صفحة غير معروفة — شغّل التشخيص');
+        }
     }
 
 })();
