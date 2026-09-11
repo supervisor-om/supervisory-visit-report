@@ -276,16 +276,24 @@
                 parseInt(document.querySelector('#score-' + item.id)?.textContent?.trim() || '3', 10)
             );
 
+            // الوصف الإشرافي لكل بند — يُعبَّأ في خانة بنده بالبوّابة
+            const notes = {};
+            evaluationItems.forEach(item => {
+                const v = document.querySelector('#notes-' + item.id)?.textContent?.trim() || '';
+                if (v) notes[item.id] = v;
+            });
+
             const exportData = {
+                kind:            'supervision',
                 date:            portalDate,
                 teacher:         document.querySelector('#teacherName')?.value?.trim()     || '',
                 school:          document.querySelector('#schoolName')?.value?.trim()      || '',
                 lesson:          document.querySelector('#lesson')?.value?.trim()          || '',
                 period:          document.querySelector('#visitNumber')?.value?.trim()     || '',
                 ratings:         ratings,
+                notes:           notes,
                 excellence:      strengths,
                 development:     needsDev,
-                support:         '',
                 recommendations: recs
             };
 

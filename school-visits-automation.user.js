@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      11.0
+// @version      11.1
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -1602,6 +1602,30 @@
         const ratingCandidates = i => ['ddlRating' + i, 'ddlItem' + i, 'ddlEvaluation' + i,
                                        'ddlStandard' + i, 'ddlDegree' + i, 'ddlScore' + i];
 
+        // المعلّم قد يكون قائمةً منسدلة أو حقلاً نصّياً أو مُختاراً في صفحة
+        // القائمة قبل «إضافة» — والثلاثة تُعالَج على حدة أدناه.
+        const TEACHER_FIELDS = ['ddlEmployee', 'ddlTeacher', 'ddlStaff', 'ddlEmp',
+                                'txtTeacherName', 'txtEmployeeName', 'txtTeacher',
+                                'lblTeacherName', 'lblEmployeeName'];
+
+        // وصفٌ لكل بند من الثلاثة عشر، إن كان للبوّابة حقلٌ له
+        const noteCandidates = i => ['txtNote' + i, 'txtNotes' + i, 'txtRemark' + i,
+                                     'txtRemarks' + i, 'txtDesc' + i, 'txtDescription' + i,
+                                     'txtComment' + i, 'txtItem' + i, 'txtEvidence' + i,
+                                     'txtItemNote' + i, 'txtStandardNote' + i];
+
+        // تسوية الاسم العربي قبل المقارنة: الألف والتاء المربوطة والياء
+        // تُكتب بأشكال مختلفة، والمسافات تتكرّر.
+        function normAr(v) {
+            return String(v || '')
+                .replace(/[\u0640\u064B-\u0652]/g, '')
+                .replace(/[\u0623\u0625\u0622]/g, '\u0627')
+                .replace(/\u0629/g, '\u0647')
+                .replace(/\u0649/g, '\u064A')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
         let sup = null;
         (function () {
             try {
@@ -1683,6 +1707,40 @@
                     slog('عُبّئ ' + label + ' → #' + (el.id || '?'), 'success');
                 }
             }
+            // ─── اسم المعلّم ───
+            // غيابُ الحقل ليس عطلاً بالضرورة: البوّابة قد تربط الزيارة
+            // بمعلّمٍ يُختار في صفحة القائمة. لكنّ وجودَه وفشلَ مطابقته
+            // عطلٌ يوقف الحفظ — سجلٌّ باسم معلّم آخر أسوأ من لا سجلّ.
+            let teacherBlocked = false;
+            const tEl = findAnywhere(TEACHER_FIELDS);
+            if (!tEl) {
+                slog('حقل المعلّم غير موجود في النموذج — لعلّه يُختار في صفحة القائمة', 'warn');
+            } else if (!sup.teacher) {
+                slog('حقل المعلّم موجود لكن لا اسم في البيانات', 'warn');
+            } else if (tEl.tagName === 'SELECT') {
+                const want = normAr(sup.teacher);
+                const opts = Array.from(tEl.options || []);
+                let opt = opts.find(o => normAr(o.text) === want)
+                       || opts.find(o => normAr(o.text).includes(want))
+                       || opts.find(o => want.includes(normAr(o.text)) && normAr(o.text).length > 4);
+                if (opt) {
+                    tEl.value = opt.value;
+                    tEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    written.push({ label: 'المعلّم', el: tEl, expected: tEl.value });
+                    filled.push('المعلّم');
+                    slog('عُبّئ المعلّم: ' + opt.text.trim() + ' → #' + (tEl.id || '?'), 'success');
+                } else {
+                    teacherBlocked = true;
+                    slog('اسم المعلّم «' + sup.teacher + '» ليس في قائمة البوّابة', 'error');
+                    slog('اختره بنفسك — لن أحفظ سجلّاً قد يُنسب لغيره', 'error');
+                }
+            } else {
+                setVal(tEl, sup.teacher);
+                written.push({ label: 'المعلّم', el: tEl, expected: tEl.value });
+                filled.push('المعلّم');
+                slog('عُبّئ المعلّم → #' + (tEl.id || '?'), 'success');
+            }
+
             let rOk = 0, rMiss = 0;
             (sup.ratings || []).forEach((score, idx) => {
                 const el = findAnywhere(ratingCandidates(idx + 1));
@@ -1703,12 +1761,44 @@
             });
             slog('الدرجات: ' + rOk + ' من ' + (sup.ratings || []).length + (rMiss ? ' | تعذّر ' + rMiss : ''),
                  rMiss ? 'warn' : 'success');
+
+            // ─── الأوصاف الثلاثة عشر ───
+            // إمّا أن تكون للبوّابة حقولُ وصفٍ للبنود فتُعبَّأ كلُّها، وإمّا
+            // ألّا تكون فلا شيء يُعبَّأ. أمّا أن يُوجَد بعضُها ويُفقَد بعض
+            // فخريطةٌ خاطئة، والحفظ عندها يكتب وصفاً في خانة بندٍ آخر.
+            const notes = sup.notes || {};
+            const noteKeys = Object.keys(notes);
+            let nOk = 0, nMiss = 0, nFound = 0;
+            if (noteKeys.length) {
+                for (let i = 1; i <= 13; i++) {
+                    const el = findAnywhere(noteCandidates(i));
+                    if (el) nFound++;
+                    const v = notes[i] || notes[String(i)] || '';
+                    if (!el) { if (v) nMiss++; continue; }
+                    if (!v) continue;
+                    setVal(el, v);
+                    written.push({ label: 'وصف البند ' + i, el: el, expected: el.value });
+                    nOk++;
+                }
+                if (nFound === 0) {
+                    slog('لا حقول أوصافٍ للبنود في هذا النموذج — الأوصاف لن تُرسَل', 'warn');
+                } else {
+                    slog('الأوصاف: ' + nOk + ' من ' + noteKeys.length + (nMiss ? ' | تعذّر ' + nMiss : ''),
+                         nMiss ? 'warn' : 'success');
+                }
+            }
+            // وُجد بعضُ الحقول وغاب بعض: خريطة مشكوك فيها، لا تُحفظ
+            const notesPartial = nFound > 0 && nMiss > 0;
             slog('---------------------', 'info');
             slog('عُبّئ ' + filled.length + ' | مفقود ' + missing.length + ' | بلا بيانات ' + empty.length,
                  missing.length ? 'warn' : 'success');
-            if (missing.length || rMiss) {
-                sstat('تعذّرت تعبئة بعض الحقول');
-                slog('مفقود: ' + (missing.join('، ') || '—'), 'error');
+            if (missing.length || rMiss || teacherBlocked || notesPartial) {
+                sstat('تعذّرت تعبئة بعض الحقول — لم أحفظ');
+                if (missing.length) slog('مفقود: ' + missing.join('، '), 'error');
+                if (rMiss) slog('درجات تعذّرت: ' + rMiss, 'error');
+                if (teacherBlocked) slog('المعلّم: لم يُطابَق اسمه في القائمة', 'error');
+                if (notesPartial) slog('الأوصاف: وُجد ' + nFound + ' حقلاً وغاب ' + nMiss
+                                     + ' — خريطة مشكوك فيها', 'error');
                 slog('اضغط «تشخيص» وأرسل السجل للمطوّر', 'warn');
                 slog('بياناتك محفوظة — لن تحتاج إعادة التصدير', 'success');
                 return;
@@ -1847,9 +1937,18 @@
                 slog(el ? '  [موجود] ' + label + ' → #' + (el.id || '?') + ' [' + el.tagName + ']'
                         : '  [مفقود] ' + label, el ? 'success' : 'error');
             }
+            const tEl2 = findAnywhere(TEACHER_FIELDS);
+            slog(tEl2 ? '  [موجود] المعلّم → #' + (tEl2.id || '?') + ' [' + tEl2.tagName + ']'
+                        + (tEl2.tagName === 'SELECT' ? ' خيارات=' + (tEl2.options || []).length : '')
+                      : '  [مفقود] المعلّم', tEl2 ? 'success' : 'error');
+
             let found = 0;
             for (let i = 1; i <= 13; i++) { if (findAnywhere(ratingCandidates(i))) found++; }
             slog('--- حقول الدرجات: وُجد ' + found + ' من 13 ---', found ? 'success' : 'error');
+
+            let nf = 0;
+            for (let i = 1; i <= 13; i++) { if (findAnywhere(noteCandidates(i))) nf++; }
+            slog('--- حقول أوصاف البنود: وُجد ' + nf + ' من 13 ---', nf ? 'success' : 'warn');
             ds.forEach((d, di) => {
                 let fs = [];
                 try { fs = $$('input:not([type="hidden"]), select, textarea', d); } catch (e) { return; }
