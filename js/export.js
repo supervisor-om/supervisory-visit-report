@@ -279,6 +279,7 @@
             const exportData = {
                 date:            portalDate,
                 teacher:         document.querySelector('#teacherName')?.value?.trim()     || '',
+                school:          document.querySelector('#schoolName')?.value?.trim()      || '',
                 lesson:          document.querySelector('#lesson')?.value?.trim()          || '',
                 period:          document.querySelector('#visitNumber')?.value?.trim()     || '',
                 ratings:         ratings,
@@ -289,9 +290,19 @@
             };
 
             const jsonStr = JSON.stringify(exportData);
-            navigator.clipboard.writeText(jsonStr);
 
+            // قنوات الوصول إلى سكربت الأتمتة: الثلاث معاً لأن أيّها قد ينقطع
+            try { if (typeof GM_setValue === 'function') GM_setValue('svf_supervision_visit_data', jsonStr); } catch (e) {}
+            try { localStorage.setItem('sv_moe_supervision_export', jsonStr); } catch (e) {}
+            try { navigator.clipboard.writeText(jsonStr); } catch (e) {}
+
+            const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
             const ministryUrl = 'https://moe.gov.om/SMS/SupervisionVisits/SupervisionVisitsModule.aspx?VisitMode=1';
+
+            // الفتح داخل ضغطة المستخدم نفسها — التأجيل يُفقِده تصريح
+            // النافذة فيحجبه المتصفّح.
+            const portalWin = window.open(ministryUrl + '#svfs=' + b64, '_blank');
+            const blocked = !portalWin;
 
             // ====== نافذة التأكيد ======
             const existingModal = document.getElementById('moeExportModal');
@@ -308,11 +319,17 @@
               </div>
               <div class="p-5 space-y-4">
 
+                ${blocked ? `
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                  <div class="text-3xl mb-2">⚠️</div>
+                  <div class="font-bold text-amber-800 mb-1">حجب المتصفّح فتح البوّابة</div>
+                  <p class="text-sm text-amber-700">اسمح بالنوافذ المنبثقة لهذا الموقع، أو افتحها بالزرّ أدناه</p>
+                </div>` : `
                 <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-                  <div class="text-3xl mb-2">✅</div>
-                  <div class="font-bold text-emerald-800 mb-1">تم نسخ البيانات للحافظة</div>
-                  <p class="text-sm text-emerald-700">انتقل الآن لبوابة الوزارة والصق البيانات</p>
-                </div>
+                  <div class="text-3xl mb-2">🚀</div>
+                  <div class="font-bold text-emerald-800 mb-1">فُتحت بوّابة الوزارة في تبويب جديد</div>
+                  <p class="text-sm text-emerald-700">يتولّى سكربت الأتمتة التعبئة والحفظ — تابِع اللوحة هناك</p>
+                </div>`}
 
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
                   <div class="text-xs text-slate-500 mb-1 font-mono">البيانات المُصدَّرة (JSON)</div>
@@ -320,8 +337,8 @@
                   <button onclick="navigator.clipboard.writeText(document.getElementById('moe-json-preview').value).then(()=>showToast('تم النسخ مجدداً ✅'))" class="mt-2 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs transition-colors">إعادة النسخ</button>
                 </div>
 
-                <button onclick="window.open('${ministryUrl}','_blank');document.getElementById('moeExportModal').remove()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
-                  فتح موقع الوزارة ←
+                <button onclick="window.open('${ministryUrl}#svfs=${b64}','_blank');document.getElementById('moeExportModal').remove()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
+                  ${blocked ? 'فتح بوّابة الوزارة ←' : 'فتحها مرّة أخرى ←'}
                 </button>
 
               </div>
@@ -330,7 +347,8 @@
             document.body.appendChild(overlay);
             document.getElementById('moe-json-preview').value = jsonStr;
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-            showToast('تم نسخ البيانات للحافظة ✅');
+            showToast(blocked ? 'حجب المتصفّح فتح البوّابة' : 'فُتحت بوّابة الوزارة 🚀',
+                      blocked ? 'error' : 'success');
         }
 
         function exportSchoolVisitToMoe() {
@@ -390,6 +408,11 @@
             const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
             const typeLabels = { '1': 'إشرافية', '2': 'استطلاعية', '3': 'أخرى' };
 
+            // الفتح داخل ضغطة المستخدم نفسها — التأجيل يُفقِده تصريح
+            // النافذة فيحجبه المتصفّح.
+            const schoolPortalWin = window.open(ministryUrl + '#svf=' + b64, '_blank');
+            const schoolBlocked = !schoolPortalWin;
+
             const existingModal = document.getElementById('schoolMoeExportModal');
             if (existingModal) existingModal.remove();
 
@@ -425,13 +448,18 @@
             document.body.appendChild(overlay);
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-            document.getElementById('svf-go-btn').addEventListener('click', () => {
-                const url = ministryUrl + '#svf=' + b64;
-                window.open(url, '_blank');
-                overlay.remove();
-            });
+            const goBtn = document.getElementById('svf-go-btn');
+            if (goBtn) {
+                if (!schoolBlocked) goBtn.textContent = 'فتحها مرّة أخرى ←';
+                goBtn.addEventListener('click', () => {
+                    window.open(ministryUrl + '#svf=' + b64, '_blank');
+                    overlay.remove();
+                });
+            }
 
-            showToast('تم نسخ البيانات للحافظة ✅');
+            showToast(schoolBlocked ? 'حجب المتصفّح فتح البوّابة — افتحها بالزرّ'
+                                    : 'فُتحت بوّابة الوزارة 🚀',
+                      schoolBlocked ? 'error' : 'success');
         }
 
  async function printArchivedReport(reportKey) {

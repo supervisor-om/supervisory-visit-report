@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      10.1
+// @version      11.0
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -29,6 +29,15 @@
     //  ثوابت
     // ═══════════════════════════════════════════════════════════════
     const DATA_KEY     = 'svf_school_visit_data';
+    const AUTOSAVE_KEY = 'svf_autosave_enabled';
+    const SAVE_GRACE_MS = 6000;  // مهلة الإلغاء قبل الحفظ
+
+    function autoSaveOn() {
+        try { return GM_getValue(AUTOSAVE_KEY, true) !== false; } catch (e) { return true; }
+    }
+    function setAutoSave(v) {
+        try { GM_setValue(AUTOSAVE_KEY, !!v); } catch (e) {}
+    }
     const PANEL_ID     = 'svf-panel-v7';
     const STEP_EL_ID   = 'svf-steps';
     const LOG_EL_ID    = 'svf-log';
@@ -474,6 +483,7 @@
             #svf-btn-clear-v7 { background:#292524; color:#a8a29e; font-size:11px; }
             #svf-btn-switch-v7 { background:#1e3a5f; color:#93c5fd; font-size:11px; }
             #svf-btn-diag-v7 { background:#4c1d95; color:#ddd6fe; font-size:11px; }
+            #svf-btn-save-v7 { background:#0c4a6e; color:#bae6fd; font-size:11.5px; }
             #svf-data-box-v7 { background:#1c1408; border:1px solid #78350f; border-radius:8px; padding:10px; margin-bottom:10px; font-size:11px; }
             #svf-data-box-v7 .d-row { display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #292524; }
             #svf-data-box-v7 .d-row:last-child { border:none; }
@@ -489,7 +499,7 @@
             { id: 'step2', label: 'ضغط عرض',                    icon: '🔍' },
             { id: 'step3', label: 'ضغط إضافة',                  icon: '➕' },
             { id: 'step4', label: 'تعبئة النموذج',              icon: '✍️' },
-            { id: 'step5', label: '🛑 الحفظ يدوي — راجع ثم احفظ', icon: '💾' },
+            { id: 'step5', label: 'الحفظ في البوابة',              icon: '💾' },
         ];
 
         function log(msg, type = 'info') {
@@ -583,6 +593,7 @@
                     <button class="svf-btn-v7" id="svf-btn-auto-v7" ${!hasData ? 'disabled' : ''}>🚀 تشغيل تلقائي كامل</button>
                     <button class="svf-btn-v7" id="svf-btn-fill-v7" ${!hasData ? 'disabled' : ''}>⚡ تعبئة فقط (النموذج مفتوح)</button>
                     <button class="svf-btn-v7" id="svf-btn-switch-v7">🔤 التحويل لوضع ثنائي اللغة</button>
+                    <button class="svf-btn-v7" id="svf-btn-save-v7">${autoSaveOn() ? '💾 الحفظ التلقائي: مُشغَّل' : '✋ الحفظ التلقائي: مُطفأ'}</button>
                     <button class="svf-btn-v7" id="svf-btn-diag-v7">🔎 تشخيص الصفحة</button>
                     <button class="svf-btn-v7" id="svf-btn-clear-v7">🗑 مسح السجل</button>
                 </div>
@@ -603,6 +614,14 @@
                 sessionStorage.removeItem('svf_pilot_done');
             });
             $('#svf-btn-switch-v7')?.addEventListener('click', switchToBilingual);
+            $('#svf-btn-save-v7')?.addEventListener('click', (e) => {
+                const next = !autoSaveOn();
+                setAutoSave(next);
+                e.target.textContent = next ? '💾 الحفظ التلقائي: مُشغَّل' : '✋ الحفظ التلقائي: مُطفأ';
+                log(next ? '💾 الحفظ التلقائي مُشغَّل — ستُحفظ الزيارة بعد التعبئة'
+                         : '✋ الحفظ التلقائي مُطفأ — ستُعبَّأ الحقول وتحفظ بنفسك', 'warn');
+            });
+
             $('#svf-btn-diag-v7')?.addEventListener('click', dumpPageElements);
             $('#svf-toggle-v7')?.addEventListener('click', () => {
                 panel.classList.toggle('collapsed');
@@ -1059,24 +1078,27 @@
 
                     // ── تعبئة النموذج ──
                     updateStep('step4', 'active', 'جاري التعبئة...');
-                    await fillAddForm(data, formDoc);
-
-                    // ── تنظيف ──
-                    updateStep('step5', 'active', '⚠️ بانتظارك');
-                    setStatus('🛑 الحفظ يدوي — راجع البيانات ثم اضغط "حفظ"');
-                    log('━━━ ✅ اكتمل! راجع ثم احفظ ━━━', 'success');
-                    log('🔴 لا يتم الحفظ تلقائياً — تأكد من صحة البيانات', 'error');
+                    const fillRes = await fillAddForm(data, formDoc);
                     setProgress(100);
 
-                    // تنظيف التخزين المؤقت
+                    // ── الحفظ ──
+                    let saved = false;
+                    if (fillRes && fillRes.ok) {
+                        const saveRes = await autoSaveForm(data, formDoc, fillRes.written);
+                        saved = !!(saveRes && saveRes.ok);
+                    } else {
+                        updateStep('step5', 'error', 'لم يُحفظ');
+                        log('🛑 لم أحفظ: التعبئة لم تكتمل', 'error');
+                    }
+
+                    // مراحل الطيار تُنظَّف في الحالين — انتهت الجولة
                     sessionStorage.removeItem('svf_pilot_phase');
                     sessionStorage.removeItem('svf_pilot_data');
                     sessionStorage.removeItem('svf_pilot_ts');
                     sessionStorage.setItem('svf_pilot_done', '1');
 
-                    // تنظيف بيانات التصدير
-                    try { GM_deleteValue(DATA_KEY); } catch (e) {}
-                    try { localStorage.removeItem('sv_moe_school_export'); } catch (e) {}
+                    // بيانات التصدير تبقى ما لم يتأكّد الحفظ
+                    if (saved) clearExportData();
 
                 } else {
                     // مرحلة غير معروفة — تنظيف
@@ -1112,7 +1134,11 @@
             try {
                 const doc = findFormDocument();
                 if (doc) {
-                    await fillAddForm(data, doc);
+                    const res = await fillAddForm(data, doc);
+                    if (res && res.ok) {
+                        const saveRes = await autoSaveForm(data, doc, res.written);
+                        if (saveRes && saveRes.ok) clearExportData();
+                    }
                 } else {
                     log('⚠ نموذج الإضافة غير مفتوح', 'warn');
                     log('اضغط إضافة أولاً', 'info');
@@ -1129,6 +1155,191 @@
         }
 
         // ═══════════════════════════════════════════════════════════════
+        //  الحفظ التلقائي
+        //  حفظُ سجلٍّ في بوّابة الوزارة فعلٌ لا رجعة فيه، فلا يُقدَم عليه
+        //  إلا بعد قراءة كلّ حقل من الصفحة والتأكّد أنّه يحمل ما كُتب فيه.
+        //  والمهلة القصيرة قبله متنفَّسٌ للإلغاء لا خطوةٌ مطلوبة: تمرّ
+        //  وحدها إن لم يتدخّل أحد.
+        // ═══════════════════════════════════════════════════════════════
+        function findSaveButton(doc) {
+            const d = doc || document;
+            const byId = d.getElementById('ctl00_content_ImgSave')
+                      || d.getElementById('ctl00_content_btnSave')
+                      || d.getElementById('ctl00_content_ImgUpdate');
+            if (byId) return byId;
+
+            const sels = [
+                'input[id*="ImgSave"]', 'input[id*="btnSave"]', 'input[id*="ImgUpdate"]',
+                'button[id*="ImgSave"]', 'button[id*="btnSave"]',
+                'a[id*="ImgSave"]',     'a[id*="btnSave"]',      'img[id*="ImgSave"]',
+                'input[type="submit"][value*="حفظ"]', 'input[type="button"][value*="حفظ"]',
+                'input[type="image"][alt*="حفظ"]',    'input[type="image"][title*="حفظ"]'
+            ];
+            for (const sel of sels) {
+                try { const el = d.querySelector(sel); if (el) return el; } catch (e) {}
+            }
+
+            const texty = Array.from(d.querySelectorAll(
+                'input[type="submit"], input[type="button"], input[type="image"], button, a, span[onclick]'));
+            return texty.find(el => {
+                const t = (el.textContent || '').trim();
+                const v = el.value || '', ttl = el.title || '', alt = el.alt || '';
+                return t === 'حفظ' || v === 'حفظ' || ttl === 'حفظ' || alt === 'حفظ'
+                    || t.includes('حفظ') || v.includes('حفظ');
+            }) || null;
+        }
+
+        // كلّ ما كُتب يُقرأ من الصفحة مرّة أخرى. لا نعيد البحث بالمعرّفات
+        // بل نحتفظ بالعنصر نفسه، فلا تتفرّق قائمةُ التعبئة عن قائمة التحقّق.
+        function verifyWritten(written) {
+            const bad = [];
+            for (const w of written) {
+                let actual;
+                try { actual = String(w.el.value == null ? '' : w.el.value); }
+                catch (e) { bad.push(w.label + ' (تعذّرت قراءته)'); continue; }
+                if (actual.trim() !== String(w.expected).trim()) {
+                    bad.push(w.label + ' (لا يحمل ما كُتب فيه)');
+                }
+            }
+            return bad;
+        }
+
+        function portalErrors(doc) {
+            const d = doc || document;
+            const out = [];
+            const sels = ['[id*="ValidationSummary"]', '[id*="lblMsg"]', '[id*="lblError"]',
+                          '[id*="MessageLabel"]', '.error', 'span[style*="color:Red"]',
+                          'span[style*="color: red"]'];
+            for (const sel of sels) {
+                let els = [];
+                try { els = Array.from(d.querySelectorAll(sel)); } catch (e) { continue; }
+                for (const el of els) {
+                    const t = (el.textContent || '').trim();
+                    if (t && t.length < 400 && out.indexOf(t) === -1) out.push(t);
+                }
+            }
+            return out;
+        }
+
+        // مهلة الإلغاء: تُرسم في اللوحة وتمرّ وحدها.
+        // تُرجِع true إن مضت، وfalse إن ألغاها المستخدم.
+        function saveCountdown(ms) {
+            return new Promise(resolve => {
+                let left = Math.ceil(ms / 1000);
+                let cancelled = false;
+
+                const bar = document.createElement('div');
+                bar.id = 'svf-save-grace';
+                bar.style.cssText = 'margin:8px 0;padding:9px;border-radius:9px;background:#78350f;'
+                                  + 'color:#fef3c7;font-size:12px;text-align:center;line-height:1.7';
+                bar.innerHTML = '<div id="svf-grace-t">الحفظ بعد ' + left + ' ثوانٍ…</div>'
+                              + '<button id="svf-grace-x" style="margin-top:6px;width:100%;padding:7px;'
+                              + 'border:none;border-radius:7px;background:#fecaca;color:#7f1d1d;'
+                              + 'font-weight:bold;cursor:pointer;font-size:12px">إلغاء الحفظ</button>';
+                const body = $('#svf-body-v7');
+                if (body) body.insertBefore(bar, body.firstChild);
+
+                const finish = (ok) => { clearInterval(iv); bar.remove(); resolve(ok); };
+
+                document.getElementById('svf-grace-x')?.addEventListener('click', () => {
+                    cancelled = true;
+                    log('🛑 ألغيتَ الحفظ — البيانات باقية في النموذج', 'warn');
+                    setStatus('أُلغي الحفظ — احفظ يدوياً إن شئت');
+                    finish(false);
+                });
+
+                const iv = setInterval(() => {
+                    if (cancelled) return;
+                    left--;
+                    const t = document.getElementById('svf-grace-t');
+                    if (t) t.textContent = 'الحفظ بعد ' + left + ' ثوانٍ…';
+                    if (left <= 0) finish(true);
+                }, 1000);
+            });
+        }
+
+        // بعد الضغط: البوّابة إمّا تعود إلى القائمة (نجاح)، أو تبقى على
+        // النموذج وتعرض أخطاء تحقّق (فشل)، أو لا تفعل شيئاً (مجهول).
+        async function waitForSaveOutcome(timeoutMs) {
+            const deadline = Date.now() + timeoutMs;
+            while (Date.now() < deadline) {
+                await wait(1000);
+
+                const errs = portalErrors(findFormDocument() || document);
+                if (errs.length) return { ok: false, why: 'رفضت البوّابة الحفظ', errors: errs };
+
+                const formGone   = !findFormDocument();
+                const backOnList = !!findAddButton();
+                if (formGone && backOnList) return { ok: true, errors: [] };
+            }
+            return { ok: false, why: 'لم تتأكّد نتيجة الحفظ خلال المهلة', errors: [] };
+        }
+
+        async function autoSaveForm(data, doc, written) {
+            updateStep('step5', 'active', 'تحقّق قبل الحفظ...');
+            setStatus('🔎 مراجعة ما كُتب في النموذج...');
+            log('━━━ 5/5 ـ الحفظ ━━━', 'info');
+
+            const bad = verifyWritten(written);
+            if (bad.length) {
+                updateStep('step5', 'error', 'لم يُحفظ');
+                setStatus('🛑 لم أحفظ — راجع النموذج واحفظ يدوياً');
+                log('🛑 لم أحفظ: حقول لا تحمل ما كُتب فيها', 'error');
+                bad.forEach(b => log('   • ' + b, 'error'));
+                log('👉 راجع النموذج بنفسك ثمّ اضغط «حفظ»', 'warn');
+                return { ok: false };
+            }
+            log('✅ كل الحقول تحمل ما كُتب فيها (' + written.length + ')', 'success');
+
+            const saveBtn = findSaveButton(doc) || findSaveButton(document);
+            if (!saveBtn) {
+                updateStep('step5', 'error', 'زر الحفظ مفقود');
+                setStatus('🛑 لم أجد زر الحفظ — احفظ يدوياً');
+                log('🛑 لم يُعثر على زر الحفظ في النموذج', 'error');
+                log('👉 اضغط «🔎 تشخيص الصفحة» وأرسل السجل للمطوّر', 'warn');
+                return { ok: false };
+            }
+            log('✅ زر الحفظ: #' + (saveBtn.id || saveBtn.value || '?'), 'success');
+
+            if (!autoSaveOn()) {
+                updateStep('step5', 'idle', 'الحفظ التلقائي مُطفأ');
+                setStatus('✅ تمت التعبئة — الحفظ التلقائي مُطفأ');
+                log('ℹ️ الحفظ التلقائي مُطفأ — اضغط «حفظ» بنفسك', 'warn');
+                return { ok: false, skipped: true };
+            }
+
+            updateStep('step5', 'active', 'مهلة الإلغاء...');
+            setStatus('⏳ الحفظ بعد لحظات — يمكنك الإلغاء');
+            log('⏳ مهلة ' + (SAVE_GRACE_MS / 1000) + ' ثوانٍ قبل الحفظ — للإلغاء إن أردت', 'warn');
+            const go = await saveCountdown(SAVE_GRACE_MS);
+            if (!go) {
+                updateStep('step5', 'idle', 'أُلغي');
+                return { ok: false, cancelled: true };
+            }
+
+            updateStep('step5', 'active', 'جارٍ الحفظ...');
+            setStatus('💾 جارٍ الحفظ في البوّابة...');
+            log('💾 ضغط زر الحفظ...', 'info');
+            saveBtn.click();
+
+            const res = await waitForSaveOutcome(25000);
+            if (res.ok) {
+                updateStep('step5', 'done', 'حُفظت');
+                setStatus('✅ حُفظت الزيارة في البوّابة');
+                log('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
+                return { ok: true };
+            }
+
+            updateStep('step5', 'error', 'لم يتأكّد الحفظ');
+            setStatus('⚠️ ' + res.why + ' — راجع البوّابة');
+            log('⚠️ ' + res.why, 'error');
+            (res.errors || []).forEach(e => log('   • ' + e, 'error'));
+            log('👉 راجع الصفحة بنفسك: قد تكون حُفظت وقد لا تكون', 'warn');
+            log('💾 بياناتك باقية — لن تحتاج إعادة التصدير', 'success');
+            return { ok: false };
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         //  تعبئة حقول النموذج
         // ═══════════════════════════════════════════════════════════════
         async function fillAddForm(data, doc) {
@@ -1139,6 +1350,9 @@
             const filled  = [];
             const missing = [];
             const skipped = [];
+            // سجلّ ما كُتب فعلاً: يُقرأ منه قبل الحفظ للتأكّد أنّ الصفحة
+            // ما زالت تحمله — postback البوّابة يمسح الحقول أحياناً.
+            const written = [];
 
             // معالج موحّد لكل حقل نصّي: يبحث بمرونة ويبلّغ عن النتيجة صراحةً
             function fillText(label, names, value, progress) {
@@ -1152,6 +1366,7 @@
                 } else {
                     setFieldValue(el, value);
                     filled.push(label);
+                    written.push({ label: label, el: el, expected: el.value });
                     log('✅ ' + label + ' (' + String(value).length + ' حرف) → #' + (el.id || '?'), 'success');
                 }
                 setProgress(progress);
@@ -1170,6 +1385,7 @@
                 vtEl.value = data.visitType;
                 vtEl.dispatchEvent(new Event('change', { bubbles: true }));
                 filled.push('نوع الزيارة');
+                written.push({ label: 'نوع الزيارة', el: vtEl, expected: vtEl.value });
                 log('✅ نوع الزيارة: ' + (TYPE_LABELS[data.visitType] || data.visitType), 'success');
             }
             await wait(400);
@@ -1220,15 +1436,19 @@
                 log('❌ حقول لم يُعثر عليها: ' + missing.join('، '), 'error');
                 log('👉 اضغط «🔎 تشخيص الصفحة» وأرسل النتيجة للمطوّر', 'warn');
                 log('💾 بياناتك محفوظة — لن تحتاج إعادة التصدير', 'success');
-                return; // لا نحذف البيانات عند الفشل
+                return { ok: false, written: written, missing: missing, skipped: skipped };
             }
 
             updateStep('step4', 'done', 'تمت التعبئة');
-            setStatus('✅ تمت التعبئة — راجع ثم احفظ يدوياً');
             log('━━━ ✅ اكتملت التعبئة! ━━━', 'success');
-            log('🛑 راجع البيانات ثم اضغط "حفظ" بنفسك', 'warn');
 
-            // تُحذف البيانات فقط بعد نجاح كامل
+            // البيانات تبقى حتى يتأكّد الحفظ — تُحذف في clearExportData()
+            return { ok: true, written: written, missing: missing, skipped: skipped };
+        }
+
+        // لا تُحذف بيانات التصدير إلا بعد تأكّد وصول الزيارة إلى البوّابة،
+        // كي لا يضطرّ المستخدم إلى إعادة التصدير إذا تعثّر الحفظ.
+        function clearExportData() {
             try { GM_deleteValue(DATA_KEY); } catch (e) {}
             try { localStorage.removeItem('sv_moe_school_export'); } catch (e) {}
         }
@@ -1304,7 +1524,8 @@
                     log('📅 ' + (visitData.date || '—'), 'info');
                     log('📋 ' + (visitData.visitTypeName || visitData.visitType || '—'), 'info');
                     log('', 'info');
-                    log('⚠️ الحفظ يدوي — راجع البيانات قبل "حفظ"', 'warn');
+                    log(autoSaveOn() ? '💾 الحفظ التلقائي مُشغَّل — تُحفظ الزيارة بعد التعبئة'
+                                     : '✋ الحفظ التلقائي مُطفأ — ستحفظ بنفسك', 'warn');
 
                     // الطيار الآلي: يشتغل تلقائياً ويكمل عبر postbacks
                     const phase = sessionStorage.getItem('svf_pilot_phase');
@@ -1397,6 +1618,12 @@
             if (!sup) {
                 try { const raw = GM_getValue(SUP_KEY, ''); if (raw) sup = JSON.parse(raw); } catch (e) {}
             }
+            if (!sup) {
+                try {
+                    const raw = localStorage.getItem('sv_moe_supervision_export');
+                    if (raw) sup = JSON.parse(raw);
+                } catch (e) {}
+            }
         })();
 
         function findFlex(doc, names) {
@@ -1443,14 +1670,18 @@
             return false;
         }
 
-        function supFill() {
-            const filled = [], missing = [], empty = [];
+        async function supFill() {
+            const filled = [], missing = [], empty = [], written = [];
             for (const [label, names] of Object.entries(SUP_FIELDS)) {
                 const el = findAnywhere(names);
                 const val = sup[SUP_KEYMAP[label]];
                 if (!el) { missing.push(label); slog('لم يُعثر على: ' + label, 'error'); }
                 else if (!val) { empty.push(label); slog(label + ': لا بيانات', 'info'); }
-                else { setVal(el, val); filled.push(label); slog('عُبّئ ' + label + ' → #' + (el.id || '?'), 'success'); }
+                else {
+                    setVal(el, val); filled.push(label);
+                    written.push({ label: label, el: el, expected: el.value });
+                    slog('عُبّئ ' + label + ' → #' + (el.id || '?'), 'success');
+                }
             }
             let rOk = 0, rMiss = 0;
             (sup.ratings || []).forEach((score, idx) => {
@@ -1459,9 +1690,16 @@
                 const v = String(score);
                 if (el.tagName === 'SELECT') {
                     const opt = Array.from(el.options).find(o => o.value === v || o.text.trim() === v);
-                    if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); rOk++; }
-                    else rMiss++;
-                } else { setVal(el, v); rOk++; }
+                    if (opt) {
+                        el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true }));
+                        written.push({ label: 'درجة ' + (idx + 1), el: el, expected: el.value });
+                        rOk++;
+                    } else rMiss++;
+                } else {
+                    setVal(el, v);
+                    written.push({ label: 'درجة ' + (idx + 1), el: el, expected: el.value });
+                    rOk++;
+                }
             });
             slog('الدرجات: ' + rOk + ' من ' + (sup.ratings || []).length + (rMiss ? ' | تعذّر ' + rMiss : ''),
                  rMiss ? 'warn' : 'success');
@@ -1475,8 +1713,127 @@
                 slog('بياناتك محفوظة — لن تحتاج إعادة التصدير', 'success');
                 return;
             }
-            sstat('تمت التعبئة — راجع ثم احفظ يدوياً');
-            slog('راجع البيانات ثم اضغط «حفظ» بنفسك', 'warn');
+            await supSave(written);
+        }
+
+        // ─── الحفظ في وحدة الزيارات الإشرافية ───
+        function supFindSave() {
+            for (const d of docs()) {
+                const el = d.getElementById('ctl00_content_ImgSave')
+                        || d.getElementById('ctl00_content_btnSave')
+                        || d.querySelector('[id$="ImgSave"]')
+                        || d.querySelector('[id*="btnSave"]')
+                        || d.querySelector('input[type="submit"][value*="حفظ"]')
+                        || d.querySelector('input[type="image"][id*="Save"]');
+                if (el) return el;
+            }
+            return null;
+        }
+
+        function supPortalErrors() {
+            const out = [];
+            for (const d of docs()) {
+                let els = [];
+                try {
+                    els = Array.from(d.querySelectorAll(
+                        '[id*="ValidationSummary"], [id*="lblMsg"], [id*="lblError"], span[style*="color:Red"]'));
+                } catch (e) { continue; }
+                for (const el of els) {
+                    const t = (el.textContent || '').trim();
+                    if (t && t.length < 400 && out.indexOf(t) === -1) out.push(t);
+                }
+            }
+            return out;
+        }
+
+        async function supSave(written) {
+            const bad = [];
+            for (const w of written) {
+                let actual;
+                try { actual = String(w.el.value == null ? '' : w.el.value); }
+                catch (e) { bad.push(w.label); continue; }
+                if (actual.trim() !== String(w.expected).trim()) bad.push(w.label);
+            }
+            if (bad.length) {
+                sstat('لم أحفظ — حقول لا تحمل ما كُتب فيها');
+                slog('🛑 لم أحفظ: ' + bad.join('، '), 'error');
+                slog('راجع النموذج بنفسك ثمّ اضغط «حفظ»', 'warn');
+                return;
+            }
+
+            const btn = supFindSave();
+            if (!btn) {
+                sstat('لم أجد زر الحفظ — احفظ يدوياً');
+                slog('🛑 لم يُعثر على زر الحفظ', 'error');
+                slog('اضغط «تشخيص» وأرسل السجل للمطوّر', 'warn');
+                return;
+            }
+
+            if (!autoSaveOn()) {
+                sstat('تمت التعبئة — الحفظ التلقائي مُطفأ');
+                slog('الحفظ التلقائي مُطفأ — اضغط «حفظ» بنفسك', 'warn');
+                return;
+            }
+
+            sstat('الحفظ بعد ' + (SAVE_GRACE_MS / 1000) + ' ثوانٍ — اضغط «إلغاء الحفظ»');
+            slog('⏳ مهلة ' + (SAVE_GRACE_MS / 1000) + ' ثوانٍ قبل الحفظ', 'warn');
+            const go = await supCountdown(SAVE_GRACE_MS);
+            if (!go) { sstat('أُلغي الحفظ — احفظ يدوياً إن شئت'); return; }
+
+            sstat('جارٍ الحفظ...');
+            slog('💾 ضغط زر الحفظ...', 'info');
+            btn.click();
+
+            const deadline = Date.now() + 25000;
+            while (Date.now() < deadline) {
+                await new Promise(r => setTimeout(r, 1000));
+                const errs = supPortalErrors();
+                if (errs.length) {
+                    sstat('رفضت البوّابة الحفظ');
+                    slog('⚠️ رفضت البوّابة الحفظ:', 'error');
+                    errs.forEach(e => slog('   • ' + e, 'error'));
+                    slog('بياناتك باقية — لن تحتاج إعادة التصدير', 'success');
+                    return;
+                }
+                if (onListPage() && !formFieldsPresent()) {
+                    sstat('✅ حُفظت الزيارة في البوّابة');
+                    slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
+                    try { GM_deleteValue(SUP_KEY); } catch (e) {}
+                    return;
+                }
+            }
+            sstat('لم تتأكّد نتيجة الحفظ — راجع البوّابة');
+            slog('⚠️ لم تتأكّد نتيجة الحفظ خلال المهلة', 'error');
+            slog('راجع الصفحة بنفسك: قد تكون حُفظت وقد لا تكون', 'warn');
+        }
+
+        function supCountdown(ms) {
+            return new Promise(resolve => {
+                let left = Math.ceil(ms / 1000), cancelled = false;
+                const bar = document.createElement('div');
+                bar.style.cssText = 'margin:6px 0;padding:8px;border-radius:8px;background:#78350f;'
+                                  + 'color:#fef3c7;font-size:11.5px;text-align:center;line-height:1.7';
+                bar.innerHTML = '<div id="svfs-grace-t">الحفظ بعد ' + left + ' ثوانٍ…</div>'
+                              + '<button id="svfs-grace-x" style="margin-top:5px;width:100%;padding:6px;'
+                              + 'border:none;border-radius:6px;background:#fecaca;color:#7f1d1d;'
+                              + 'font-weight:bold;cursor:pointer;font-size:11.5px">إلغاء الحفظ</button>';
+                const status = document.getElementById(S);
+                if (status && status.parentNode) status.parentNode.insertBefore(bar, status.nextSibling);
+
+                const finish = (ok) => { clearInterval(iv); bar.remove(); resolve(ok); };
+                document.getElementById('svfs-grace-x')?.addEventListener('click', () => {
+                    cancelled = true;
+                    slog('🛑 ألغيتَ الحفظ — البيانات باقية في النموذج', 'warn');
+                    finish(false);
+                });
+                const iv = setInterval(() => {
+                    if (cancelled) return;
+                    left--;
+                    const t = document.getElementById('svfs-grace-t');
+                    if (t) t.textContent = 'الحفظ بعد ' + left + ' ثوانٍ…';
+                    if (left <= 0) finish(true);
+                }, 1000);
+            });
         }
 
         function supDiag() {
@@ -1520,6 +1877,7 @@
             '#svfs-fill{background:#15803d;color:#fff}' +
             '#svfs-add{background:#b45309;color:#fff}' +
             '#svfs-diag{background:#4c1d95;color:#ddd6fe;font-size:11px}' +
+            '#svfs-autosave{background:#0c4a6e;color:#bae6fd;font-size:11px}' +
             '#svfs-clear{background:#1f2937;color:#9ca3af;font-size:11px}' +
             '#svfs-status{padding:7px;background:#0f172a;border-radius:7px;margin-bottom:8px;' +
             'text-align:center;font-size:11.5px}' +
@@ -1545,6 +1903,8 @@
               '<div id="' + S + '">' + (sup ? 'جاهز — افتح نموذج الإضافة ثم اضغط تعبئة' : 'بانتظار البيانات') + '</div>' +
               '<button id="svfs-add">فتح نموذج الإضافة</button>' +
               (sup ? '<button id="svfs-fill">تعبئة النموذج</button>' : '') +
+              '<button id="svfs-autosave">' +
+                (autoSaveOn() ? 'الحفظ التلقائي: مُشغَّل' : 'الحفظ التلقائي: مُطفأ') + '</button>' +
               '<button id="svfs-diag">تشخيص الصفحة</button>' +
               '<button id="svfs-clear">مسح السجل</button>' +
               '<div id="' + L + '"></div>' +
@@ -1558,10 +1918,57 @@
             btn.click();
         });
         document.getElementById('svfs-fill')?.addEventListener('click', supFill);
+        document.getElementById('svfs-autosave')?.addEventListener('click', (e) => {
+            const next = !autoSaveOn();
+            setAutoSave(next);
+            e.target.textContent = next ? 'الحفظ التلقائي: مُشغَّل' : 'الحفظ التلقائي: مُطفأ';
+            slog(next ? 'الحفظ التلقائي مُشغَّل' : 'الحفظ التلقائي مُطفأ', 'warn');
+        });
         document.getElementById('svfs-diag')?.addEventListener('click', supDiag);
         document.getElementById('svfs-clear')?.addEventListener('click', () => {
             const b = document.getElementById(L); if (b) b.innerHTML = '';
         });
+
+        // ─── الطيّار الآلي ───
+        // نموذج الإضافة هنا صفحة مستقلّة، فالجولة تنقطع بانتقال الصفحة
+        // وتُستأنف على الصفحة التالية: العلامة في sessionStorage تقول
+        // أيّ الشوطين نحن فيه.
+        const SUP_PILOT = 'svfs_pilot_phase';
+        const SUP_DONE  = 'svfs_pilot_done';
+
+        async function supPilot() {
+            if (!sup) return;
+
+            if (onListPage() && !formFieldsPresent()) {
+                slog('🛩️ الطيّار الآلي: فتح نموذج الإضافة...', 'success');
+                sstat('فتح نموذج الإضافة...');
+                sessionStorage.setItem(SUP_PILOT, 'opened');
+                const btn = supAddBtn();
+                if (!btn) { slog('لا يوجد زر «إضافة»', 'error'); return; }
+                btn.click();
+                return;  // تُستأنف الجولة بعد تحميل الصفحة الجديدة
+            }
+
+            if (formFieldsPresent()) {
+                slog('🛩️ الطيّار الآلي: تعبئة النموذج...', 'success');
+                sessionStorage.removeItem(SUP_PILOT);
+                sessionStorage.setItem(SUP_DONE, '1');
+                await supFill();
+                return;
+            }
+
+            slog('⚠️ لا صفحة قائمة ولا نموذج — اضغط «تشخيص»', 'warn');
+            sstat('صفحة غير معروفة — اضغط تشخيص');
+        }
+
+        if (sup && !sessionStorage.getItem(SUP_DONE)) {
+            const resuming = sessionStorage.getItem(SUP_PILOT) === 'opened';
+            slog(resuming ? '🔄 استئناف الطيّار الآلي بعد فتح النموذج...'
+                          : '🛩️ إقلاع الطيّار الآلي بعد ٣ ثوانٍ...', 'success');
+            setTimeout(supPilot, 3000);
+        } else if (sup) {
+            slog('ℹ️ اكتملت جولة الطيّار — استخدم الأزرار للتكرار', 'info');
+        }
 
         (function (h) {
             h.addEventListener('mousedown', e => {
