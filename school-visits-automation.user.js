@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      11.1
+// @version      11.2
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -1799,8 +1799,11 @@
                 if (teacherBlocked) slog('المعلّم: لم يُطابَق اسمه في القائمة', 'error');
                 if (notesPartial) slog('الأوصاف: وُجد ' + nFound + ' حقلاً وغاب ' + nMiss
                                      + ' — خريطة مشكوك فيها', 'error');
-                slog('اضغط «تشخيص» وأرسل السجل للمطوّر', 'warn');
                 slog('بياناتك محفوظة — لن تحتاج إعادة التصدير', 'success');
+                slog('', 'info');
+                supDiag();                       // الدليل يُجمع الآن لا في دورةٍ تالية
+                slog('', 'info');
+                slog('اضغط «نسخ السجل» وأرسله للمطوّر', 'warn');
                 return;
             }
             await supSave(written);
@@ -1977,6 +1980,7 @@
             '#svfs-add{background:#b45309;color:#fff}' +
             '#svfs-diag{background:#4c1d95;color:#ddd6fe;font-size:11px}' +
             '#svfs-autosave{background:#0c4a6e;color:#bae6fd;font-size:11px}' +
+            '#svfs-copy{background:#065f46;color:#a7f3d0;font-size:11.5px}' +
             '#svfs-clear{background:#1f2937;color:#9ca3af;font-size:11px}' +
             '#svfs-status{padding:7px;background:#0f172a;border-radius:7px;margin-bottom:8px;' +
             'text-align:center;font-size:11.5px}' +
@@ -2004,6 +2008,7 @@
               (sup ? '<button id="svfs-fill">تعبئة النموذج</button>' : '') +
               '<button id="svfs-autosave">' +
                 (autoSaveOn() ? 'الحفظ التلقائي: مُشغَّل' : 'الحفظ التلقائي: مُطفأ') + '</button>' +
+              '<button id="svfs-copy">نسخ السجل</button>' +
               '<button id="svfs-diag">تشخيص الصفحة</button>' +
               '<button id="svfs-clear">مسح السجل</button>' +
               '<div id="' + L + '"></div>' +
@@ -2023,6 +2028,28 @@
             e.target.textContent = next ? 'الحفظ التلقائي: مُشغَّل' : 'الحفظ التلقائي: مُطفأ';
             slog(next ? 'الحفظ التلقائي مُشغَّل' : 'الحفظ التلقائي مُطفأ', 'warn');
         });
+        document.getElementById('svfs-copy')?.addEventListener('click', (e) => {
+            const box = document.getElementById(L);
+            const text = box ? Array.from(box.children).map(n => n.textContent).join('\n') : '';
+            const done = () => { e.target.textContent = 'نُسخ ✓';
+                                 setTimeout(() => { e.target.textContent = 'نسخ السجل'; }, 2000); };
+            try {
+                navigator.clipboard.writeText(text).then(done, () => fallback(text, done));
+            } catch (err) { fallback(text, done); }
+
+            // الحافظة محجوبة أحياناً في إطارات البوّابة — يُعرض النصّ ليُنسخ يدوياً
+            function fallback(t2, cb) {
+                const ta = document.createElement('textarea');
+                ta.value = t2;
+                ta.style.cssText = 'position:fixed;top:10%;right:10%;width:80%;height:70%;z-index:999999';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e2) {}
+                setTimeout(() => ta.remove(), 15000);
+                cb();
+            }
+        });
+
         document.getElementById('svfs-diag')?.addEventListener('click', supDiag);
         document.getElementById('svfs-clear')?.addEventListener('click', () => {
             const b = document.getElementById(L); if (b) b.innerHTML = '';
