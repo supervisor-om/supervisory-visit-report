@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      11.2
+// @version      12.0
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -311,11 +311,15 @@
             }
 
             const data = {
-                kind:    'supervision',
-                teacher: $('#teacherName')?.value?.trim() || '',
-                school:  $('#school')?.value?.trim() || $('#schoolName')?.value?.trim() || '',
-                lesson:  $('#lesson')?.value?.trim() || '',
-                period:  $('#visitNumber')?.value?.trim() || '',
+                kind:        'supervision',
+                teacher:     $('#teacherName')?.value?.trim() || '',
+                school:      $('#school')?.value?.trim() || $('#schoolName')?.value?.trim() || '',
+                subject:     $('#subject')?.value?.trim() || '',      // المادة
+                period:      $('#lesson')?.value?.trim() || '',       // الحصة
+                lessonTitle: $('#topic')?.value?.trim() || '',        // الموضوع
+                className:   $('#class')?.value?.trim() || '',
+                fileNumber:  $('#fileNumber')?.value?.trim() || '',
+                visitNumber: $('#visitNumber')?.value?.trim() || '',
                 date:    portalDate,
                 ratings,
                 notes,
@@ -1587,18 +1591,39 @@
         // ─── خريطة حقول البوابة ───
         // مبدئية: البوابة لم تُفحص بعد وهي مفتوحة على نموذج الإضافة.
         // البحث المرن يجرّب كل مرشّح، وزر «تشخيص» يكشف المعرّفات الحقيقية.
-        const SUP_FIELDS = {
-            'التاريخ':       ['tbDate', 'txtVisitDate', 'dtpVisitDate_dateTextBox', 'txtDate'],
-            'الحصة':         ['txtPeriod', 'txtVisitNumber', 'ddlPeriod'],
-            'المادة':        ['txtLesson', 'txtSubject', 'txtVisitSubject'],
+        // ─── المرحلة ١: رأس الزيارة ───
+        // معرّفات مثبَّتة من تشخيص البوّابة، ومعها مرادفات احتياطية
+        const STAGE1_FIELDS = {
+            'التاريخ':      ['visitDataPicker_dateTextBox', 'dtpVisitDate_dateTextBox', 'tbDate', 'txtVisitDate'],
+            'الحصة':        ['TeacherManualSchedule1_ddlSessionIndex', 'ddlSessionIndex', 'ddlPeriod'],
+            'المادة':       ['applicationPageContentPlaceHolder_ddlSubjects', 'ddlSubjects', 'ddlSubject'],
+            'عنوان الدرس':  ['TeacherManualSchedule1_txtLessonTitle', 'txtLessonTitle']
+        };
+        const STAGE1_KEYMAP = {
+            'التاريخ': 'date', 'الحصة': 'period', 'المادة': 'subject', 'عنوان الدرس': 'lessonTitle'
+        };
+
+        // ─── المرحلة ٢: التقييم — لم تُرَ بعد، فالمعرّفات مرشّحات ───
+        const STAGE2_FIELDS = {
             'أوجه التميز':   ['txtExcellence', 'txtStrengths', 'txtVisitorOpinion', 'txtOpinion'],
             'أوجه التطوير':  ['txtDevelopment', 'txtNeedsDevelopment', 'txtDevelopmentAspects'],
             'التوصيات':      ['txtVisitorRecomendation', 'txtVisitorRecommendation', 'txtRecommendations']
         };
-        const SUP_KEYMAP = {
-            'التاريخ': 'date', 'الحصة': 'period', 'المادة': 'lesson',
+        const STAGE2_KEYMAP = {
             'أوجه التميز': 'excellence', 'أوجه التطوير': 'development', 'التوصيات': 'recommendations'
         };
+
+        // بحث الموظّف: حقل إكمالٍ تلقائيّ مع زرّ بحثٍ وشبكة نتائج،
+        // فاختيار المعلّم نقرُ صفٍّ لا كتابةُ اسم.
+        const EMP_SEARCH = ['EmployeeAdministrativeScaleSearchCtrl1_txtSearchText_AutoCompletTextBox',
+                            'txtSearchText_AutoCompletTextBox'];
+        const EMP_SEARCH_BTN = ['EmployeeAdministrativeScaleSearchCtrl1_btnSearch'];
+        const FORMS_DDL = ['applicationPageContentPlaceHolder_ddlForms', 'ddlForms'];
+        const STAGE1_NEXT = ['applicationPageContentPlaceHolder_btnAdd'];
+
+        // للتوافق مع ما يقرؤها من الشفرة القديمة
+        const SUP_FIELDS = Object.assign({}, STAGE1_FIELDS, STAGE2_FIELDS);
+        const SUP_KEYMAP = Object.assign({}, STAGE1_KEYMAP, STAGE2_KEYMAP);
         const ratingCandidates = i => ['ddlRating' + i, 'ddlItem' + i, 'ddlEvaluation' + i,
                                        'ddlStandard' + i, 'ddlDegree' + i, 'ddlScore' + i];
 
@@ -1694,104 +1719,153 @@
             return false;
         }
 
+        // ─── أيّ مرحلةٍ نحن فيها؟ ───
+        // البوّابة معالجٌ على مرحلتين: رأس الزيارة ثمّ التقييم. ولكلٍّ
+        // حقولها، فمحاولةُ تعبئة حقول مرحلةٍ في الأخرى تبلغ عن فقدٍ كاذب.
+        function supStage() {
+            if (findAnywhere(STAGE1_FIELDS['التاريخ']) || findAnywhere(FORMS_DDL)) return 1;
+            for (const names of Object.values(STAGE2_FIELDS)) if (findAnywhere(names)) return 2;
+            if (findAnywhere(ratingCandidates(1))) return 2;
+            return 0;
+        }
+
         async function supFill() {
+            const stage = supStage();
+            if (stage === 0) {
+                sstat('لا نموذج في هذه الصفحة');
+                slog('لم أتعرّف على مرحلةٍ من مراحل النموذج هنا', 'error');
+                supDiag();
+                slog('اضغط «نسخ السجل» وأرسله للمطوّر', 'warn');
+                return;
+            }
+
+            slog('المرحلة ' + stage + ': ' + (stage === 1 ? 'رأس الزيارة' : 'التقييم'), 'warn');
+            const FIELDS = stage === 1 ? STAGE1_FIELDS : STAGE2_FIELDS;
+            const KEYMAP = stage === 1 ? STAGE1_KEYMAP : STAGE2_KEYMAP;
+
             const filled = [], missing = [], empty = [], written = [];
-            for (const [label, names] of Object.entries(SUP_FIELDS)) {
+
+            for (const [label, names] of Object.entries(FIELDS)) {
                 const el = findAnywhere(names);
-                const val = sup[SUP_KEYMAP[label]];
-                if (!el) { missing.push(label); slog('لم يُعثر على: ' + label, 'error'); }
-                else if (!val) { empty.push(label); slog(label + ': لا بيانات', 'info'); }
-                else {
-                    setVal(el, val); filled.push(label);
+                const val = sup[KEYMAP[label]];
+                if (!el) { missing.push(label); slog('لم يُعثر على: ' + label, 'error'); continue; }
+                if (!val) { empty.push(label); slog(label + ': لا بيانات', 'info'); continue; }
+
+                if (el.tagName === 'SELECT') {
+                    const want = normAr(val);
+                    const opts = Array.from(el.options || []);
+                    const opt = opts.find(o => String(o.value) === String(val))
+                             || opts.find(o => normAr(o.text) === want)
+                             || opts.find(o => normAr(o.text).includes(want));
+                    if (opt) {
+                        el.value = opt.value;
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                        written.push({ label: label, el: el, expected: el.value });
+                        filled.push(label);
+                        slog('اختير ' + label + ': ' + opt.text.trim() + ' → #' + (el.id || '?'), 'success');
+                    } else {
+                        missing.push(label);
+                        slog(label + ': «' + val + '» ليس في خيارات القائمة', 'error');
+                    }
+                } else {
+                    setVal(el, val);
                     written.push({ label: label, el: el, expected: el.value });
+                    filled.push(label);
                     slog('عُبّئ ' + label + ' → #' + (el.id || '?'), 'success');
                 }
             }
-            // ─── اسم المعلّم ───
-            // غيابُ الحقل ليس عطلاً بالضرورة: البوّابة قد تربط الزيارة
-            // بمعلّمٍ يُختار في صفحة القائمة. لكنّ وجودَه وفشلَ مطابقته
-            // عطلٌ يوقف الحفظ — سجلٌّ باسم معلّم آخر أسوأ من لا سجلّ.
-            let teacherBlocked = false;
-            const tEl = findAnywhere(TEACHER_FIELDS);
-            if (!tEl) {
-                slog('حقل المعلّم غير موجود في النموذج — لعلّه يُختار في صفحة القائمة', 'warn');
-            } else if (!sup.teacher) {
-                slog('حقل المعلّم موجود لكن لا اسم في البيانات', 'warn');
-            } else if (tEl.tagName === 'SELECT') {
-                const want = normAr(sup.teacher);
-                const opts = Array.from(tEl.options || []);
-                let opt = opts.find(o => normAr(o.text) === want)
-                       || opts.find(o => normAr(o.text).includes(want))
-                       || opts.find(o => want.includes(normAr(o.text)) && normAr(o.text).length > 4);
-                if (opt) {
-                    tEl.value = opt.value;
-                    tEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    written.push({ label: 'المعلّم', el: tEl, expected: tEl.value });
-                    filled.push('المعلّم');
-                    slog('عُبّئ المعلّم: ' + opt.text.trim() + ' → #' + (tEl.id || '?'), 'success');
-                } else {
-                    teacherBlocked = true;
-                    slog('اسم المعلّم «' + sup.teacher + '» ليس في قائمة البوّابة', 'error');
-                    slog('اختره بنفسك — لن أحفظ سجلّاً قد يُنسب لغيره', 'error');
+
+            let teacherBlocked = false, rMiss = 0, notesPartial = false, nFound = 0, nMiss = 0;
+
+            if (stage === 1) {
+                // ─── المعلّم: حقل بحثٍ لا حقل اسم ───
+                // كتابةُ الاسم لا تختاره؛ الاختيار نقرُ صفٍّ في شبكة النتائج،
+                // وشكلُ الشبكة لم يُعرَف بعد. فيُكتب الاسم ويُترك النقر لك.
+                const se = findAnywhere(EMP_SEARCH);
+                if (se && sup.teacher) {
+                    setVal(se, sup.teacher);
+                    slog('كُتب اسم المعلّم في حقل البحث → #' + (se.id || '?'), 'success');
+                    slog('اضغط «بحث» في البوّابة ثمّ اختر المعلّم من النتائج', 'warn');
+                } else if (!se) {
+                    slog('حقل بحث الموظّف غير موجود في هذه الصفحة', 'warn');
+                }
+                const forms = findAnywhere(FORMS_DDL);
+                if (forms) {
+                    const n = (forms.options || []).length;
+                    slog('قائمة الاستمارات موجودة (' + n + ' خياراً) — اخترها بنفسك', 'warn');
                 }
             } else {
-                setVal(tEl, sup.teacher);
-                written.push({ label: 'المعلّم', el: tEl, expected: tEl.value });
-                filled.push('المعلّم');
-                slog('عُبّئ المعلّم → #' + (tEl.id || '?'), 'success');
-            }
-
-            let rOk = 0, rMiss = 0;
-            (sup.ratings || []).forEach((score, idx) => {
-                const el = findAnywhere(ratingCandidates(idx + 1));
-                if (!el) { rMiss++; return; }
-                const v = String(score);
-                if (el.tagName === 'SELECT') {
-                    const opt = Array.from(el.options).find(o => o.value === v || o.text.trim() === v);
-                    if (opt) {
-                        el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true }));
+                // ─── المرحلة ٢: الدرجات والأوصاف ───
+                let rOk = 0;
+                (sup.ratings || []).forEach((score, idx) => {
+                    const el = findAnywhere(ratingCandidates(idx + 1));
+                    if (!el) { rMiss++; return; }
+                    const v = String(score);
+                    if (el.tagName === 'SELECT') {
+                        const opt = Array.from(el.options).find(o => o.value === v || o.text.trim() === v);
+                        if (opt) {
+                            el.value = opt.value;
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                            written.push({ label: 'درجة ' + (idx + 1), el: el, expected: el.value });
+                            rOk++;
+                        } else rMiss++;
+                    } else {
+                        setVal(el, v);
                         written.push({ label: 'درجة ' + (idx + 1), el: el, expected: el.value });
                         rOk++;
-                    } else rMiss++;
-                } else {
-                    setVal(el, v);
-                    written.push({ label: 'درجة ' + (idx + 1), el: el, expected: el.value });
-                    rOk++;
-                }
-            });
-            slog('الدرجات: ' + rOk + ' من ' + (sup.ratings || []).length + (rMiss ? ' | تعذّر ' + rMiss : ''),
-                 rMiss ? 'warn' : 'success');
+                    }
+                });
+                slog('الدرجات: ' + rOk + ' من ' + (sup.ratings || []).length + (rMiss ? ' | تعذّر ' + rMiss : ''),
+                     rMiss ? 'warn' : 'success');
 
-            // ─── الأوصاف الثلاثة عشر ───
-            // إمّا أن تكون للبوّابة حقولُ وصفٍ للبنود فتُعبَّأ كلُّها، وإمّا
-            // ألّا تكون فلا شيء يُعبَّأ. أمّا أن يُوجَد بعضُها ويُفقَد بعض
-            // فخريطةٌ خاطئة، والحفظ عندها يكتب وصفاً في خانة بندٍ آخر.
-            const notes = sup.notes || {};
-            const noteKeys = Object.keys(notes);
-            let nOk = 0, nMiss = 0, nFound = 0;
-            if (noteKeys.length) {
-                for (let i = 1; i <= 13; i++) {
-                    const el = findAnywhere(noteCandidates(i));
-                    if (el) nFound++;
-                    const v = notes[i] || notes[String(i)] || '';
-                    if (!el) { if (v) nMiss++; continue; }
-                    if (!v) continue;
-                    setVal(el, v);
-                    written.push({ label: 'وصف البند ' + i, el: el, expected: el.value });
-                    nOk++;
+                const notes = sup.notes || {};
+                const noteKeys = Object.keys(notes);
+                let nOk = 0;
+                if (noteKeys.length) {
+                    for (let i = 1; i <= 13; i++) {
+                        const el = findAnywhere(noteCandidates(i));
+                        if (el) nFound++;
+                        const v = notes[i] || notes[String(i)] || '';
+                        if (!el) { if (v) nMiss++; continue; }
+                        if (!v) continue;
+                        setVal(el, v);
+                        written.push({ label: 'وصف البند ' + i, el: el, expected: el.value });
+                        nOk++;
+                    }
+                    if (nFound === 0) slog('لا حقول أوصافٍ للبنود في هذا النموذج — الأوصاف لن تُرسَل', 'warn');
+                    else slog('الأوصاف: ' + nOk + ' من ' + noteKeys.length + (nMiss ? ' | تعذّر ' + nMiss : ''),
+                              nMiss ? 'warn' : 'success');
                 }
-                if (nFound === 0) {
-                    slog('لا حقول أوصافٍ للبنود في هذا النموذج — الأوصاف لن تُرسَل', 'warn');
-                } else {
-                    slog('الأوصاف: ' + nOk + ' من ' + noteKeys.length + (nMiss ? ' | تعذّر ' + nMiss : ''),
-                         nMiss ? 'warn' : 'success');
+                notesPartial = nFound > 0 && nMiss > 0;
+
+                // المعلّم في مرحلة التقييم: إن وُجد حقلٌ له وفشلت مطابقته فلا حفظ
+                const tEl = findAnywhere(TEACHER_FIELDS);
+                if (tEl && sup.teacher && tEl.tagName === 'SELECT') {
+                    const want = normAr(sup.teacher);
+                    const opts = Array.from(tEl.options || []);
+                    const opt = opts.find(o => normAr(o.text) === want)
+                             || opts.find(o => normAr(o.text).includes(want));
+                    if (opt) {
+                        tEl.value = opt.value;
+                        tEl.dispatchEvent(new Event('change', { bubbles: true }));
+                        written.push({ label: 'المعلّم', el: tEl, expected: tEl.value });
+                        slog('اختير المعلّم: ' + opt.text.trim(), 'success');
+                    } else {
+                        teacherBlocked = true;
+                        slog('اسم المعلّم «' + sup.teacher + '» ليس في قائمة البوّابة', 'error');
+                        slog('اختره بنفسك — لن أحفظ سجلّاً قد يُنسب لغيره', 'error');
+                    }
+                } else if (tEl && sup.teacher) {
+                    setVal(tEl, sup.teacher);
+                    written.push({ label: 'المعلّم', el: tEl, expected: tEl.value });
+                    slog('عُبّئ المعلّم → #' + (tEl.id || '?'), 'success');
                 }
             }
-            // وُجد بعضُ الحقول وغاب بعض: خريطة مشكوك فيها، لا تُحفظ
-            const notesPartial = nFound > 0 && nMiss > 0;
+
             slog('---------------------', 'info');
             slog('عُبّئ ' + filled.length + ' | مفقود ' + missing.length + ' | بلا بيانات ' + empty.length,
                  missing.length ? 'warn' : 'success');
+
             if (missing.length || rMiss || teacherBlocked || notesPartial) {
                 sstat('تعذّرت تعبئة بعض الحقول — لم أحفظ');
                 if (missing.length) slog('مفقود: ' + missing.join('، '), 'error');
@@ -1801,11 +1875,20 @@
                                      + ' — خريطة مشكوك فيها', 'error');
                 slog('بياناتك محفوظة — لن تحتاج إعادة التصدير', 'success');
                 slog('', 'info');
-                supDiag();                       // الدليل يُجمع الآن لا في دورةٍ تالية
+                supDiag();
                 slog('', 'info');
                 slog('اضغط «نسخ السجل» وأرسله للمطوّر', 'warn');
                 return;
             }
+
+            if (stage === 1) {
+                // رأسُ الزيارة ليس موضع حفظ: بعده مرحلةُ التقييم
+                sstat('اكتمل رأس الزيارة — أكمل الاختيار ثمّ انتقل للتقييم');
+                slog('المرحلة ١ تمّت. اختر المعلّم والاستمارة ثمّ اضغط «إضافة» في البوّابة', 'warn');
+                slog('وحين تظهر صفحة التقييم اضغط «تعبئة النموذج» مرّة أخرى', 'warn');
+                return;
+            }
+
             await supSave(written);
         }
 
@@ -1963,6 +2046,37 @@
                 });
                 if (fs.length > 60) slog('  ... و ' + (fs.length - 60) + ' آخر', 'info');
             });
+            // ─── الشبكات: أين الصفوف وكيف يُنقر عليها ───
+            ds.forEach((d, di) => {
+                let tables = [];
+                try { tables = Array.from(d.querySelectorAll('table')); } catch (e) { return; }
+                const grids = tables.filter(tb => {
+                    const rows = tb.rows ? tb.rows.length : 0;
+                    return rows >= 2 && (tb.id || (tb.className || '').length);
+                }).slice(0, 5);
+                if (!grids.length) return;
+                slog('--- شبكات ' + (di === 0 ? 'المستند الرئيسي' : 'إطار ' + di)
+                   + ' (' + grids.length + ') ---', 'warn');
+                grids.forEach((tb, gi) => {
+                    const rows = tb.rows ? tb.rows.length : 0;
+                    slog('  [شبكة ' + gi + '] id=' + (tb.id || '—')
+                       + ' class=' + ((tb.className || '—').slice(0, 40)) + ' صفوف=' + rows, 'info');
+                    for (let r = 0; r < Math.min(rows, 3); r++) {
+                        const tr = tb.rows[r];
+                        const cells = Array.from(tr.cells || []).slice(0, 6)
+                            .map(c => (c.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 22));
+                        const click = tr.getAttribute('onclick') || '';
+                        const inner = Array.from(tr.querySelectorAll('a, input[type="image"], input[type="radio"], input[type="checkbox"]'))
+                            .slice(0, 3)
+                            .map(e => e.tagName + (e.id ? '#' + e.id : '')
+                                    + (e.type ? '[' + e.type + ']' : ''));
+                        slog('     صف' + r + ': ' + cells.join(' | '), 'info');
+                        if (click) slog('        onclick=' + click.slice(0, 110), 'info');
+                        if (inner.length) slog('        فيه: ' + inner.join('  '), 'info');
+                    }
+                });
+            });
+
             slog('=== نهاية التشخيص ===', 'warn');
             slog('انسخ السجل كاملاً وأرسله للمطوّر', 'success');
         }

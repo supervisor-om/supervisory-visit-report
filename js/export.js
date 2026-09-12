@@ -283,13 +283,18 @@
                 if (v) notes[item.id] = v;
             });
 
+            const q = (sel) => document.querySelector(sel)?.value?.trim() || '';
             const exportData = {
                 kind:            'supervision',
                 date:            portalDate,
-                teacher:         document.querySelector('#teacherName')?.value?.trim()     || '',
-                school:          document.querySelector('#schoolName')?.value?.trim()      || '',
-                lesson:          document.querySelector('#lesson')?.value?.trim()          || '',
-                period:          document.querySelector('#visitNumber')?.value?.trim()     || '',
+                teacher:         q('#teacherName'),
+                school:          q('#school') || q('#schoolName'),
+                subject:         q('#subject'),      // المادة
+                period:          q('#lesson'),       // الحصة
+                lessonTitle:     q('#topic'),        // الموضوع
+                className:       q('#class'),
+                fileNumber:      q('#fileNumber'),
+                visitNumber:     q('#visitNumber'),
                 ratings:         ratings,
                 notes:           notes,
                 excellence:      strengths,
