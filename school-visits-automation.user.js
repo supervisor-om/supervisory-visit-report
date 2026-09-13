@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.2
+// @version      14.3
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -34,6 +34,14 @@
     const DATA_KEY     = 'svf_school_visit_data';
     const AUTOSAVE_KEY = 'svf_autosave_enabled';
     const SAVE_GRACE_MS = 6000;  // مهلة الإلغاء قبل الحفظ
+
+    // رقم النسخة من ترويسة السكربت نفسه — يُعرض في اللوحتين.
+    // «التجربة على نسخةٍ قديمة» أضاعت دوراتٍ كاملةً ثلاث مرّات، والسبب أنّ
+    // النسخة لم تكن ظاهرةً إلّا في تامبر مانكي.
+    const SVF_VER = (() => {
+        try { return (GM_info && GM_info.script && GM_info.script.version) || '؟'; }
+        catch (e) { return '؟'; }
+    })();
 
     function autoSaveOn() {
         try { return GM_getValue(AUTOSAVE_KEY, true) !== false; } catch (e) { return true; }
@@ -588,7 +596,7 @@
             panel.innerHTML = `
                 <div id="svf-header-v7">
                     <span>🏫</span>
-                    <h3>أتمتة الزيارات v7.0</h3>
+                    <h3>أتمتة الزيارات v${SVF_VER}</h3>
                     ${hasData ? '<span id="svf-badge-v7">جاهز</span>' : ''}
                     <span id="svf-toggle-v7" style="cursor:pointer">▼</span>
                 </div>
@@ -2275,7 +2283,7 @@
         const panel = document.createElement('div');
         panel.id = P;
         panel.innerHTML =
-            '<div class="h"><span>أتمتة الزيارات الإشرافية</span>' +
+            '<div class="h"><span>أتمتة الزيارات الإشرافية v' + SVF_VER + '</span>' +
               '<span id="svfs-toggle" title="طيّ / بسط">▾</span></div>' +
             '<div class="b">' +
               (sup
@@ -2980,7 +2988,7 @@
             });
         })(panel.querySelector('.h'));
 
-        slog('وحدة الزيارات الإشرافية جاهزة', 'success');
+        slog('وحدة الزيارات الإشرافية جاهزة — النسخة ' + SVF_VER, 'success');
         if (!sup) slog('صدّر زيارة إشرافية من الموقع أولاً', 'warn');
         if (queueInfo() && !autoSaveOn()) {
             slog('⏸ طابور زيارات بانتظارك والحفظ التلقائي مُطفأ — شغّله ليبدأ الطابور', 'error');
