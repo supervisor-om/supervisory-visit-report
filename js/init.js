@@ -126,6 +126,22 @@
                     });
                 });
 
+                // ── تحديد زيارات الأرشيف ورفعها طابوراً إلى البوّابة ──
+                if (supSavedList) {
+                    supSavedList.addEventListener('change', e => {
+                        if (e.target.classList.contains('queue-pick') && window.svfToggleKey)
+                            window.svfToggleKey(e.target.dataset.key, e.target.checked);
+                    });
+                }
+                const selectAllBtn = document.getElementById('selectAllReportsBtn');
+                if (selectAllBtn) selectAllBtn.addEventListener('click', () => window.svfSelectAllVisible?.());
+
+                const clearSelBtn = document.getElementById('clearSelectionBtn');
+                if (clearSelBtn) clearSelBtn.addEventListener('click', () => window.svfClearSelection?.());
+
+                const sendSelBtn = document.getElementById('sendSelectedToMoeBtn');
+                if (sendSelBtn) sendSelBtn.addEventListener('click', () => window.svfSendSelected?.());
+
                 const supFilter = document.querySelector('#filter-reports-input');
                 if (supFilter) supFilter.addEventListener('input', renderSavedReports);
 

@@ -575,9 +575,25 @@
                     const scoreLabel = scoreTotal !== null
                         ? `<span class="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full mt-1">${scoreTotal} / 65</span>`
                         : '';
+                    // مربّع الاختيار للرفع إلى البوّابة، والتحديد يبقى بعد إعادة الرسم
+                    const picked = window.svfSelected ? window.svfSelected.has(key) : false;
+                    const portalDate = visitDate.includes('-')
+                        ? visitDate.split('-').reverse().join('/') : visitDate;
+                    let stateBadge = '';
+                    if (window.svfIsSent && window.svfIsSent(tName, portalDate)) {
+                        stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`;
+                    } else if (window.svfIsQueued && window.svfIsQueued(key)) {
+                        stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
+                    }
+
                     const card = document.createElement('div');
                     card.className = 'bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col justify-between';
                     card.innerHTML = `
+                        <label class="flex items-center gap-2 mb-3 cursor-pointer select-none">
+                            <input type="checkbox" class="queue-pick w-4 h-4 accent-indigo-600" data-key="${key}" ${picked ? 'checked' : ''}>
+                            <span class="text-xs text-slate-500">تحديد للرفع</span>
+                            ${stateBadge}
+                        </label>
                         <div class="mb-4">
                             <h4 class="font-bold text-slate-800 text-lg">${tName || 'غير معروف'}</h4>
                             <div class="text-sm text-slate-500 mt-1 flex flex-col gap-1">
@@ -601,5 +617,7 @@
                 if (found) noReportsMessage.classList.add('hidden');
                 else noReportsMessage.classList.remove('hidden');
             }
+
+            if (typeof window.svfUpdateSelectionUI === 'function') window.svfUpdateSelectionUI();
         }
 

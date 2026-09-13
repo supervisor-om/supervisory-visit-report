@@ -121,7 +121,7 @@ const between = (a, b) => {
     const alerts = [], opened = [];
     const ctx = {
         localStorage, console,
-        document: { addEventListener: () => {} },
+        document: { addEventListener: () => {}, getElementById: () => null, querySelectorAll: () => [] },
         navigator: { clipboard: { writeText: () => {} } },
         alert: m => alerts.push(m), confirm: m => { alerts.push(m); return true; },
         btoa: s => Buffer.from(s, 'latin1').toString('base64'),
@@ -133,7 +133,11 @@ const between = (a, b) => {
     vm.createContext(ctx);
     vm.runInContext(itemsSrc, ctx);                               // كما يُحمَّل templates.js قبله
     vm.runInContext(fs.readFileSync(QUEUE, 'utf8'), ctx);
-    ctx.exportQueueToMoe();
+
+    // المستخدم يحدّد التقريرين في الأرشيف ثمّ يضغط «رفع المحدد»
+    ctx.svfToggleKey(report.id, true);
+    ctx.svfToggleKey(report2.id, true);
+    ctx.svfSendSelected();
 
     let payload = null;
     if (opened.length) {
@@ -154,6 +158,44 @@ const between = (a, b) => {
     const guessed = payload && payload.visits.find(x => x.teacher === 'معلّم ناقص');
     check('queue-export: تقريرٌ ينقصه تقييمٌ لا يُرسَل بتقييمٍ مخمَّن', !guessed,
           guessed ? 'أُرسل بتقييمات ' + JSON.stringify(guessed.ratings) : 'مُستبعد');
+    check('queue-export: يذكر للمستخدم سببَ الاستبعاد',
+          alerts.some(m => m.includes('معلّم ناقص') && m.includes('تقييم البند 5')),
+          alerts.join(' ¦ ').replace(/\n+/g, ' ¦ '));
+    check('queue-export: الحمولة طابورٌ لا زيارةً مفردة',
+          payload && payload.kind === 'supervision' && Array.isArray(payload.visits) && payload.visits.length === 1,
+          payload ? JSON.stringify(Object.keys(payload)) : 'لا حمولة');
+
+    // «سبق رفعها» يُعلَّم للمرفوع فقط، والتحديد يُفرَّغ بعد الرفع
+    check('queue-export: المرفوع يُعلَّم في الأرشيف',
+          ctx.svfIsQueued(report.id) && !ctx.svfIsQueued(report2.id),
+          'الكامل ' + ctx.svfIsQueued(report.id) + ' / الناقص ' + ctx.svfIsQueued(report2.id));
+    check('queue-export: الناقص يبقى محدَّداً ليُصلَح', ctx.svfSelected.has(report2.id) && !ctx.svfSelected.has(report.id),
+          [...ctx.svfSelected].join('، ') || 'فارغ');
+
+    // لا رفعَ بلا تحديد
+    const before = opened.length;
+    ctx.svfClearSelection();
+    ctx.svfSendSelected();
+    check('queue-export: لا يفتح البوّابة بلا تحديد', opened.length === before, 'فُتحت ' + (opened.length - before) + ' مرّة');
+})();
+
+/* ── ٥) توصيل الواجهة: مربّع اختيارٍ لكلّ بطاقة، وزرٌّ يرفع المحدَّد ── */
+(function testArchiveWiring() {
+    const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
+    const exp  = fs.readFileSync(path.join(SITE, 'js/export.js'), 'utf8');
+    const init = fs.readFileSync(path.join(SITE, 'js/init.js'), 'utf8');
+
+    check('واجهة: queue-export.js محمَّلٌ في الصفحة', /<script src="js\/queue-export\.js">/.test(html), 'غير محمَّل');
+    check('واجهة: زرّ الرفع موجودٌ في الأرشيف', /id="sendSelectedToMoeBtn"/.test(html), 'غير موجود');
+    check('واجهة: أزرار التحديد موجودة',
+          /id="selectAllReportsBtn"/.test(html) && /id="clearSelectionBtn"/.test(html) && /id="selectionCount"/.test(html), 'ناقصة');
+    check('واجهة: البطاقة تحمل مربّع اختيارٍ بمفتاح التقرير',
+          /class="queue-pick[^"]*"[^>]*data-key="\$\{key\}"/.test(exp), 'غير موجود في renderSavedReports');
+    check('واجهة: تغيّر المربّع موصولٌ بالتحديد', /queue-pick[\s\S]{0,120}svfToggleKey/.test(init), 'غير موصول');
+    check('واجهة: الأزرار الثلاثة موصولة',
+          /sendSelectedToMoeBtn[\s\S]{0,200}svfSendSelected/.test(init) &&
+          /selectAllReportsBtn[\s\S]{0,200}svfSelectAllVisible/.test(init) &&
+          /clearSelectionBtn[\s\S]{0,200}svfClearSelection/.test(init), 'ناقصة');
 })();
 
 /* ── ٤) بوّابة الطابور: لا تعبئةَ بلا حفظٍ تلقائيّ، ولا تكرارَ سجلٍّ رسميّ ── */

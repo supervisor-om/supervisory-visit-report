@@ -1,29 +1,38 @@
 // ============================================================================
-//  queue-export.js — تصدير طابور الزيارات إلى بوّابة الوزارة
-//  يُضاف إلى supervisor-mct.com بجوار بقيّة ملفات js/
+//  queue-export.js — رفع زياراتٍ مختارةٍ من الأرشيف إلى بوّابة الوزارة
 //
-//  الغرض: بدل تصدير زيارةٍ واحدةٍ في كلّ مرّة، يجمع هذا الملف التقارير
-//  المحفوظة غير المرسلة ويبنيها في طابورٍ واحدٍ يعالجه سكربت تامبر مانكي
-//  زيارةً بعد أخرى، مع تتبّع ما أُرسل فعلاً حتّى لا يتكرّر.
+//  تختار الزيارات بمربّعات الاختيار في الأرشيف، فتُبنى طابوراً واحداً
+//  يعالجه سكربت تامبر مانكي زيارةً بعد أخرى.
+//
+//  الطابور يعمل بالحفظ التلقائيّ فقط — انظر «وضع الطابور» في CLAUDE.md.
 // ============================================================================
 
 (function () {
     'use strict';
 
-    const SENT_KEY = 'svf_sent_visits';      // سجلّ ما أُرسل: "المعلّم|التاريخ"
+    const SENT_KEY   = 'svf_sent_visits';     // حُفظت في البوّابة بتأكيد — "المعلّم|التاريخ"
+    const QUEUED_KEY = 'svf_queued_visits';   // رُفعت من هنا — مفاتيح تقارير الأرشيف
     const PORTAL_URL = 'https://moe.gov.om/SMS/SupervisionVisits/SupervisionVisitsModule.aspx?VisitMode=1';
 
-    /* ─── سجلّ المُرسَل ─── */
-    function sentSet() {
-        try { return new Set(JSON.parse(localStorage.getItem(SENT_KEY) || '[]')); }
+    /* ─── التحديد ─── */
+    // يبقى بين عمليّات الرسم: الكتابة في حقل البحث تُعيد رسم البطاقات
+    const selected = new Set();
+    window.svfSelected = selected;
+
+    function readSet(key) {
+        try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
         catch (e) { return new Set(); }
     }
-    function markSent(list) {
-        const s = sentSet();
-        list.forEach(v => s.add(v.teacher + '|' + v.date));
-        localStorage.setItem(SENT_KEY, JSON.stringify([...s]));
+    function addToSet(key, values) {
+        const s = readSet(key);
+        values.forEach(v => s.add(v));
+        try { localStorage.setItem(key, JSON.stringify([...s])); } catch (e) {}
     }
-    window.svfMarkSent = markSent;           // ليناديها السكربت بعد الحفظ
+
+    // «سبق رفعها» لا تعني «حُفظت»: تأكيد الحفظ يقع في نطاق البوّابة
+    window.svfIsQueued = key => readSet(QUEUED_KEY).has(key);
+    window.svfIsSent   = (teacher, date) => readSet(SENT_KEY).has(teacher + '|' + date);
+    window.svfMarkSent = list => addToSet(SENT_KEY, list.map(v => v.teacher + '|' + v.date));
 
     /* ─── تحويل تقريرٍ محفوظٍ إلى صيغة البوّابة ─── */
     // نفس بنية exportData في exportToMoe، لكن مصدرها الأرشيف لا الشاشة.
@@ -77,89 +86,121 @@
         };
     }
 
-    /* ─── جمع الزيارات غير المرسلة ─── */
-    function collectPending() {
-        const sent = sentSet();
-        const out = [];
-
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (!key || (!key.startsWith('supervision_v6_visit_') && !key.startsWith('visit_v5_'))) continue;
-            let d = null;
-            try { d = JSON.parse(localStorage.getItem(key)); } catch (e) { continue; }
-            if (!d || typeof d !== 'object') continue;
-
-            const v = toPortal(d);
-            if (!v.teacher || !v.date) continue;
-            if (sent.has(v.teacher + '|' + v.date)) continue;
-            out.push(v);
-        }
-
-        // الأقدم أوّلاً — ترتيبٌ منطقيٌّ للإدخال
-        out.sort((a, b) => {
-            const p = s => s.split('/').reverse().join('');
-            return p(a.date).localeCompare(p(b.date));
-        });
-        return out;
-    }
-
     /* ─── التحقّق: البوّابة ترفض هذه الحقول فارغةً ─── */
     function validate(v) {
         const gaps = [];
         if (!v.teacher)     gaps.push('اسم المعلم');
         if (!v.date)        gaps.push('التاريخ');
-        if (!v.lessonTitle) gaps.push('عنوان الدرس');
+        if (!v.lessonTitle) gaps.push('عنوان الدرس (حقل «الموضوع»)');
         if (v.ratings.length !== 13) gaps.push('بنود التقييم الثلاثة عشر');
         const unrated = v.ratings.map((r, i) => r == null ? i + 1 : 0).filter(Boolean);
         if (unrated.length) gaps.push('تقييم البند ' + unrated.join('، '));
         return gaps;
     }
 
-    /* ─── التصدير ─── */
-    function exportQueueToMoe() {
-        const all = collectPending();
-        if (!all.length) {
-            alert('لا توجد زيارات غير مرسلة.\n\nالزيارات المرسلة سابقاً مستثناة تلقائياً.');
+    /* ─── بناء الطابور من مفاتيح الأرشيف ─── */
+    function buildFromKeys(keys) {
+        const ready = [], broken = [];
+        keys.forEach(key => {
+            let d = null;
+            try { d = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+            if (!d || typeof d !== 'object') { broken.push({ key, label: key, gaps: ['التقرير غير مقروء'] }); return; }
+
+            const v = toPortal(d);
+            const gaps = validate(v);
+            const label = (v.teacher || 'بلا اسم') + ' (' + (v.date || 'بلا تاريخ') + ')';
+            if (gaps.length) broken.push({ key, label, gaps });
+            else ready.push({ key, visit: v });
+        });
+
+        // الأقدم أوّلاً — ترتيبٌ منطقيٌّ للإدخال في البوّابة
+        ready.sort((a, b) => {
+            const p = s => String(s || '').split('/').reverse().join('');
+            return p(a.visit.date).localeCompare(p(b.visit.date));
+        });
+        return { ready, broken };
+    }
+    window.svfBuildFromKeys = buildFromKeys;
+
+    /* ─── الرفع ─── */
+    function sendSelected() {
+        const keys = [...selected];
+        if (!keys.length) {
+            if (typeof showToast === 'function') showToast('حدّد زيارةً واحدةً على الأقل', 'error');
             return;
         }
 
-        const ready = [], broken = [];
-        all.forEach(v => {
-            const gaps = validate(v);
-            if (gaps.length) broken.push(v.teacher + ' (' + v.date + '): ينقصه ' + gaps.join('، '));
-            else ready.push(v);
-        });
+        const { ready, broken } = buildFromKeys(keys);
 
-        let msg = 'زيارات جاهزة للإرسال: ' + ready.length;
-        if (broken.length) msg += '\n\nمستبعدة لنقص البيانات (' + broken.length + '):\n• ' + broken.join('\n• ');
+        let msg = 'المحدَّد: ' + keys.length + ' زيارة\nجاهزة للرفع: ' + ready.length;
+        if (broken.length) {
+            msg += '\n\nمستبعدة لنقصٍ في البيانات (' + broken.length + '):\n• '
+                 + broken.map(b => b.label + ': ينقصه ' + b.gaps.join('، ')).join('\n• ')
+                 + '\n\nأكملها في الأرشيف ثمّ أعد رفعها.';
+        }
         if (!ready.length) { alert(msg); return; }
-        msg += '\n\nتنبيه: الطابور يعمل بالحفظ التلقائي فقط — تأكّد أنّ زرّ «الحفظ التلقائي» مُشغَّلٌ في لوحة البوّابة.';
-        if (!confirm(msg + '\n\nهل تريد إرسالها إلى البوّابة الآن؟')) return;
 
-        const payload = { kind: 'supervision', visits: ready };
+        msg += '\n\nتنبيه: الطابور يعمل بالحفظ التلقائي فقط — تأكّد أنّ زرّ «الحفظ التلقائي»'
+             + ' مُشغَّلٌ في لوحة البوّابة.';
+        if (!confirm(msg + '\n\nأفتح البوّابة وأبدأ الرفع الآن؟')) return;
+
+        const payload = { kind: 'supervision', visits: ready.map(r => r.visit) };
         const json = JSON.stringify(payload);
 
         // القنوات الثلاث نفسها المستخدمة في التصدير المفرد
         try { localStorage.setItem('sv_moe_supervision_export', json); } catch (e) {}
         try { navigator.clipboard.writeText(json); } catch (e) {}
-        try { window.postMessage({ source: 'MCT', type: 'EXPORT_REPORT', payload: payload }, '*'); } catch (e) {}
 
-        // الفتح داخل ضغطة المستخدم نفسها — التأجيل يُفقده التصريح
+        addToSet(QUEUED_KEY, ready.map(r => r.key));
+        ready.forEach(r => selected.delete(r.key));
+
+        // الفتح داخل ضغطة المستخدم نفسها — التأجيل يُفقده التصريح فيحجبه المتصفّح
         const b64 = btoa(unescape(encodeURIComponent(json)));
         window.open(PORTAL_URL + '#svfs=' + b64, '_blank');
+
+        if (typeof renderSavedReports === 'function') renderSavedReports();
+        updateSelectionUI();
+        if (typeof showToast === 'function')
+            showToast('فُتحت البوّابة بـ ' + ready.length + ' زيارة — تابع اللوحة هناك', 'success');
     }
+    window.svfSendSelected = sendSelected;
 
-    window.exportQueueToMoe = exportQueueToMoe;
-    window.svfCollectPending = collectPending;
+    /* ─── شريط التحديد ─── */
+    function updateSelectionUI() {
+        const count = selected.size;
+        const label = document.getElementById('selectionCount');
+        if (label) {
+            label.textContent = count ? 'المحدَّد: ' + count + ' زيارة' : 'لم تحدّد شيئاً';
+            label.className = count ? 'text-sm font-bold text-indigo-700' : 'text-sm text-slate-500';
+        }
+        const btn = document.getElementById('sendSelectedToMoeBtn');
+        if (btn) {
+            btn.disabled = !count;
+            btn.classList.toggle('opacity-50', !count);
+            btn.classList.toggle('cursor-not-allowed', !count);
+        }
+    }
+    window.svfUpdateSelectionUI = updateSelectionUI;
 
-    /* ─── ربط الزرّ ─── */
-    document.addEventListener('DOMContentLoaded', function () {
-        const btn = document.getElementById('exportQueueToMoeBtn');
-        if (btn) btn.addEventListener('click', exportQueueToMoe);
+    window.svfToggleKey = function (key, on) {
+        if (on) selected.add(key); else selected.delete(key);
+        updateSelectionUI();
+    };
 
-        // عدّاد الزيارات المعلّقة على الزرّ إن وُجد
-        const badge = document.getElementById('pendingCount');
-        if (badge) badge.textContent = collectPending().length;
-    });
+    // «تحديد الكل» يعني المعروض بعد التصفية لا كلّ ما في الأرشيف
+    window.svfSelectAllVisible = function () {
+        document.querySelectorAll('#saved-reports-list .queue-pick').forEach(cb => {
+            cb.checked = true;
+            selected.add(cb.dataset.key);
+        });
+        updateSelectionUI();
+    };
+
+    // الإلغاء يشمل ما خفي بالتصفية أيضاً، وإلّا بقي محدَّداً دون أن تراه
+    window.svfClearSelection = function () {
+        selected.clear();
+        document.querySelectorAll('#saved-reports-list .queue-pick').forEach(cb => { cb.checked = false; });
+        updateSelectionUI();
+    };
 
 })();
