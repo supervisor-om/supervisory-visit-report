@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      12.0
+// @version      14.1
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -11,6 +11,7 @@
 // @match        https://supervisor-mct.com/*
 // @match        https://www.supervisor-mct.com/*
 // @match        https://moe.gov.om/SMS/SupervisionVisits/*
+// @match        https://supervisor-mct.com/sim-moe/*
 // @match        https://moe.gov.om/SMS/VariousRecords/SchoolVisits/*
 // @match        https://moe.gov.om/Portal/Services/UserLoginnew.aspx
 // @match        https://moe.gov.om/*
@@ -19,6 +20,8 @@
 // @grant        GM_deleteValue
 // @grant        GM_addStyle
 // @grant        GM_getResourceURL
+// @grant        GM_xmlhttpRequest
+// @connect      supervisor-mct.com
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -89,7 +92,8 @@
     // ═══════════════════════════════════════════════════════════════
     //  جزء 1: موقع المشرف — التصدير
     // ═══════════════════════════════════════════════════════════════
-    if (/supervisor-om\.github\.io|supervisor-mct\.com/.test(location.hostname)) {
+    if (/supervisor-om\.github\.io|supervisor-mct\.com/.test(location.hostname)
+        && !/sim-moe/i.test(location.pathname)) {
 
         function findExportBtn() {
             return $('#exportSchoolToMoeBtn')
@@ -1582,17 +1586,73 @@
     //  جزء 3: وحدة الزيارات الإشرافية على الموظفين
     //  SMS/SupervisionVisits/SupervisionVisitsModule.aspx
     // ═══════════════════════════════════════════════════════════════
-    if (location.hostname.includes('moe.gov.om') && /supervisionvisits/i.test(location.pathname)) {
+    // المحاكاة (/sim-moe/) تُعامَل معاملة البوّابة لاختبار المسار كاملاً بلا سجلٍّ رسميّ
+    if ((location.hostname.includes('moe.gov.om') || /sim-moe/i.test(location.pathname))
+        && /supervisionvisits/i.test(location.pathname)) {
         if (window.top !== window.self) return;
 
         const SUP_KEY = 'svf_supervision_visit_data';
         const P = 'svfs-panel', L = 'svfs-log', S = 'svfs-status';
+        let svfsUnfold = null;
 
         // ─── خريطة حقول البوابة ───
         // مبدئية: البوابة لم تُفحص بعد وهي مفتوحة على نموذج الإضافة.
         // البحث المرن يجرّب كل مرشّح، وزر «تشخيص» يكشف المعرّفات الحقيقية.
         // ─── المرحلة ١: رأس الزيارة ───
         // معرّفات مثبَّتة من تشخيص البوّابة، ومعها مرادفات احتياطية
+        // ═══ خريطة المعرّفات الخارجيّة ═══
+        // البوّابة تتغيّر، وإصدار نسخةٍ جديدةٍ من السكربت لكلّ تغييرٍ مكلف.
+        // فتُقرأ المعرّفات من ملفٍ على خادمك، وتُخزَّن نسخةٌ محلّيّةٌ للطوارئ،
+        // والقيم المدمجة أدناه هي شبكة الأمان الأخيرة.
+        const CFG_URL = 'https://supervisor-mct.com/selectors.json';
+        const CFG_TTL = 6 * 60 * 60 * 1000;   // إعادة الجلب كلّ ٦ ساعات
+
+        function applyConfig(j) {
+            if (!j || typeof j !== 'object') return false;
+            const put = (target, src) => {
+                if (!src) return;
+                if (Array.isArray(target) && Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); }
+                else if (target && typeof target === 'object') Object.assign(target, src);
+            };
+            put(STAGE1_FIELDS, j.stage1);
+            put(EMP_SEARCH,    j.empSearch);
+            put(EMP_SEARCH_BTN, j.empSearchBtn);
+            put(FORMS_DDL,     j.formsDdl);
+            put(STAGE1_NEXT,   j.stage1Next);
+            put(SCORE_TEXT,    j.scoreText);
+            if (j.emptyText) SVF_EMPTY = j.emptyText;
+            slog('خريطة المعرّفات ' + (j.version ? 'v' + j.version : '') + ' مطبَّقة', 'success');
+            return true;
+        }
+
+        function loadConfig() {
+            try {
+                const raw = GM_getValue('svf_cfg', '');
+                if (raw) applyConfig(JSON.parse(raw));
+            } catch (e) {}
+
+            const age = Date.now() - Number(GM_getValue('svf_cfg_ts', 0) || 0);
+            if (age < CFG_TTL) return;
+            if (typeof GM_xmlhttpRequest !== 'function') return;
+
+            GM_xmlhttpRequest({
+                method: 'GET', url: CFG_URL + '?t=' + Date.now(), timeout: 8000,
+                onload: function (r) {
+                    try {
+                        const j = JSON.parse(r.responseText);
+                        if (applyConfig(j)) {
+                            GM_setValue('svf_cfg', r.responseText);
+                            GM_setValue('svf_cfg_ts', Date.now());
+                        }
+                    } catch (e) { slog('ملف الخريطة غير صالح — أُبقيت الخريطة المدمجة', 'warn'); }
+                },
+                onerror:   function () { slog('تعذّر جلب الخريطة — أُبقيت المدمجة', 'warn'); },
+                ontimeout: function () { slog('انتهت مهلة جلب الخريطة — أُبقيت المدمجة', 'warn'); }
+            });
+        }
+
+        let SVF_EMPTY = 'لا يوجد';
+
         const STAGE1_FIELDS = {
             'التاريخ':      ['visitDataPicker_dateTextBox', 'dtpVisitDate_dateTextBox', 'tbDate', 'txtVisitDate'],
             'الحصة':        ['TeacherManualSchedule1_ddlSessionIndex', 'ddlSessionIndex', 'ddlPeriod'],
@@ -1620,6 +1680,9 @@
         const EMP_SEARCH_BTN = ['EmployeeAdministrativeScaleSearchCtrl1_btnSearch'];
         const FORMS_DDL = ['applicationPageContentPlaceHolder_ddlForms', 'ddlForms'];
         const STAGE1_NEXT = ['applicationPageContentPlaceHolder_btnAdd'];
+        // مُعلَنٌ هنا لا قرب مستخدمه: loadConfig() يُستدعى عند بناء اللوحة
+        // ويكتب فيه من الخريطة المخزّنة، وإعلانه بعد ذلك يُسقط الكتابة بصمت.
+        const SCORE_TEXT = { '1': 'متميز', '2': 'جيد', '3': 'ملائم', '4': 'غير ملائم', '5': 'يحتاج' };
 
         // للتوافق مع ما يقرؤها من الشفرة القديمة
         const SUP_FIELDS = Object.assign({}, STAGE1_FIELDS, STAGE2_FIELDS);
@@ -1653,12 +1716,14 @@
 
         let sup = null;
         (function () {
+            let fresh = false;   // وصل تصديرٌ جديدٌ في الرابط الآن
             try {
                 const m = location.hash.match(/#svfs=([A-Za-z0-9+/=]+)/);
                 if (m) {
                     const json = b64Decode(m[1]);
                     if (json) {
                         sup = JSON.parse(json);
+                        fresh = true;
                         try { GM_setValue(SUP_KEY, json); } catch (e) {}
                         history.replaceState(null, '', location.pathname + location.search);
                     }
@@ -1673,7 +1738,60 @@
                     if (raw) sup = JSON.parse(raw);
                 } catch (e) {}
             }
+
+            // ═══ طابور الزيارات ═══
+            // التصدير قد يحمل زيارةً واحدةً أو قائمةً منها. في حالة القائمة
+            // نعالج واحدةً في كلّ دورة، والمؤشّر محفوظٌ فيُستأنف بعد كلّ حفظ.
+            if (sup && Array.isArray(sup.visits) && sup.visits.length) {
+                try {
+                    GM_setValue('svf_queue', JSON.stringify(sup.visits));
+                    GM_setValue('svf_queue_i', 0);
+                } catch (e) {}
+            } else if (fresh) {
+                // تصديرٌ مفردٌ جديد يُلغي أيّ طابورٍ لم يكتمل، وإلّا حُمِّلت
+                // زيارةٌ قديمةٌ من الطابور مكان التي صدّرها المستخدم للتوّ.
+                try { GM_deleteValue('svf_queue'); GM_deleteValue('svf_queue_i'); } catch (e) {}
+            }
+            try {
+                const q = JSON.parse(GM_getValue('svf_queue', '[]'));
+                const i = Number(GM_getValue('svf_queue_i', 0) || 0);
+                if (q.length && i < q.length) sup = q[i];
+            } catch (e) {}
         })();
+
+        function queueInfo() {
+            try {
+                const q = JSON.parse(GM_getValue('svf_queue', '[]'));
+                const i = Number(GM_getValue('svf_queue_i', 0) || 0);
+                return q.length ? { q: q, i: i, total: q.length } : null;
+            } catch (e) { return null; }
+        }
+
+        // الانتقال للزيارة التالية بعد حفظٍ ناجح
+        async function queueAdvance() {
+            const info = queueInfo();
+            if (!info) return false;
+            const next = info.i + 1;
+            GM_setValue('svf_queue_i', next);
+            if (next >= info.total) {
+                sstat('اكتمل الطابور: ' + info.total + ' زيارة');
+                slog('━━━ ✅ اكتمل الطابور: حُفظت ' + info.total + ' زيارة ━━━', 'success');
+                GM_deleteValue('svf_queue'); GM_deleteValue('svf_queue_i');
+                return false;
+            }
+            sup = info.q[next];
+            sstat('الزيارة ' + (next + 1) + ' من ' + info.total + ': ' + (sup.teacher || ''));
+            slog('▶ الزيارة ' + (next + 1) + ' من ' + info.total + ' — ' + (sup.teacher || ''), 'warn');
+            await wait(2500);
+
+            const btn = supAddBtn();
+            if (!btn) { slog('لم أجد زر «إضافة» للزيارة التالية', 'error'); return false; }
+            btn.click();
+            if (!await waitForSupForm(25000)) { slog('تأخّر تحميل النموذج', 'error'); return false; }
+            await wait(1200);
+            await supStage1();
+            return true;
+        }
 
         function findFlex(doc, names) {
             for (const n of names) { const el = doc.getElementById(n); if (el) return el; }
@@ -1693,6 +1811,7 @@
         function slog(msg, type) {
             const box = document.getElementById(L);
             if (!box) return;
+            if (type === 'error' && typeof svfsUnfold === 'function') svfsUnfold();
             const line = document.createElement('div');
             line.className = 'svfs-l-' + (type || 'info');
             line.textContent = new Date().toLocaleTimeString('ar-OM') + ' | ' + msg;
@@ -1723,6 +1842,7 @@
         // البوّابة معالجٌ على مرحلتين: رأس الزيارة ثمّ التقييم. ولكلٍّ
         // حقولها، فمحاولةُ تعبئة حقول مرحلةٍ في الأخرى تبلغ عن فقدٍ كاذب.
         function supStage() {
+            if (findAnywhere(['rptrFormItems_ctl01_ddlItemEvals'])) return 2;
             if (findAnywhere(STAGE1_FIELDS['التاريخ']) || findAnywhere(FORMS_DDL)) return 1;
             for (const names of Object.values(STAGE2_FIELDS)) if (findAnywhere(names)) return 2;
             if (findAnywhere(ratingCandidates(1))) return 2;
@@ -1738,6 +1858,9 @@
                 slog('اضغط «نسخ السجل» وأرسله للمطوّر', 'warn');
                 return;
             }
+
+            if (stage === 1) return await supStage1();
+            if (stage === 2) return await supStage2();
 
             slog('المرحلة ' + stage + ': ' + (stage === 1 ? 'رأس الزيارة' : 'التقييم'), 'warn');
             const FIELDS = stage === 1 ? STAGE1_FIELDS : STAGE2_FIELDS;
@@ -1975,6 +2098,7 @@
                     sstat('✅ حُفظت الزيارة في البوّابة');
                     slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
                     try { GM_deleteValue(SUP_KEY); } catch (e) {}
+                    await queueAdvance();
                     return;
                 }
             }
@@ -2078,6 +2202,7 @@
             });
 
             slog('=== نهاية التشخيص ===', 'warn');
+            supDeepDiag();
             slog('انسخ السجل كاملاً وأرسله للمطوّر', 'success');
         }
 
@@ -2086,6 +2211,7 @@
             'background:#0b0f14;color:#dbeafe;border:1px solid #1e3a5f;border-radius:12px;' +
             'font-family:Tahoma,sans-serif;font-size:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);direction:rtl}' +
             '#svfs-panel .h{padding:10px 12px;background:linear-gradient(135deg,#1d4ed8,#1e3a8a);' +
+            'display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;' +
             'border-radius:11px 11px 0 0;font-weight:bold;cursor:move}' +
             '#svfs-panel .b{padding:12px}' +
             '#svfs-panel button{width:100%;padding:9px;border:none;border-radius:8px;cursor:pointer;' +
@@ -2109,13 +2235,15 @@
         const panel = document.createElement('div');
         panel.id = P;
         panel.innerHTML =
-            '<div class="h">أتمتة الزيارات الإشرافية</div>' +
+            '<div class="h"><span>أتمتة الزيارات الإشرافية</span>' +
+              '<span id="svfs-toggle" title="طيّ / بسط">▾</span></div>' +
             '<div class="b">' +
               (sup
                 ? '<div id="svfs-data">المعلم: ' + esc(sup.teacher || '—') +
                   '<br>المدرسة: ' + esc(sup.school || '—') +
                   '<br>التاريخ: ' + esc(sup.date || '—') +
-                  ' | تقييمات: ' + (sup.ratings || []).length + '</div>'
+                  ' | تقييمات: ' + (sup.ratings || []).length +
+                  (queueInfo() ? '<br>الطابور: ' + (queueInfo().i + 1) + ' من ' + queueInfo().total : '') + '</div>'
                 : '<div id="svfs-data">لا توجد بيانات — صدّر زيارة من الموقع أولاً</div>') +
               '<div id="' + S + '">' + (sup ? 'جاهز — افتح نموذج الإضافة ثم اضغط تعبئة' : 'بانتظار البيانات') + '</div>' +
               '<button id="svfs-add">فتح نموذج الإضافة</button>' +
@@ -2128,6 +2256,24 @@
               '<div id="' + L + '"></div>' +
             '</div>';
         document.body.appendChild(panel);
+        loadConfig();
+
+        // ── الطيّ: تبدأ اللوحة مطويّةً فلا تحجب الاستمارة ──
+        const body = panel.querySelector('.b');
+        const tgl  = document.getElementById('svfs-toggle');
+        function setFolded(folded) {
+            body.style.display = folded ? 'none' : '';
+            tgl.textContent = folded ? '▸' : '▾';
+            panel.style.width = folded ? 'auto' : '340px';
+            try { sessionStorage.setItem('svfs_folded', folded ? '1' : '0'); } catch (e) {}
+        }
+        let folded = true;
+        try { folded = sessionStorage.getItem('svfs_folded') !== '0'; } catch (e) {}
+        setFolded(folded);
+        panel.querySelector('.h').addEventListener('click', () => setFolded(body.style.display !== 'none'));
+
+        // تُبسط تلقائيّاً عند خطأٍ أو انتهاء العمل، لأنّ الرسالة وقتها تهمّ
+        svfsUnfold = () => setFolded(false);
 
         document.getElementById('svfs-add')?.addEventListener('click', () => {
             const btn = supAddBtn();
@@ -2176,17 +2322,577 @@
         const SUP_PILOT = 'svfs_pilot_phase';
         const SUP_DONE  = 'svfs_pilot_done';
 
+        // انتظار ظهور حقول النموذج (النموذج يُحمّل داخل iframe فيتأخّر)
+        async function waitForSupForm(ms) {
+            const t0 = Date.now();
+            while (Date.now() - t0 < (ms || 25000)) {
+                if (formFieldsPresent()) return true;
+                await wait(600);
+            }
+            return false;
+        }
+
+        // ═══ مرحلة التقييم: مطابقةٌ بالنصّ لا بالمعرّفات ═══
+        // معرّفات صفحة التقييم غير معلومة، لكنّ نصوص البنود ثابتة في
+        // الاستمارة. فنجد صفَّ كلِّ بندٍ بكلمةٍ مميّزةٍ منه ثمّ نأخذ
+        // قائمته المنسدلة وحقل وصفه من الصفِّ نفسه.
+        const ITEM_KEYS = [
+            'تحصيل الطلبة', 'التقدم الدراسي', 'مهارات التعلم', 'الهوية العمانية',
+            'الامن والسلامه', 'تخطيط المنهاج', 'الاداره الصفيه', 'استراتيجيات التدريس',
+            'المصادر والموارد', 'اساليب تقويم', 'التقويم الذاتي', 'السياسات والانظمه',
+            'مبادرات وانشطه'
+        ];
+
+        function supFindItemRow(n) {
+            const key = normAr(ITEM_KEYS[n - 1] || '');
+            if (!key) return null;
+            for (const d of docs()) {
+                let rows = [];
+                try { rows = Array.from(d.querySelectorAll('tr')); } catch (e) { continue; }
+                for (const tr of rows) {
+                    const t = normAr(tr.textContent || '');
+                    if (!t.includes(key)) continue;
+                    if (!tr.querySelector('select, textarea, input[type="text"]')) continue;
+                    return tr;
+                }
+            }
+            return null;
+        }
+
+        function supClickTab(label) {
+            const want = normAr(label);
+            for (const d of docs()) {
+                let els = [];
+                try { els = Array.from(d.querySelectorAll('a, span, td, div, li')); } catch (e) { continue; }
+                for (const el of els) {
+                    const t = normAr(el.textContent || '');
+                    if (t && t.length < 40 && t.includes(want)) {
+                        try { el.click(); slog('فُتح تبويب: ' + label, 'info'); return true; } catch (e) {}
+                    }
+                }
+            }
+            return false;
+        }
+
+        // جمع كلّ العناصر المطابقة عبر المستند وإطاراته، بترتيب ظهورها
+        function findAllAnywhere(selector) {
+            const out = [];
+            for (const d of docs()) {
+                try { Array.prototype.push.apply(out, Array.from(d.querySelectorAll(selector))); }
+                catch (e) {}
+            }
+            return out;
+        }
+
+        async function supStage2() {
+            slog('المرحلة ٢: التقييم', 'warn');
+            const written = [];
+
+            // ── بنود التقييم: rptrFormItems_ctl01..ctl13_ddlItemEvals ──
+            supClickTab('بنود الاستمارة');
+            await wait(1500);
+
+            let ok = 0; const miss = [];
+            const notes = sup.notes || {};
+
+            // ترقيم المكرّر قد يزيح (ctl01 أو ctl02 بحسب وجود صفّ رأس)،
+            // فنأخذ القوائم بترتيب ظهورها لا بأرقامها.
+            let evals = [];
+            for (let a = 0; a < 10 && !evals.length; a++) {
+                evals = findAllAnywhere('select[id*="ddlItemEvals"]');
+                if (!evals.length) evals = findAllAnywhere('#ItemsTable select');
+                // توقيعٌ لا يعتمد على المعرّفات: قائمةٌ فيها خيار «غير مقيم»
+                if (!evals.length) evals = findAllAnywhere('select').filter(x =>
+                    Array.from(x.options).some(o => normAr(o.text).includes(normAr('غير مقيم'))));
+                if (!evals.length) await wait(800);
+            }
+            slog('قوائم البنود الموجودة: ' + evals.length, evals.length === 13 ? 'info' : 'warn');
+            // استمارةٌ قيد التحديث: القوائم موجودةٌ لكن بلا خياراتٍ سوى «غير مقيم»
+            const usable = evals.filter(sel =>
+                Array.from(sel.options).filter(o => o.value && !normAr(o.text).includes(normAr('غير مقيم'))).length > 0);
+            if (evals.length && !usable.length) {
+                sstat('الاستمارة في البوّابة بلا خيارات تقييم');
+                slog('قوائم البنود لا تحتوي إلا «غير مقيم» — الاستمارة محدَّثةٌ أو غير مكتملةٍ في البوّابة.', 'error');
+                slog('هذا عطلٌ في البوّابة لا في السكربت. انتظر اكتمال التحديث أو راجع القسم المختصّ.', 'error');
+                slog('لن أحفظ شيئاً — الحفظ الآن يسجّل زيارةً بلا تقييم.', 'warn');
+                return;
+            }
+
+            if (evals[0]) {
+                slog('خيارات السلّم: ' + Array.from(evals[0].options)
+                        .map(o => '[' + o.value + '] ' + o.text.trim()).join('  |  '), 'info');
+            }
+            if (!evals.length) {
+                sstat('لم تظهر بنود التقييم');
+                slog('لا توجد قوائم ddlItemEvals — افتح تبويب «بنود الاستمارة» يدوياً ثمّ أعد التعبئة', 'error');
+                supDiag();
+                return;
+            }
+
+            (sup.ratings || []).forEach((score, i) => {
+                const n   = i + 1;
+                const sel = evals[i];
+                if (!sel) { miss.push(n); return; }
+
+                const v = String(score);
+                const opts = Array.from(sel.options);
+                const o = opts.find(x => String(x.value) === v)                       // القيمة
+                       || opts.find(x => x.text.trim().startsWith(v))                 // «2 - جيد»
+                       || opts.find(x => /\d/.test(x.text) && x.text.replace(/\D/g, '') === v)
+                       || opts.find(x => SCORE_TEXT[v] && normAr(x.text).includes(normAr(SCORE_TEXT[v])))
+                       || opts[Number(v)];                                            // بالترتيب
+                if (!o || !o.value) {
+                    if (n === 1) slog('تعذّرت مطابقة الدرجة ' + v + ' — راجع «خيارات السلّم» أعلاه', 'error');
+                    miss.push(n); return;
+                }
+
+                sel.value = o.value;
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                written.push({ label: 'بند ' + n, el: sel, expected: sel.value });
+                ok++;
+
+                // وصف البند إن وُجد حقلٌ له في صفّ البند نفسه
+                const note = notes[n] || notes[String(n)];
+                const tr = sel.closest && sel.closest('tr');
+                const box = tr && (tr.querySelector('textarea') || tr.querySelector('input[type="text"]'));
+                if (note && box) {
+                    setVal(box, note);
+                    written.push({ label: 'وصف ' + n, el: box, expected: box.value });
+                }
+            });
+            slog('البنود: ' + ok + ' من 13' + (miss.length ? ' | تعذّر: ' + miss.join('،') : ''),
+                 miss.length ? 'warn' : 'success');
+
+            // ── الحقول النصّيّة: rptrFormFields_ctl01..ctl04_txtFieldValue ──
+            supClickTab('حقول الاستمارة');
+            await wait(1500);
+
+            // أسماء الحقول كما هي في البوّابة (جدول FieldsTable)
+            // «التوصيات» في الموقع هي «الدعم المقدم» في البوّابة — حقلٌ واحدٌ باسمين
+            const TEXTS = [
+                { name: 'جوانب الإجادة',   keys: ['اجاده', 'اجاد', 'تميز'],           val: sup.excellence },
+                { name: 'تحتاج إلى تطوير', keys: ['تحتاج', 'تطوير'],                  val: sup.development },
+                { name: 'الدعم المقدم',    keys: ['دعم', 'مساند', 'توصي', 'مقترح'],   val: sup.recommendations || sup.support },
+                { name: 'الملاحظات',       keys: ['ملاحظات'],                          val: sup.notesGeneral }
+            ];
+            const EMPTY_TEXT = SVF_EMPTY;   // البوّابة لا تقبل خانةً بيضاء
+            const boxes = findAllAnywhere('textarea[id*="txtFieldValue"], input[id*="txtFieldValue"]');
+            slog('حقول نصّيّة موجودة: ' + boxes.length, 'info');
+
+            const used = new Set();
+            const unplaced = [];
+            TEXTS.forEach(t => {
+                if (!t.val) return;
+                // نطابق باسم الحقل الظاهر في صفّه، فترتيب الحقول قد يتغيّر
+                let target = boxes.find(b => {
+                    if (used.has(b)) return false;
+                    const tr = b.closest && b.closest('tr');
+                    const lbl = normAr((tr && tr.textContent) || '');
+                    return t.keys.some(k => lbl.includes(normAr(k)));
+                });
+                if (!target) { unplaced.push(t.name); return; }
+                used.add(target);
+                setVal(target, t.val);
+                written.push({ label: t.name, el: target, expected: target.value });
+                slog('عُبّئ حقل «' + t.name + '»', 'success');
+            });
+            if (unplaced.length)
+                slog('لم أجد حقلاً مطابقاً لـ: ' + unplaced.join('، ') + ' — اكتبها بيدك', 'warn');
+
+            // كلّ خانةٍ بقيت فارغةً تُكتب «لا يوجد» بدل تركها بيضاء
+            let blanks = 0;
+            boxes.forEach(b => {
+                if (used.has(b) || (b.value || '').trim()) return;
+                setVal(b, EMPTY_TEXT);
+                written.push({ label: 'خانة فارغة', el: b, expected: b.value });
+                blanks++;
+            });
+            if (blanks) slog('كُتب «' + EMPTY_TEXT + '» في ' + blanks + ' خانةٍ فارغة', 'info');
+
+            if (miss.length > 6) {
+                sstat('تعذّر التعرّف على أغلب البنود — لم أحفظ');
+                slog('شغّل التشخيص وأرسل السجل', 'error');
+                supDiag();
+                return;
+            }
+            if (miss.length) {
+                sstat('عُبّئ ' + ok + ' بنداً — أكمل الباقي يدوياً ثمّ احفظ');
+                slog('بنود لم تُعبَّأ: ' + miss.join('، '), 'warn');
+                return;
+            }
+            await supSave(written);
+        }
+
+        // اختيار صفٍّ في شبكة نتائج ASP.NET
+        // الصفوف تُختار عادةً عبر __doPostBack في onclick لا عبر رابطٍ عادي،
+        // فالنقر المجرّد لا يفعل شيئاً. نجرّب الاستدعاء المباشر ثمّ النقر.
+        // ═══ المسجّل: يلتقط الآليّة الحقيقيّة بدل افتراضها ═══
+        // يعترض __doPostBack داخل الإطار ويطبع وسائطه لحظة إطلاقها،
+        // ويسجّل كلّ نقرةٍ ووجهتها. فحين تختار المعلّم بيدك مرّةً واحدةً
+        // يظهر في السجلّ النداء الذي تحتاجه البوّابة بالحرف.
+        function supInstallRecorder() {
+            for (const d of docs()) {
+                let w = null;
+                try { w = d.defaultView; } catch (e) { continue; }
+                if (!w || w.__svfHooked) continue;
+                try {
+                    if (typeof w.__doPostBack === 'function') {
+                        const orig = w.__doPostBack;
+                        w.__doPostBack = function (t, a) {
+                            slog('📼 __doPostBack("' + t + '", "' + a + '")', 'warn');
+                            return orig.apply(this, arguments);
+                        };
+                    }
+                    d.addEventListener('click', function (e) {
+                        const el = e.target;
+                        if (!el || !el.tagName) return;
+                        const tr = el.closest ? el.closest('tr') : null;
+                        const row = tr ? (tr.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 45) : '—';
+                        const oc = (el.getAttribute && el.getAttribute('onclick')) || '';
+                        slog('📼 نقر <' + el.tagName + '> id=' + (el.id || '—')
+                             + (oc ? ' onclick=' + oc.slice(0, 120) : '') + ' | صفّ: ' + row, 'info');
+                    }, true);
+                    w.__svfHooked = true;
+                    slog('📼 المسجّل مفعَّل — اختر المعلّم بيدك الآن', 'success');
+                } catch (e) {}
+            }
+        }
+        setInterval(supInstallRecorder, 2000);   // الإطار يُعاد تحميله بعد كلّ postback
+
+        // ═══ تشخيصٌ عميقٌ لشبكة نتائج الموظّفين ═══
+        // لا يفترض آليّةً بل يطبع ما في الصفحة فعلاً: شيفرة الصفّ،
+        // خصائصه، ومعالجاته، ودوال الإطار، وما في وسومه من نصوص أوامر.
+        function supDeepDiag() {
+            slog('', 'info');
+            slog('═══ تشخيص عميق: شبكة الموظّفين ═══', 'warn');
+
+            let grid = null, gdoc = null;
+            for (const d of docs()) {
+                let g = null;
+                try { g = d.querySelector('table[id*="Gridview"], table[id*="GridView"]'); } catch (e) {}
+                if (g) { grid = g; gdoc = d; break; }
+            }
+            if (!grid) { slog('لا توجد شبكة نتائج في الصفحة', 'error'); return; }
+
+            slog('معرّف الشبكة: ' + grid.id, 'info');
+            const rows = Array.from(grid.querySelectorAll('tr'));
+            slog('عدد الصفوف: ' + rows.length, 'info');
+
+            rows.forEach((tr, i) => {
+                const attrs = Array.from(tr.attributes || [])
+                    .map(a => a.name + '="' + String(a.value).slice(0, 160) + '"').join(' ');
+                slog('صف[' + i + '] خصائص: ' + (attrs || 'لا شيء'), 'info');
+
+                Array.from(tr.cells || []).forEach((td, j) => {
+                    const ta = Array.from(td.attributes || [])
+                        .map(a => a.name + '="' + String(a.value).slice(0, 160) + '"').join(' ');
+                    if (ta) slog('   خلية[' + j + ']: ' + ta, 'info');
+                    const inner = (td.innerHTML || '').trim();
+                    if (inner && inner.length < 300 && /<|javascript:|__doPostBack/i.test(inner))
+                        slog('   خلية[' + j + '] شيفرة: ' + inner, 'info');
+                });
+            });
+
+            // هل يحمل الصفّ معالجاً مربوطاً برمجيّاً؟
+            const dataRow = rows[1];
+            if (dataRow) {
+                ['onclick', 'ondblclick', 'onmousedown'].forEach(k => {
+                    slog('صف البيانات ' + k + ': ' + (typeof dataRow[k] === 'function'
+                        ? String(dataRow[k]).slice(0, 300) : 'غير مربوط'), 'info');
+                });
+            }
+
+            // بيئة الإطار: هل __doPostBack موجود؟ وما الدوال ذات الصلة؟
+            try {
+                const w = gdoc.defaultView;
+                slog('__doPostBack: ' + typeof w.__doPostBack, 'info');
+                const fns = Object.keys(w).filter(k => {
+                    try { return typeof w[k] === 'function' && /select|employee|emp|grid|row|search/i.test(k); }
+                    catch (e) { return false; }
+                }).slice(0, 40);
+                slog('دوال ذات صلة: ' + (fns.join('، ') || 'لا شيء'), 'info');
+            } catch (e) { slog('تعذّر فحص بيئة الإطار', 'error'); }
+
+            // نصوص الوسوم التي تذكر الشبكة أو أمر الاختيار
+            try {
+                Array.from(gdoc.querySelectorAll('script')).forEach((sc, i) => {
+                    const t = sc.textContent || '';
+                    if (!/Select\$|GridviewEmployee|lblEmployeeName/i.test(t)) return;
+                    const idx = t.search(/Select\$|GridviewEmployee|lblEmployeeName/i);
+                    slog('وسم[' + i + ']: ...' + t.slice(Math.max(0, idx - 120), idx + 240) + '...', 'info');
+                });
+            } catch (e) {}
+
+            // ── سلّم التقييم: القيم الحقيقيّة التي تنتظرها البوّابة ──
+            slog('', 'info');
+            slog('═══ سلّم بنود التقييم ═══', 'warn');
+            let ev = findAllAnywhere('select[id*="ddlItemEvals"]');
+            if (!ev.length) ev = findAllAnywhere('select').filter(x =>
+                Array.from(x.options).some(o => normAr(o.text).includes(normAr('غير مقيم'))));
+            slog('عدد قوائم التقييم: ' + ev.length, ev.length ? 'success' : 'error');
+            if (ev[0]) {
+                slog('المعرّف: ' + (ev[0].id || '—'), 'info');
+                slog('معطّلة؟ ' + (ev[0].disabled ? 'نعم' : 'لا')
+                     + ' | ظاهرة؟ ' + (ev[0].offsetParent !== null ? 'نعم' : 'لا')
+                     + ' | القيمة الحاليّة: ' + ev[0].value, 'info');
+                Array.from(ev[0].options).forEach((o, i) => {
+                    slog('  خيار[' + i + '] value="' + o.value + '" ← ' + o.text.trim(), 'info');
+                });
+            }
+            slog('═══ نهاية السلّم ═══', 'warn');
+
+            slog('═══ نهاية التشخيص العميق ═══', 'warn');
+            slog('انسخ السجل من هنا وأرسله', 'warn');
+        }
+
+        async function supSelectRow(d, tr) {
+            const before = formsOptionCount();
+
+            // البوّابة تختار الموظّف بنداء DisplayInfo(...) موضوعٍ في
+            // خاصيّة onclick لعنصر <div> داخل الخليّة — لا عبر __doPostBack.
+            const holders = Array.from(tr.querySelectorAll('*')).filter(el => {
+                const oc = (el.getAttribute && el.getAttribute('onclick')) || '';
+                return oc.indexOf('DisplayInfo') !== -1;
+            });
+
+            for (const el of holders) {
+                slog('نقر عنصر DisplayInfo لاختيار المعلّم', 'info');
+                try { el.click(); } catch (e) { continue; }
+                if (await supRowConfirmed(before)) { slog('تُبِّت اختيار المعلّم', 'success'); return true; }
+
+                // وإن لم يستجب النقر، استدعِ الدالة من بيئة الإطار مباشرةً
+                const oc = el.getAttribute('onclick');
+                try { d.defaultView.eval(oc); } catch (e) {}
+                if (await supRowConfirmed(before)) { slog('تُبِّت اختيار المعلّم (استدعاء مباشر)', 'success'); return true; }
+            }
+
+            // احتياطٌ أخير: أحداث فأرةٍ على الصفّ وخلاياه وأحفاده
+            for (const c of [tr, ...Array.from(tr.cells || []), ...Array.from(tr.querySelectorAll('*'))]) {
+                for (const type of ['mousedown', 'mouseup', 'click']) {
+                    try { c.dispatchEvent(new d.defaultView.MouseEvent(type, { bubbles: true, cancelable: true, view: d.defaultView })); }
+                    catch (e) {}
+                }
+                if (await supRowConfirmed(before)) { slog('اختير المعلّم بأحداث الفأرة', 'success'); return true; }
+            }
+
+            slog('عُثر على صفّ المعلّم لكن تعذّر تثبيت الاختيار', 'error');
+            supDeepDiag();
+            return false;
+        }
+
+        function formsOptionCount() {
+            const f = findAnywhere(FORMS_DDL);
+            return f ? (f.options || []).length : 0;
+        }
+
+        // التثبيت يُعرف بأمرين: امتلاء قائمة الاستمارات، أو ظهور اسم الموظّف
+        async function supRowConfirmed(before) {
+            const want = normAr((sup && sup.teacher) || '');
+            const key  = want.split(' ').slice(0, 2).join(' ');   // أوّل اسمين تكفيان
+            const t0 = Date.now();
+            while (Date.now() - t0 < 7000) {
+                await wait(500);
+                if (formsOptionCount() > Math.max(1, before)) return true;
+                const lbl = findAnywhere(['EmployeeAdministrativeScaleSearchCtrl1_lblEmployeeName']);
+                if (lbl && key && normAr(lbl.textContent || '').includes(key)) return true;
+            }
+            return false;
+        }
+
+        // بحث المعلّم واختياره من شبكة النتائج
+        async function supPickTeacher() {
+            if (!sup || !sup.teacher) return false;
+            const se = findAnywhere(EMP_SEARCH);
+            if (!se) { slog('حقل بحث الموظّف غير موجود', 'error'); return false; }
+            setVal(se, sup.teacher);
+            slog('كُتب اسم المعلّم في حقل البحث', 'info');
+            const btn = findAnywhere(EMP_SEARCH_BTN);
+            if (!btn) { slog('زر البحث عن الموظفين غير موجود', 'error'); return false; }
+            btn.click();
+            slog('جارٍ البحث عن المعلّم...', 'info');
+
+            const want = normAr(sup.teacher);
+            const t0 = Date.now();
+            while (Date.now() - t0 < 25000) {
+                await wait(700);
+
+                // هل ثُبّت الاسم في خانة الموظّف المختار؟
+                const lbl = findAnywhere(['EmployeeAdministrativeScaleSearchCtrl1_lblEmployeeName']);
+                if (lbl && want && normAr(lbl.textContent || '').includes(want)) {
+                    slog('اختير المعلّم: ' + lbl.textContent.trim(), 'success');
+                    return true;
+                }
+
+                // وإلا فابحث عن صفّه في شبكة النتائج واخترْه
+                for (const d of docs()) {
+                    let rows = [];
+                    try { rows = Array.from(d.querySelectorAll('tr')); } catch (e) { continue; }
+                    for (const tr of rows) {
+                        const txt = normAr(tr.textContent || '');
+                        if (!txt || txt.length > 220) continue;
+                        if (!txt.includes(want)) continue;
+
+                        if (await supSelectRow(d, tr)) return true;
+                    }
+                }
+            }
+            slog('لم يظهر المعلّم في النتائج خلال المهلة', 'error');
+            return false;
+        }
+
+        // ═══ المرحلة ١ بالتسلسل الذي تفرضه البوّابة ═══
+        // فتح النموذج ← البحث ← اختيار المعلّم ← التاريخ ← الاستمارة ←
+        // فتح بيانات المعلّم ← عنوان الدرس والحصّة ← «إضافة».
+        // كلُّ خطوةٍ تعتمد على ما قبلها: قائمة الاستمارات لا تمتلئ قبل
+        // تثبيت المعلّم، وحقول الدرس لا تظهر قبل فتح بياناته.
+
+        // فتح قسم «بيانات زيارة المعلم» — صفٌّ له مفتاح توسيعٍ لا تبويب.
+        // حقل عنوان الدرس مخفيٌّ تحته، والبوّابة ترفض الحفظ بدونه.
+        async function supOpenTeacherData() {
+            const shown = () => {
+                const lt = findAnywhere(STAGE1_FIELDS['عنوان الدرس']);
+                return lt && lt.offsetParent !== null ? lt : null;
+            };
+            if (shown()) { slog('بيانات المعلّم مفتوحةٌ أصلاً', 'info'); return true; }
+
+            const want = normAr('بيانات زيارة المعلم');
+            for (const d of docs()) {
+                let rows = [];
+                try { rows = Array.from(d.querySelectorAll('tr, td, div')); } catch (e) { continue; }
+                for (const r of rows) {
+                    const t = normAr(r.textContent || '');
+                    if (!t.includes(want) || t.length > 80) continue;
+
+                    // المفتاح قد يكون مربّع اختيارٍ أو صورةً أو رابطاً داخل الصفّ
+                    const keys = Array.from(r.querySelectorAll(
+                        'input[type="checkbox"], img, a, input[type="image"], span'));
+                    for (const k of [...keys, r]) {
+                        try { k.click(); } catch (e) { continue; }
+                        await wait(1200);
+                        if (shown()) { slog('فُتحت بيانات زيارة المعلّم', 'success'); return true; }
+                    }
+                }
+            }
+            slog('تعذّر فتح «بيانات زيارة المعلم» — افتحه بيدك ثمّ اضغط «تعبئة النموذج»', 'error');
+            return false;
+        }
+
+        function supPut(names, val, label) {
+            if (!val) return;
+            const el = findAnywhere(names);
+            if (!el) { slog('مفقود: ' + label, 'error'); return; }
+            if (el.tagName === 'SELECT') {
+                const w = normAr(val);
+                const words = w.split(' ').filter(x => x.length > 2);
+                const o = Array.from(el.options).find(x => String(x.value) === String(val))
+                       || Array.from(el.options).find(x => normAr(x.text) === w)
+                       || Array.from(el.options).find(x => normAr(x.text).includes(w))
+                       || Array.from(el.options).find(x => words.some(k => normAr(x.text).includes(k)))
+                       // «الرياضة المدرسية» ↔ «التربية الرياضية»: قارن جذور الكلمات
+                       || Array.from(el.options).find(x => {
+                              const stem = t => t.replace(/^ال/, '').slice(0, 4);
+                              const optW = normAr(x.text).split(' ').map(stem);
+                              return words.map(stem).some(k => k.length > 2 && optW.indexOf(k) !== -1);
+                          });
+                if (o) { el.value = o.value; el.dispatchEvent(new Event('change', { bubbles: true }));
+                         slog('اختير ' + label + ': ' + o.text.trim(), 'success'); }
+                else slog(label + ': «' + val + '» ليس في الخيارات', 'error');
+            } else { setVal(el, val); slog('عُبّئ ' + label, 'success'); }
+        }
+
+        async function supStage1() {
+            slog('المرحلة ١: رأس الزيارة', 'warn');
+
+            // فحصٌ قبليّ: البوّابة تشترط هذه الحقول ولن تقبل بدونها
+            const gaps = [];
+            if (!sup.teacher)      gaps.push('اسم المعلّم');
+            if (!sup.date)         gaps.push('تاريخ الزيارة');
+            if (!sup.lessonTitle)  gaps.push('عنوان الدرس (حقل «الموضوع» في موقعك)');
+            if (gaps.length) {
+                sstat('بياناتٌ ناقصةٌ في التقرير');
+                slog('ناقصٌ في التقرير المُصدَّر: ' + gaps.join('، '), 'error');
+                slog('أكمله في موقعك ثمّ صدِّر من جديد — البوّابة سترفض بدونه', 'error');
+                return;
+            }
+
+            // (١) البحث عن المعلّم و(٢) اختياره
+            if (!await supPickTeacher()) {
+                sstat('تعذّر اختيار المعلّم — أكمل يدوياً');
+                slog('اختر المعلّم بنفسك ثمّ اضغط «تعبئة النموذج»', 'error');
+                return;
+            }
+
+            // (٣) تاريخ الزيارة
+            supPut(STAGE1_FIELDS['التاريخ'], sup.date, 'التاريخ');
+            await wait(400);
+
+            // (٤) الاستمارة — شرطُ ظهور بنود التقييم
+            const forms = findAnywhere(FORMS_DDL);
+            if (forms && !forms.value) {
+                const opts = Array.from(forms.options || [])
+                    .filter(o => o.value && o.value !== '0' && o.value !== '-1' && o.text.trim());
+                const opt = opts.find(o => normAr(o.text).includes(normAr('مجال')))
+                         || opts.find(o => normAr(o.text).includes(normAr('مادة')))
+                         || opts[0];
+                if (!opt) {
+                    slog('قائمة الاستمارات فارغة — لم يُثبَّت المعلّم', 'error');
+                    sstat('اختر المعلّم والاستمارة يدوياً');
+                    return;
+                }
+                forms.value = opt.value;
+                forms.dispatchEvent(new Event('change', { bubbles: true }));
+                slog('اختيرت الاستمارة: ' + opt.text.trim(), 'success');
+                await wait(2500);
+            }
+
+            // (٥) فتح بيانات المعلّم ثمّ عنوان الدرس والحصّة
+            await supOpenTeacherData();
+            supPut(STAGE1_FIELDS['عنوان الدرس'], sup.lessonTitle, 'عنوان الدرس');
+            supPut(STAGE1_FIELDS['الحصة'],       sup.period,      'الحصة');
+            supPut(STAGE1_FIELDS['المادة'],      sup.subject,     'المادة');
+            await wait(400);
+
+            // (٦) تحقّقٌ قبل «إضافة»: البوّابة ترفض بلا عنوان درس
+            const lt = findAnywhere(STAGE1_FIELDS['عنوان الدرس']);
+            if (sup.lessonTitle && (!lt || !lt.value.trim())) {
+                sstat('عنوان الدرس لم يُكتب — أكمله يدوياً');
+                slog('عنوان الدرس فارغٌ والبوّابة ترفض بدونه. افتح «بيانات زيارة المعلم»'
+                     + ' واكتب العنوان ثمّ اضغط «تعبئة النموذج»', 'error');
+                return;
+            }
+
+            const next = findAnywhere(STAGE1_NEXT);
+            if (!next) { sstat('اكتمل الرأس — اضغط «إضافة» في البوّابة'); return; }
+            slog('الانتقال إلى مرحلة التقييم...', 'warn');
+            next.click();
+
+            const t0 = Date.now();
+            while (Date.now() - t0 < 25000) {
+                await wait(800);
+                if (supStage() === 2) { slog('ظهرت صفحة التقييم', 'success'); return await supStage2(); }
+            }
+            sstat('لم تظهر صفحة التقييم');
+            slog('تحقّق من رسالة البوّابة أعلى النموذج ثمّ اضغط «تشخيص الصفحة»', 'warn');
+            supDiag();
+        }
+
         async function supPilot() {
             if (!sup) return;
 
-            if (onListPage() && !formFieldsPresent()) {
+            if (!formFieldsPresent() && onListPage()) {
                 slog('🛩️ الطيّار الآلي: فتح نموذج الإضافة...', 'success');
                 sstat('فتح نموذج الإضافة...');
                 sessionStorage.setItem(SUP_PILOT, 'opened');
                 const btn = supAddBtn();
                 if (!btn) { slog('لا يوجد زر «إضافة»', 'error'); return; }
                 btn.click();
-                return;  // تُستأنف الجولة بعد تحميل الصفحة الجديدة
+                slog('بانتظار تحميل النموذج داخل الإطار...', 'info');
+                if (!await waitForSupForm(25000)) {
+                    slog('لم يظهر النموذج خلال المهلة — اضغط «تشخيص الصفحة»', 'error');
+                    sstat('تأخّر تحميل النموذج');
+                    return;
+                }
+                await wait(1200);
             }
 
             if (formFieldsPresent()) {

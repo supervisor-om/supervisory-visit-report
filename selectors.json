@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "updated": "2026-09-13",
+  "_ملاحظة": "خريطة معرّفات بوّابة الوزارة. عدّل هنا عند أي تغيير في البوّابة بدل إصدار نسخة جديدة من السكربت. يُعاد جلبه كل ٦ ساعات، وتُحفظ نسخة محلّية للطوارئ.",
+
+  "stage1": {
+    "التاريخ": [
+      "applicationPageContentPlaceHolder_visitDataPicker_dateTextBox",
+      "visitDataPicker_dateTextBox"
+    ],
+    "عنوان الدرس": [
+      "applicationPageContentPlaceHolder_TeacherManualSchedule1_txtLessonTitle",
+      "TeacherManualSchedule1_txtLessonTitle"
+    ],
+    "الحصة": [
+      "applicationPageContentPlaceHolder_TeacherManualSchedule1_ddlSessionIndex",
+      "TeacherManualSchedule1_ddlSessionIndex"
+    ],
+    "المادة": [
+      "applicationPageContentPlaceHolder_ddlSubjects",
+      "ddlSubjects"
+    ]
+  },
+
+  "empSearch": [
+    "applicationPageContentPlaceHolder_EmployeeAdministrativeScaleSearchCtrl1_txtSearchText_AutoCompletTextBox",
+    "EmployeeAdministrativeScaleSearchCtrl1_txtSearchText_AutoCompletTextBox"
+  ],
+  "empSearchBtn": [
+    "EmployeeAdministrativeScaleSearchCtrl1_btnSearch"
+  ],
+  "formsDdl": [
+    "applicationPageContentPlaceHolder_ddlForms",
+    "ddlForms"
+  ],
+  "stage1Next": [
+    "applicationPageContentPlaceHolder_btnAdd"
+  ],
+
+  "scoreText": {
+    "1": "متميز",
+    "2": "جيد",
+    "3": "ملائم",
+    "4": "غير ملائم",
+    "5": "يحتاج",
+    "0": "غير مقيم"
+  },
+
+  "emptyText": "لا يوجد"
+}
