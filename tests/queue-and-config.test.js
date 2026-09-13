@@ -198,6 +198,61 @@ const between = (a, b) => {
           /clearSelectionBtn[\s\S]{0,200}svfClearSelection/.test(init), 'ناقصة');
 })();
 
+/* ── ٦) إغلاق الحلقة: ما حُفظ في البوّابة يعود إلى سجلّ الموقع ── */
+(function testSavedLoop() {
+    const code = between('    const SAVED_KEY =', '    // ═══════════════════════════════════════════════════════════════\n    //  جزء 1');
+    const init = fs.readFileSync(path.join(SITE, 'js/init.js'), 'utf8');
+
+    function env(gmRaw, siteRaw) {
+        const gm = { svf_saved_visits: gmRaw };
+        const site = siteRaw === undefined ? {} : { svf_sent_visits: siteRaw };
+        const ctx = {
+            GM_getValue: (k, d) => (k in gm ? gm[k] : d),
+            GM_setValue: (k, v) => { gm[k] = v; },
+            localStorage: {
+                getItem: k => (k in site ? site[k] : null),
+                setItem: (k, v) => { site[k] = String(v); }
+            },
+            out: null, added: null
+        };
+        vm.runInNewContext('{\n' + code + '\nout = { rec: svfRecordSaved, sync: svfSyncSaved, list: svfSavedList };\n}', ctx);
+        return { gm, site, api: ctx.out };
+    }
+
+    // البوّابة تحفظ زيارةً: تُسجَّل في تخزين تامبر مانكي
+    let e = env(undefined, undefined);
+    check('loop: الحفظ المؤكَّد يُسجَّل', e.api.rec({ teacher: 'سالم', date: '10/09/2026' }) === true);
+    check('loop: لا تكرار للزيارة نفسها', e.api.rec({ teacher: 'سالم', date: '10/09/2026' }) === false);
+    check('loop: زيارةٌ بلا اسمٍ أو تاريخٍ لا تُسجَّل', e.api.rec({ teacher: '', date: '10/09/2026' }) === false);
+
+    // وعند فتح الموقع تُضخّ في سجلّه
+    check('loop: الضخّ يضيف الجديد إلى سجلّ الموقع', e.api.sync() === 1, 'أعادت ' + e.api.sync());
+    check('loop: السجلّ في الموقع يحمل المفتاح الصحيح',
+          JSON.parse(e.site.svf_sent_visits)[0] === 'سالم|10/09/2026', e.site.svf_sent_visits);
+    check('loop: الضخّ مرّةً ثانيةً لا يضيف شيئاً', e.api.sync() === 0);
+
+    // الدمج لا يمسح ما في الموقع أصلاً ولا يكرّره
+    e = env(JSON.stringify(['أ|01/09/2026', 'ب|02/09/2026']), JSON.stringify(['ب|02/09/2026', 'ج|03/09/2026']));
+    check('loop: الدمج يضيف الناقص فقط', e.api.sync() === 1);
+    const merged = JSON.parse(e.site.svf_sent_visits);
+    check('loop: لا فقدانَ ولا تكرارَ بعد الدمج',
+          merged.length === 3 && new Set(merged).size === 3 && merged.includes('ج|03/09/2026'),
+          e.site.svf_sent_visits);
+
+    // سجلٌّ تالفٌ في أيّ طرفٍ لا يُسقط العمليّة
+    e = env('{ليس مصفوفة}', 'تالف');
+    check('loop: سجلٌّ تالفٌ لا يرمي استثناءً', e.api.sync() === 0);
+
+    // التوصيل في الطرفين
+    check('loop: الحفظ المؤكَّد يستدعي التسجيل',
+          /حُفظت الزيارة في بوّابة الوزارة[\s\S]{0,300}svfRecordSaved\(sup\)/.test(src), 'غير موصول');
+    check('loop: الموقع يضخّ عند الفتح وعند العودة للتبويب',
+          /addEventListener\('focus'[\s\S]{0,80}syncSavedIntoSite/.test(src) &&
+          /readyState === 'loading'[\s\S]{0,200}syncSavedIntoSite\(\)/.test(src), 'غير موصول');
+    check('loop: الأرشيف يُعاد رسمه عند العودة للتبويب',
+          /addEventListener\('focus'[\s\S]{0,300}renderSavedReports/.test(init), 'غير موصول');
+})();
+
 /* ── ٤) بوّابة الطابور: لا تعبئةَ بلا حفظٍ تلقائيّ، ولا تكرارَ سجلٍّ رسميّ ── */
 (function testQueueGate() {
     const code = between('        function queueInfo()', '        function findFlex');

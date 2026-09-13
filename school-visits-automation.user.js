@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.3
+// @version      14.4
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -48,6 +48,40 @@
     }
     function setAutoSave(v) {
         try { GM_setValue(AUTOSAVE_KEY, !!v); } catch (e) {}
+    }
+
+    // ═══ سجلّ ما تأكّد حفظه في البوّابة ═══
+    // تأكيد الحفظ يقع في نطاق moe.gov.om، والأرشيف يقرأ في نطاق الموقع،
+    // فتخزين تامبر مانكي هو الجسر الوحيد بينهما: يُكتب هنا ويُضخّ هناك.
+    const SAVED_KEY = 'svf_saved_visits';     // "المعلّم|التاريخ" بصيغة البوّابة
+    const SITE_SENT_KEY = 'svf_sent_visits';  // نظيره في localStorage الموقع
+
+    function svfSavedList() {
+        try { const a = JSON.parse(GM_getValue(SAVED_KEY, '[]')); return Array.isArray(a) ? a : []; }
+        catch (e) { return []; }
+    }
+    function svfRecordSaved(v) {
+        if (!v || !v.teacher || !v.date) return false;
+        const id = v.teacher + '|' + v.date;
+        const list = svfSavedList();
+        if (list.indexOf(id) !== -1) return false;
+        list.push(id);
+        // سقفٌ يمنع تضخّم التخزين — الأقدم يسقط
+        try { GM_setValue(SAVED_KEY, JSON.stringify(list.slice(-500))); } catch (e) { return false; }
+        return true;
+    }
+    // يُستدعى في نطاق الموقع: يدمج المحفوظ في سجلّه ويعيد عدد الجديد
+    function svfSyncSaved() {
+        const list = svfSavedList();
+        if (!list.length) return 0;
+        let cur = [];
+        try { cur = JSON.parse(localStorage.getItem(SITE_SENT_KEY) || '[]'); } catch (e) {}
+        if (!Array.isArray(cur)) cur = [];
+        const merged = [...new Set(cur.concat(list))];
+        if (merged.length === cur.length) return 0;
+        try { localStorage.setItem(SITE_SENT_KEY, JSON.stringify(merged)); }
+        catch (e) { return 0; }
+        return merged.length - cur.length;
     }
     const PANEL_ID     = 'svf-panel-v7';
     const STEP_EL_ID   = 'svf-steps';
@@ -389,9 +423,21 @@
             }
         }
 
+        // ═══ إغلاق الحلقة ═══
+        // ما تأكّد حفظه في البوّابة يعود إلى سجلّ الموقع فيضع الأرشيف وسم
+        // «حُفظت في البوابة». يُعاد الضخّ عند العودة إلى التبويب لأنّ الحفظ
+        // يقع بينما المستخدم في تبويب البوّابة.
+        function syncSavedIntoSite() {
+            const n = svfSyncSaved();
+            if (n > 0) showToastSupervisor('✅ حُدِّث سجلّ المحفوظ: ' + n + ' زيارة', 'success');
+            return n;
+        }
+        window.addEventListener('focus', () => setTimeout(syncSavedIntoSite, 150));
+
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initSupervisor);
+            document.addEventListener('DOMContentLoaded', () => { syncSavedIntoSite(); initSupervisor(); });
         } else {
+            syncSavedIntoSite();
             initSupervisor();
         }
     }
@@ -2146,6 +2192,8 @@
                     sstat('✅ حُفظت الزيارة في البوّابة');
                     slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
                     try { GM_deleteValue(SUP_KEY); } catch (e) {}
+                    // تُسجَّل هنا لا في الموقع: النطاقان لا يتشاركان تخزيناً
+                    if (svfRecordSaved(sup)) slog('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في الأرشيف', 'info');
                     await queueAdvance();
                     return;
                 }

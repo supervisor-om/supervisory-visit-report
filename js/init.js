@@ -142,6 +142,14 @@
                 const sendSelBtn = document.getElementById('sendSelectedToMoeBtn');
                 if (sendSelBtn) sendSelBtn.addEventListener('click', () => window.svfSendSelected?.());
 
+                // عودةُ التبويب بعد الحفظ في البوّابة: سكربت تامبر مانكي يضخّ
+                // المحفوظ في svf_sent_visits، فنعيد الرسم ليظهر وسم «حُفظت».
+                window.addEventListener('focus', () => {
+                    const view = document.getElementById('saved-reports-view');
+                    if (view && !view.classList.contains('hidden'))
+                        setTimeout(renderSavedReports, 400);
+                });
+
                 const supFilter = document.querySelector('#filter-reports-input');
                 if (supFilter) supFilter.addEventListener('input', renderSavedReports);
 
