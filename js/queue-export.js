@@ -133,6 +133,7 @@
         let msg = 'زيارات جاهزة للإرسال: ' + ready.length;
         if (broken.length) msg += '\n\nمستبعدة لنقص البيانات (' + broken.length + '):\n• ' + broken.join('\n• ');
         if (!ready.length) { alert(msg); return; }
+        msg += '\n\nتنبيه: الطابور يعمل بالحفظ التلقائي فقط — تأكّد أنّ زرّ «الحفظ التلقائي» مُشغَّلٌ في لوحة البوّابة.';
         if (!confirm(msg + '\n\nهل تريد إرسالها إلى البوّابة الآن؟')) return;
 
         const payload = { kind: 'supervision', visits: ready };

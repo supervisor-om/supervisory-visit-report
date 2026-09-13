@@ -1,8 +1,9 @@
 // اختبار انحدار: node tests/queue-and-config.test.js
-// يشغّل الشيفرة الحقيقية من الملفّات (لا نسخاً منها) على ثلاثة سيناريوهات:
+// يشغّل الشيفرة الحقيقية من الملفّات (لا نسخاً منها) على أربعة سيناريوهات:
 //   ١) خريطة المعرّفات المخزّنة تُطبَّق كاملةً عند بناء اللوحة
 //   ٢) تصديرٌ مفردٌ جديد لا يُستبدَل بطابورٍ عالق
 //   ٣) queue-export.js يقرأ التقرير المحفوظ ولا يخمّن تقييماً
+//   ٤) بوّابة الطابور تمنع تكرار السجلّ الرسميّ
 // يعتمد على علاماتٍ نصّيّةٍ في السكربت؛ إن تغيّرت فشل الاختبار برسالة marker not found.
 const fs = require('fs');
 const vm = require('vm');
@@ -15,8 +16,9 @@ const [, , USER = path.join(ROOT, 'school-visits-automation.user.js'),
 const src = fs.readFileSync(USER, 'utf8').replace(/\r\n/g, '\n');
 const selectors = fs.readFileSync(SEL, 'utf8');
 let failures = 0;
+// التفصيل يُطبع عند الفشل فقط: نصّه مكتوبٌ لشرح الفشل، وطبعُه مع PASS يُقرأ خطأً
 const check = (name, ok, detail) => {
-    console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? '  — ' + detail : ''));
+    console.log((ok ? 'PASS ' : 'FAIL ') + name + (!ok && detail ? '  — ' + detail : ''));
     if (!ok) failures++;
 };
 const between = (a, b) => {
@@ -154,5 +156,68 @@ const between = (a, b) => {
           guessed ? 'أُرسل بتقييمات ' + JSON.stringify(guessed.ratings) : 'مُستبعد');
 })();
 
-console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
-process.exit(failures ? 1 : 0);
+/* ── ٤) بوّابة الطابور: لا تعبئةَ بلا حفظٍ تلقائيّ، ولا تكرارَ سجلٍّ رسميّ ── */
+(function testQueueGate() {
+    const code = between('        function queueInfo()', '        function findFlex');
+
+    // بيئةٌ واحدةٌ لكلّ سيناريو: طابورٌ من ثلاث زيارات
+    function env(opts) {
+        const store = Object.assign({
+            svf_queue: JSON.stringify([{ teacher: 'أ' }, { teacher: 'ب' }, { teacher: 'ج' }])
+        }, opts.store);
+        const logs = [];
+        const ctx = {
+            sup: null, autoSaveOn: () => opts.autoSave,
+            GM_getValue: (k, d) => (k in store ? store[k] : d),
+            GM_setValue: (k, v) => { store[k] = v; },
+            GM_deleteValue: k => { delete store[k]; },
+            slog: (m, t) => logs.push((t || '') + ': ' + m),
+            sstat: () => {},
+            confirm: () => opts.userSaysSaved,
+            wait: () => Promise.resolve(),
+            supAddBtn: () => ({ click: () => {} }),
+            waitForSupForm: () => Promise.resolve(true),
+            supStage1: () => Promise.resolve(),
+            out: null
+        };
+        vm.runInNewContext(code + '\nqueueGate().then(r => { out = r; });', ctx);
+        return { store, logs, ctx, done: new Promise(r => setImmediate(() => setImmediate(() => r())))};
+    }
+
+    return (async () => {
+        // أ) الحفظ التلقائيّ مُطفأ — تُمنع التعبئة
+        let e = env({ autoSave: false, store: { svf_queue_i: 0 } });
+        await e.done;
+        check('gate: الطابور بلا حفظٍ تلقائيّ يمنع التعبئة', e.ctx.out === false, 'أعادت ' + e.ctx.out);
+        check('gate: يشرح السبب للمستخدم', e.logs.some(l => l.includes('الحفظ التلقائي فقط')), e.logs.join(' | ') || 'لا سجلّ');
+        check('gate: لا يتقدّم المؤشّر عند المنع', Number(e.store.svf_queue_i) === 0, 'المؤشّر ' + e.store.svf_queue_i);
+
+        // ب) الحفظ مُشغَّل وزيارةٌ لم تبلغ التقييم — تمرّ
+        e = env({ autoSave: true, store: { svf_queue_i: 0 } });
+        await e.done;
+        check('gate: المسار الطبيعيّ يمرّ', e.ctx.out === true, 'أعادت ' + e.ctx.out);
+
+        // ج) زيارةٌ معلّقةٌ والمستخدم يؤكّد حفظها يدوياً — تُتخطّى ولا تُعبَّأ ثانيةً
+        e = env({ autoSave: true, userSaysSaved: true, store: { svf_queue_i: 1, svf_queue_hold: 1 } });
+        await e.done;
+        check('gate: زيارةٌ حُفظت يدوياً لا تُعبَّأ مرّةً ثانية', e.ctx.out === false, 'أعادت ' + e.ctx.out);
+        check('gate: المؤشّر تقدّم إلى التالية', Number(e.store.svf_queue_i) === 2, 'المؤشّر ' + e.store.svf_queue_i);
+        check('gate: العلامة مُسحت بعد التقدّم', !('svf_queue_hold' in e.store), 'باقية');
+
+        // د) زيارةٌ معلّقةٌ والمستخدم يقول لم تُحفظ — تُعاد تعبئتها في مكانها
+        e = env({ autoSave: true, userSaysSaved: false, store: { svf_queue_i: 1, svf_queue_hold: 1 } });
+        await e.done;
+        check('gate: زيارةٌ لم تُحفظ تُعاد تعبئتها', e.ctx.out === true, 'أعادت ' + e.ctx.out);
+        check('gate: المؤشّر لم يتقدّم', Number(e.store.svf_queue_i) === 1, 'المؤشّر ' + e.store.svf_queue_i);
+        check('gate: العلامة مُسحت قبل الإعادة', !('svf_queue_hold' in e.store), 'باقية');
+
+        // هـ) التوصيل: البوّابة أوّل ما في supFill، والعلامة تُوضع ببلوغ التقييم
+        check('gate: queueGate أوّل ما يُنفَّذ في supFill',
+              /async function supFill\(\)\s*\{\s*if \(!await queueGate\(\)\) return;/.test(src), 'غير موصولة');
+        check('gate: العلامة تُوضع عند بلوغ صفحة التقييم',
+              /async function supStage2\(\)[\s\S]{0,600}GM_setValue\('svf_queue_hold'/.test(src), 'لا تُوضع');
+
+        console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
+        process.exit(failures ? 1 : 0);
+    })();
+})();

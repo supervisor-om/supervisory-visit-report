@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.1
+// @version      14.2
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -1746,11 +1746,14 @@
                 try {
                     GM_setValue('svf_queue', JSON.stringify(sup.visits));
                     GM_setValue('svf_queue_i', 0);
+                    GM_deleteValue('svf_queue_hold');
                 } catch (e) {}
             } else if (fresh) {
                 // تصديرٌ مفردٌ جديد يُلغي أيّ طابورٍ لم يكتمل، وإلّا حُمِّلت
                 // زيارةٌ قديمةٌ من الطابور مكان التي صدّرها المستخدم للتوّ.
-                try { GM_deleteValue('svf_queue'); GM_deleteValue('svf_queue_i'); } catch (e) {}
+                try {
+                    GM_deleteValue('svf_queue'); GM_deleteValue('svf_queue_i'); GM_deleteValue('svf_queue_hold');
+                } catch (e) {}
             }
             try {
                 const q = JSON.parse(GM_getValue('svf_queue', '[]'));
@@ -1771,6 +1774,7 @@
         async function queueAdvance() {
             const info = queueInfo();
             if (!info) return false;
+            GM_deleteValue('svf_queue_hold');
             const next = info.i + 1;
             GM_setValue('svf_queue_i', next);
             if (next >= info.total) {
@@ -1791,6 +1795,41 @@
             await wait(1200);
             await supStage1();
             return true;
+        }
+
+        // ═══ بوّابة الطابور: تُستدعى قبل كلّ تعبئة ═══
+        // الطابور لا يتقدّم إلّا بحفظٍ تلقائيٍّ مؤكَّد؛ الحفظ اليدويّ لا يُعلِم السكربت
+        // فيبقى المؤشّر على زيارةٍ حُفظت ويعيد تعبئتها ← سجلٌّ رسميٌّ مكرّر. لذا:
+        //  • لا تعبئة في وضع الطابور والحفظ التلقائيّ مُطفأ.
+        //  • زيارةٌ بلغت صفحة التقييم ولم يتأكّد حفظها (svf_queue_hold) يُسأل
+        //    المستخدم عنها قبل إعادة تعبئتها: فشلٌ أو إلغاءٌ أو مهلةٌ قد يعقبها حفظٌ يدويّ.
+        async function queueGate() {
+            const info = queueInfo();
+            if (!info) return true;
+            if (!autoSaveOn()) {
+                sstat('الطابور يتطلّب تشغيل الحفظ التلقائي');
+                slog('🛑 وضع الطابور يعمل بالحفظ التلقائي فقط — شغّله من زرّ «الحفظ التلقائي» ثمّ اضغط «تعبئة النموذج»', 'error');
+                slog('السبب: الحفظ اليدويّ لا يُعلِم السكربت، فتُعبَّأ الزيارة نفسها مرّةً ثانية', 'warn');
+                return false;
+            }
+            const hold = Number(GM_getValue('svf_queue_hold', -1));
+            if (hold !== info.i) return true;
+
+            const cur = info.q[info.i] || {};
+            const saved = confirm(
+                'الزيارة ' + (info.i + 1) + ' من ' + info.total + ': ' + (cur.teacher || '—') + ' — ' + (cur.date || '—') + '\n' +
+                'بلغت صفحة التقييم ولم يتأكّد حفظها.\n\n' +
+                'هل هي محفوظةٌ في البوّابة الآن؟ (تحقّق من القائمة)\n\n' +
+                'موافق: نعم محفوظة — انتقل إلى التالية\n' +
+                'إلغاء: لم تُحفظ — أعد تعبئتها');
+            if (!saved) {
+                GM_deleteValue('svf_queue_hold');
+                slog('إعادة تعبئة الزيارة ' + (info.i + 1) + ' — لم تُحفظ بعد', 'info');
+                return true;
+            }
+            slog('✔ الزيارة ' + (info.i + 1) + ' محفوظة بتأكيدك — الانتقال للتالية', 'success');
+            await queueAdvance();
+            return false;
         }
 
         function findFlex(doc, names) {
@@ -1850,6 +1889,7 @@
         }
 
         async function supFill() {
+            if (!await queueGate()) return;
             const stage = supStage();
             if (stage === 0) {
                 sstat('لا نموذج في هذه الصفحة');
@@ -2287,6 +2327,7 @@
             setAutoSave(next);
             e.target.textContent = next ? 'الحفظ التلقائي: مُشغَّل' : 'الحفظ التلقائي: مُطفأ';
             slog(next ? 'الحفظ التلقائي مُشغَّل' : 'الحفظ التلقائي مُطفأ', 'warn');
+            if (!next && queueInfo()) slog('⏸ الطابور موقوف حتّى تُعيد تشغيل الحفظ التلقائي', 'error');
         });
         document.getElementById('svfs-copy')?.addEventListener('click', (e) => {
             const box = document.getElementById(L);
@@ -2387,6 +2428,11 @@
         async function supStage2() {
             slog('المرحلة ٢: التقييم', 'warn');
             const written = [];
+
+            // زيارةٌ من الطابور بلغت التقييم: من هنا قد تُحفظ، فتُعلَّم حتّى يتأكّد
+            // حفظها (queueAdvance يمسح العلامة) أو يُسأل عنها قبل إعادة تعبئتها.
+            const qi = queueInfo();
+            if (qi) GM_setValue('svf_queue_hold', qi.i);
 
             // ── بنود التقييم: rptrFormItems_ctl01..ctl13_ddlItemEvals ──
             supClickTab('بنود الاستمارة');
@@ -2936,6 +2982,10 @@
 
         slog('وحدة الزيارات الإشرافية جاهزة', 'success');
         if (!sup) slog('صدّر زيارة إشرافية من الموقع أولاً', 'warn');
+        if (queueInfo() && !autoSaveOn()) {
+            slog('⏸ طابور زيارات بانتظارك والحفظ التلقائي مُطفأ — شغّله ليبدأ الطابور', 'error');
+            svfsUnfold && svfsUnfold();
+        }
 
         if (formFieldsPresent()) {
             sstat('نموذج الإضافة مفتوح — اضغط «تعبئة»');
