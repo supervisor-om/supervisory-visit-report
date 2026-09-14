@@ -327,11 +327,102 @@ const between = (a, b) => {
     check('رأي: ترقيم البنود لا يُغلَّف بأقواس', wrapped.startsWith('3- '), wrapped.split('\n')[0]);
     check('رأي: الوقت يُغلَّف كاملاً', wrapped.includes('(7:20)') && wrapped.includes('(4/1)'), wrapped);
     check('رأي: ما بين قوسين لا يُغلَّف مرّتين', !/\(\(|\)\)/.test(wrapped), wrapped);
+    check('رأي: مدى الصفوف داخل القوسين لا يُمزَّق',
+          ctx.api.wrap('   ا.غسان (23) حصة ويدرس الصفوف (5-12) ذكور.') ===
+          '   ا.غسان (23) حصة ويدرس الصفوف (5-12) ذكور.',
+          ctx.api.wrap('   ا.غسان (23) حصة ويدرس الصفوف (5-12) ذكور.'));
 
     // اسم المعلّم خارج رأي الزائر
     check('رأي: اسم المعلّم أُزيل من سطور المواقف الصفّيّة',
           !/opinionText \+=[^\n]*الأستاذ \$\{cv\.teacher\}/.test(sch) &&
           /opinionText \+=[^\n]*الحصة \(\$\{cv\.period\}\): درس/.test(sch), 'ما زال الاسم');
+})();
+
+/* ── ٩) طاقم المدرسة يُدرَج في رأي الزائر ── */
+(function testRoster() {
+    const tpl = fs.readFileSync(path.join(SITE, 'js/templates.js'), 'utf8');
+    const sch = fs.readFileSync(path.join(SITE, 'js/school.js'), 'utf8');
+    const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
+    const init = fs.readFileSync(path.join(SITE, 'js/init.js'), 'utf8');
+    const grab = (a, b) => sch.slice(sch.indexOf(a), sch.indexOf(b));
+
+    function env(teachers, principal, typeName) {
+        const ctx = {
+            schoolTeachers: teachers,
+            schoolPrincipal: principal || { name: '', gender: 'f' },
+            schoolVisitTypesData: { k: { name: typeName || 'زيارة استطلاعية (خاصة)' } },
+            document: { getElementById: () => null }
+        };
+        vm.runInNewContext(
+            grab('function applyGenderFilter', 'function getGenderMode') +
+            grab('function rosterList', 'function addSchoolClassroomVisit') +
+            grab('function isExploratoryType', 'function updateRosterVisibility') +
+            grab('function withNote', 'function generateSchoolSmartVisitorOpinion') +
+            '\napi = { meet: buildMeetSentence, lines: teacherLoadLines, word: teachersWord,' +
+            ' names: teacherNames, note: withNote, expl: isExploratoryType };', ctx);
+        return ctx.api;
+    }
+
+    const meetObj = 'تم مقابلة الفاضلة مديرة المدرسة ومعلمة الرياضة المدرسية.';
+    const mixed = [
+        { name: 'ا.غسان', gender: 'm', load: '23', grades: '5-12', section: 'ذكور' },
+        { name: 'ا.ايمان', gender: 'f', load: '18', grades: '5-12', section: 'إناث' },
+        { name: 'ا.شيماء', gender: 'f', load: '23', grades: '1-4', section: '' }
+    ];
+
+    let api = env(mixed, { name: 'ا.امل العبري', gender: 'f' });
+    check('طاقم: اسم المدير يُدرج بعد «المدرسة»',
+          api.meet(meetObj).includes('مديرة المدرسة ا.امل العبري و'), api.meet(meetObj));
+    check('طاقم: أسماء المعلمين بين قوسين بعد كلمتهم',
+          api.meet(meetObj).endsWith('ومعلمي الرياضة المدرسية (ا.غسان، ا.ايمان، ا.شيماء)'), api.meet(meetObj));
+    check('طاقم: طاقمٌ مختلطٌ يجمع بـ«معلمي» لا «معلمة»', api.word() === 'معلمي', api.word());
+
+    check('طاقم: أسطر النصاب بصيغة المستخدم',
+          api.lines()[0] === 'ا.غسان (23) حصة ويدرس الصفوف (5-12) ذكور.' &&
+          api.lines()[1] === 'ا.ايمان (18) حصة وتدرس الصفوف (5-12) إناث.' &&
+          api.lines()[2] === 'ا.شيماء (23) حصة وتدرس الصفوف (1-4).',
+          api.lines().join(' ¦ '));
+
+    // مديرةٌ وطاقمٌ مختلط: مفتاحٌ واحدٌ للنصّ لا يكفي، فجنس المدير من بياناته
+    const maleMode = 'تم مقابلة الفاضل مدير المدرسة ومعلمي الرياضة المدرسية.';
+    check('طاقم: لقب المدير يتبع بياناته لا مفتاح النموذج',
+          api.meet(maleMode).startsWith('تم مقابلة الفاضلة مديرة المدرسة ا.امل العبري و') &&
+          env(mixed, { name: 'ا.سالم', gender: 'm' }).meet(meetObj)
+              .startsWith('تم مقابلة الفاضل مدير المدرسة ا.سالم و'),
+          api.meet(maleMode));
+
+    api = env([{ name: 'ا.شيماء', gender: 'f', load: '20', grades: '', section: '' }], { name: '', gender: 'f' });
+    check('طاقم: معلمةٌ واحدةٌ تُفرد', api.word() === 'معلمة' &&
+          api.meet(meetObj).endsWith('ومعلمة الرياضة المدرسية (ا.شيماء)'), api.meet(meetObj));
+    check('طاقم: بلا صفوفٍ لا يُكتب «وتدرس الصفوف ()»',
+          api.lines()[0] === 'ا.شيماء (20) حصة.', api.lines()[0]);
+
+    api = env([{ name: 'ا.هدى', gender: 'f' }, { name: 'ا.مريم', gender: 'f' }], { name: 'ا.امل', gender: 'f' });
+    check('طاقم: معلمتان فأكثر يُجمعن بـ«معلمات»', api.word() === 'معلمات', api.word());
+
+    // بلا طاقمٍ لا يتغيّر شيء، والملاحظة تُوصل بالجملة المبنيّة
+    api = env([], { name: 'ا.امل', gender: 'f' });
+    check('طاقم: بلا معلمين يبقى البند كما هو عدا اسم المدير',
+          api.meet(meetObj) === 'تم مقابلة الفاضلة مديرة المدرسة ا.امل ومعلمة الرياضة المدرسية', api.meet(meetObj));
+    check('طاقم: الملاحظة تُوصل بالجملة لا بالنقطة',
+          api.note(api.meet(meetObj), 'الإدارة متعاونة') .endsWith('، وقد لوحظ أنّ الإدارة متعاونة.'),
+          api.note(api.meet(meetObj), 'الإدارة متعاونة'));
+
+    // الظهور: الاستطلاعيّة وحدها
+    check('طاقم: يظهر للاستطلاعيّة فقط',
+          api.expl('k') === true && env([], null, 'زيارة إشرافية').expl('k') === false, 'التمييز فشل');
+
+    // التوصيل
+    check('طاقم: القسم في الصفحة مخفيٌّ ابتداءً',
+          /id="teachersRosterCard" class="hidden/.test(html), 'غير موجود أو ظاهر');
+    check('طاقم: حقول الإدخال موجودة',
+          ['stName', 'stGender', 'stLoad', 'stGrades', 'stSection', 'schoolPrincipal', 'addSchoolTeacherBtn']
+              .every(id => html.includes('id="' + id + '"')), 'ناقصة');
+    check('طاقم: تغيير نوع الزيارة يُظهره أو يُخفيه',
+          /visitTypeSel[\s\S]{0,300}updateRosterVisibility/.test(init), 'غير موصول');
+    check('طاقم: يُحفظ مع التقرير ويُستدعى باسم المدرسة',
+          /teachers: Array\.isArray\(schoolTeachers\)/.test(sch) &&
+          /schoolNameInput\.addEventListener\('blur', loadSchoolRosterForSchool\)/.test(init), 'غير موصول');
 })();
 
 /* ── ٦) إغلاق الحلقة: ما حُفظ في البوّابة يعود إلى سجلّ الموقع ── */

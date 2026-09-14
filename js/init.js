@@ -199,10 +199,14 @@
                             if(objCont) objCont.innerHTML = '';
                             
                             schoolClassroomVisits = [];
+                            schoolTeachers = [];
+                            schoolPrincipal = { name: '', gender: 'f' };
                             objectiveNotes = {};
                             prevRecommendationsStatus = [];
                             document.getElementById('prevRecsPanel')?.classList.add('hidden');
                             renderSchoolClassroomVisits();
+                            applyRosterToForm();
+                            updateRosterVisibility('');
 
                             const visSelect = document.getElementById('visitTypeSelect');
                             if(visSelect && visSelect.options.length > 0) visSelect.selectedIndex = 0;
@@ -296,12 +300,28 @@
                 if (visitTypeSel) {
                     visitTypeSel.addEventListener('change', (e) => {
                         renderSchoolObjectives(e.target.value);
+                        updateRosterVisibility(e.target.value);   // الطاقم للاستطلاعيّة وحدها
                     });
                 }
+
+                const addTeacherBtn = document.getElementById('addSchoolTeacherBtn');
+                if (addTeacherBtn) addTeacherBtn.addEventListener('click', addSchoolTeacher);
+
+                const stNameInput = document.getElementById('stName');
+                if (stNameInput) stNameInput.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') { e.preventDefault(); addSchoolTeacher(); }
+                });
+
+                ['schoolPrincipal', 'schoolPrincipalGender'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener('change', saveSchoolRoster);
+                });
 
                 const schoolNameInput = document.getElementById('schoolName');
                 if (schoolNameInput) {
                     schoolNameInput.addEventListener('blur', loadPreviousRecommendations);
+                    // الطاقم محفوظٌ باسم المدرسة، فيُستدعى حين يكتمل الاسم
+                    schoolNameInput.addEventListener('blur', loadSchoolRosterForSchool);
                     schoolNameInput.addEventListener('input', () => {
                         // إخفاء اللوحة عند تغيير الاسم
                         document.getElementById('prevRecsPanel')?.classList.add('hidden');

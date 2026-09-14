@@ -417,6 +417,39 @@
                     <div id="objectivesContainer" class="space-y-2 max-h-60 overflow-y-auto p-2 border rounded-lg bg-slate-50"></div>
                 </div>
 
+                <div id="teachersRosterCard" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="text-lg font-bold text-slate-700">طاقم المدرسة</h3>
+                        <span class="text-xs text-slate-400">يُدرَج في رأي الزائر عند التوليد</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">اسم مدير المدرسة ومعلمو الرياضة المدرسية وأنصبتهم — يُحفظ للمدرسة ويُستدعى في زيارتها القادمة.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                        <input type="text" id="schoolPrincipal" placeholder="اسم مدير/مديرة المدرسة" class="md:col-span-2 bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                        <select id="schoolPrincipalGender" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                            <option value="f">مديرة</option>
+                            <option value="m">مدير</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
+                        <input type="text" id="stName" placeholder="اسم المعلم" class="md:col-span-2 bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                        <select id="stGender" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                            <option value="f">معلمة</option>
+                            <option value="m">معلم</option>
+                        </select>
+                        <input type="text" id="stLoad" inputmode="numeric" placeholder="النصاب (حصص)" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                        <input type="text" id="stGrades" placeholder="الصفوف (5-12)" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                        <select id="stSection" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                            <option value="">بلا فئة</option>
+                            <option value="ذكور">ذكور</option>
+                            <option value="إناث">إناث</option>
+                        </select>
+                    </div>
+                    <button type="button" id="addSchoolTeacherBtn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 rounded-lg mb-4 text-sm">إضافة معلم</button>
+                    <div id="schoolTeachersList" class="space-y-2"></div>
+                </div>
+
                  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                     <h3 class="text-lg font-bold text-slate-700 mb-4">متابعة المواقف الصفية</h3>
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">

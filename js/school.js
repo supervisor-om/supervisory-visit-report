@@ -210,6 +210,184 @@
             });
         }
 
+        // =========================================================================
+        //  طاقم المدرسة: المدير ومعلمو الرياضة وأنصبتهم
+        //  يُعرض في الزيارات الاستطلاعيّة فقط، ويُدرَج في رأي الزائر عند التوليد.
+        // =========================================================================
+        const ROSTER_PREFIX = 'supervision_v6_school_roster_';
+
+        function rosterKeyForSchool() {
+            const name = (document.getElementById('schoolName')?.value || '').trim();
+            return name ? ROSTER_PREFIX + name : '';
+        }
+
+        function readPrincipalFromForm() {
+            schoolPrincipal = {
+                name: (document.getElementById('schoolPrincipal')?.value || '').trim(),
+                gender: document.getElementById('schoolPrincipalGender')?.value === 'm' ? 'm' : 'f'
+            };
+            return schoolPrincipal;
+        }
+
+        // يُحفظ باسم المدرسة لا برقم التقرير، فتُستدعى الأسماء في الزيارة القادمة
+        function saveSchoolRoster() {
+            const key = rosterKeyForSchool();
+            if (!key) return;
+            readPrincipalFromForm();
+            try {
+                localStorage.setItem(key, JSON.stringify({ principal: schoolPrincipal, teachers: schoolTeachers }));
+            } catch (e) {}
+        }
+
+        function applyRosterToForm() {
+            const p = document.getElementById('schoolPrincipal');
+            const g = document.getElementById('schoolPrincipalGender');
+            if (p) p.value = schoolPrincipal.name || '';
+            if (g) g.value = schoolPrincipal.gender === 'm' ? 'm' : 'f';
+            renderSchoolTeachers();
+        }
+
+        // لا يُستدعى الطاقم المحفوظ إلّا والقائمة فارغة، فلا يُطمس ما أدخله المستخدم
+        function loadSchoolRosterForSchool() {
+            if (Array.isArray(schoolTeachers) && schoolTeachers.length) return false;
+            const key = rosterKeyForSchool();
+            if (!key) return false;
+            let data = null;
+            try { data = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+            if (!data || typeof data !== 'object') return false;
+            schoolTeachers = Array.isArray(data.teachers) ? data.teachers : [];
+            if (data.principal && typeof data.principal === 'object') schoolPrincipal = data.principal;
+            applyRosterToForm();
+            if (schoolTeachers.length) showToast('استُدعي طاقم المدرسة: ' + schoolTeachers.length + ' معلماً');
+            return true;
+        }
+
+        // القسم للزيارات الاستطلاعيّة وحدها — هكذا طلب المستخدم
+        function isExploratoryType(typeKey) {
+            const name = (schoolVisitTypesData && schoolVisitTypesData[typeKey] && schoolVisitTypesData[typeKey].name) || typeKey || '';
+            return /استطلاع/.test(name);
+        }
+
+        function updateRosterVisibility(typeKey) {
+            const card = document.getElementById('teachersRosterCard');
+            if (!card) return;
+            const show = isExploratoryType(typeKey);
+            card.classList.toggle('hidden', !show);
+            if (show) loadSchoolRosterForSchool();
+        }
+
+        function renderSchoolTeachers() {
+            const list = document.getElementById('schoolTeachersList');
+            if (!list) return;
+            list.innerHTML = '';
+            if (!Array.isArray(schoolTeachers) || !schoolTeachers.length) {
+                list.innerHTML = '<p class="text-xs text-slate-400 italic p-2">لم يُضف أي معلم بعد.</p>';
+                return;
+            }
+            schoolTeachers.forEach((t, index) => {
+                if (!t) return;
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center bg-teal-50 p-2 rounded-lg text-sm';
+                const bits = [];
+                if (t.load) bits.push('النصاب ' + t.load);
+                if (t.grades) bits.push('الصفوف ' + t.grades);
+                if (t.section) bits.push(t.section);
+                div.innerHTML = `
+                    <div class="flex-grow">
+                        <span class="font-bold text-teal-800">${t.name || '-'}</span>
+                        <span class="text-slate-400 mx-1">|</span>
+                        <span class="text-slate-600">${t.gender === 'm' ? 'معلم' : 'معلمة'}</span>
+                        ${bits.length ? '<span class="text-slate-400 mx-1">|</span><span class="text-slate-600">' + bits.join(' – ') + '</span>' : ''}
+                    </div>
+                    <button type="button" class="text-red-500 hover:text-red-700 delete-teacher-btn p-1" data-index="${index}">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                `;
+                list.appendChild(div);
+            });
+
+            list.querySelectorAll('.delete-teacher-btn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    const idx = Number(e.currentTarget.dataset.index);
+                    if (schoolTeachers.length > idx) {
+                        schoolTeachers.splice(idx, 1);
+                        renderSchoolTeachers();
+                        saveSchoolRoster();
+                    }
+                });
+            });
+        }
+
+        function addSchoolTeacher() {
+            const name = document.getElementById('stName')?.value.trim();
+            if (!name) { showToast('اكتب اسم المعلم أولاً', 'error'); return; }
+
+            if (!Array.isArray(schoolTeachers)) schoolTeachers = [];
+            schoolTeachers.push({
+                name:    name,
+                gender:  document.getElementById('stGender')?.value === 'm' ? 'm' : 'f',
+                load:    (document.getElementById('stLoad')?.value || '').trim(),
+                grades:  (document.getElementById('stGrades')?.value || '').trim(),
+                section: document.getElementById('stSection')?.value || ''
+            });
+            renderSchoolTeachers();
+            saveSchoolRoster();
+
+            ['stName', 'stLoad', 'stGrades'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.getElementById('stName')?.focus();
+            showToast('أُضيف ' + name);
+        }
+
+        // «معلم» أو «معلمة» أو «معلمي» أو «معلمات» بحسب العدد والجنس الفعليّين،
+        // فمفتاح الجنس والعدد في النموذج لا يعرف مَن في الطاقم.
+        function rosterList() {
+            return Array.isArray(schoolTeachers) ? schoolTeachers.filter(t => t && t.name) : [];
+        }
+
+        function teachersWord() {
+            const list = rosterList();
+            if (list.length === 1) return list[0].gender === 'm' ? 'معلم' : 'معلمة';
+            return list.every(t => t.gender === 'f') ? 'معلمات' : 'معلمي';
+        }
+
+        function teacherNames() {
+            return rosterList().map(t => t.name).join('، ');
+        }
+
+        // بند المقابلة من الطاقم: اسم المدير بعد «المدرسة»، وأسماء المعلمين بعد كلمتهم
+        function buildMeetSentence(text) {
+            let s = text.endsWith('.') ? text.slice(0, -1) : text;
+            if (schoolPrincipal.name) {
+                // جنس المدير يُعرف من بياناته لا من مفتاح النموذج: قد تكون مديرةً
+                // والطاقم معلمين، وهو ما لا يستطيعه مفتاحٌ واحدٌ للنصّ كلّه.
+                const male = schoolPrincipal.gender === 'm';
+                s = s.replace(/الفاضلة|الفاضل/, male ? 'الفاضل' : 'الفاضلة')
+                     .replace(/مديرة المدرسة|مدير المدرسة/, (male ? 'مدير' : 'مديرة') + ' المدرسة');
+                if (s.includes('المدرسة')) s = s.replace('المدرسة', 'المدرسة ' + schoolPrincipal.name);
+            }
+            if (rosterList().length) {
+                const names = ' (' + teacherNames() + ')';
+                // كلمة المعلّمين تُشتقّ من الطاقم نفسه لا من مفتاح الجنس والعدد
+                const m = s.match(/(معلمي|معلمات|معلمة|معلم)(\s+الرياضة[^,،.]*)/);
+                s = m ? s.replace(m[0], teachersWord() + m[2] + names) : s + names;
+            }
+            return s;
+        }
+
+        // سطر النصاب لكلّ معلم: «ا.غسان (23) حصة ويدرس الصفوف (5-12) ذكور.»
+        function teacherLoadLines() {
+            return rosterList().map(t => {
+                let s = t.name;
+                if (t.load) s += ` (${t.load}) حصة`;
+                if (t.grades) s += ` ${t.gender === 'm' ? 'ويدرس' : 'وتدرس'} الصفوف (${t.grades})`;
+                if (t.section) s += ` ${t.section}`;
+                return s + '.';
+            });
+        }
+
         function addSchoolClassroomVisit() {
             const teacher = document.getElementById('cvTeacher')?.value.trim();
             const grade = document.getElementById('cvGrade')?.value.trim();
@@ -315,11 +493,23 @@
         // لكن ترقيم البنود يبقى كما هو («3- » لا «(3)- »)، وما كان بين قوسين
         // أصلاً لا يُغلَّف مرّةً ثانية («الحصة (2)» لا «الحصة ((2))»).
         function wrapNumbersInOpinion(text) {
-            const wrap = s => s.replace(/(?<!\()(\d[\d\/\-\.:]*\d|\d)(?!\))/g, '($1)');
+            // ما بين قوسين يُترك كما هو كتلةً واحدة، وإلّا مُزّق «(5-12)» إلى «(5-(1)2)»
+            const wrap = s => s.split(/(\([^()]*\))/g)
+                .map(part => part.startsWith('(') ? part : part.replace(/\d[\d\/\-\.:]*\d|\d/g, '($&)'))
+                .join('');
             return text.split('\n').map(line => {
                 const m = line.match(/^(\s*(?:•\s*)?\d+-\s+)([\s\S]*)$/);
                 return m ? m[1] + wrap(m[2]) : wrap(line);
             }).join('\n');
+        }
+
+        // وصل الملاحظة بجملة الهدف: بلا نقطةٍ قبل الفاصلة، و«أنّه» مع النفي
+        function withNote(stem, note) {
+            const s = stem.endsWith('.') ? stem.slice(0, -1) : stem;
+            if (!note) return s + '.';
+            const anna = /^(لا|لم|ليس|ما)\s/.test(note) ? 'أنّه' : 'أنّ';
+            const out = `${s}، وقد لوحظ ${anna} ${note}`;
+            return out.endsWith('.') ? out : out + '.';
         }
 
         function generateSchoolSmartVisitorOpinion() {
@@ -358,6 +548,26 @@
                     return;
                 }
 
+                // ── إدراج طاقم المدرسة في بنديه ──
+                const roster = Array.isArray(schoolTeachers) ? schoolTeachers.filter(t => t && t.name) : [];
+                const isMeetObj = obj.includes("مقابلة") || obj.includes("الالتقاء");
+                const isLoadObj = obj.includes("نصاب") || obj.includes("توزيع الجدول");
+
+                if (isMeetObj && (roster.length || schoolPrincipal.name)) {
+                    opinionText += counter + "- " + withNote(buildMeetSentence(text), note) + "\n";
+                    counter++;
+                    return;
+                }
+
+                if (isLoadObj && roster.length) {
+                    let stem = text.endsWith('.') ? text.slice(0, -1) : text;
+                    if (note) stem = withNote(stem, note).replace(/\.$/, '');
+                    opinionText += counter + "- " + stem + "، وكان التوزيع كالآتي:\n";
+                    teacherLoadLines().forEach(l => { opinionText += '   ' + l + '\n'; });
+                    counter++;
+                    return;
+                }
+
                 const isClassroomObj = obj.includes("موقف صفي") || obj.includes("مداولة");
 
                 if (isClassroomObj && hasClassroomVisits) {
@@ -369,13 +579,7 @@
                     });
                     classroomVisitsHandled = true;
                 } else if (note) {
-                    // نقطة الهدف تُحذف قبل وصل الملاحظة، وإلّا صارت «...الرياضية.، وقد لوحظ»
-                    const stem = text.endsWith('.') ? text.slice(0, -1) : text;
-                    // «أنّ لا توجد» خطأ؛ النفي يحتاج «أنّه»
-                    const anna = /^(لا|لم|ليس|ما)\s/.test(note) ? 'أنّه' : 'أنّ';
-                    text = `${stem}، وقد لوحظ ${anna} ${note}`;
-                    if (!text.endsWith('.')) text += '.';
-                    opinionText += counter + "- " + text + "\n";
+                    opinionText += counter + "- " + withNote(text, note) + "\n";
                 } else {
                     const base = text.endsWith('.') ? text.slice(0, -1) : text;
                     // الإضافة قد تحمل بدائل تذكيرٍ وتأنيثٍ مثل نصّ الهدف نفسه
@@ -575,12 +779,15 @@
                 visitType: visitType,
                 objectives: objectives,
                 classroomVisits: Array.isArray(schoolClassroomVisits) ? schoolClassroomVisits : [],
+                teachers: Array.isArray(schoolTeachers) ? schoolTeachers : [],
+                principal: readPrincipalFromForm(),
                 visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
                 recommendations: document.getElementById('recommendations')?.value || ''
             };
             
             try {
                 localStorage.setItem(reportId, JSON.stringify(reportData));
+                saveSchoolRoster();   // ليُستدعى الطاقم في الزيارة القادمة لهذه المدرسة
                 showToast('تم حفظ التقرير بنجاح');
                 showSchoolDashboard();
             } catch(error) {
@@ -601,8 +808,13 @@
                 if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
                 
                 schoolClassroomVisits = Array.isArray(report.classroomVisits) ? report.classroomVisits : [];
+                schoolTeachers = Array.isArray(report.teachers) ? report.teachers : [];
+                schoolPrincipal = (report.principal && typeof report.principal === 'object')
+                    ? report.principal : { name: '', gender: 'f' };
                 prevRecommendationsStatus = [];
                 renderSchoolClassroomVisits();
+                applyRosterToForm();
+                updateRosterVisibility(report.visitType);
                 renderSchoolObjectives(report.visitType);
                 // تحميل توصيات الزيارة السابقة لهذه المدرسة (باستثناء التقرير الحالي)
                 setTimeout(() => loadPreviousRecommendations(), 50);
@@ -693,7 +905,12 @@
                         if(document.getElementById('visitorOpinion')) document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
                         if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
                         schoolClassroomVisits = Array.isArray(report.classroomVisits) ? report.classroomVisits : [];
+                        schoolTeachers = Array.isArray(report.teachers) ? report.teachers : [];
+                        schoolPrincipal = (report.principal && typeof report.principal === 'object')
+                            ? report.principal : { name: '', gender: 'f' };
                         renderSchoolClassroomVisits();
+                        applyRosterToForm();
+                        updateRosterVisibility(report.visitType);
                         renderSchoolObjectives(report.visitType);
                         setTimeout(() => { 
                             if(Array.isArray(report.objectives)) {

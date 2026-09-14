@@ -15,3 +15,6 @@
         let schoolClassroomVisits = [];
         let objectiveNotes = {};
         let prevRecommendationsStatus = []; // [{ text, status: 'done'|'partial'|'not-done'|null }]
+        // طاقم المدرسة: يُدرَج في رأي الزائر عند التوليد ويُحفظ لكلّ مدرسةٍ باسمها
+        let schoolTeachers = [];           // [{ name, gender: 'm'|'f', load, grades, section }]
+        let schoolPrincipal = { name: '', gender: 'f' };
