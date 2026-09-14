@@ -285,7 +285,7 @@ const between = (a, b) => {
             return text.endsWith('.') ? text : text + '.';
         }
         const base = text.endsWith('.') ? text.slice(0, -1) : text;
-        return base + ctx.api.pos(base);
+        return base + ctx.api.f(ctx.api.pos(base), mode);
     };
 
     const objs = ctx.types['private_exploratory'].objectives;
@@ -306,6 +306,16 @@ const between = (a, b) => {
     check('رأي: أهداف الخاصة الجديدة لها إضافاتها',
           pick('موافقات').includes('استيفاء الموافقات') && pick('نصاب').includes('مطابقاً للنصاب'),
           pick('موافقات') + ' ¦ ' + pick('نصاب'));
+
+    // الإضافة نفسها قد تحمل بدائل تذكيرٍ وتأنيث، فتتبع وضع النموذج
+    const approvals = objs.find(o => o.includes('موافقات'));
+    check('رأي: إضافة الموافقات تتبع التذكير والتأنيث',
+          line(approvals, 3).endsWith('وتبيّن استيفاء الموافقات واسم المعلمة مدرج بالبوابة.') &&
+          line(approvals, 0).endsWith('وتبيّن استيفاء الموافقات وأسماء المعلمين مدرجة بالبوابة.'),
+          line(approvals, 3) + ' ¦ ' + line(approvals, 0));
+    check('رأي: لا بديل غير محلولٍ في الإضافات',
+          !objs.some(o => /[\[\]]/.test(line(o, 3))) && !objs.some(o => /[\[\]]/.test(line(o, 0))),
+          'بقيت أقواس');
     check('رأي: لا نقطةَ قبل فاصلة الملاحظة',
           !line(grounds, 3, 'لا توجد أدوات').includes('.،'), line(grounds, 3, 'لا توجد أدوات'));
     check('رأي: النفي يوصل بـ«أنّه» لا «أنّ»',

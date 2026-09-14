@@ -152,7 +152,7 @@
             if (text.includes("قاعدة بيانات")) return text.includes("تحديث")
                 ? "، واستُكملت البيانات الناقصة." : " وتحديثها بصورة منتظمة.";
             if (text.includes("موافقات التعيين") || text.includes("البوابة التعليمية"))
-                return "، وتبيّن استيفاء الموافقات وصحة البيانات المدرجة.";
+                return "، وتبيّن استيفاء الموافقات [وأسماء المعلمين مدرجة/واسم المعلم مدرج/وأسماء المعلمات مدرجة/واسم المعلمة مدرج] بالبوابة.";
             if (text.includes("نصاب الحصص") || text.includes("توزيع الجدول"))
                 return "، وكان التوزيع مطابقاً للنصاب المقرر.";
             if (text.includes("الملاعب") || text.includes("الأدوات الرياضية")) return "، وكانت الملاعب مهيأة والأدوات في حالة جيدة.";
@@ -378,7 +378,8 @@
                     opinionText += counter + "- " + text + "\n";
                 } else {
                     const base = text.endsWith('.') ? text.slice(0, -1) : text;
-                    text = base + getPositiveAddition(base);
+                    // الإضافة قد تحمل بدائل تذكيرٍ وتأنيثٍ مثل نصّ الهدف نفسه
+                    text = base + applyGenderFilter(getPositiveAddition(base), getGenderMode());
                     opinionText += counter + "- " + text + "\n";
                 }
                 counter++;
