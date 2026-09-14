@@ -34,7 +34,9 @@
                 localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             }
             // حذف الأنواع القديمة غير المرغوب فيها
-            const removedKeys = ['private_exploratory', 'exploratory', 'technical', 'admin'];
+            // 'private_exploratory' عاد نوعاً معتمداً (استطلاعية للمدارس الخاصة)،
+            // فلا يُحذف — والحلقة أدناه تكتب نسخة الشيفرة فوق أيّ نسخةٍ قديمةٍ منه.
+            const removedKeys = ['exploratory', 'technical', 'admin'];
             removedKeys.forEach(k => { delete schoolVisitTypesData[k]; });
             // تحديث الأنواع الافتراضية دائماً بأحدث نسخة من الكود
             Object.keys(defaultSchoolVisitTypesData).forEach(k => {

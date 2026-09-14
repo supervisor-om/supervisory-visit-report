@@ -198,6 +198,57 @@ const between = (a, b) => {
           /clearSelectionBtn[\s\S]{0,200}svfClearSelection/.test(init), 'ناقصة');
 })();
 
+/* ── ٧) أنواع الزيارات المدرسية: الاستطلاعية للمدارس الخاصة ── */
+(function testPrivateExploratory() {
+    const tpl = fs.readFileSync(path.join(SITE, 'js/templates.js'), 'utf8');
+    const sch = fs.readFileSync(path.join(SITE, 'js/school.js'), 'utf8');
+    const exp = fs.readFileSync(path.join(SITE, 'js/export.js'), 'utf8');
+
+    const start = tpl.indexOf('const defaultSchoolVisitTypesData');
+    const end   = tpl.indexOf('\n        };', start);
+    const ctx = {};
+    vm.runInNewContext(tpl.slice(start, end + 11) + '\nout = defaultSchoolVisitTypesData;', ctx);
+    const gf = sch.slice(sch.indexOf('function applyGenderFilter'), sch.indexOf('function getGenderMode'));
+    vm.runInNewContext(gf + '\nfilter = applyGenderFilter;', ctx);
+
+    const t = ctx.out['private_exploratory'];
+    check('خاصة: النوع موجودٌ بين الافتراضيّات', !!t, 'غير موجود');
+    if (!t) return;
+    check('خاصة: الاسم يميّزه عن الحكوميّة', t.name === 'زيارة استطلاعية (خاصة)', t.name);
+    check('خاصة: ثمانية أهداف', t.objectives.length === 8, t.objectives.length + ' أهداف');
+
+    // كلّ بديلٍ بين قوسين لا بدّ أن يحمل أربع صيغ: ذكر_جمع/ذكر_مفرد/أنثى_جمع/أنثى_مفرد
+    const badSlots = [];
+    t.objectives.forEach((o, i) => {
+        (o.match(/\[([^\]]+)\]/g) || []).forEach(m => {
+            if (m.slice(1, -1).split('/').length !== 4) badSlots.push('هدف ' + (i + 1) + ': ' + m);
+        });
+    });
+    check('خاصة: كلّ بديلٍ بأربع صيغ', !badSlots.length, badSlots.join(' | '));
+
+    // الوضع ٣ = أنثى مفرد، وهو ما كتبه المستخدم
+    const f = t.objectives.map(o => ctx.filter(o, 3));
+    check('خاصة: صيغة المؤنّث المفرد كما طُلبت',
+          f[0] === '1- مقابلة الفاضلة مديرة المدرسة ومعلمة الرياضة المدرسية.' &&
+          f[1] === '2- تحديث قاعدة بيانات المعلمة.' &&
+          f[4] === '5- متابعة توزيع الجدول ونصاب الحصص للمعلمة.' &&
+          f[7] === '8- متابعة المنهاج وسجلات المعلمة.',
+          f.join(' ¦ '));
+    const m = t.objectives.map(o => ctx.filter(o, 0));
+    check('خاصة: الوضع الذكوريّ الجمع يعمل أيضاً',
+          m[0] === '1- مقابلة الفاضل مدير المدرسة ومعلمي الرياضة المدرسية.' &&
+          m[1] === '2- تحديث قاعدة بيانات المعلمين.', m.slice(0, 2).join(' ¦ '));
+    check('خاصة: لا بديل غير محلول بعد الترشيح', !f.concat(m).some(x => /[\[\]]/.test(x)), 'بقيت أقواس');
+
+    // كان مفتاحاً محذوفاً في نسخةٍ سابقة — لا بدّ أن يخرج من قائمة الحذف
+    const rm = sch.slice(sch.indexOf('const removedKeys'), sch.indexOf('\n', sch.indexOf('const removedKeys')));
+    check('خاصة: المفتاح لم يعد ضمن المحذوفات', !rm.includes('private_exploratory'), rm.trim());
+
+    // البوّابة: الاسم يحوي «استطلاعية» فيُطابق رقم النوع ٢
+    const map = /'gov_exploratory': '2', 'استطلاعية': '2'/.test(exp);
+    check('خاصة: يُصدَّر للبوّابة نوعاً استطلاعيّاً (٢)', map && t.name.includes('استطلاعية'), 'المطابقة بالاسم فشلت');
+})();
+
 /* ── ٦) إغلاق الحلقة: ما حُفظ في البوّابة يعود إلى سجلّ الموقع ── */
 (function testSavedLoop() {
     const code = between('    const SAVED_KEY =', '    // ═══════════════════════════════════════════════════════════════\n    //  جزء 1');
