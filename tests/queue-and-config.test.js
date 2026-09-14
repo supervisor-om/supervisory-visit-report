@@ -547,6 +547,7 @@ const between = (a, b) => {
             confirm: () => opts.userSaysSaved,
             sessionStorage: { removeItem: () => {} },
             setTimeout: fn => fn(), runAutoFull: d => runs.push(d && d.school),
+            DATA_KEY: 'svf_school_visit_data', refreshDataBox: () => {},
             out: null
         };
         vm.runInNewContext(gate + '\nout = schoolQueueGate();', c);
@@ -564,6 +565,38 @@ const between = (a, b) => {
     g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 2, svf_school_hold: 2 } });
     check('سكربت: آخر زيارةٍ تُنهي الطابور وتمسحه',
           !('svf_school_queue' in g.store) && g.runs.length === 0 && g.logs.some(l => l.includes('اكتمل الطابور')), g.logs.join(' | '));
+
+    // بعد التقدّم تصير الزيارة التالية هي بيانات التصدير، فتبقى إن أُعيد تحميل الصفحة
+    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 0, svf_school_hold: 0 } });
+    check('سكربت: الزيارة التالية تُحفظ بيانات تصديرٍ حاليّة',
+          JSON.parse(g.store.svf_school_visit_data || '{}').school === 'ب', g.store.svf_school_visit_data);
+
+    // ── العطل الذي أوقف الطابور: أزرار اللوحة كانت تحمل الزيارة الأولى ──
+    check('سكربت: أزرار التشغيل تقرأ الزيارة الجارية لا بيانات بناء اللوحة',
+          /svf-btn-auto-v7'\)\?\.addEventListener\('click', \(\) => runAutoFull\(visitData\)\)/.test(src) &&
+          /svf-btn-fill-v7'\)\?\.addEventListener\('click', \(\) => runFillOnly\(visitData\)\)/.test(src) &&
+          !/runAutoFull\(data\)\)/.test(src), 'ما زالت تحمل data');
+    check('سكربت: بطاقة البيانات تُحدَّث عند الانتقال', /refreshDataBox\(\);[\s\S]{0,200}▶ الزيارة/.test(src), 'لا تُحدَّث');
+
+    // ── تصنيف رسائل البوّابة بعد الحفظ ──
+    const cls = between('        const SAVE_FAIL_RE', '        async function waitForSaveOutcome');
+    const cctx = {};
+    vm.runInNewContext(cls + '\nout = classifyPortalMessages;', cctx);
+    const C = cctx.out;
+    check('حفظ: «تم الحفظ بنجاح» نجاحٌ لا رفض',
+          C(['تم الحفظ بنجاح']).ok.length === 1 && C(['تم الحفظ بنجاح']).fail.length === 0);
+    check('حفظ: «تمت الإضافة بنجاح» نجاح', C(['تمت الإضافة بنجاح']).ok.length === 1);
+    check('حفظ: «لم يتم الحفظ» رفضٌ رغم احتوائها «تم الحفظ»',
+          C(['لم يتم الحفظ']).fail.length === 1 && C(['لم يتم الحفظ']).ok.length === 0);
+    check('حفظ: «يجب ادخال ...» رفض', C(['يجب ادخال وقت الوصول']).fail.length === 1);
+    check('حفظ: نصٌّ مجهولٌ لا يُفترض نجاحاً', C(['رقم 15']).fail.length === 1 && C(['رقم 15']).ok.length === 0);
+    check('حفظ: نجاحٌ مع خطأٍ آخر يبقى رفضاً',
+          (r => r.ok.length === 1 && r.fail.length === 1)(C(['تم الحفظ بنجاح', 'خطأ في التاريخ'])) &&
+          /c\.ok\.length && !c\.fail\.length/.test(src), 'منطق الجمع');
+
+    // ── السجلّ يبقى بعد إعادة التحميل، وله زرّ نسخ ──
+    check('سكربت: السجلّ يُحفظ في الجلسة ويُستعاد', /sessionStorage\.setItem\(LOG_STORE/.test(src) && /restoreLog\(\);/.test(src), 'لا يُحفظ');
+    check('سكربت: زرّ «نسخ السجل» في لوحة المدرسيّة', /id="svf-btn-copy-v7"/.test(src) && /svf-btn-copy-v7'\)\?\.addEventListener/.test(src), 'غير موجود');
 
     // ── التوصيل في السكربت ──
     check('سكربت: البوّابة أوّل ما في التشغيل الكامل والتعبئة',

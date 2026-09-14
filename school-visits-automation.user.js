@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.6
+// @version      14.7
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -584,6 +584,9 @@
             sessionStorage.removeItem('svf_pilot_phase');
             sessionStorage.removeItem('svf_pilot_data');
             sessionStorage.removeItem('svf_pilot_done');
+            // البيانات الحاليّة تُحفظ أيضاً في مفتاح التصدير، فتبقى إن أُعيد تحميل الصفحة
+            try { GM_setValue(DATA_KEY, JSON.stringify(visitData)); } catch (e) {}
+            refreshDataBox();
             setStatus('الزيارة ' + (next + 1) + ' من ' + info.total + ': ' + (visitData.school || ''));
             log('▶ الزيارة ' + (next + 1) + ' من ' + info.total + ' — ' + (visitData.school || ''), 'warn');
             setTimeout(() => runAutoFull(visitData), 3000);
@@ -670,17 +673,36 @@
             { id: 'step5', label: 'الحفظ في البوابة',              icon: '💾' },
         ];
 
-        function log(msg, type = 'info') {
+        // السجلّ يُحفظ في الجلسة: كلّ postback يُعيد تحميل الصفحة ويمسح اللوحة، فكان
+        // ما جرى قبل التوقّف يضيع — وهو بالضبط ما يُحتاج لمعرفة سبب التوقّف
+        const LOG_STORE = 'svf_school_log';
+        function logLine(text, type) {
             const panel = $('#' + LOG_EL_ID);
-            if (panel) {
-                const line = document.createElement('div');
-                line.className = 'svf-log-' + type;
-                const now = new Date();
-                const time = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                line.textContent = time + ' │ ' + msg;
-                panel.appendChild(line);
-                panel.scrollTop = panel.scrollHeight;
-            }
+            if (!panel) return;
+            const line = document.createElement('div');
+            line.className = 'svf-log-' + type;
+            line.textContent = text;
+            panel.appendChild(line);
+            panel.scrollTop = panel.scrollHeight;
+        }
+        function restoreLog() {
+            let saved = [];
+            try { saved = JSON.parse(sessionStorage.getItem(LOG_STORE) || '[]'); } catch (e) {}
+            if (!saved.length) return;
+            saved.forEach(l => logLine(l.t, l.k));
+            logLine('──────── أُعيد تحميل الصفحة ────────', 'warn');
+        }
+
+        function log(msg, type = 'info') {
+            const now = new Date();
+            const time = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const text = time + ' │ ' + msg;
+            logLine(text, type);
+            try {
+                const saved = JSON.parse(sessionStorage.getItem(LOG_STORE) || '[]');
+                saved.push({ t: text, k: type });
+                sessionStorage.setItem(LOG_STORE, JSON.stringify(saved.slice(-400)));
+            } catch (e) {}
             const method = type === 'error' ? 'error' : type === 'warn' ? 'warn' : 'log';
             console[method]('[SVF v7] ' + msg);
         }
@@ -714,6 +736,24 @@
         }
 
         // ─── بناء اللوحة ───
+        function dataBoxInner(data) {
+            const qi = schoolQueueInfo();
+            return `
+                    <div style="color:#fbbf24;font-weight:bold;margin-bottom:6px;font-size:11px">📦 ${qi
+                        ? 'الطابور: الزيارة ' + Math.min(qi.i + 1, qi.total) + ' من ' + qi.total : 'بيانات جاهزة'}</div>
+                    <div class="d-row"><span class="d-lbl">المدرسة</span><span class="d-val">${esc(data.school)}</span></div>
+                    <div class="d-row"><span class="d-lbl">التاريخ</span><span class="d-val">${esc(data.date)}</span></div>
+                    <div class="d-row"><span class="d-lbl">النوع</span><span class="d-val">${esc(TYPE_LABELS[data.visitType] || data.visitTypeName)}</span></div>
+                    <div class="d-row"><span class="d-lbl">الوصول</span><span class="d-val">${esc(data.arrivalTime)}</span></div>
+                    <div class="d-row"><span class="d-lbl">الانصراف</span><span class="d-val">${esc(data.departureTime)}</span></div>`;
+        }
+
+        // بعد الانتقال في الطابور تُحدَّث البطاقة لتعرض الزيارة الجارية لا الأولى
+        function refreshDataBox() {
+            const box = $('#svf-data-box-v7');
+            if (box && visitData) box.innerHTML = dataBoxInner(visitData);
+        }
+
         function buildPanel(data) {
             if ($('#' + PANEL_ID)) return;
 
@@ -731,14 +771,7 @@
             ).join('');
 
             const dataBoxHTML = hasData ? `
-                <div id="svf-data-box-v7">
-                    <div style="color:#fbbf24;font-weight:bold;margin-bottom:6px;font-size:11px">📦 بيانات جاهزة</div>
-                    <div class="d-row"><span class="d-lbl">المدرسة</span><span class="d-val">${esc(data.school)}</span></div>
-                    <div class="d-row"><span class="d-lbl">التاريخ</span><span class="d-val">${esc(data.date)}</span></div>
-                    <div class="d-row"><span class="d-lbl">النوع</span><span class="d-val">${esc(TYPE_LABELS[data.visitType] || data.visitTypeName)}</span></div>
-                    <div class="d-row"><span class="d-lbl">الوصول</span><span class="d-val">${esc(data.arrivalTime)}</span></div>
-                    <div class="d-row"><span class="d-lbl">الانصراف</span><span class="d-val">${esc(data.departureTime)}</span></div>
-                </div>
+                <div id="svf-data-box-v7">${dataBoxInner(data)}</div>
             ` : `
                 <div style="background:#1c1408;border:1px dashed #44403c;border-radius:8px;padding:12px;text-align:center;color:#78716c;font-size:11px;margin-bottom:10px">
                     لا توجد بيانات — عد لموقعك واصغط "تصدير للوزارة"
@@ -762,21 +795,40 @@
                     <button class="svf-btn-v7" id="svf-btn-fill-v7" ${!hasData ? 'disabled' : ''}>⚡ تعبئة فقط (النموذج مفتوح)</button>
                     <button class="svf-btn-v7" id="svf-btn-switch-v7">🔤 التحويل لوضع ثنائي اللغة</button>
                     <button class="svf-btn-v7" id="svf-btn-save-v7">${autoSaveOn() ? '💾 الحفظ التلقائي: مُشغَّل' : '✋ الحفظ التلقائي: مُطفأ'}</button>
+                    <button class="svf-btn-v7" id="svf-btn-copy-v7">📋 نسخ السجل</button>
                     <button class="svf-btn-v7" id="svf-btn-diag-v7">🔎 تشخيص الصفحة</button>
                     <button class="svf-btn-v7" id="svf-btn-clear-v7">🗑 مسح السجل</button>
                 </div>
             `;
 
             document.body.appendChild(panel);
+            restoreLog();
 
-            // زر التشغيل التلقائي
+            // الأزرار تقرأ visitData لحظة الضغط لا وقت بناء اللوحة: بعد الانتقال في
+            // الطابور كانت تحمل الزيارة الأولى، فيُعيد «تشغيل» إدخالها ← سجلٌّ مكرّر
             if (hasData) {
-                $('#svf-btn-auto-v7')?.addEventListener('click', () => runAutoFull(data));
-                $('#svf-btn-fill-v7')?.addEventListener('click', () => runFillOnly(data));
+                $('#svf-btn-auto-v7')?.addEventListener('click', () => runAutoFull(visitData));
+                $('#svf-btn-fill-v7')?.addEventListener('click', () => runFillOnly(visitData));
             }
+            $('#svf-btn-copy-v7')?.addEventListener('click', e => {
+                const logEl = $('#' + LOG_EL_ID);
+                const text = logEl ? Array.from(logEl.children).map(n => n.textContent).join('\n') : '';
+                const done = () => { e.target.textContent = '✅ نُسخ'; setTimeout(() => { e.target.textContent = '📋 نسخ السجل'; }, 2000); };
+                const fallback = () => {
+                    // الحافظة محجوبةٌ أحياناً في البوّابة — يُعرض النصّ ليُنسخ باليد
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.cssText = 'width:100%;height:160px;margin-top:6px;font-size:10px;direction:rtl';
+                    e.target.after(ta);
+                    ta.select();
+                    e.target.textContent = 'حدّد النصّ وانسخه (Ctrl+C)';
+                };
+                try { navigator.clipboard.writeText(text).then(done, fallback); } catch (err) { fallback(); }
+            });
             $('#svf-btn-clear-v7')?.addEventListener('click', () => {
                 const logEl = $('#' + LOG_EL_ID);
                 if (logEl) logEl.innerHTML = '';
+                try { sessionStorage.removeItem(LOG_STORE); } catch (e) {}
                 setProgress(0);
                 setAllStepsIdle();
                 sessionStorage.removeItem('svf_pilot_done');
@@ -1391,6 +1443,10 @@
                         // تُسجَّل هنا لا في الموقع: النطاقان لا يتشاركان تخزيناً
                         if (svfRecordSavedSchool(data)) log('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في السجل', 'info');
                         advanceAfter = true;
+                    } else if (schoolQueueInfo()) {
+                        const qi = schoolQueueInfo();
+                        log('⏸ الطابور متوقّفٌ عند الزيارة ' + (qi.i + 1) + ' من ' + qi.total + ' — لم يتأكّد حفظها', 'error');
+                        log('👉 إن كانت محفوظةً في البوّابة اضغط «تشغيل تلقائي كامل» وأجب «موافق» — ينتقل للتالية', 'warn');
                     }
 
                 } else {
@@ -1402,6 +1458,11 @@
             } catch (err) {
                 log('❌ توقف: ' + err.message, 'error');
                 setStatus('❌ ' + err.message);
+                const qi = schoolQueueInfo();
+                if (qi) {
+                    log('⏸ الطابور متوقّفٌ عند الزيارة ' + (qi.i + 1) + ' من ' + qi.total + ' — ' + ((qi.q[qi.i] || {}).school || ''), 'error');
+                    log('👉 أصلح السبب ثمّ اضغط «تشغيل تلقائي كامل» — يُكمل من هذه الزيارة. للمساعدة: «نسخ السجل»', 'warn');
+                }
                 // تنظيف عند الخطأ
                 sessionStorage.removeItem('svf_pilot_phase');
                 sessionStorage.removeItem('svf_pilot_data');
@@ -1563,15 +1624,35 @@
 
         // بعد الضغط: البوّابة إمّا تعود إلى القائمة (نجاح)، أو تبقى على
         // النموذج وتعرض أخطاء تحقّق (فشل)، أو لا تفعل شيئاً (مجهول).
+        // رسائل البوّابة تُصنَّف بنصّها: عناصر lblMsg وأمثالها تحمل «تم الحفظ بنجاح»
+        // كما تحمل الأخطاء، فكان نجاح الحفظ يُقرأ رفضاً ويتوقّف الطابور بعد أوّل زيارة.
+        // النفي يُفحص أوّلاً: «لم يتم الحفظ» تحوي «تم الحفظ».
+        const SAVE_FAIL_RE = /لم\s*يتم|لم\s*تتم|تعذر|تعذّر|فشل|خطأ|خطا|يجب|من\s*فضلك|الرجاء|مطلوب|غير\s*صحيح|غير\s*صالح/;
+        const SAVE_OK_RE   = /تم\s*(ال)?حفظ|تمت?\s*(ال)?(إضافة|اضافة|تسجيل)|بنجاح|نجاح\s*(ال)?(حفظ|عملية)/;
+        function classifyPortalMessages(msgs) {
+            const fail = [], ok = [];
+            (msgs || []).forEach(m => {
+                if (SAVE_FAIL_RE.test(m)) fail.push(m);
+                else if (SAVE_OK_RE.test(m)) ok.push(m);
+                else fail.push(m);   // نصٌّ مجهول يُعامَل رفضاً — لا يُفترض النجاح
+            });
+            return { fail, ok };
+        }
+
         async function waitForSaveOutcome(timeoutMs) {
             const deadline = Date.now() + timeoutMs;
             while (Date.now() < deadline) {
                 await wait(1000);
 
-                const errs = portalErrors(findFormDocument() || document);
-                if (errs.length) return { ok: false, why: 'رفضت البوّابة الحفظ', errors: errs };
+                const formDoc = findFormDocument();
+                const c = classifyPortalMessages(portalErrors(formDoc || document));
+                if (c.ok.length && !c.fail.length) {
+                    log('📨 البوّابة: ' + c.ok.join(' | '), 'success');
+                    return { ok: true, errors: [] };
+                }
+                if (c.fail.length) return { ok: false, why: 'رفضت البوّابة الحفظ', errors: c.fail };
 
-                const formGone   = !findFormDocument();
+                const formGone   = !formDoc;
                 const backOnList = !!findAddButton();
                 if (formGone && backOnList) return { ok: true, errors: [] };
             }
