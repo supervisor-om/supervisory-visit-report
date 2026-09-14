@@ -449,8 +449,24 @@
                 const card = document.createElement('div');
                 card.className = 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col';
                 const objLen = Array.isArray(report.objectives) ? report.objectives.length : 0;
-                
+
+                // التحديد للرفع إلى البوّابة، ووسم حالة الزيارة
+                const picked = window.svfSchoolSelected ? window.svfSchoolSelected.has(report.key) : false;
+                const portalDate = (report.visitDate || '').includes('-')
+                    ? report.visitDate.split('-').reverse().join('/') : (report.visitDate || '');
+                let stateBadge = '';
+                if (window.svfSchoolIsSent && window.svfSchoolIsSent(report.schoolName || '', portalDate)) {
+                    stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`;
+                } else if (window.svfSchoolIsQueued && window.svfSchoolIsQueued(report.key)) {
+                    stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
+                }
+
                 card.innerHTML = `
+                    <label class="flex items-center gap-2 mb-3 cursor-pointer select-none">
+                        <input type="checkbox" class="queue-pick-school w-4 h-4 accent-green-700" data-key="${report.key}" ${picked ? 'checked' : ''}>
+                        <span class="text-xs text-slate-500">تحديد للرفع</span>
+                        ${stateBadge}
+                    </label>
                     <div class="flex justify-between items-start mb-3">
                         <h3 class="font-bold text-lg text-slate-800">${report.schoolName || 'بدون اسم'}</h3>
                         <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200">${typeName}</span>
@@ -467,6 +483,8 @@
                 `;
                 reportsListContainer.appendChild(card);
             });
+
+            if (typeof window.svfSchoolUpdateSelectionUI === 'function') window.svfSchoolUpdateSelectionUI();
         }
 
         function collectCheckedObjectivesWithNotes() {
@@ -778,6 +796,8 @@
                 visitDate: formData.get('visitDate') || '',
                 visitType: visitType,
                 objectives: objectives,
+                arrivalTime: document.getElementById('schoolArrivalTime')?.value || '',
+                departureTime: document.getElementById('schoolDepartureTime')?.value || '',
                 classroomVisits: Array.isArray(schoolClassroomVisits) ? schoolClassroomVisits : [],
                 teachers: Array.isArray(schoolTeachers) ? schoolTeachers : [],
                 principal: readPrincipalFromForm(),
@@ -806,7 +826,9 @@
                 if(document.getElementById('visitTypeSelect')) document.getElementById('visitTypeSelect').value = report.visitType || '';
                 if(document.getElementById('visitorOpinion')) document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
                 if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
-                
+                if(report.arrivalTime && document.getElementById('schoolArrivalTime')) document.getElementById('schoolArrivalTime').value = report.arrivalTime;
+                if(report.departureTime && document.getElementById('schoolDepartureTime')) document.getElementById('schoolDepartureTime').value = report.departureTime;
+
                 schoolClassroomVisits = Array.isArray(report.classroomVisits) ? report.classroomVisits : [];
                 schoolTeachers = Array.isArray(report.teachers) ? report.teachers : [];
                 schoolPrincipal = (report.principal && typeof report.principal === 'object')

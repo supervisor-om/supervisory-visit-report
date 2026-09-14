@@ -425,6 +425,154 @@ const between = (a, b) => {
           /schoolNameInput\.addEventListener\('blur', loadSchoolRosterForSchool\)/.test(init), 'غير موصول');
 })();
 
+/* ── ١٠) طابور الزيارات المدرسيّة: من السجل إلى البوّابة ── */
+(function testSchoolQueue() {
+    const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
+    const sch  = fs.readFileSync(path.join(SITE, 'js/school.js'), 'utf8');
+    const init = fs.readFileSync(path.join(SITE, 'js/init.js'), 'utf8');
+
+    // ── الموقع: queue-export.js ──
+    const full = {
+        id: 'supervision_v6_school_report_1', schoolName: 'مدرسة النور الخاصة', visitDate: '2026-09-10',
+        visitType: 'private_exploratory', arrivalTime: '07:15', departureTime: '11:30',
+        objectives: ['1- مقابلة الفاضلة مديرة المدرسة.', '2- حضور الطابور المدرسي.'],
+        visitorOpinion: '1- تم مقابلة ...', recommendations: ''
+    };
+    const older = Object.assign({}, full, { id: 'supervision_v6_school_report_0', schoolName: 'مدرسة الفجر', visitDate: '2026-09-02', visitType: 'supervisory' });
+    const empty = Object.assign({}, full, { id: 'supervision_v6_school_report_2', schoolName: 'مدرسة ناقصة', objectives: [], visitorOpinion: '' });
+
+    const ls = new Map([full, older, empty].map(r => [r.id, JSON.stringify(r)]));
+    const localStorage = {
+        get length() { return ls.size; }, key: i => [...ls.keys()][i],
+        getItem: k => (ls.has(k) ? ls.get(k) : null), setItem: (k, v) => ls.set(k, String(v))
+    };
+    const alerts = [], opened = [];
+    const ctx = {
+        localStorage, console,
+        schoolVisitTypesData: {
+            private_exploratory: { name: 'زيارة استطلاعية (خاصة)' },
+            supervisory: { name: 'زيارة إشرافية' }
+        },
+        document: { addEventListener: () => {}, getElementById: () => null, querySelectorAll: () => [] },
+        navigator: { clipboard: { writeText: () => {} } },
+        alert: m => alerts.push(m), confirm: m => { alerts.push(m); return true; },
+        btoa: s => Buffer.from(s, 'latin1').toString('base64'), unescape, encodeURIComponent
+    };
+    ctx.window = ctx;
+    ctx.window.open = u => { opened.push(u); return {}; };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(QUEUE, 'utf8'), ctx);
+
+    [full.id, older.id, empty.id].forEach(k => ctx.svfSchoolToggleKey(k, true));
+    ctx.svfSendSelectedSchool();
+
+    let payload = null;
+    const url = opened[0] || '';
+    if (url.includes('#svf=')) {
+        payload = JSON.parse(decodeURIComponent(escape(Buffer.from(url.split('#svf=')[1], 'base64').toString('latin1'))));
+    }
+    check('مدرسيّة: تُفتح صفحة الزيارات المدرسيّة لا الإشرافيّة',
+          url.startsWith('https://moe.gov.om/SMS/VariousRecords/SchoolVisits/') && !url.includes('#svfs='), url.slice(0, 80));
+    check('مدرسيّة: الحمولة طابورٌ من نوع school',
+          payload && payload.kind === 'school' && Array.isArray(payload.visits) && payload.visits.length === 2,
+          payload ? JSON.stringify({ kind: payload.kind, n: (payload.visits || []).length }) : 'لا حمولة');
+    if (payload) {
+        const v = payload.visits;
+        check('مدرسيّة: الأقدم أوّلاً', v[0].school === 'مدرسة الفجر' && v[1].school === 'مدرسة النور الخاصة',
+              v.map(x => x.school).join(' ← '));
+        check('مدرسيّة: نوع البوّابة من اسم النوع (استطلاعية ٢، إشرافية ١)',
+              v[1].visitType === '2' && v[0].visitType === '1', v.map(x => x.visitType).join('، '));
+        check('مدرسيّة: التاريخ بصيغة البوّابة والوقتان من التقرير',
+              v[1].date === '10/09/2026' && v[1].arrivalTime === '07:15' && v[1].departureTime === '11:30',
+              [v[1].date, v[1].arrivalTime, v[1].departureTime].join(' / '));
+        check('مدرسيّة: الأهداف بلا ترقيم', v[1].objectives[0] === 'مقابلة الفاضلة مديرة المدرسة.', v[1].objectives[0]);
+    }
+    check('مدرسيّة: الناقصة تُستبعد مع ذكر السبب',
+          alerts.some(m => m.includes('مدرسة ناقصة') && m.includes('أهداف الزيارة') && m.includes('رأي الزائر')),
+          alerts.join(' ¦ ').replace(/\n+/g, ' ¦ '));
+    check('مدرسيّة: المرفوع يُوسم والناقص يبقى محدَّداً',
+          ctx.svfSchoolIsQueued(full.id) && !ctx.svfSchoolIsQueued(empty.id) &&
+          ctx.svfSchoolSelected.has(empty.id) && !ctx.svfSchoolSelected.has(full.id), 'خطأ في الوسم أو التحديد');
+    check('مدرسيّة: تحديدها مستقلٌّ عن تحديد الإشرافيّة', ctx.svfSelected.size === 0, 'اختلط التحديدان');
+
+    // ── الواجهة ──
+    check('مدرسيّة: شريط التحديد في سجل التقارير المدرسيّة',
+          ['selectAllSchoolReportsBtn', 'clearSchoolSelectionBtn', 'schoolSelectionCount', 'sendSelectedSchoolToMoeBtn']
+              .every(id => html.includes('id="' + id + '"')), 'ناقص');
+    check('مدرسيّة: مربّع اختيارٍ على كلّ بطاقة', /class="queue-pick-school[^"]*"[^>]*data-key="\$\{report\.key\}"/.test(sch), 'غير موجود');
+    check('مدرسيّة: الأزرار والمربّعات موصولة',
+          /queue-pick-school[\s\S]{0,150}svfSchoolToggleKey/.test(init) &&
+          /sendSelectedSchoolToMoeBtn[\s\S]{0,200}svfSendSelectedSchool/.test(init), 'غير موصولة');
+    check('مدرسيّة: وقتا الوصول والانصراف يُحفظان في التقرير',
+          /arrivalTime: document\.getElementById\('schoolArrivalTime'\)/.test(sch), 'لا يُحفظان');
+
+    // ── السكربت: تحميل الطابور ──
+    const load = between('        let visitData = null;', '        function schoolQueueInfo()');
+    function runLoad(hashObj, store) {
+        const c = {
+            DATA_KEY: 'svf_school_visit_data',
+            location: { hash: hashObj ? '#svf=' + Buffer.from(JSON.stringify(hashObj)).toString('base64') : '', pathname: '/x', search: '' },
+            history: { replaceState: () => {} },
+            localStorage: { getItem: () => null },
+            b64Decode: s => Buffer.from(s, 'base64').toString('utf8'),
+            GM_getValue: (k, d) => (k in store ? store[k] : d),
+            GM_setValue: (k, v) => { store[k] = v; },
+            GM_deleteValue: k => { delete store[k]; },
+            out: null
+        };
+        vm.runInNewContext('{\n' + load + '\nout = visitData;\n}', c);
+        return c.out;
+    }
+    let st = {};
+    let got = runLoad({ kind: 'school', visits: [{ school: 'أ' }, { school: 'ب' }] }, st);
+    check('سكربت: طابورٌ مدرسيٌّ يبدأ بأوّل زيارة', got && got.school === 'أ' && Number(st.svf_school_queue_i) === 0,
+          'المحمَّل ' + (got && got.school));
+    st = { svf_school_queue: JSON.stringify([{ school: 'قديم' }]), svf_school_queue_i: 0 };
+    got = runLoad({ school: 'جديد', date: '01/09/2026' }, st);
+    check('سكربت: تصديرٌ مفردٌ جديد يمسح طابوراً عالقاً',
+          got && got.school === 'جديد' && !('svf_school_queue' in st), 'المحمَّل ' + (got && got.school));
+
+    // ── السكربت: البوّابة والتقدّم ──
+    const gate = between('        function schoolQueueInfo()', '        // ─── أنماط لوحة التحكم ───');
+    function runGate(opts) {
+        const store = Object.assign({ svf_school_queue: JSON.stringify([{ school: 'أ' }, { school: 'ب' }, { school: 'ج' }]) }, opts.store);
+        const logs = [], runs = [];
+        const c = {
+            SQ_KEY: 'svf_school_queue', SQ_I: 'svf_school_queue_i', SQ_HOLD: 'svf_school_hold',
+            visitData: null, autoSaveOn: () => opts.autoSave,
+            GM_getValue: (k, d) => (k in store ? store[k] : d),
+            GM_setValue: (k, v) => { store[k] = v; }, GM_deleteValue: k => { delete store[k]; },
+            log: m => logs.push(m), setStatus: () => {},
+            confirm: () => opts.userSaysSaved,
+            sessionStorage: { removeItem: () => {} },
+            setTimeout: fn => fn(), runAutoFull: d => runs.push(d && d.school),
+            out: null
+        };
+        vm.runInNewContext(gate + '\nout = schoolQueueGate();', c);
+        return { out: c.out, store, logs, runs };
+    }
+    let g = runGate({ autoSave: false, store: { svf_school_queue_i: 0 } });
+    check('سكربت: الطابور المدرسيّ بلا حفظٍ تلقائيٍّ يمنع التعبئة',
+          g.out === false && g.logs.some(l => l.includes('الحفظ التلقائي فقط')), g.logs.join(' | '));
+    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 1, svf_school_hold: 1 } });
+    check('سكربت: زيارةٌ حُفظت يدوياً تُتخطّى وتبدأ التالية',
+          g.out === false && Number(g.store.svf_school_queue_i) === 2 && g.runs[0] === 'ج', 'المؤشّر ' + g.store.svf_school_queue_i + ' / شُغّل ' + g.runs);
+    g = runGate({ autoSave: true, userSaysSaved: false, store: { svf_school_queue_i: 1, svf_school_hold: 1 } });
+    check('سكربت: زيارةٌ لم تُحفظ تُعاد في مكانها',
+          g.out === true && Number(g.store.svf_school_queue_i) === 1 && !('svf_school_hold' in g.store), 'المؤشّر ' + g.store.svf_school_queue_i);
+    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 2, svf_school_hold: 2 } });
+    check('سكربت: آخر زيارةٍ تُنهي الطابور وتمسحه',
+          !('svf_school_queue' in g.store) && g.runs.length === 0 && g.logs.some(l => l.includes('اكتمل الطابور')), g.logs.join(' | '));
+
+    // ── التوصيل في السكربت ──
+    check('سكربت: البوّابة أوّل ما في التشغيل الكامل والتعبئة',
+          /async function runAutoFull\(data\) \{\s*if \(autoRunning\) return;\s*if \(!schoolQueueGate\(\)\) return;/.test(src) &&
+          /async function runFillOnly\(data\) \{\s*if \(filling\) return;\s*if \(!schoolQueueGate\(\)\) return;/.test(src), 'غير موصولة');
+    check('سكربت: الحفظ المؤكَّد يسجّل ويتقدّم',
+          /if \(saved\) \{[\s\S]{0,250}svfRecordSavedSchool\(data\)[\s\S]{0,120}advanceAfter = true/.test(src) &&
+          /finally \{[\s\S]{0,250}if \(advanceAfter\) schoolQueueAdvance\(\);/.test(src), 'غير موصول');
+})();
+
 /* ── ٦) إغلاق الحلقة: ما حُفظ في البوّابة يعود إلى سجلّ الموقع ── */
 (function testSavedLoop() {
     const code = between('    const SAVED_KEY =', '    // ═══════════════════════════════════════════════════════════════\n    //  جزء 1');
@@ -442,7 +590,7 @@ const between = (a, b) => {
             },
             out: null, added: null
         };
-        vm.runInNewContext('{\n' + code + '\nout = { rec: svfRecordSaved, sync: svfSyncSaved, list: svfSavedList };\n}', ctx);
+        vm.runInNewContext('{\n' + code + '\nout = { rec: svfRecordSaved, recSchool: svfRecordSavedSchool, sync: svfSyncSaved, list: svfSavedList };\n}', ctx);
         return { gm, site, api: ctx.out };
     }
 
@@ -465,6 +613,15 @@ const between = (a, b) => {
     check('loop: لا فقدانَ ولا تكرارَ بعد الدمج',
           merged.length === 3 && new Set(merged).size === 3 && merged.includes('ج|03/09/2026'),
           e.site.svf_sent_visits);
+
+    // الزيارات المدرسيّة: سجلٌّ منفصلٌ بمفتاح المدرسة والتاريخ
+    e = env(undefined, undefined);
+    check('loop: الزيارة المدرسيّة تُسجَّل بمفتاح المدرسة',
+          e.api.recSchool({ school: 'مدرسة النور', date: '10/09/2026' }) === true &&
+          e.api.recSchool({ school: '', date: '10/09/2026' }) === false);
+    check('loop: الضخّ يملأ سجلّ المدرسيّة دون أن يمسّ الإشرافيّة',
+          e.api.sync() === 1 && JSON.parse(e.site.svf_sent_school_visits)[0] === 'مدرسة النور|10/09/2026' &&
+          !('svf_sent_visits' in e.site), JSON.stringify(e.site));
 
     // سجلٌّ تالفٌ في أيّ طرفٍ لا يُسقط العمليّة
     e = env('{ليس مصفوفة}', 'تالف');

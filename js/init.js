@@ -148,6 +148,9 @@
                     const view = document.getElementById('saved-reports-view');
                     if (view && !view.classList.contains('hidden'))
                         setTimeout(renderSavedReports, 400);
+                    const schoolView = document.getElementById('schoolDashboardView');
+                    if (schoolView && !schoolView.classList.contains('hidden'))
+                        setTimeout(renderSchoolReportsList, 400);
                 });
 
                 const supFilter = document.querySelector('#filter-reports-input');
@@ -303,6 +306,23 @@
                         updateRosterVisibility(e.target.value);   // الطاقم للاستطلاعيّة وحدها
                     });
                 }
+
+                // ── تحديد الزيارات المدرسيّة ورفعها طابوراً ──
+                const schoolList = document.getElementById('reportsListContainer');
+                if (schoolList) {
+                    schoolList.addEventListener('change', e => {
+                        if (e.target.classList.contains('queue-pick-school') && window.svfSchoolToggleKey)
+                            window.svfSchoolToggleKey(e.target.dataset.key, e.target.checked);
+                    });
+                }
+                const selectAllSchoolBtn = document.getElementById('selectAllSchoolReportsBtn');
+                if (selectAllSchoolBtn) selectAllSchoolBtn.addEventListener('click', () => window.svfSchoolSelectAllVisible?.());
+
+                const clearSchoolSelBtn = document.getElementById('clearSchoolSelectionBtn');
+                if (clearSchoolSelBtn) clearSchoolSelBtn.addEventListener('click', () => window.svfSchoolClearSelection?.());
+
+                const sendSchoolSelBtn = document.getElementById('sendSelectedSchoolToMoeBtn');
+                if (sendSchoolSelBtn) sendSchoolSelBtn.addEventListener('click', () => window.svfSendSelectedSchool?.());
 
                 const addTeacherBtn = document.getElementById('addSchoolTeacherBtn');
                 if (addTeacherBtn) addTeacherBtn.addEventListener('click', addSchoolTeacher);

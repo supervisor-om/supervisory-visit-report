@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.4
+// @version      14.5
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -70,18 +70,39 @@
         try { GM_setValue(SAVED_KEY, JSON.stringify(list.slice(-500))); } catch (e) { return false; }
         return true;
     }
+    // ونظيرهما للزيارات المدرسيّة: "المدرسة|التاريخ"
+    const SAVED_SCHOOL_KEY = 'svf_saved_school_visits';
+    const SITE_SENT_SCHOOL_KEY = 'svf_sent_school_visits';
+
+    function svfSavedSchoolList() {
+        try { const a = JSON.parse(GM_getValue(SAVED_SCHOOL_KEY, '[]')); return Array.isArray(a) ? a : []; }
+        catch (e) { return []; }
+    }
+    function svfRecordSavedSchool(v) {
+        if (!v || !v.school || !v.date) return false;
+        const id = v.school + '|' + v.date;
+        const list = svfSavedSchoolList();
+        if (list.indexOf(id) !== -1) return false;
+        list.push(id);
+        try { GM_setValue(SAVED_SCHOOL_KEY, JSON.stringify(list.slice(-500))); } catch (e) { return false; }
+        return true;
+    }
+
     // يُستدعى في نطاق الموقع: يدمج المحفوظ في سجلّه ويعيد عدد الجديد
-    function svfSyncSaved() {
-        const list = svfSavedList();
+    function svfMergeInto(siteKey, list) {
         if (!list.length) return 0;
         let cur = [];
-        try { cur = JSON.parse(localStorage.getItem(SITE_SENT_KEY) || '[]'); } catch (e) {}
+        try { cur = JSON.parse(localStorage.getItem(siteKey) || '[]'); } catch (e) {}
         if (!Array.isArray(cur)) cur = [];
         const merged = [...new Set(cur.concat(list))];
         if (merged.length === cur.length) return 0;
-        try { localStorage.setItem(SITE_SENT_KEY, JSON.stringify(merged)); }
+        try { localStorage.setItem(siteKey, JSON.stringify(merged)); }
         catch (e) { return 0; }
         return merged.length - cur.length;
+    }
+    function svfSyncSaved() {
+        return svfMergeInto(SITE_SENT_KEY, svfSavedList())
+             + svfMergeInto(SITE_SENT_SCHOOL_KEY, svfSavedSchoolList());
     }
     const PANEL_ID     = 'svf-panel-v7';
     const STEP_EL_ID   = 'svf-steps';
@@ -452,8 +473,10 @@
 
         // ─── استيراد البيانات من كل المصادر الممكنة ───
         let visitData = null;
+        const SQ_KEY = 'svf_school_queue', SQ_I = 'svf_school_queue_i', SQ_HOLD = 'svf_school_hold';
 
         (function loadData() {
+            let fresh = false;   // وصل تصديرٌ جديدٌ في الرابط الآن
             // 1) من URL hash (#svf=BASE64)
             try {
                 const m = location.hash.match(/#svf=([A-Za-z0-9+/=]+)/);
@@ -461,6 +484,7 @@
                     const json = b64Decode(m[1]);
                     if (json) {
                         visitData = JSON.parse(json);
+                        fresh = true;
                         try { GM_setValue(DATA_KEY, json); } catch (e) {}
                         history.replaceState(null, '', location.pathname + location.search);
                     }
@@ -482,7 +506,89 @@
                     if (ls) visitData = JSON.parse(ls);
                 } catch (e) {}
             }
+
+            // ═══ طابور الزيارات المدرسيّة ═══
+            // التصدير قد يحمل زيارةً واحدةً أو قائمةً منها؛ تُعالَج واحدةً في
+            // كلّ دورة، والمؤشّر محفوظٌ فيُستأنف بعد كلّ حفظٍ مؤكَّد.
+            if (visitData && Array.isArray(visitData.visits) && visitData.visits.length) {
+                try {
+                    GM_setValue(SQ_KEY, JSON.stringify(visitData.visits));
+                    GM_setValue(SQ_I, 0);
+                    GM_deleteValue(SQ_HOLD);
+                } catch (e) {}
+            } else if (fresh) {
+                // تصديرٌ مفردٌ جديد يُلغي طابوراً لم يكتمل، وإلّا عُبّئت زيارةٌ قديمةٌ مكانه
+                try { GM_deleteValue(SQ_KEY); GM_deleteValue(SQ_I); GM_deleteValue(SQ_HOLD); } catch (e) {}
+            }
+            try {
+                const q = JSON.parse(GM_getValue(SQ_KEY, '[]'));
+                const i = Number(GM_getValue(SQ_I, 0) || 0);
+                if (q.length && i < q.length) visitData = q[i];
+            } catch (e) {}
         })();
+
+        function schoolQueueInfo() {
+            try {
+                const q = JSON.parse(GM_getValue(SQ_KEY, '[]'));
+                const i = Number(GM_getValue(SQ_I, 0) || 0);
+                return q.length ? { q: q, i: i, total: q.length } : null;
+            } catch (e) { return null; }
+        }
+
+        // الطابور لا يتقدّم إلّا بحفظٍ تلقائيٍّ مؤكَّد — الحفظ اليدويّ لا يُعلِم
+        // السكربت، فتُعبَّأ الزيارة نفسها مرّةً ثانية ← سجلٌّ رسميٌّ مكرّر.
+        function schoolQueueGate() {
+            const info = schoolQueueInfo();
+            if (!info) return true;
+            if (!autoSaveOn()) {
+                setStatus('الطابور يتطلّب تشغيل الحفظ التلقائي');
+                log('🛑 وضع الطابور يعمل بالحفظ التلقائي فقط — شغّله من زرّ «الحفظ التلقائي»', 'error');
+                log('السبب: الحفظ اليدويّ لا يُعلِم السكربت، فتُعبَّأ الزيارة نفسها مرّةً ثانية', 'warn');
+                return false;
+            }
+            const hold = Number(GM_getValue(SQ_HOLD, -1));
+            if (hold !== info.i) return true;
+
+            const cur = info.q[info.i] || {};
+            const saved = confirm(
+                'الزيارة ' + (info.i + 1) + ' من ' + info.total + ': ' + (cur.school || '—') + ' — ' + (cur.date || '—') + '\n' +
+                'بلغت نموذج الإضافة ولم يتأكّد حفظها.\n\n' +
+                'هل هي محفوظةٌ في البوّابة الآن؟ (تحقّق من السجل)\n\n' +
+                'موافق: نعم محفوظة — انتقل إلى التالية\n' +
+                'إلغاء: لم تُحفظ — أعد تعبئتها');
+            if (!saved) {
+                GM_deleteValue(SQ_HOLD);
+                log('إعادة تعبئة الزيارة ' + (info.i + 1) + ' — لم تُحفظ بعد', 'info');
+                return true;
+            }
+            log('✔ الزيارة ' + (info.i + 1) + ' محفوظة بتأكيدك — الانتقال للتالية', 'success');
+            schoolQueueAdvance();
+            return false;
+        }
+
+        // بعد حفظٍ مؤكَّد: المؤشّر يتقدّم وتبدأ دورةٌ جديدةٌ من صفحة القائمة
+        function schoolQueueAdvance() {
+            const info = schoolQueueInfo();
+            if (!info) return false;
+            GM_deleteValue(SQ_HOLD);
+            const next = info.i + 1;
+            GM_setValue(SQ_I, next);
+            if (next >= info.total) {
+                setStatus('اكتمل الطابور: ' + info.total + ' زيارة');
+                log('━━━ ✅ اكتمل الطابور: حُفظت ' + info.total + ' زيارة ━━━', 'success');
+                GM_deleteValue(SQ_KEY); GM_deleteValue(SQ_I);
+                return false;
+            }
+            visitData = info.q[next];
+            // مراحل الطيّار تُصفَّر لتبدأ الزيارة التالية من أوّلها
+            sessionStorage.removeItem('svf_pilot_phase');
+            sessionStorage.removeItem('svf_pilot_data');
+            sessionStorage.removeItem('svf_pilot_done');
+            setStatus('الزيارة ' + (next + 1) + ' من ' + info.total + ': ' + (visitData.school || ''));
+            log('▶ الزيارة ' + (next + 1) + ' من ' + info.total + ' — ' + (visitData.school || ''), 'warn');
+            setTimeout(() => runAutoFull(visitData), 3000);
+            return true;
+        }
 
         // ─── أنماط لوحة التحكم ───
         GM_addStyle(`
@@ -1047,7 +1153,9 @@
         // ═══════════════════════════════════════════════════════════════
         async function runAutoFull(data) {
             if (autoRunning) return;
+            if (!schoolQueueGate()) return;
             autoRunning = true;
+            let advanceAfter = false;
 
             // حفظ البيانات مؤقتاً لاستخدامها بعد postback
             try { sessionStorage.setItem('svf_pilot_data', JSON.stringify(data)); } catch(e) {}
@@ -1138,6 +1246,10 @@
                     log('✅ ظهر نموذج الإضافة!', 'success');
                     setProgress(55);
 
+                    // من هنا قد تُحفظ الزيارة، فتُعلَّم حتّى يتأكّد حفظها أو يُسأل عنها
+                    const qi = schoolQueueInfo();
+                    if (qi) GM_setValue(SQ_HOLD, qi.i);
+
                     // ── تعبئة النموذج ──
                     updateStep('step4', 'active', 'جاري التعبئة...');
                     const fillRes = await fillAddForm(data, formDoc);
@@ -1160,7 +1272,12 @@
                     sessionStorage.setItem('svf_pilot_done', '1');
 
                     // بيانات التصدير تبقى ما لم يتأكّد الحفظ
-                    if (saved) clearExportData();
+                    if (saved) {
+                        clearExportData();
+                        // تُسجَّل هنا لا في الموقع: النطاقان لا يتشاركان تخزيناً
+                        if (svfRecordSavedSchool(data)) log('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في السجل', 'info');
+                        advanceAfter = true;
+                    }
 
                 } else {
                     // مرحلة غير معروفة — تنظيف
@@ -1178,6 +1295,7 @@
                 autoRunning = false;
                 if (autoBtn) { autoBtn.disabled = false; autoBtn.textContent = '🚀 تشغيل تلقائي كامل'; }
                 if (fillBtn) fillBtn.disabled = false;
+                if (advanceAfter) schoolQueueAdvance();
             }
         }
 
@@ -1186,7 +1304,9 @@
         // ═══════════════════════════════════════════════════════════════
         async function runFillOnly(data) {
             if (filling) return;
+            if (!schoolQueueGate()) return;
             filling = true;
+            let advanceAfter = false;
 
             const fillBtn = $('#svf-btn-fill-v7');
             const autoBtn = $('#svf-btn-auto-v7');
@@ -1196,10 +1316,16 @@
             try {
                 const doc = findFormDocument();
                 if (doc) {
+                    const qi = schoolQueueInfo();
+                    if (qi) GM_setValue(SQ_HOLD, qi.i);
                     const res = await fillAddForm(data, doc);
                     if (res && res.ok) {
                         const saveRes = await autoSaveForm(data, doc, res.written);
-                        if (saveRes && saveRes.ok) clearExportData();
+                        if (saveRes && saveRes.ok) {
+                            clearExportData();
+                            svfRecordSavedSchool(data);
+                            advanceAfter = true;
+                        }
                     }
                 } else {
                     log('⚠ نموذج الإضافة غير مفتوح', 'warn');
@@ -1213,6 +1339,7 @@
                 filling = false;
                 if (fillBtn) { fillBtn.disabled = false; fillBtn.textContent = '⚡ تعبئة فقط (النموذج مفتوح)'; }
                 if (autoBtn) autoBtn.disabled = false;
+                if (advanceAfter) schoolQueueAdvance();
             }
         }
 
