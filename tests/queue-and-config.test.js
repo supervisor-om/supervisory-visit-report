@@ -252,6 +252,65 @@ const between = (a, b) => {
     check('خاصة: يُصدَّر للبوّابة نوعاً استطلاعيّاً (٢)', map && t.name.includes('استطلاعية'), 'المطابقة بالاسم فشلت');
 })();
 
+/* ── ٨) رأي الزائر المولَّد: الصياغة كما اعتمدها المستخدم ── */
+(function testVisitorOpinion() {
+    const tpl = fs.readFileSync(path.join(SITE, 'js/templates.js'), 'utf8');
+    const sch = fs.readFileSync(path.join(SITE, 'js/school.js'), 'utf8');
+    const ctx = {};
+    const s = tpl.indexOf('const defaultSchoolVisitTypesData');
+    vm.runInNewContext(tpl.slice(s, tpl.indexOf('\n        };', s) + 11) + '\ntypes = defaultSchoolVisitTypesData;', ctx);
+    const grab = (a, b) => sch.slice(sch.indexOf(a), sch.indexOf(b));
+    vm.runInNewContext(
+        grab('function applyGenderFilter', 'function getGenderMode') +
+        grab('function getPositiveAddition', 'function renderSchoolClassroomVisits') +
+        grab('function convertObjectiveToPast', 'function wrapNumbersInOpinion') +
+        grab('function wrapNumbersInOpinion', 'function generateSchoolSmartVisitorOpinion') +
+        '\napi = { f: applyGenderFilter, pos: getPositiveAddition, past: convertObjectiveToPast, wrap: wrapNumbersInOpinion };', ctx);
+
+    // نسخةٌ من حلقة generateSchoolSmartVisitorOpinion (الجزء غير المعتمد على DOM)
+    const line = (obj, mode, note) => {
+        let text = ctx.api.past(ctx.api.f(obj, mode).trim().replace(/^[\d٠-٩]+\s*[-–]\s*/, ''));
+        if (note) {
+            const stem = text.endsWith('.') ? text.slice(0, -1) : text;
+            const anna = /^(لا|لم|ليس|ما)\s/.test(note) ? 'أنّه' : 'أنّ';
+            text = stem + '، وقد لوحظ ' + anna + ' ' + note;
+            return text.endsWith('.') ? text : text + '.';
+        }
+        const base = text.endsWith('.') ? text.slice(0, -1) : text;
+        return base + ctx.api.pos(base);
+    };
+
+    const objs = ctx.types['private_exploratory'].objectives;
+    const out = objs.map(o => line(o, 3));
+
+    check('رأي: «تم» لا «تمت» في كلّ البنود',
+          out.every(l => l.startsWith('تم ')) && !out.some(l => l.startsWith('تمت')), out[0]);
+    check('رأي: البند بلا ملاحظة يأخذ الإضافة الافتراضيّة لا نقطةً وحدها',
+          out.every(l => l.length > ctx.api.f(objs[0], 3).length / 2) &&
+          out[6].includes('وإبداء الملاحظات اللازمة') && out[7].includes('السجلات منظمة'),
+          out[7]);
+    check('رأي: «تحديث قاعدة البيانات» لا يُذيَّل بـ«وتحديثها»',
+          !out[1].includes('وتحديثها بصورة منتظمة') && out[1].includes('واستُكملت البيانات الناقصة'), out[1]);
+    check('رأي: أهداف الخاصة الجديدة لها إضافاتها',
+          out[2].includes('استيفاء الموافقات') && out[4].includes('مطابقاً للنصاب'), out[2] + ' ¦ ' + out[4]);
+    check('رأي: لا نقطةَ قبل فاصلة الملاحظة',
+          !line(objs[5], 3, 'لا توجد أدوات').includes('.،'), line(objs[5], 3, 'لا توجد أدوات'));
+    check('رأي: النفي يوصل بـ«أنّه» لا «أنّ»',
+          line(objs[5], 3, 'لا توجد أدوات').includes('لوحظ أنّه لا توجد') &&
+          line(objs[5], 3, 'الأدوات متوفرة').includes('لوحظ أنّ الأدوات'), line(objs[5], 3, 'لا توجد أدوات'));
+
+    // تغليف الأرقام
+    const wrapped = ctx.api.wrap('3- تم متابعة الجدول الساعة 7:20 والصف 4/1.\n   • الحصة (2): درس الرياضة – الصف (5/3).');
+    check('رأي: ترقيم البنود لا يُغلَّف بأقواس', wrapped.startsWith('3- '), wrapped.split('\n')[0]);
+    check('رأي: الوقت يُغلَّف كاملاً', wrapped.includes('(7:20)') && wrapped.includes('(4/1)'), wrapped);
+    check('رأي: ما بين قوسين لا يُغلَّف مرّتين', !/\(\(|\)\)/.test(wrapped), wrapped);
+
+    // اسم المعلّم خارج رأي الزائر
+    check('رأي: اسم المعلّم أُزيل من سطور المواقف الصفّيّة',
+          !/opinionText \+=[^\n]*الأستاذ \$\{cv\.teacher\}/.test(sch) &&
+          /opinionText \+=[^\n]*الحصة \(\$\{cv\.period\}\): درس/.test(sch), 'ما زال الاسم');
+})();
+
 /* ── ٦) إغلاق الحلقة: ما حُفظ في البوّابة يعود إلى سجلّ الموقع ── */
 (function testSavedLoop() {
     const code = between('    const SAVED_KEY =', '    // ═══════════════════════════════════════════════════════════════\n    //  جزء 1');

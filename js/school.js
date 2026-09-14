@@ -148,7 +148,13 @@
         function getPositiveAddition(text) {
             if (text.includes("الطابور")) return "، وكان الهتاف بصوت عالٍ والانصراف منظماً ومراسم رفع العلم صحيحة.";
             if (text.includes("خطة المنهاج") || text.includes("سجلات المتابعة")) return "، ويسير التنفيذ وفق الخطة الزمنية المقررة.";
-            if (text.includes("قاعدة بيانات")) return " وتحديثها بصورة منتظمة.";
+            // الهدف قد يكون «تحديث قاعدة البيانات» نفسه، فلا يُضاف «وتحديثها» بعده
+            if (text.includes("قاعدة بيانات")) return text.includes("تحديث")
+                ? "، واستُكملت البيانات الناقصة." : " وتحديثها بصورة منتظمة.";
+            if (text.includes("موافقات التعيين") || text.includes("البوابة التعليمية"))
+                return "، وتبيّن استيفاء الموافقات وصحة البيانات المدرجة.";
+            if (text.includes("نصاب الحصص") || text.includes("توزيع الجدول"))
+                return "، وكان التوزيع مطابقاً للنصاب المقرر.";
             if (text.includes("الملاعب") || text.includes("الأدوات الرياضية")) return "، وكانت الملاعب مهيأة والأدوات في حالة جيدة.";
             if (text.includes("الأدلة") || text.includes("كتاب الطالب")) return "، وتبين أن الطبعات حديثة ومتوفرة.";
             if (text.includes("النشرات") || text.includes("الوثائق")) return " وإبداء الملاحظات اللازمة.";
@@ -157,6 +163,7 @@
             if (text.includes("الالتقاء") || text.includes("مقابلة")) return ".";
             if (text.includes("الطابور") || text.includes("موقف صفي")) return "، وتمت المداولة الإشرافية.";
             if (text.includes("درجات") || text.includes("الاختبارات القصيرة")) return " وكانت مكتملة ومطابقة للمواصفات.";
+            if (text.includes("سجلات")) return "، وكانت السجلات منظمة ومستوفاة.";
             return ".";
         }
 
@@ -298,15 +305,21 @@
             return result;
         }
 
+        // «تم» للجميع باعتماد المستخدم: نموذجه المعتمد يكتب «تم متابعة» و«تم مقابلة»
+        // لا «تمت»، وتوحيد الصياغة في السجلّ الرسميّ مقدَّمٌ على مطابقة تأنيث المصدر.
         function convertObjectiveToPast(text) {
-            if (text.startsWith("الالتقاء")) return text.replace("الالتقاء", "تم الالتقاء");
-            if (text.startsWith("حضور")) return text.replace("حضور", "تم حضور");
-            if (text.startsWith("متابعة")) return text.replace("متابعة", "تمت متابعة");
-            if (text.startsWith("شرح")) return text.replace("شرح", "تم شرح");
-            if (text.startsWith("الاطلاع")) return text.replace("الاطلاع", "تم الاطلاع");
-            if (text.startsWith("تحديث")) return text.replace("تحديث", "تم تحديث");
-            if (text.startsWith("مقابلة")) return text.replace("مقابلة", "تمت مقابلة");
             return "تم " + text;
+        }
+
+        // الأرقام تُحاط بأقواس ليستقيم عرضها في نصٍّ من اليمين إلى اليسار،
+        // لكن ترقيم البنود يبقى كما هو («3- » لا «(3)- »)، وما كان بين قوسين
+        // أصلاً لا يُغلَّف مرّةً ثانية («الحصة (2)» لا «الحصة ((2))»).
+        function wrapNumbersInOpinion(text) {
+            const wrap = s => s.replace(/(?<!\()(\d[\d\/\-\.:]*\d|\d)(?!\))/g, '($1)');
+            return text.split('\n').map(line => {
+                const m = line.match(/^(\s*(?:•\s*)?\d+-\s+)([\s\S]*)$/);
+                return m ? m[1] + wrap(m[2]) : wrap(line);
+            }).join('\n');
         }
 
         function generateSchoolSmartVisitorOpinion() {
@@ -334,7 +347,7 @@
                 // دمج التوصيات السابقة داخل هدف "التوصيات السابقة" مباشرةً
                 const isPrevRecsObj = obj.includes("التوصيات السابقة");
                 if (isPrevRecsObj && ratedPrevRecs.length > 0) {
-                    opinionText += `${counter}- تمت متابعة التوصيات السابقة بتاريخ ${prevDate}، وتبيّن الآتي:\n`;
+                    opinionText += `${counter}- تم متابعة التوصيات السابقة بتاريخ ${prevDate}، وتبيّن الآتي:\n`;
                     ratedPrevRecs.forEach(r => {
                         const label = r.status === 'done'    ? 'تم تنفيذها'
                                     : r.status === 'partial' ? 'تم تنفيذها جزئياً'
@@ -351,11 +364,16 @@
                     // دمج تفاصيل المواقف الصفية داخل هذا الهدف مباشرةً
                     opinionText += counter + "- " + text + "، وذلك على النحو الآتي:\n";
                     schoolClassroomVisits.forEach(cv => {
-                        opinionText += `   • الحصة (${cv.period}): الأستاذ ${cv.teacher} – درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
+                        // بلا اسم المعلّم: رأي الزائر سجلٌّ عن المدرسة لا عن الأشخاص
+                        opinionText += `   • الحصة (${cv.period}): درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
                     });
                     classroomVisitsHandled = true;
                 } else if (note) {
-                    text += `، وقد لوحظ أن ${note}`;
+                    // نقطة الهدف تُحذف قبل وصل الملاحظة، وإلّا صارت «...الرياضية.، وقد لوحظ»
+                    const stem = text.endsWith('.') ? text.slice(0, -1) : text;
+                    // «أنّ لا توجد» خطأ؛ النفي يحتاج «أنّه»
+                    const anna = /^(لا|لم|ليس|ما)\s/.test(note) ? 'أنّه' : 'أنّ';
+                    text = `${stem}، وقد لوحظ ${anna} ${note}`;
                     if (!text.endsWith('.')) text += '.';
                     opinionText += counter + "- " + text + "\n";
                 } else {
@@ -370,13 +388,14 @@
             if (!classroomVisitsHandled && hasClassroomVisits) {
                 opinionText += counter + "- تم حضور مواقف صفية وإجراء المداولة الإشرافية، وذلك على النحو الآتي:\n";
                 schoolClassroomVisits.forEach(cv => {
-                    opinionText += `   • الحصة (${cv.period}): الأستاذ ${cv.teacher} – درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
+                    // بلا اسم المعلّم هنا أيضاً — الحالتان تكتبان السطر نفسه
+                    opinionText += `   • الحصة (${cv.period}): درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
                 });
             }
 
             const visOp = document.getElementById('visitorOpinion');
             if(visOp) {
-                visOp.value = opinionText.trim().replace(/(\d[\d\/\-\.]*\d|\d)/g, '($1)');
+                visOp.value = wrapNumbersInOpinion(opinionText.trim());
                 showToast('تم توليد رأي الزائر بنجاح');
             }
         }
