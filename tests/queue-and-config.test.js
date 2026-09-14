@@ -16,6 +16,7 @@ const [, , USER = path.join(ROOT, 'school-visits-automation.user.js'),
 const src = fs.readFileSync(USER, 'utf8').replace(/\r\n/g, '\n');
 const selectors = fs.readFileSync(SEL, 'utf8');
 let failures = 0;
+const pending = [];   // الاختبارات غير المتزامنة — الخلاصة تُطبع بعد انتهائها كلّها
 // التفصيل يُطبع عند الفشل فقط: نصّه مكتوبٌ لشرح الفشل، وطبعُه مع PASS يُقرأ خطأً
 const check = (name, ok, detail) => {
     console.log((ok ? 'PASS ' : 'FAIL ') + name + (!ok && detail ? '  — ' + detail : ''));
@@ -573,6 +574,117 @@ const between = (a, b) => {
           /finally \{[\s\S]{0,250}if \(advanceAfter\) schoolQueueAdvance\(\);/.test(src), 'غير موصول');
 })();
 
+/* ── ١١) البحث عن المدرسة عبر أنظمة التعليم ── */
+pending.push((function testEduSystemSearch() {
+    const code = between('        function normEdu(v)', '        // للتوافق مع ما يستدعيها في مواضع أخرى');
+
+    // بوّابةٌ مصغّرة: تغيير نظام التعليم يُبدّل قائمة المدارس
+    const SYSTEMS = ['عام', 'أساسي', 'تربية خاصة بصري', 'ثنائي اللغة', 'دولي', 'ثنائي اللغة خاص'];
+    const SCHOOLS = {
+        'عام':               ['مدرسة النور للتعليم الأساسي', 'المدارس الأهلية', 'مدرسة الرواد (5-12)'],
+        'أساسي':             ['مدرسة الفجر للتعليم الأساسي'],
+        'تربية خاصة بصري':   ['معهد عمر بن الخطاب للمكفوفين'],
+        'ثنائي اللغة':        ['مدرسة الإبداع ثنائية اللغة'],
+        'دولي':               ['المدارس المتحدة الدولية الخاصة - مسقط', 'مدرسة النور للبنات', 'مدرسة النور للبنين'],
+        'ثنائي اللغة خاص':    ['مدرسة الريادة الخاصة']
+    };
+    function portal(startSystem) {
+        const opt = (text, value) => ({ text, value });
+        const school = { id: 'ctl00_content_SchoolFilterCtrl1_ddlSchools', options: [], value: '', selectedIndex: 0,
+                         dispatchEvent: () => {} };
+        const edu = { id: 'ddlX', options: [opt('', '')].concat(SYSTEMS.map((s, i) => opt(s, String(i + 1)))),
+                      value: '', selectedIndex: 0, switches: [] };
+        const fill = () => {
+            const sys = (edu.options.find(o => o.value === edu.value) || {}).text;
+            school.options = [opt('اختر المدرسة', '')].concat((SCHOOLS[sys] || []).map((t, i) => opt(t, sys + i)));
+        };
+        edu.dispatchEvent = () => { edu.selectedIndex = edu.options.findIndex(o => o.value === edu.value); edu.switches.push(edu.options[edu.selectedIndex].text); fill(); };
+        edu.value = String(SYSTEMS.indexOf(startSystem) + 1); edu.dispatchEvent(); edu.switches.length = 0;
+        return { school, edu };
+    }
+
+    function env(p, gm, ss) {
+        let clock = 0;
+        const logs = [], chosen = [];
+        const ctx = {
+            Date: { now: () => clock },
+            Event: function (type) { this.type = type; },
+            wait: ms => { clock += ms; return Promise.resolve(); },
+            $: () => null, $$: () => [p.school, p.edu],
+            findSchoolDropdown: () => p.school,
+            selectSchoolOption: (dd, o) => chosen.push(o.text),
+            log: m => logs.push(m), updateStep: () => {},
+            GM_getValue: (k, d) => (k in gm ? gm[k] : d), GM_setValue: (k, v) => { gm[k] = v; },
+            sessionStorage: { getItem: k => (k in ss ? ss[k] : null), setItem: (k, v) => { ss[k] = v; }, removeItem: k => { delete ss[k]; } },
+            api: null
+        };
+        vm.runInNewContext(code + '\napi = { find: findAndSelectSchool, match: matchSchool, sw: switchEduSystem, eduDD: findEduSystemDropdown };', ctx);
+        return { api: ctx.api, logs, chosen };
+    }
+
+    return (async () => {
+        // (أ) مدرسةٌ دوليّة والبوّابة على «عام» — الحالة التي أبلغ عنها المستخدم
+        let p = portal('عام'), gm = {}, ss = {};
+        let e = env(p, gm, ss);
+        let r = await e.api.find({ school: 'المدارس المتحدة الدولية' });
+        check('نظام: تُوجد المدرسة الدوليّة بتغيير النظام إلى «دولي»',
+              r.found && e.chosen[0] === 'المدارس المتحدة الدولية الخاصة - مسقط' && r.system === 'دولي',
+              JSON.stringify(r) + ' | ' + e.chosen.join());
+        check('نظام: اسمٌ فيه «الدولية» يجرّب «دولي» أوّلاً', p.edu.switches[0] === 'دولي', p.edu.switches.join(' ← '));
+        check('نظام: لا تُختار «المدارس الأهلية» بمطابقة الكلمة الأولى',
+              !e.chosen.includes('المدارس الأهلية'), e.chosen.join());
+        check('نظام: يُحفظ نظام المدرسة للمرّة القادمة',
+              JSON.parse(gm.svf_school_edu_map || '{}')['المدارس المتحده الدوليه'] === 'دولي', gm.svf_school_edu_map);
+        check('نظام: حالة البحث تُمسح بعد الإيجاد', !('svf_edu_search' in ss), ss.svf_edu_search);
+
+        // (ب) المرّة القادمة: الذاكرة تذهب إليه مباشرةً
+        p = portal('عام'); e = env(p, gm, {});
+        r = await e.api.find({ school: 'المدارس المتحدة الدولية' });
+        check('نظام: الذاكرة تفتح النظام الصحيح من أوّل تحويل', r.found && p.edu.switches.length === 1, p.edu.switches.join(' ← '));
+
+        // (ج) بلا إيحاءٍ في الاسم: يُمسح كلّ نظامٍ حتّى يُوجد
+        p = portal('عام'); e = env(p, {}, {});
+        r = await e.api.find({ school: 'مدرسة الريادة الخاصة' });
+        check('نظام: مدرسةٌ في «ثنائي اللغة خاص» تُوجد', r.found && e.chosen[0] === 'مدرسة الريادة الخاصة', JSON.stringify(r));
+        check('نظام: «خاصة» في الاسم تجرّب أنظمة الخاصّ قبل العامّة',
+              p.edu.switches.indexOf('ثنائي اللغة خاص') < 2, p.edu.switches.join(' ← '));
+        check('نظام: لا يُجرَّب نظامٌ مرّتين', new Set(p.edu.switches).size === p.edu.switches.length, p.edu.switches.join(' ← '));
+
+        // (د) «خاص» لا تُطابق «تربية خاصة بصري» — العطل القديم
+        p = portal('عام'); e = env(p, {}, {});
+        check('نظام: المطابقة تامّة — «خاص» لا تحوّل إلى «تربية خاصة بصري»',
+              e.api.sw('خاص') === false && p.edu.switches.length === 0, p.edu.switches.join());
+
+        // (هـ) تعدّد المطابقات: لا يُختار ولا يُغيَّر النظام عبثاً
+        p = portal('دولي'); e = env(p, {}, {});
+        r = await e.api.find({ school: 'مدرسة النور' });
+        check('نظام: اسمٌ يطابق مدرستين لا يُختار منه',
+              !r.found && e.chosen.length === 0 && /أكثر من مدرسة/.test(r.error), JSON.stringify(r));
+        check('نظام: وعند التعدّد لا يُغيَّر النظام', p.edu.switches.length === 0, p.edu.switches.join());
+
+        // (و) غير موجودةٍ أبداً: يُجرِّب الكلّ ثمّ يتوقّف بلا اختيار
+        p = portal('عام'); ss = {}; e = env(p, {}, ss);
+        r = await e.api.find({ school: 'مدرسة لا وجود لها' });
+        check('نظام: مدرسةٌ غير موجودة لا يُختار لها شيء', !r.found && e.chosen.length === 0, JSON.stringify(r));
+        check('نظام: جُرِّبت كلّ الأنظمة ثمّ مُسحت الحالة',
+              p.edu.switches.length === SYSTEMS.length - 1 && !('svf_edu_search' in ss), p.edu.switches.join(' ← '));
+
+        // (ز) إعادة تحميلٍ كاملةٍ في منتصف البحث: يُكمل ولا يعيد ما جُرِّب
+        p = portal('دولي');   // الصفحة أُعيدت والنظام الذي حُوِّل إليه قبلها هو «دولي»
+        ss = { svf_edu_search: JSON.stringify({ school: 'مدرسه الريادة الخاصه'.replace('الريادة', 'الرياده'),
+                                                 tried: ['عام', 'دولي'] }) };
+        e = env(p, {}, ss);
+        r = await e.api.find({ school: 'مدرسة الريادة الخاصة' });
+        check('نظام: الاستئناف بعد إعادة التحميل لا يُكرّر «عام» ولا «دولي»',
+              r.found && p.edu.switches.indexOf('عام') === -1 && p.edu.switches.indexOf('دولي') === -1,
+              p.edu.switches.join(' ← '));
+
+        // (ح) قائمة المدارس لا تُحسب قائمة أنظمة لأنّ أسماءها فيها «الأساسي»
+        p = portal('عام'); e = env(p, {}, {});
+        check('نظام: قائمة الأنظمة تُعرف بخياراتها لا بكلمةٍ في أسماء المدارس', e.api.eduDD() === p.edu, 'اختلطت القائمتان');
+    })();
+})());
+
 /* ── ٦) إغلاق الحلقة: ما حُفظ في البوّابة يعود إلى سجلّ الموقع ── */
 (function testSavedLoop() {
     const code = between('    const SAVED_KEY =', '    // ═══════════════════════════════════════════════════════════════\n    //  جزء 1');
@@ -638,7 +750,7 @@ const between = (a, b) => {
 })();
 
 /* ── ٤) بوّابة الطابور: لا تعبئةَ بلا حفظٍ تلقائيّ، ولا تكرارَ سجلٍّ رسميّ ── */
-(function testQueueGate() {
+pending.push((function testQueueGate() {
     const code = between('        function queueInfo()', '        function findFlex');
 
     // بيئةٌ واحدةٌ لكلّ سيناريو: طابورٌ من ثلاث زيارات
@@ -697,8 +809,13 @@ const between = (a, b) => {
               /async function supFill\(\)\s*\{\s*if \(!await queueGate\(\)\) return;/.test(src), 'غير موصولة');
         check('gate: العلامة تُوضع عند بلوغ صفحة التقييم',
               /async function supStage2\(\)[\s\S]{0,600}GM_setValue\('svf_queue_hold'/.test(src), 'لا تُوضع');
-
-        console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
-        process.exit(failures ? 1 : 0);
     })();
-})();
+})());
+
+Promise.all(pending).then(() => {
+    console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
+    process.exit(failures ? 1 : 0);
+}, err => {
+    console.log('FAIL استثناءٌ في اختبارٍ غير متزامن: ' + (err && err.stack || err));
+    process.exit(1);
+});

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.5
+// @version      14.6
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -818,25 +818,43 @@
         }
 
         // ═══════════════════════════════════════════════════════════════
-        //  التحويل بين أنظمة التعليم (أساسي / ثنائي اللغة / خاص)
+        //  التحويل بين أنظمة التعليم
+        //  المدارس الخاصّة موزّعةٌ على أنظمةٍ في البوّابة (دولي، ثنائي اللغة
+        //  خاص، …) ولا تظهر في قائمة المدارس إلّا تحت نظامها.
         // ═══════════════════════════════════════════════════════════════
+
+        // تسوية الاسم العربيّ قبل المقارنة: الهمزات والتاء المربوطة والتشكيل والرموز
+        function normEdu(v) {
+            return String(v || '')
+                .replace(/[ـً-ْ]/g, '')
+                .replace(/[أإآ]/g, 'ا')
+                .replace(/ة/g, 'ه')
+                .replace(/ى/g, 'ي')
+                .replace(/[()\-–_.,،:/\\]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        // أسماء أنظمة التعليم كما تظهر في البوّابة — للتعرّف على القائمة ولترتيب البحث
+        const KNOWN_EDU = ['عام', 'أساسي', 'دولي', 'ثنائي اللغة', 'ثنائي اللغة خاص', 'حرس سلطاني خاص',
+                           'معاهد إسلامية', 'تعليم مستمر', 'الحرس السلطاني'];
+
+        function looksLikeEduDropdown(s) {
+            const texts = Array.from(s.options || []).map(o => normEdu(o.text));
+            return KNOWN_EDU.filter(k => texts.indexOf(normEdu(k)) !== -1).length >= 2;
+        }
+
         function findEduSystemDropdown() {
-            // ابحث عن قائمة نظام التعليم بأي نمط
-            return $('select[id*="ddlEdu"]')
-                || $('select[id*="Education"]')
-                || $('select[id*="StudySystem"]')
-                || $('select[id*="SchoolSystem"]')
-                || $('select[id*="SystemType"]')
-                || $('select[id*="ddlSystem"]')
-                // بحث بالنص — أي select فيه خيارات مثل "أساسي" أو "ثنائي"
-                || (() => {
-                    const allSelects = $$('select');
-                    return allSelects.find(s =>
-                        Array.from(s.options).some(o =>
-                            o.text.includes('أساسي') ||
-                            o.text.includes('ثنائي') ||
-                            o.text.includes('خاص'))) || null;
-                })();
+            const school = findSchoolDropdown();
+            // بالمعرّف أوّلاً، بشرط أن تحمل خيارات أنظمةٍ فعلاً — أسماء المدارس
+            // نفسها فيها «للتعليم الأساسي» فالمطابقة بكلمةٍ واحدةٍ تخلط القائمتين
+            const byId = ['select[id*="ddlEdu"]', 'select[id*="Education"]', 'select[id*="StudySystem"]',
+                          'select[id*="SchoolSystem"]', 'select[id*="SystemType"]', 'select[id*="ddlSystem"]'];
+            for (const q of byId) {
+                const el = $(q);
+                if (el && el !== school && looksLikeEduDropdown(el)) return el;
+            }
+            return $$('select').find(s => s !== school && looksLikeEduDropdown(s)) || null;
         }
 
         function getCurrentEduSystem() {
@@ -845,45 +863,97 @@
             return { value: dd.value, text: dd.options[dd.selectedIndex]?.text?.trim() || '' };
         }
 
+        // مطابقةٌ تامّةٌ بعد التسوية — «خاص» لا تُطابق «تربية خاصة بصري»
         function switchEduSystem(targetText) {
             const dd = findEduSystemDropdown();
             if (!dd) { log('⚠ لم أجد قائمة نظام التعليم', 'warn'); return false; }
 
-            const targetLower = targetText.toLowerCase();
-            const opts = Array.from(dd.options);
-
-            // بحث: أي خيار يحتوي على الكلمة المطلوبة
-            const match = opts.find(o =>
-                o.text.toLowerCase().includes(targetLower) ||
-                o.value.toLowerCase().includes(targetLower));
-
-            if (match) {
-                log('🔄 تحويل نظام التعليم: ' + dd.options[dd.selectedIndex]?.text + ' → ' + match.text, 'warn');
-                dd.value = match.value;
-                dd.dispatchEvent(new Event('change', { bubbles: true }));
-                return true;
+            const want = normEdu(targetText);
+            const match = Array.from(dd.options).find(o => normEdu(o.text) === want);
+            if (!match) {
+                log('⚠ لا يوجد نظام «' + targetText + '» في القائمة', 'warn');
+                return false;
             }
+            if (dd.value === match.value) return true;
 
-            log('⚠ لم أجد خيار "' + targetText + '" في قائمة نظام التعليم', 'warn');
-            log('الخيارات المتاحة: ' + opts.map(o => o.text).join(' | '), 'info');
-            return false;
+            log('🔄 تحويل نظام التعليم: ' + (dd.options[dd.selectedIndex]?.text || '—') + ' → ' + match.text, 'warn');
+            dd.value = match.value;
+            dd.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
         }
 
         function switchToBilingual() {
             log('🔄 جاري التحويل إلى وضع ثنائي اللغة...', 'warn');
-            if (switchEduSystem('ثنائي')) return true;
-
-            // fallback: رابط مباشر مع معامل اللغة
-            const currentUrl = new URL(location.href);
-            currentUrl.searchParams.set('lang', 'en');
-            location.href = currentUrl.toString();
-            return false;
+            return switchEduSystem('ثنائي اللغة');
         }
 
-        const EDU_SYSTEMS = ['ثنائي', 'خاص'];  // الترتيب اللي نحاول فيه
+        // ─── ذاكرة: في أيّ نظامٍ وُجدت كلّ مدرسة ───
+        const EDU_MAP_KEY = 'svf_school_edu_map';
+        function eduMapGet(school) {
+            try { return (JSON.parse(GM_getValue(EDU_MAP_KEY, '{}')) || {})[normEdu(school)] || ''; }
+            catch (e) { return ''; }
+        }
+        function eduMapSet(school, system) {
+            if (!school || !system) return;
+            try {
+                const m = JSON.parse(GM_getValue(EDU_MAP_KEY, '{}')) || {};
+                m[normEdu(school)] = system;
+                GM_setValue(EDU_MAP_KEY, JSON.stringify(m));
+            } catch (e) {}
+        }
+
+        // ترتيب الأنظمة المجرَّبة: المحفوظ لهذه المدرسة، ثمّ ما يوحي به اسمها،
+        // ثمّ الشائع، ثمّ كلّ ما بقي في القائمة — فلا تُترك مدرسةٌ في نظامٍ لم يُجرَّب
+        function eduCandidates(data, dd) {
+            const name = normEdu(data.school);
+            const list = [];
+            if (data.eduSystem) list.push(data.eduSystem);
+            const remembered = eduMapGet(data.school);
+            if (remembered) list.push(remembered);
+            if (name.includes('دولي')) list.push('دولي');
+            if (name.includes('ثنائي')) list.push('ثنائي اللغة خاص', 'ثنائي اللغة');
+            if (name.includes('خاص')) list.push('دولي', 'ثنائي اللغة خاص', 'حرس سلطاني خاص');
+            list.push('عام', 'أساسي', 'ثنائي اللغة', 'دولي', 'ثنائي اللغة خاص');
+            Array.from(dd ? dd.options : []).forEach(o => {
+                const t = o.text.trim();
+                if (t && o.value && !/اختر/.test(t)) list.push(t);
+            });
+            const seen = new Set(), out = [];
+            list.forEach(t => { const k = normEdu(t); if (k && !seen.has(k)) { seen.add(k); out.push(t); } });
+            return out;
+        }
+
+        // ─── حالة البحث تبقى في الجلسة ───
+        // تغيير النظام قد يُعيد تحميل الصفحة كاملةً فيموت السكربت في منتصف الحلقة؛
+        // الحالة المحفوظة تُكمل من حيث توقّف ولا تُكرّر نظاماً جُرِّب.
+        const EDU_SEARCH_KEY = 'svf_edu_search';
+        function eduSearchState(school) {
+            try {
+                const s = JSON.parse(sessionStorage.getItem(EDU_SEARCH_KEY) || 'null');
+                if (s && s.school === normEdu(school) && Array.isArray(s.tried)) return s;
+            } catch (e) {}
+            return { school: normEdu(school), tried: [] };
+        }
+        function eduSearchSave(s) { try { sessionStorage.setItem(EDU_SEARCH_KEY, JSON.stringify(s)); } catch (e) {} }
+        function eduSearchClear() { try { sessionStorage.removeItem(EDU_SEARCH_KEY); } catch (e) {} }
+
+        function optionsSig(dd) {
+            return dd ? Array.from(dd.options).map(o => o.value).join('|') : '';
+        }
+
+        // بعد تغيير النظام: ننتظر أن تتبدّل قائمة المدارس فعلاً لا مدّةً ثابتة
+        async function waitSchoolListChange(prevSig, ms) {
+            const t0 = Date.now();
+            while (Date.now() - t0 < ms) {
+                await wait(500);
+                const dd = findSchoolDropdown();
+                if (dd && optionsSig(dd) !== prevSig) { await wait(700); return findSchoolDropdown(); }
+            }
+            return findSchoolDropdown();
+        }
 
         // ═══════════════════════════════════════════════════════════════
-        //  البحث عن المدرسة مع محاولة تغيير نظام التعليم تلقائياً
+        //  البحث عن المدرسة مع تغيير نظام التعليم تلقائياً
         // ═══════════════════════════════════════════════════════════════
         async function findAndSelectSchool(data) {
             const schoolDD = findSchoolDropdown();
@@ -898,60 +968,104 @@
                 return { found: false, error: 'اسم المدرسة غير موجود في البيانات' };
             }
 
-            // محاولة 1: البحث في النظام الحالي
-            let match = findSchoolInDropdown(schoolDD, schoolName);
-            if (match) {
-                selectSchoolOption(schoolDD, match);
-                return { found: true, text: match.text };
+            // (١) النظام الحالي
+            let r = matchSchool(schoolDD, schoolName);
+            if (r.option) return chooseSchool(schoolDD, r.option, data);
+            if (r.ambiguous.length) return ambiguousResult(r.ambiguous);
+
+            const eduDD = findEduSystemDropdown();
+            if (!eduDD) {
+                log('⚠ المدرسة غير موجودة، ولم أجد قائمة نظام التعليم لتغييره', 'error');
+                return { found: false, error: 'المدرسة غير موجودة في النظام الحالي' };
             }
 
-            log('⚠ المدرسة "' + schoolName + '" غير موجودة في النظام الحالي', 'warn');
-            log('🔄 سأحاول تغيير نظام التعليم...', 'info');
+            const state = eduSearchState(schoolName);
+            const cur = getCurrentEduSystem();
+            if (cur && state.tried.indexOf(normEdu(cur.text)) === -1) state.tried.push(normEdu(cur.text));
 
-            // محاولة تغيير نظام التعليم لكل الأنظمة
-            for (const sysName of EDU_SYSTEMS) {
-                log('🔁 أجرب نظام: ' + sysName, 'info');
-                updateStep('step1', 'active', 'تحويل لـ ' + sysName + '...');
+            log('⚠ «' + schoolName + '» غير موجودة في نظام «' + (cur ? cur.text : '—') + '»', 'warn');
+            log('🔄 سأبحث عنها في أنظمة التعليم الأخرى...', 'info');
 
-                // تغيير النظام
-                if (!switchEduSystem(sysName)) continue;
+            // (٢) بقيّة الأنظمة بالترتيب
+            for (const sys of eduCandidates(data, eduDD)) {
+                if (state.tried.indexOf(normEdu(sys)) !== -1) continue;
+                state.tried.push(normEdu(sys));
+                eduSearchSave(state);   // قبل التغيير: قد تُعاد الصفحة كاملةً
 
-                // انتظر حتى تتحدث الصفحة
-                await wait(2500);
+                const before = optionsSig(findSchoolDropdown());
+                updateStep('step1', 'active', 'نظام ' + sys + '...');
+                if (!switchEduSystem(sys)) continue;
 
-                // أعد البحث عن القائمة (قد تتغير الـ DOM)
-                const newDD = findSchoolDropdown();
-                if (!newDD) { log('⚠ اختفت قائمة المدارس بعد تغيير النظام', 'warn'); continue; }
+                const dd = await waitSchoolListChange(before, 12000);
+                if (!dd) { log('⚠ اختفت قائمة المدارس بعد تغيير النظام', 'warn'); continue; }
 
-                match = findSchoolInDropdown(newDD, schoolName);
-                if (match) {
-                    selectSchoolOption(newDD, match);
-                    return { found: true, text: match.text, system: sysName };
+                r = matchSchool(dd, schoolName);
+                if (r.option) {
+                    eduMapSet(schoolName, sys);
+                    log('💡 حُفظ: «' + schoolName + '» في نظام «' + sys + '» — تُفتح فيه مباشرةً في المرّة القادمة', 'info');
+                    return chooseSchool(dd, r.option, data, sys);
                 }
-
-                log('⚠ لم تظهر "' + schoolName + '" حتى في نظام ' + sysName, 'warn');
+                if (r.ambiguous.length) return ambiguousResult(r.ambiguous);
+                log('   ليست في «' + sys + '»', 'info');
             }
 
-            // آخر محاولة: عرض المدارس المتاحة
-            const currentDD = findSchoolDropdown() || schoolDD;
-            const opts = Array.from(currentDD.options);
-            log('المدارس المتاحة حالياً (أول 10): ' + opts.slice(1, 11).map(o => o.text).join(' | '), 'info');
-
+            eduSearchClear();
+            log('❌ لم أجد «' + schoolName + '» في أيّ نظام تعليم', 'error');
+            log('👉 اختر النظام والمدرسة بنفسك ثمّ اضغط التشغيل — أو صحّح اسم المدرسة في موقعك', 'warn');
             return { found: false, error: 'المدرسة غير موجودة في كل أنظمة التعليم' };
         }
 
+        function chooseSchool(dd, option, data, sys) {
+            eduSearchClear();
+            const cur = sys || (getCurrentEduSystem() || {}).text;
+            if (cur) eduMapSet(data.school, cur);
+            selectSchoolOption(dd, option);
+            return { found: true, text: option.text, system: cur };
+        }
+
+        function ambiguousResult(list) {
+            eduSearchClear();
+            log('🛑 أكثر من مدرسةٍ تطابق الاسم — لن أختار عنك:', 'error');
+            list.slice(0, 6).forEach(t => log('   • ' + t, 'error'));
+            log('👉 اكتب اسم المدرسة في موقعك كما يظهر في البوّابة، أو اخترها بنفسك', 'warn');
+            return { found: false, error: 'اسم المدرسة يطابق أكثر من مدرسة' };
+        }
+
+        // كلماتٌ عامّةٌ لا تميّز مدرسةً عن أخرى
+        const SCHOOL_STOP = ['مدرسه', 'المدرسه', 'مدارس', 'المدارس', 'الخاصه', 'خاصه', 'الدوليه', 'دوليه',
+                             'للتعليم', 'التعليم', 'الاساسي', 'الاساسيه', 'العام', 'ما', 'بعد',
+                             'ثنائيه', 'اللغه', 'ثنائي', 'في', 'من'];
+
+        // لا تخمين: تطابقٌ تامّ، أو احتواءٌ لا يشترك فيه غير مدرسةٍ واحدة، أو كلّ
+        // الكلمات المميِّزة في مدرسةٍ واحدة. التعدّد يُعاد للمستخدم ولا يُختار منه.
+        // (المطابقة القديمة بأوّل كلمةٍ كانت تختار أيّ «مدرسة …» — سجلٌّ رسميٌّ على مدرسةٍ خاطئة)
+        function matchSchool(dd, schoolName) {
+            const n = normEdu(schoolName);
+            const opts = Array.from(dd.options).filter(o =>
+                o.value && o.value !== '0' && o.value !== '-1' && normEdu(o.text).length >= 3 && !/اختر/.test(o.text));
+            const nt = o => normEdu(o.text);
+            const head = o => normEdu(o.text.split(/\s+-\s+/)[0]);
+
+            const exact = opts.filter(o => nt(o) === n || head(o) === n);
+            if (exact.length === 1) return { option: exact[0], ambiguous: [] };
+            if (exact.length > 1) return { option: null, ambiguous: exact.map(o => o.text) };
+            if (n.length < 4) return { option: null, ambiguous: [] };
+
+            const contains = opts.filter(o => nt(o).includes(n) || (head(o).length >= 6 && n.includes(head(o))));
+            if (contains.length === 1) return { option: contains[0], ambiguous: [] };
+            if (contains.length > 1) return { option: null, ambiguous: contains.map(o => o.text) };
+
+            const tokens = n.split(' ').filter(t => t.length >= 2 && SCHOOL_STOP.indexOf(t) === -1);
+            if (!tokens.length) return { option: null, ambiguous: [] };
+            const all = opts.filter(o => { const words = nt(o).split(' '); return tokens.every(t => words.indexOf(t) !== -1); });
+            if (all.length === 1) return { option: all[0], ambiguous: [] };
+            if (all.length > 1) return { option: null, ambiguous: all.map(o => o.text) };
+            return { option: null, ambiguous: [] };
+        }
+
+        // للتوافق مع ما يستدعيها في مواضع أخرى
         function findSchoolInDropdown(dd, schoolName) {
-            const opts = Array.from(dd.options);
-            // تطابق تام
-            let m = opts.find(o => o.text.trim() === schoolName.trim());
-            // تطابق جزئي
-            if (!m) m = opts.find(o => o.text.includes(schoolName.trim()) || schoolName.trim().includes(o.text.trim()));
-            // تطابق بأول كلمة من اسم المدرسة
-            if (!m) {
-                const firstWord = schoolName.trim().split(/\s+/)[0];
-                if (firstWord.length >= 3) m = opts.find(o => o.text.includes(firstWord));
-            }
-            return m || null;
+            return matchSchool(dd, schoolName).option;
         }
 
         function selectSchoolOption(dd, option) {
@@ -1726,6 +1840,10 @@
                             log('🛩️ استكمال الطيار الآلي...', 'success');
                             runAutoFull(visitData);
                         }, 3000);
+                    } else if (!phase && sessionStorage.getItem('svf_edu_search')) {
+                        // أُعيدت الصفحة كاملةً بعد تغيير نظام التعليم — يُستأنف البحث عن المدرسة
+                        log('🔄 استئناف البحث عن المدرسة في أنظمة التعليم...', 'success');
+                        setTimeout(() => runAutoFull(visitData), 2500);
                     } else if (!phase && !sessionStorage.getItem('svf_pilot_done')) {
                         // بداية جديدة — إقلاع تلقائي
                         log('🛩️ تفعيل الطيار الآلي — سيبدأ التشغيل التلقائي بعد 3 ثوانٍ...', 'success');
