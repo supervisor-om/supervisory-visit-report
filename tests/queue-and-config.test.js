@@ -548,6 +548,7 @@ const between = (a, b) => {
             sessionStorage: { removeItem: () => {} },
             setTimeout: fn => fn(), runAutoFull: d => runs.push(d && d.school),
             DATA_KEY: 'svf_school_visit_data', refreshDataBox: () => {},
+            svfRecordSavedSchool: v => { store.__recorded = (store.__recorded || []).concat(v.school); return true; },
             out: null
         };
         vm.runInNewContext(gate + '\nout = schoolQueueGate();', c);
@@ -593,6 +594,75 @@ const between = (a, b) => {
     check('حفظ: نجاحٌ مع خطأٍ آخر يبقى رفضاً',
           (r => r.ok.length === 1 && r.fail.length === 1)(C(['تم الحفظ بنجاح', 'خطأ في التاريخ'])) &&
           /c\.ok\.length && !c\.fail\.length/.test(src), 'منطق الجمع');
+
+    // ── السجلّ الحقيقيّ: «123» ظهر بعد الحفظ ثمّ أُعيدت الصفحة ──
+    const saveCode = between('        const SAVE_FAIL_RE', '        async function waitForSaveOutcome');
+    function saveEnv(o) {
+        const ss = Object.assign({}, o.ss);
+        const logs = [], calls = [];
+        const labels = o.labels || [];
+        const c = {
+            location: { pathname: o.path || '/SMS/VariousRecords/SchoolVisits/SchoolVisitsMain.aspx' },
+            sessionStorage: { getItem: k => (k in ss ? ss[k] : null), setItem: (k, v) => { ss[k] = v; }, removeItem: k => { delete ss[k]; } },
+            Date: { now: () => o.now || 100000 },
+            document: {},
+            visitData: o.visit === undefined ? { school: 'م١', date: '14/09/2026' } : o.visit,
+            portalErrors: () => labels,
+            findFormDocument: () => (o.formOpen ? {} : null),
+            findSchoolDropdown: () => (o.onList === false ? null : {}),
+            findAddButton: () => null,
+            log: (m, t) => logs.push((t || '') + ':' + m), setStatus: () => {},
+            clearExportData: () => calls.push('clear'),
+            svfRecordSavedSchool: v => { calls.push('record:' + v.school); return true; },
+            schoolQueueInfo: () => (o.queue ? { i: 0, total: 2 } : null),
+            schoolQueueAdvance: () => calls.push('advance'),
+            api: null
+        };
+        vm.runInNewContext(saveCode + '\napi = { fresh: freshPortalMessages, resolve: resolvePendingSaveAfterReload, mark: markSavePending };', c);
+        return { api: c.api, ss, logs, calls };
+    }
+    const pendingOf = (extra) => JSON.stringify(Object.assign(
+        { ts: 90000, path: '/SMS/VariousRecords/SchoolVisits/SchoolVisitsMain.aspx', school: 'م١', date: '14/09/2026' }, extra));
+
+    let s = saveEnv({});
+    check('حفظ: رقمٌ مجرّد («123») لا يُعدّ رسالة رفض', s.api.fresh({}, []).length === 0 &&
+          saveEnv({ labels: ['123'] }).api.fresh({}, []).length === 0, 'عُدّ رسالة');
+    check('حفظ: رسالةٌ كانت قبل الضغط لا تُحسب نتيجة',
+          saveEnv({ labels: ['يجب ادخال التاريخ'] }).api.fresh({}, ['يجب ادخال التاريخ']).length === 0 &&
+          saveEnv({ labels: ['يجب ادخال التاريخ'] }).api.fresh({}, []).length === 1, 'الأساس لا يُستثنى');
+
+    s = saveEnv({ queue: true, ss: { svf_save_pending: pendingOf(), svf_pilot_phase: 'after_show' } });
+    check('حفظ: عودةٌ إلى القائمة بعد ضغط الحفظ تُحسم حفظاً',
+          s.api.resolve() === true && s.calls.includes('record:م١') && s.calls.includes('clear'), s.logs.join(' | '));
+    check('حفظ: وتنقل الطابور إلى التالية وتمسح العلامة والمرحلة',
+          s.calls.includes('advance') && !('svf_save_pending' in s.ss) && !('svf_pilot_phase' in s.ss), JSON.stringify(s.ss));
+
+    s = saveEnv({ ss: { svf_save_pending: pendingOf() } });
+    check('حفظ: بلا طابورٍ تُعلَّم الجولة مكتملة', s.api.resolve() === true && s.ss.svf_pilot_done === '1' && !s.calls.includes('advance'));
+
+    s = saveEnv({ queue: true, formOpen: true, ss: { svf_save_pending: pendingOf() } });
+    check('حفظ: النموذج ما زال مفتوحاً ← لا حكم بالحفظ', s.api.resolve() === false && !s.calls.includes('advance'), s.logs.join(' | '));
+    s = saveEnv({ queue: true, now: 90000 + 61000, ss: { svf_save_pending: pendingOf() } });
+    check('حفظ: علامةٌ أقدم من دقيقة ← لا حكم', s.api.resolve() === false && !s.calls.includes('record:م١'));
+    s = saveEnv({ queue: true, path: '/Portal/Services/UserLoginnew.aspx', ss: { svf_save_pending: pendingOf() } });
+    check('حفظ: انتهاء الجلسة إلى صفحة الدخول ← لا حكم', s.api.resolve() === false && !s.calls.includes('advance'));
+    s = saveEnv({ queue: true, visit: { school: 'م٢', date: '15/09/2026' }, ss: { svf_save_pending: pendingOf() } });
+    check('حفظ: علامةٌ لزيارةٍ أخرى ← لا حكم', s.api.resolve() === false && !s.calls.includes('advance'));
+    s = saveEnv({ queue: true, labels: ['لم يتم الحفظ'], ss: { svf_save_pending: pendingOf() } });
+    check('حفظ: عودةٌ مع رسالة رفض ← لا حكم', s.api.resolve() === false && !s.calls.includes('advance'), s.logs.join(' | '));
+    s = saveEnv({ queue: true, ss: {} });
+    check('حفظ: تحميلٌ عاديٌّ بلا علامة لا يتأثّر', s.api.resolve() === false && s.calls.length === 0);
+
+    check('حفظ: العلامة تُكتب قبل الضغط وتُمسح بعد الحكم في الصفحة نفسها',
+          /markSavePending\(data\);[\s\S]{0,120}saveBtn\.click\(\);[\s\S]{0,120}waitForSaveOutcome\(25000, baseline\);\s*clearSavePending\(\);/.test(src),
+          'الترتيب خاطئ');
+    check('حفظ: الحسم أوّل ما يجري عند التحميل قبل استئناف الطيّار',
+          /if \(resolvePendingSaveAfterReload\(\)\) return;[\s\S]{0,200}const phase = sessionStorage\.getItem\('svf_pilot_phase'\)/.test(src),
+          'غير موصول');
+
+    // ── تأكيد المستخدم يُسجّل الزيارة محفوظة ──
+    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 0, svf_school_hold: 0 } });
+    check('سكربت: «موافق» على «هل هي محفوظة؟» يضع وسم «حُفظت»', (g.store.__recorded || [])[0] === 'أ', JSON.stringify(g.store.__recorded));
 
     // ── السجلّ يبقى بعد إعادة التحميل، وله زرّ نسخ ──
     check('سكربت: السجلّ يُحفظ في الجلسة ويُستعاد', /sessionStorage\.setItem\(LOG_STORE/.test(src) && /restoreLog\(\);/.test(src), 'لا يُحفظ');
@@ -799,6 +869,7 @@ pending.push((function testQueueGate() {
             GM_deleteValue: k => { delete store[k]; },
             slog: (m, t) => logs.push((t || '') + ': ' + m),
             sstat: () => {},
+            svfRecordSaved: () => true,
             confirm: () => opts.userSaysSaved,
             wait: () => Promise.resolve(),
             supAddBtn: () => ({ click: () => {} }),

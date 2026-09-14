@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.7
+// @version      14.8
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -562,6 +562,7 @@
                 return true;
             }
             log('✔ الزيارة ' + (info.i + 1) + ' محفوظة بتأكيدك — الانتقال للتالية', 'success');
+            svfRecordSavedSchool(cur);   // بتأكيد المستخدم: يظهر وسمها «حُفظت» في الموقع
             schoolQueueAdvance();
             return false;
         }
@@ -1639,13 +1640,79 @@
             return { fail, ok };
         }
 
-        async function waitForSaveOutcome(timeoutMs) {
+        // ═══ الحفظ عبر إعادة تحميل الصفحة ═══
+        // البوّابة تُعيد تحميل الصفحة بعد ضغط الحفظ بثوانٍ، فيموت السكربت وهو ينتظر
+        // النتيجة. العلامة تُكتب قبل الضغط، والتحميل التالي يحكم بها:
+        //   • عودةٌ إلى صفحة القائمة نفسها، والنموذج مغلق، خلال دقيقة ← حُفظت
+        //   • النموذج ما زال مفتوحاً (رفض تحقّق يُعيد الصفحة) أو صفحةٌ أخرى ← لا حكم
+        const SAVE_PENDING_KEY = 'svf_save_pending';
+        const SAVE_PENDING_MS  = 60000;
+
+        function markSavePending(data) {
+            try {
+                sessionStorage.setItem(SAVE_PENDING_KEY, JSON.stringify({
+                    ts: Date.now(), path: location.pathname,
+                    school: data && data.school, date: data && data.date
+                }));
+            } catch (e) {}
+        }
+        function clearSavePending() { try { sessionStorage.removeItem(SAVE_PENDING_KEY); } catch (e) {} }
+
+        // يُستدعى عند كلّ تحميل؛ يُعيد true إن حُسمت زيارةٌ وتولّى ما بعدها
+        function resolvePendingSaveAfterReload() {
+            let p = null;
+            try { p = JSON.parse(sessionStorage.getItem(SAVE_PENDING_KEY) || 'null'); } catch (e) {}
+            if (!p) return false;
+            clearSavePending();
+
+            const age = Date.now() - Number(p.ts || 0);
+            const sameVisit = visitData && p.school === visitData.school && p.date === visitData.date;
+            const samePage  = p.path === location.pathname;
+            const formOpen  = !!findFormDocument();
+            const onList    = !!(findSchoolDropdown() || findAddButton());
+
+            if (!(age >= 0 && age < SAVE_PENDING_MS && sameVisit && samePage && !formOpen && onList)) {
+                log('ℹ️ أُعيدت الصفحة بعد ضغط الحفظ، ولا يكفي ذلك للحكم بالحفظ' +
+                    (formOpen ? ' (النموذج ما زال مفتوحاً)' : !samePage ? ' (صفحةٌ مختلفة)' : ''), 'warn');
+                return false;
+            }
+
+            const errs = freshPortalMessages(document, []).filter(m => SAVE_FAIL_RE.test(m));
+            if (errs.length) {
+                log('⚠️ أُعيدت الصفحة وفيها رسالة رفض:', 'error');
+                errs.forEach(e => log('   • ' + e, 'error'));
+                return false;
+            }
+
+            log('━━━ ✅ حُفظت الزيارة: أُعيدت البوّابة إلى القائمة بعد الحفظ بلا رسالة رفض ━━━', 'success');
+            setStatus('✅ حُفظت الزيارة في البوّابة');
+            clearExportData();
+            if (svfRecordSavedSchool(visitData)) log('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في السجل', 'info');
+            sessionStorage.removeItem('svf_pilot_phase');
+            sessionStorage.removeItem('svf_pilot_data');
+
+            if (schoolQueueInfo()) {
+                schoolQueueAdvance();
+            } else {
+                sessionStorage.setItem('svf_pilot_done', '1');
+            }
+            return true;
+        }
+
+        // رسالةٌ تُعدّ بعد الحفظ: جديدةٌ لم تكن قبل الضغط، وفيها كلمات. في التجربة
+        // الحقيقيّة ظهر «123» فعُدّ رفضاً وتوقّف الطابور، والبوّابة كانت قد حفظت.
+        function freshPortalMessages(doc, baseline) {
+            return portalErrors(doc).filter(m =>
+                (baseline || []).indexOf(m) === -1 && /[؀-ۿA-Za-z]{2,}/.test(m));
+        }
+
+        async function waitForSaveOutcome(timeoutMs, baseline) {
             const deadline = Date.now() + timeoutMs;
             while (Date.now() < deadline) {
                 await wait(1000);
 
                 const formDoc = findFormDocument();
-                const c = classifyPortalMessages(portalErrors(formDoc || document));
+                const c = classifyPortalMessages(freshPortalMessages(formDoc || document, baseline));
                 if (c.ok.length && !c.fail.length) {
                     log('📨 البوّابة: ' + c.ok.join(' | '), 'success');
                     return { ok: true, errors: [] };
@@ -1703,10 +1770,17 @@
 
             updateStep('step5', 'active', 'جارٍ الحفظ...');
             setStatus('💾 جارٍ الحفظ في البوّابة...');
+
+            // ما في الصفحة من رسائل قبل الضغط لا يُحسب نتيجةً للحفظ
+            const baseline = portalErrors(doc);
+            // الحفظ يُعيد تحميل الصفحة فيموت السكربت قبل أن يرى النتيجة؛
+            // العلامة تُخبر التحميل التالي أنّ الحفظ ضُغط ومتى
+            markSavePending(data);
             log('💾 ضغط زر الحفظ...', 'info');
             saveBtn.click();
 
-            const res = await waitForSaveOutcome(25000);
+            const res = await waitForSaveOutcome(25000, baseline);
+            clearSavePending();
             if (res.ok) {
                 updateStep('step5', 'done', 'حُفظت');
                 setStatus('✅ حُفظت الزيارة في البوّابة');
@@ -1910,6 +1984,9 @@
                     log('', 'info');
                     log(autoSaveOn() ? '💾 الحفظ التلقائي مُشغَّل — تُحفظ الزيارة بعد التعبئة'
                                      : '✋ الحفظ التلقائي مُطفأ — ستحفظ بنفسك', 'warn');
+
+                    // تحميلٌ ناتجٌ عن ضغط الحفظ: يُحسم أوّلاً، وهو يتولّى الانتقال للتالية
+                    if (resolvePendingSaveAfterReload()) return;
 
                     // الطيار الآلي: يشتغل تلقائياً ويكمل عبر postbacks
                     const phase = sessionStorage.getItem('svf_pilot_phase');
@@ -2208,6 +2285,7 @@
                 return true;
             }
             slog('✔ الزيارة ' + (info.i + 1) + ' محفوظة بتأكيدك — الانتقال للتالية', 'success');
+            svfRecordSaved(cur);   // بتأكيد المستخدم: يظهر وسمها «حُفظت» في الموقع
             await queueAdvance();
             return false;
         }
