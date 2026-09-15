@@ -184,6 +184,10 @@
                 try { if (window.SupervisorIdentity) SupervisorIdentity.initCard(); }
                 catch (e) { console.error('Identity Error', e); }
 
+                // الإكمال التلقائيّ — يُربط بعد مستمعات النماذج كلّها ليجري بعدها
+                try { if (typeof initAutofillBindings === 'function') initAutofillBindings(); }
+                catch (e) { console.error('Autofill Error', e); }
+
                 // --- Initialize School App ---
                 try { loadSchoolVisitTypes(); } catch(e) { console.error('School Types Error', e); }
                 try { renderSchoolReportsList(); } catch(e) { console.error('School Reports Error', e); }

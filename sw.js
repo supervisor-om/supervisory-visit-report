@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -24,6 +24,7 @@ const ASSETS = [
     './js/export.js',
     './js/queue-export.js',
     './js/identity.js',
+    './js/autofill.js',
     './js/storage.js',
     './js/db.js',
     './js/init.js',

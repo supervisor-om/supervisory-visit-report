@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.8
+// @version      14.9
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -2171,6 +2171,26 @@
                 .trim();
         }
 
+        // \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0645\u0639\u0644\u0651\u0645\u064A\u0646 \u0648\u062D\u062F\u0647\u0627: \u0642\u0627\u0639\u062F\u0629 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0639\u0644\u0645\u064A\u0646 \u062A\u064F\u062F\u0631\u062C \u00AB\u0628\u0646\u00BB \u0628\u064A\u0646 \u0627\u0644\u0623\u0633\u0645\u0627\u0621
+        // \u0644\u0644\u0639\u0645\u0627\u0646\u064A\u0651\u064A\u0646 (\u0663\u0660\u0666 \u0633\u062C\u0644\u0651\u0627\u064B \u0645\u0646 \u0665\u0660\u0662) \u0648\u0628\u0648\u0651\u0627\u0628\u0629 \u0627\u0644\u0648\u0632\u0627\u0631\u0629 \u0642\u062F \u0644\u0627 \u062A\u062D\u0645\u0644\u0647\u0627 \u2014 \u0648\u0627\u0644\u0639\u0643\u0633.
+        // \u0625\u0633\u0642\u0627\u0637\u0647\u0627 \u0645\u0646 \u0627\u0644\u0637\u0631\u0641\u064A\u0646 \u064A\u064F\u0637\u0627\u0628\u0642 \u0627\u0644\u0627\u0633\u0645 \u0646\u0641\u0633\u0647 \u0645\u0643\u062A\u0648\u0628\u0627\u064B \u0628\u0627\u0644\u0635\u064A\u063A\u062A\u064A\u0646.
+        function normName(v) {
+            return normAr(v).split(' ').filter(w => w !== '\u0628\u0646' && w !== '\u0628\u0646\u062A').join(' ');
+        }
+
+        // \u0635\u064A\u063A \u0627\u0644\u0628\u062D\u062B \u0628\u0627\u0644\u062A\u062A\u0627\u0628\u0639: \u0628\u0644\u0627 \u00AB\u0628\u0646\u00BB \u062B\u0645\u0651 \u0643\u0645\u0627 \u0643\u064F\u062A\u0628 \u062B\u0645\u0651 \u0627\u0644\u0623\u0648\u0651\u0644 \u0648\u0627\u0644\u0623\u062E\u064A\u0631 \u062B\u0645\u0651 \u0627\u0644\u0623\u0648\u0651\u0644.
+        // \u0627\u0644\u0628\u0648\u0651\u0627\u0628\u0629 \u062A\u0628\u062D\u062B \u0628\u0627\u0644\u0646\u0635\u0651 \u0643\u0645\u0627 \u0647\u0648\u060C \u0641\u0635\u064A\u063A\u0629\u064C \u0648\u0627\u062D\u062F\u0629\u064C \u0642\u062F \u0644\u0627 \u062A\u064F\u0631\u062C\u0639 \u0634\u064A\u0626\u0627\u064B \u0623\u0635\u0644\u0627\u064B.
+        // \u0627\u0644\u062A\u0648\u0633\u064A\u0639 \u0644\u0627 \u064A\u064F\u0648\u0633\u0651\u0639 \u0627\u0644\u0627\u062E\u062A\u064A\u0627\u0631: \u0627\u0644\u0635\u0641\u0651 \u0644\u0627 \u064A\u064F\u062E\u062A\u0627\u0631 \u0625\u0644\u0651\u0627 \u0628\u0645\u0637\u0627\u0628\u0642\u0629 \u0627\u0644\u0627\u0633\u0645 \u0643\u0627\u0645\u0644\u0627\u064B.
+        function searchTerms(name) {
+            const plain = normName(name);
+            const raw = normAr(name);
+            const words = plain.split(' ').filter(Boolean);
+            const terms = [plain, raw];
+            if (words.length > 2) terms.push(words[0] + ' ' + words[words.length - 1]);
+            if (words.length > 1) terms.push(words[0]);
+            return terms.filter((t, i) => t && terms.indexOf(t) === i);
+        }
+
         let sup = null;
         (function () {
             let fresh = false;   // وصل تصديرٌ جديدٌ في الرابط الآن
@@ -3193,38 +3213,39 @@
 
         // التثبيت يُعرف بأمرين: امتلاء قائمة الاستمارات، أو ظهور اسم الموظّف
         async function supRowConfirmed(before) {
-            const want = normAr((sup && sup.teacher) || '');
+            const want = normName((sup && sup.teacher) || '');
             const key  = want.split(' ').slice(0, 2).join(' ');   // أوّل اسمين تكفيان
             const t0 = Date.now();
             while (Date.now() - t0 < 7000) {
                 await wait(500);
                 if (formsOptionCount() > Math.max(1, before)) return true;
                 const lbl = findAnywhere(['EmployeeAdministrativeScaleSearchCtrl1_lblEmployeeName']);
-                if (lbl && key && normAr(lbl.textContent || '').includes(key)) return true;
+                if (lbl && key && normName(lbl.textContent || '').includes(key)) return true;
             }
             return false;
         }
 
-        // بحث المعلّم واختياره من شبكة النتائج
-        async function supPickTeacher() {
-            if (!sup || !sup.teacher) return false;
+        // كتابة صيغة البحث والضغط على زرّها
+        async function supRunSearch(term) {
             const se = findAnywhere(EMP_SEARCH);
             if (!se) { slog('حقل بحث الموظّف غير موجود', 'error'); return false; }
-            setVal(se, sup.teacher);
-            slog('كُتب اسم المعلّم في حقل البحث', 'info');
             const btn = findAnywhere(EMP_SEARCH_BTN);
             if (!btn) { slog('زر البحث عن الموظفين غير موجود', 'error'); return false; }
+            setVal(se, term);
+            slog('البحث عن المعلّم بصيغة: ' + term, 'info');
             btn.click();
-            slog('جارٍ البحث عن المعلّم...', 'info');
+            return true;
+        }
 
-            const want = normAr(sup.teacher);
+        // انتظار صفّ المعلّم في النتائج واختياره — المطابقة بالاسم كاملاً
+        async function supAwaitTeacherRow(want, ms) {
             const t0 = Date.now();
-            while (Date.now() - t0 < 25000) {
+            while (Date.now() - t0 < ms) {
                 await wait(700);
 
                 // هل ثُبّت الاسم في خانة الموظّف المختار؟
                 const lbl = findAnywhere(['EmployeeAdministrativeScaleSearchCtrl1_lblEmployeeName']);
-                if (lbl && want && normAr(lbl.textContent || '').includes(want)) {
+                if (lbl && want && normName(lbl.textContent || '').includes(want)) {
                     slog('اختير المعلّم: ' + lbl.textContent.trim(), 'success');
                     return true;
                 }
@@ -3234,13 +3255,27 @@
                     let rows = [];
                     try { rows = Array.from(d.querySelectorAll('tr')); } catch (e) { continue; }
                     for (const tr of rows) {
-                        const txt = normAr(tr.textContent || '');
+                        const txt = normName(tr.textContent || '');
                         if (!txt || txt.length > 220) continue;
                         if (!txt.includes(want)) continue;
 
                         if (await supSelectRow(d, tr)) return true;
                     }
                 }
+            }
+            return false;
+        }
+
+        // بحث المعلّم واختياره من شبكة النتائج — بصيغةٍ بعد صيغة
+        async function supPickTeacher() {
+            if (!sup || !sup.teacher) return false;
+            const want = normName(sup.teacher);
+            const terms = searchTerms(sup.teacher);
+            for (let i = 0; i < terms.length; i++) {
+                if (!await supRunSearch(terms[i])) return false;
+                if (await supAwaitTeacherRow(want, i === 0 ? 12000 : 7000)) return true;
+                if (i < terms.length - 1)
+                    slog('لم يظهر بهذه الصيغة — إعادة البحث بصيغةٍ أخرى', 'warn');
             }
             slog('لم يظهر المعلّم في النتائج خلال المهلة', 'error');
             return false;

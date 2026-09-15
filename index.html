@@ -432,7 +432,12 @@
                 <div id="teachersRosterCard" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                     <div class="flex items-center justify-between mb-1">
                         <h3 class="text-lg font-bold text-slate-700">طاقم المدرسة</h3>
-                        <span class="text-xs text-slate-400">يُدرَج في رأي الزائر عند التوليد</span>
+                        <div class="flex items-center gap-3">
+                            <button type="button" id="pullRosterBtn" class="hidden text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 px-3 py-1.5 rounded-lg font-medium transition-colors">
+                                <i class="fa-solid fa-cloud-arrow-down ml-1"></i>استدعاء من قاعدة المعلمين
+                            </button>
+                            <span class="text-xs text-slate-400">يُدرَج في رأي الزائر عند التوليد</span>
+                        </div>
                     </div>
                     <p class="text-xs text-slate-500 mb-4">اسم مدير المدرسة ومعلمو الرياضة المدرسية وأنصبتهم — يُحفظ للمدرسة ويُستدعى في زيارتها القادمة.</p>
 
@@ -575,6 +580,7 @@
     <script src="js/storage.js"></script>
     <script src="js/school.js"></script>
     <script src="js/identity.js"></script>
+    <script src="js/autofill.js"></script>
     <script src="js/init.js"></script>
     <script>
     if ('serviceWorker' in navigator) {

@@ -71,17 +71,32 @@
     const ADMIN_ID = '*';
     const REFRESH_MS = 24 * 60 * 60 * 1000;
 
-    // الحقول المنقولة من سجلّ المعلّم — ما عداها لا يغادر قاعدة البيانات
+    const SUP_FIELD = 'المشرف';
+
+    // الحقول المنقولة من سجلّ المعلّم — ما عداها لا يغادر قاعدة البيانات.
+    // القائمة بدائل: الحكوميّ والخاصّ يسمّيان الصفوف بمفتاحين مختلفين.
     const FIELDS = {
-        name: 'اسم المعلم',
-        school: 'المدرسة',
-        schoolType: 'نوع المدرسة',
-        supervisor: 'المشرف',
-        load: 'عدد الحصص',
-        grades: 'الصفوف التي يدرسها',
-        specialty: 'التخصص',
-        wilaya: 'الولاية'
+        name:       ['اسم المعلم'],
+        school:     ['المدرسة'],
+        schoolType: ['نوع المدرسة'],
+        supervisor: [SUP_FIELD],
+        load:       ['عدد الحصص'],
+        grades:     ['الصفوف التي يدرسها', 'الفصول التي تدرسها'],
+        specialty:  ['التخصص'],
+        wilaya:     ['الولاية'],
+        principal:  ['اسم مدير المدرسة'],
+        fileNumber: ['رقم الملف']
     };
+
+    // الجنس مشتقٌّ من «الحالة الاجتماعية» (متزوجة/عزباء ← أنثى) لأنّ القاعدة لا
+    // تحمل حقل جنس. يُشتقّ هنا ولا تُنسخ الحالة الاجتماعيّة نفسها إلى المتصفّح.
+    const MARITAL = 'الحالة الاجتماعية';
+    function genderOf(row) {
+        const v = String(row[MARITAL] == null ? '' : row[MARITAL]).trim();
+        if (/^(متزوجة|عزباء)/.test(v)) return 'f';
+        if (/^(متزوج|[اأ]عزب)/.test(v)) return 'm';
+        return '';                     // مجهولٌ لا مُخمَّن — النموذج يبقى على افتراضه
+    }
 
     // ---------------------------------------------------------------- تخزين
     function readJSON(key) {
@@ -151,15 +166,37 @@
 
     function pick(row) {
         const t = {};
-        for (const [k, f] of Object.entries(FIELDS)) t[k] = row[f] == null ? '' : String(row[f]).trim();
+        for (const [k, keys] of Object.entries(FIELDS)) {
+            let v = '';
+            for (const f of keys) {
+                if (row[f] != null && String(row[f]).trim()) { v = String(row[f]).trim(); break; }
+            }
+            t[k] = v;
+        }
+        t.gender = genderOf(row);
+        t.grades = tidyGrades(t.grades);
         return t;
+    }
+
+    // «1،2،3» ← «1-3»، و«9،10،11،12» ← «9-12»، والمتقطّع يبقى مفصولاً.
+    // شكل النطاق هو ما يكتبه رأي الزائر: «ويدرس الصفوف (5-12)».
+    function tidyGrades(raw) {
+        const s = String(raw || '').trim();
+        if (!s) return '';
+        const nums = (s.match(/\d+/g) || []).map(Number).filter(n => n >= 1 && n <= 12);
+        if (!nums.length) return s;
+        const uniq = [...new Set(nums)].sort((a, b) => a - b);
+        if (uniq.length === 1) return String(uniq[0]);
+        if (/-/.test(s) && nums.length === 2) return uniq[0] + '-' + uniq[1];
+        const contiguous = uniq.every((n, i) => i === 0 || n === uniq[i - 1] + 1);
+        return contiguous ? uniq[0] + '-' + uniq[uniq.length - 1] : uniq.join('، ');
     }
 
     // المشرف يطلب معلّميه بالاسم صراحةً — وهو الشكل الذي تقبله قواعد Firestore
     // حين تُقفل القراءة لاحقاً (القواعد ترفض الطلب ولا تُصفّيه)
     async function fetchTeachers(identity, sdk) {
         const col = sdk.collection(sdk.db, 'teachers');
-        const q = identity.admin ? col : sdk.query(col, sdk.where(FIELDS.supervisor, '==', identity.name));
+        const q = identity.admin ? col : sdk.query(col, sdk.where(SUP_FIELD, '==', identity.name));
         const snap = await sdk.getDocs(q);
         const teachers = [];
         snap.forEach(d => teachers.push(pick(d.data())));
@@ -210,12 +247,14 @@
         const identity = Object.assign({}, who, { linkedAt: Date.now() });
         writeJSON(ID_KEY, { id: identity.id, hash: identity.hash, linkedAt: identity.linkedAt });
         writeJSON(CACHE_PREFIX + identity.id, { id: identity.id, at: Date.now(), teachers });
+        announce();
         return { identity, teachers };
     }
 
     function unlink() {
         remove(ID_KEY);
         clearCaches();
+        announce();
     }
 
     // تُستدعى عند فتح الموقع: بلا ربطٍ لا شيء، وبنسخةٍ حديثةٍ لا اتّصال.
@@ -241,6 +280,7 @@
         try {
             const teachers = await fetchTeachers(me, sdk);
             writeJSON(CACHE_PREFIX + me.id, { id: me.id, at: Date.now(), teachers });
+            announce();
             return { linked: true, refreshed: true };
         } catch (e) {
             return { linked: true, offline: true };
@@ -251,6 +291,80 @@
         const me = getIdentity();
         const c = me && readCache(me);
         return c ? c.teachers : [];
+    }
+
+    // ------------------------------------------------------------ البحث
+    // تسويةٌ عربيّة: الهمزات والتاء المربوطة والألف المقصورة والتطويل والتشكيل.
+    // و«بن/بنت» تُسقط في أسماء المعلّمين وحدها: قاعدة المعلمين تُدرجها
+    // للعمانيّين (٣٠٦ من ٥٠٢) وبوّابة الوزارة قد لا تحملها، فالمقارنة بها تُفشل
+    // المطابقة على الاسم نفسه.
+    function normalize(v) {
+        return String(v == null ? '' : v)
+            .replace(/[ـً-ْ]/g, '')
+            .replace(/[أإآ]/g, 'ا')
+            .replace(/ة/g, 'ه')
+            .replace(/ى/g, 'ي')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function normName(v) {
+        return normalize(v).split(' ').filter(w => w !== 'بن' && w !== 'بنت').join(' ');
+    }
+
+    // مطابقةٌ بلا تخمين: تامّةٌ أوّلاً، ثمّ احتواءٌ فريد. التعدّد يُردّ كما هو
+    // ليُعرض على المستخدم — ولا يُختار عنه (سجلٌّ رسميٌّ باسمه).
+    function matchBy(list, value, keyFn) {
+        const want = keyFn(value);
+        if (!want) return [];
+        const exact = list.filter(t => keyFn(t) === want);
+        if (exact.length) return exact;
+        const part = list.filter(t => { const k = keyFn(t); return k && (k.includes(want) || want.includes(k)); });
+        return part;
+    }
+
+    const teacherKey = t => normName(typeof t === 'string' ? t : t.name);
+    const schoolKey  = t => normalize(typeof t === 'string' ? t : t.school);
+
+    function findTeacher(name) {
+        const hits = matchBy(getTeachers(), name, teacherKey);
+        return { matches: hits, teacher: hits.length === 1 ? hits[0] : null };
+    }
+
+    function teachersOfSchool(school) {
+        return matchBy(getTeachers(), school, schoolKey);
+    }
+
+    // اسم المدير من سجلّات المدرسة: يُقبل حين تتّفق، ويُترك حين تختلف —
+    // ٨٣ مدرسةً من ١٢٦ ذات سجلّين فأكثر تختلف فيها كتابة اسم المدير.
+    function principalOfSchool(school) {
+        const names = teachersOfSchool(school).map(t => t.principal).filter(Boolean);
+        if (!names.length) return { name: '', conflict: false };
+        const uniq = [...new Set(names.map(normalize))];
+        return uniq.length === 1 ? { name: names[0], conflict: false } : { name: '', conflict: true };
+    }
+
+    function schoolNames() {
+        const seen = new Map();
+        getTeachers().forEach(t => {
+            const k = schoolKey(t);
+            if (k && !seen.has(k)) seen.set(k, t.school);
+        });
+        return [...seen.values()].sort((a, b) => a.localeCompare(b, 'ar'));
+    }
+
+    function teacherNames() {
+        const seen = new Map();
+        getTeachers().forEach(t => {
+            const k = teacherKey(t);
+            if (k && !seen.has(k)) seen.set(k, t.name);
+        });
+        return [...seen.values()].sort((a, b) => a.localeCompare(b, 'ar'));
+    }
+
+    // تُعلِم الواجهةَ أنّ القائمة تبدّلت (ربطٌ أو تحديثٌ أو إلغاء) لتُعاد بناؤها
+    function announce() {
+        try { document.dispatchEvent(new CustomEvent('svf-teachers-changed')); } catch (e) {}
     }
 
     // ------------------------------------------------------------ الواجهة
@@ -355,6 +469,10 @@
         refresh(false).then(r => { if (r.reason || r.refreshed) renderAfter(r); });
     }
 
-    const api = { getIdentity, getTeachers, link, unlink, refresh, initCard, loadSdk };
+    const api = {
+        getIdentity, getTeachers, link, unlink, refresh, initCard, loadSdk,
+        findTeacher, teachersOfSchool, principalOfSchool, schoolNames, teacherNames,
+        normalize, normName, tidyGrades
+    };
     global.SupervisorIdentity = api;
 })(typeof window !== 'undefined' ? window : globalThis);

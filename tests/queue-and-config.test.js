@@ -916,6 +916,44 @@ pending.push((function testQueueGate() {
     })();
 })());
 
+/* ── ١٢) اسم المعلّم بين قاعدة المعلمين والبوّابة: «بن» لا تُفشل المطابقة ── */
+(function testTeacherNameMatching() {
+    const code = between('        function normAr(v) {', '        let sup = null;');
+    const ctx = {};
+    vm.runInNewContext(code + '\nout = { normName, searchTerms };', ctx);
+    const { normName, searchTerms } = ctx.out;
+
+    check('name: «بن» تُسقط فتتطابق الصيغتان',
+          normName('هاشم بن راشد بن سيف الهاشمي') === normName('هاشم راشد سيف الهاشمي'),
+          normName('هاشم بن راشد بن سيف الهاشمي'));
+    check('name: «بنت» تُسقط كذلك',
+          normName('مريم بنت سالم الحارثية') === normName('مريم سالم الحارثية'));
+    check('name: الهمزات والتاء المربوطة تُسوّى',
+          normName('آمنة أحمد') === normName('امنه احمد'), normName('آمنة أحمد'));
+    check('name: اسمٌ فيه «بنان» لا يُمسّ — الإسقاط للكلمة وحدها',
+          normName('بنان خالد') === 'بنان خالد', normName('بنان خالد'));
+
+    const terms = searchTerms('هاشم بن راشد بن سيف الهاشمي');
+    check('search: تبدأ الصيغ بالاسم بلا «بن»', terms[0] === 'هاشم راشد سيف الهاشمي', terms[0]);
+    check('search: وفيها الاسم كما كُتب', terms.includes('هاشم بن راشد بن سيف الهاشمي'), terms.join(' | '));
+    check('search: ثمّ الأوّل والأخير ثمّ الأوّل',
+          terms.includes('هاشم الهاشمي') && terms[terms.length - 1] === 'هاشم', terms.join(' | '));
+    check('search: بلا تكرار', new Set(terms).size === terms.length, terms.join(' | '));
+    check('search: اسمٌ بلا «بن» لا يُكرَّر بصيغتين متطابقتين',
+          searchTerms('سالم المعمري')[0] === 'سالم المعمري' && searchTerms('سالم المعمري').length === 2,
+          JSON.stringify(searchTerms('سالم المعمري')));
+
+    // التوصيل: البحث يُعاد بالصيغ، والمطابقة بـ normName لا normAr
+    check('search: supPickTeacher يمرّ على الصيغ واحدةً بعد أخرى',
+          /async function supPickTeacher\(\)[\s\S]{0,700}searchTerms\(sup\.teacher\)[\s\S]{0,400}for \(let i[\s\S]{0,300}supRunSearch\(terms\[i\]\)[\s\S]{0,200}supAwaitTeacherRow\(want/.test(src),
+          'الترتيب غير موصول');
+    check('search: اختيار الصفّ يطابق الاسم كاملاً لا الصيغة المختصرة',
+          /async function supAwaitTeacherRow\(want, ms\)[\s\S]{0,1800}txt\.includes\(want\)/.test(src),
+          'المطابقة غير كاملة');
+    check('search: خانة المختار تُقارن بـ normName',
+          !/normAr\(lbl\.textContent/.test(src), 'ما زالت normAr');
+})();
+
 Promise.all(pending).then(() => {
     console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
     process.exit(failures ? 1 : 0);
