@@ -68,6 +68,10 @@
 
     const ID_KEY = 'svf_identity';
     const CACHE_PREFIX = 'svf_teachers_cache_';
+    // رقم بنية النسخة المحفوظة. **يُرفع كلّما أُضيف حقلٌ إلى FIELDS أو تغيّر اشتقاق**:
+    // نسخةٌ سُحبت بالبنية القديمة تبقى «حديثة» أقلّ من يوم فلا تُحدَّث، فتُعبَّأ
+    // النماذج ناقصةً بلا خطأ ظاهر (هكذا غاب رقم الملف بعد إضافته).
+    const CACHE_VERSION = 2;
     const ADMIN_ID = '*';
     const REFRESH_MS = 24 * 60 * 60 * 1000;
 
@@ -246,7 +250,7 @@
         clearCaches();
         const identity = Object.assign({}, who, { linkedAt: Date.now() });
         writeJSON(ID_KEY, { id: identity.id, hash: identity.hash, linkedAt: identity.linkedAt });
-        writeJSON(CACHE_PREFIX + identity.id, { id: identity.id, at: Date.now(), teachers });
+        writeJSON(CACHE_PREFIX + identity.id, { id: identity.id, v: CACHE_VERSION, at: Date.now(), teachers });
         announce();
         return { identity, teachers };
     }
@@ -264,7 +268,8 @@
         const me = getIdentity();
         if (!me) { unlink(); return { linked: false, reason: 'removed' }; }
         const cache = readCache(me);
-        if (!force && cache && Date.now() - cache.at < REFRESH_MS) return { linked: true };
+        const fresh = cache && cache.v === CACHE_VERSION && Date.now() - cache.at < REFRESH_MS;
+        if (!force && fresh) return { linked: true };
 
         let sdk, overrides;
         try {
@@ -279,7 +284,7 @@
         }
         try {
             const teachers = await fetchTeachers(me, sdk);
-            writeJSON(CACHE_PREFIX + me.id, { id: me.id, at: Date.now(), teachers });
+            writeJSON(CACHE_PREFIX + me.id, { id: me.id, v: CACHE_VERSION, at: Date.now(), teachers });
             announce();
             return { linked: true, refreshed: true };
         } catch (e) {

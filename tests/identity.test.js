@@ -147,6 +147,25 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
         const r = await reopened.api.refresh(false);
         check('remember: نسخةٌ حديثةٌ لا تتّصل بالقاعدة عند الفتح', r.linked && reopened.loads() === 0,
               JSON.stringify(r) + ' loads=' + reopened.loads());
+
+        // نسخةٌ سُحبت ببنيةٍ أقدم (حقولٌ أُضيفت بعدها) تُحدَّث ولو كانت حديثةَ الوقت —
+        // وإلّا عُبِّئت النماذج ناقصةً بلا خطأ، كما غاب رقم الملف بعد إضافته
+        const stale = env(e.data);
+        stale.use({});
+        const key = 'svf_teachers_cache_a';
+        const old = JSON.parse(stale.data[key]);
+        delete old.v;
+        old.at = Date.now();
+        old.teachers = old.teachers.map(t => ({ name: t.name, school: t.school }));   // بلا رقم ملفٍ ولا جنس
+        stale.data[key] = JSON.stringify(old);
+        const r2 = await stale.api.refresh(false);
+        check('schema: نسخةٌ ببنيةٍ أقدم تُسحب من جديد ولو كانت حديثة',
+              r2.refreshed === true && stale.loads() > 0, JSON.stringify(r2) + ' loads=' + stale.loads());
+        check('schema: الحقول الناقصة عادت بعد التحديث',
+              !!stale.api.getTeachers().find(t => /الهاشمي/.test(t.name))?.fileNumber,
+              JSON.stringify(stale.api.getTeachers()[0]));
+        check('schema: النسخة الجديدة تحمل رقم البنية',
+              JSON.parse(stale.data[key]).v > 0, stale.data[key].slice(0, 60));
     }
 
     /* ── ٢) لا تداخل بين المشرفين ── */
