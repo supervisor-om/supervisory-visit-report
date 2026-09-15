@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -22,6 +22,8 @@ const ASSETS = [
     './js/school.js',
     './js/charts.js',
     './js/export.js',
+    './js/queue-export.js',
+    './js/identity.js',
     './js/storage.js',
     './js/db.js',
     './js/init.js',
@@ -65,7 +67,11 @@ self.addEventListener('fetch', event => {
     const request = event.request;
     if (request.method !== 'GET') return;
 
-    const sameOrigin = new URL(request.url).origin === self.location.origin;
+    const url = new URL(request.url);
+    // قاعدة بيانات المعلمين: بياناتٌ حيّة لا تُخزَّن — النسخة المحلّيّة يديرها identity.js
+    if (url.hostname === 'firestore.googleapis.com') return;
+
+    const sameOrigin = url.origin === self.location.origin;
 
     // ملفات التطبيق: الشبكة أولاً
     if (request.mode === 'navigate' || sameOrigin) {

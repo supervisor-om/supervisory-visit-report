@@ -180,6 +180,10 @@
                     });
                 }
 
+                // الربط الاختياريّ بقاعدة بيانات المعلمين — بلا رمزٍ لا يُحمَّل شيء
+                try { if (window.SupervisorIdentity) SupervisorIdentity.initCard(); }
+                catch (e) { console.error('Identity Error', e); }
+
                 // --- Initialize School App ---
                 try { loadSchoolVisitTypes(); } catch(e) { console.error('School Types Error', e); }
                 try { renderSchoolReportsList(); } catch(e) { console.error('School Reports Error', e); }
