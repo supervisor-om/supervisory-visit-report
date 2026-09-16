@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      14.9
+// @version      15.0
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -613,6 +613,8 @@
             #svf-toggle-v7 { cursor:pointer; }
             #svf-body-v7 { padding:12px; display:block; }
             #${PANEL_ID}.collapsed #svf-body-v7 { display:none; }
+            #${PANEL_ID}.collapsed { width:auto; }
+            #svf-header-v7 { cursor:pointer; }
             #${STEP_EL_ID} { margin-bottom:10px; }
             #${STEP_EL_ID} .step-row {
                 display:flex; align-items:center; gap:6px; padding:5px 8px;
@@ -706,6 +708,23 @@
             } catch (e) {}
             const method = type === 'error' ? 'error' : type === 'warn' ? 'warn' : 'log';
             console[method]('[SVF v7] ' + msg);
+            if (type === 'error' && $('#' + PANEL_ID)) setPanelFolded(false);
+        }
+
+        // ── الطيّ: تبدأ اللوحة مطويّةً فلا تحجب الاستمارة ──
+        // الاختيار يبقى ما دام التبويب مفتوحاً (البوّابة تُعيد تحميل الصفحة
+        // مراراً)، وتُبسط وحدها عند خطأٍ أو مهلة حفظ — لأنّها وقتها تهمّ.
+        const FOLD_KEY = 'svf_v7_folded';
+        function panelFoldedPref() {
+            try { return sessionStorage.getItem(FOLD_KEY) !== '0'; } catch (e) { return true; }
+        }
+        function setPanelFolded(folded) {
+            try { sessionStorage.setItem(FOLD_KEY, folded ? '1' : '0'); } catch (e) {}
+            const panel = $('#' + PANEL_ID);
+            if (!panel) return;
+            panel.classList.toggle('collapsed', folded);
+            const t = $('#svf-toggle-v7');
+            if (t) t.textContent = folded ? '▲' : '▼';
         }
 
         function setProgress(pct) {
@@ -803,6 +822,7 @@
             `;
 
             document.body.appendChild(panel);
+            setPanelFolded(panelFoldedPref());
             restoreLog();
 
             // الأزرار تقرأ visitData لحظة الضغط لا وقت بناء اللوحة: بعد الانتقال في
@@ -844,9 +864,10 @@
             });
 
             $('#svf-btn-diag-v7')?.addEventListener('click', dumpPageElements);
-            $('#svf-toggle-v7')?.addEventListener('click', () => {
-                panel.classList.toggle('collapsed');
-                $('#svf-toggle-v7').textContent = panel.classList.contains('collapsed') ? '▲' : '▼';
+            // الشريط كلّه يطوي ويبسط — إلّا إن كانت الضغطة نهايةَ سحب
+            $('#svf-header-v7')?.addEventListener('click', () => {
+                if (panel.dataset.dragged === '1') { panel.dataset.dragged = ''; return; }
+                setPanelFolded(!panel.classList.contains('collapsed'));
             });
 
             // سحب اللوحة
@@ -859,7 +880,9 @@
                 if (e.target.tagName === 'BUTTON' || e.target.id === 'svf-toggle-v7') return;
                 sx = e.clientX; sy = e.clientY;
                 il = panel.offsetLeft; it = panel.offsetTop;
+                panel.dataset.dragged = '';
                 const move = ev => {
+                    if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) panel.dataset.dragged = '1';
                     panel.style.left = (il + ev.clientX - sx) + 'px';
                     panel.style.top  = (it + ev.clientY - sy) + 'px';
                     panel.style.right = 'auto';
@@ -1601,6 +1624,8 @@
                               + '<button id="svf-grace-x" style="margin-top:6px;width:100%;padding:7px;'
                               + 'border:none;border-radius:7px;background:#fecaca;color:#7f1d1d;'
                               + 'font-weight:bold;cursor:pointer;font-size:12px">إلغاء الحفظ</button>';
+                // زرّ الإلغاء داخل اللوحة: مطويّةً لا يُرى، فيمضي الحفظ بلا فرصة إلغاء
+                setPanelFolded(false);
                 const body = $('#svf-body-v7');
                 if (body) body.insertBefore(bar, body.firstChild);
 
@@ -2637,6 +2662,8 @@
                               + '<button id="svfs-grace-x" style="margin-top:5px;width:100%;padding:6px;'
                               + 'border:none;border-radius:6px;background:#fecaca;color:#7f1d1d;'
                               + 'font-weight:bold;cursor:pointer;font-size:11.5px">إلغاء الحفظ</button>';
+                // زرّ الإلغاء داخل اللوحة: مطويّةً لا يُرى، فيمضي الحفظ بلا فرصة إلغاء
+                svfsUnfold && svfsUnfold();
                 const status = document.getElementById(S);
                 if (status && status.parentNode) status.parentNode.insertBefore(bar, status.nextSibling);
 
@@ -2790,7 +2817,11 @@
         let folded = true;
         try { folded = sessionStorage.getItem('svfs_folded') !== '0'; } catch (e) {}
         setFolded(folded);
-        panel.querySelector('.h').addEventListener('click', () => setFolded(body.style.display !== 'none'));
+        panel.querySelector('.h').addEventListener('click', () => {
+            // نهايةُ سحبٍ ليست ضغطة: كانت تبسط اللوحة المطويّة كلّما نُقلت
+            if (panel.dataset.dragged === '1') { panel.dataset.dragged = ''; return; }
+            setFolded(body.style.display !== 'none');
+        });
 
         // تُبسط تلقائيّاً عند خطأٍ أو انتهاء العمل، لأنّ الرسالة وقتها تهمّ
         svfsUnfold = () => setFolded(false);
@@ -3461,7 +3492,9 @@
             h.addEventListener('mousedown', e => {
                 const sx = e.clientX, sy = e.clientY;
                 const r = panel.getBoundingClientRect(), il = r.left, it = r.top;
+                panel.dataset.dragged = '';
                 const mv = ev => {
+                    if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) panel.dataset.dragged = '1';
                     panel.style.left = (il + ev.clientX - sx) + 'px';
                     panel.style.top = (it + ev.clientY - sy) + 'px';
                     panel.style.right = 'auto';
