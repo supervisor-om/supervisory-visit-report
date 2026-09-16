@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.0
+// @version      15.1
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -1131,9 +1131,20 @@
             if (contains.length === 1) return { option: contains[0], ambiguous: [] };
             if (contains.length > 1) return { option: null, ambiguous: contains.map(o => o.text) };
 
-            const tokens = n.split(' ').filter(t => t.length >= 2 && SCHOOL_STOP.indexOf(t) === -1);
+            // الأرقام تُعامَل وحدها: نطاق الصفوف «(1-12)» يكتبه الموقع وكثيراً ما تُسقطه
+            // البوّابة، فكان «12» يُعدّ كلمةً مميِّزةً لا بدّ منها — فلا تُطابَق «الأجيال
+            // العصرية الدولية (1-12)» في أيّ نظام. الكلمات تُشترط، والأرقام لا تُشترط
+            // لكنّها تُقصي: مدرسةٌ في البوّابة تحمل أرقاماً ليست في اسم الموقع — نطاقاً
+            // آخر أو فرعاً آخر — ليست هي.
+            const isNum = t => /^\d+$/.test(t);
+            const nums = n.split(' ').filter(isNum);
+            const tokens = n.split(' ').filter(t => !isNum(t) && t.length >= 2 && SCHOOL_STOP.indexOf(t) === -1);
             if (!tokens.length) return { option: null, ambiguous: [] };
-            const all = opts.filter(o => { const words = nt(o).split(' '); return tokens.every(t => words.indexOf(t) !== -1); });
+            const all = opts.filter(o => {
+                const words = nt(o).split(' ');
+                if (!tokens.every(t => words.indexOf(t) !== -1)) return false;
+                return !nums.length || words.filter(isNum).every(d => nums.indexOf(d) !== -1);
+            });
             if (all.length === 1) return { option: all[0], ambiguous: [] };
             if (all.length > 1) return { option: null, ambiguous: all.map(o => o.text) };
             return { option: null, ambiguous: [] };
