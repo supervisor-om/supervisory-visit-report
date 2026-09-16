@@ -367,6 +367,8 @@
             });
             
             document.querySelector('#reportSection').classList.add('hidden'); 
+            // التصفير يمسح الحقول كلّها، واسم الزائر يُعاد من الهويّة
+            try { if (typeof svfFillVisitor === 'function') svfFillVisitor(); } catch (e) {}
             showToast('تم إعادة تعيين النموذج');
         }
 
@@ -392,6 +394,9 @@
                 teacherName, 
                 visitDate, 
                 school: document.querySelector('#school').value.trim(), 
+                // المشرف صاحب التقرير — من الهويّة إن رُبطت، وإلّا من توقيع الزائر
+                supervisor: svfSupervisorName() || document.querySelector('#visitorName').value.trim(),
+                updatedAt: Date.now(),
                 formData: {} 
             };
             
@@ -404,7 +409,15 @@
                 reportData.formData[`notes-${item.id}`] = document.querySelector(`#notes-${item.id}`).textContent; 
             });
             
-            localStorage.setItem(reportId, JSON.stringify(reportData));
+            // امتلاء تخزين المتصفّح يرمي هنا. بلا حارسٍ كان التقرير يضيع
+            // **بلا رسالة** — يظنّ المشرف أنّه حُفظ. والآن يُبلَّغ ويبقى
+            // النموذج معموراً ليُصدّر أو يُفرَّغ المكان ثمّ يُعاد الحفظ.
+            try {
+                localStorage.setItem(reportId, JSON.stringify(reportData));
+            } catch (e) {
+                showToast('لم يُحفظ التقرير: مساحة التخزين ممتلئة. صدّر نسخةً احتياطيّة أو احذف تقارير قديمة ثمّ أعد الحفظ.', 'error');
+                return;
+            }
             
             const visitDataForDashboard = { date: visitDate, scores: {} }; 
             
@@ -427,10 +440,14 @@
             }
             
             archive.sort((a, b) => new Date(a.date) - new Date(b.date)); 
-            localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); 
+            // الأرشيف الرقميّ للرسوم البيانيّة: فشلُه لا يُبطل حفظ التقرير نفسه
+            try { localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); } catch (e) {} 
             
             showToast('تم حفظ التقرير بنجاح');
             renderSavedReports();
+
+            // النسخة السحابيّة تتبع الحفظ ولا تسبقه: فشلها لا يُفقد التقرير
+            try { if (window.SupervisorCloud) SupervisorCloud.push(reportId); } catch (e) {}
         }
 
         function loadPermanentReport(reportKey) {

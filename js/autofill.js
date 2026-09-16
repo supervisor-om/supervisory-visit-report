@@ -16,6 +16,21 @@
                       && SupervisorIdentity.getTeachers().length);
         }
 
+        // اسم المشرف المرتبط. يكفي فيه الربط وحده — لا تلزمه قائمة معلّمين،
+        // فمن لم يُسنَد إليه معلّمٌ بعد اسمُه معروفٌ مع ذلك. و«المشرف العام»
+        // ليس اسم زائرٍ فلا يُكتب في تقرير.
+        function svfSupervisorName() {
+            if (!window.SupervisorIdentity) return '';
+            const me = SupervisorIdentity.getIdentity();
+            return me && !me.admin ? me.name : '';
+        }
+
+        // توقيع الزائر في الزيارة الإشرافيّة: يُملأ ولا يُطمس، فمن كتب اسماً
+        // غيره — نائباً عنه أو تقريراً لزميل — بقي ما كتب.
+        function svfFillVisitor() {
+            svfFillIfEmpty('visitorName', svfSupervisorName());
+        }
+
         function svfDatalist(id) {
             let dl = document.getElementById(id);
             if (!dl) {
@@ -200,7 +215,11 @@
 
         function initAutofillBindings() {
             svfRefreshSuggestions();
-            document.addEventListener('svf-teachers-changed', svfRefreshSuggestions);
+            svfFillVisitor();
+            document.addEventListener('svf-teachers-changed', () => {
+                svfRefreshSuggestions();
+                svfFillVisitor();
+            });
 
             const teacher = document.getElementById('teacherName');
             if (teacher) {

@@ -11,6 +11,10 @@
         }
 
         let performanceChartInstance = null;
+        // مفتاح التقرير المفتوح للتعديل. كان غير معرَّفٍ أصلاً ولا يُنشأ إلّا
+        // ضمنياً في performReset، فأوّلُ حفظٍ في صفحةٍ حديثة التحميل — بلا
+        // تعيينٍ قبله — كان يرمي ReferenceError فلا يُحفظ التقرير ولا يظهر خطأ.
+        let currentEditingKey = null;
         let schoolVisitTypesData = {};
         let schoolClassroomVisits = [];
         let objectiveNotes = {};

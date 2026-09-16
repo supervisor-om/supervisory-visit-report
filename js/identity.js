@@ -155,7 +155,10 @@
                 import(SDK_BASE + 'firebase-firestore-lite.js')
             ]).then(([app, fs]) => ({
                 db: fs.getFirestore(app.initializeApp(FIREBASE, 'teachers')),
-                collection: fs.collection, getDocs: fs.getDocs, query: fs.query, where: fs.where
+                collection: fs.collection, getDocs: fs.getDocs, query: fs.query, where: fs.where,
+                // الكتابة للنسخة السحابيّة للتقارير (js/cloud.js) — أمّا قاعدة
+                // المعلمين نفسها فهذا الموقع لا يكتب فيها
+                doc: fs.doc, setDoc: fs.setDoc
             })).catch(err => { sdkPromise = null; throw err; });
         }
         return sdkPromise;

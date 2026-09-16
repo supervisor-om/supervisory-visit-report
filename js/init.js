@@ -184,6 +184,16 @@
                 try { if (window.SupervisorIdentity) SupervisorIdentity.initCard(); }
                 catch (e) { console.error('Identity Error', e); }
 
+                // النسخة السحابيّة للتقارير — تعمل بالربط وحده كذلك
+                try { if (window.SupervisorCloud) SupervisorCloud.initCard(); }
+                catch (e) { console.error('Cloud Error', e); }
+
+                // مزامنةٌ أنزلت تقارير أو حذفت: القوائم المعروضة تُعاد بناؤها
+                document.addEventListener('svf-cloud-changed', () => {
+                    try { renderSavedReports(); } catch (e) {}
+                    try { renderSchoolReportsList(); } catch (e) {}
+                });
+
                 // الإكمال التلقائيّ — يُربط بعد مستمعات النماذج كلّها ليجري بعدها
                 try { if (typeof initAutofillBindings === 'function') initAutofillBindings(); }
                 catch (e) { console.error('Autofill Error', e); }

@@ -792,6 +792,9 @@
             
             const reportData = {
                 id: reportId,
+                // المشرف صاحب التقرير — يُكتب من الهويّة إن رُبطت
+                supervisor: svfSupervisorName(),
+                updatedAt: Date.now(),
                 schoolName: formData.get('schoolName') || '',
                 visitDate: formData.get('visitDate') || '',
                 visitType: visitType,
@@ -808,6 +811,7 @@
             try {
                 localStorage.setItem(reportId, JSON.stringify(reportData));
                 saveSchoolRoster();   // ليُستدعى الطاقم في الزيارة القادمة لهذه المدرسة
+                try { if (window.SupervisorCloud) SupervisorCloud.push(reportId); } catch (e) {}
                 showToast('تم حفظ التقرير بنجاح');
                 showSchoolDashboard();
             } catch(error) {
@@ -882,7 +886,16 @@
                 objectivesHtml += '<li class="text-slate-400 italic">لا توجد أهداف محددة.</li>';
             }
             objectivesHtml += '</ol>';
-            
+
+            // اسم المشرف يظهر في ذيل التقرير حين يكون معروفاً — من التقرير
+            // المحفوظ أوّلاً (فتقاريرُ غيره تُعرض باسم كاتبها) ثمّ من الهويّة
+            const visitor = (report.supervisor || svfSupervisorName() || '').trim();
+            const visitorLine = visitor
+                ? `<div class="mt-10 pt-4 border-t border-slate-200 text-sm font-bold text-slate-700">
+                       اسم الزائر: ${visitor}
+                   </div>`
+                : '';
+
             const content = `
                 <div class="text-center mb-8 border-b pb-6">
                     <h2 class="text-2xl font-bold text-slate-900 mb-2">تقرير زيارة مدرسية</h2>
@@ -910,6 +923,7 @@
                     <h3 class="text-lg font-bold text-slate-800 mb-3 border-r-4 border-green-500 pr-3">ثالثاً: التوصيات والملاحظات</h3>
                     <div class="bg-white border border-slate-200 rounded-xl p-5 min-h-[100px] whitespace-pre-wrap">${report.recommendations || 'لا توجد توصيات.'}</div>
                 </div>
+                ${visitorLine}
             `;
             const repContent = document.getElementById('reportContent');
             if(repContent) repContent.innerHTML = content;
@@ -950,7 +964,10 @@
 
         function deleteSchoolReport(key) {
             if(confirm('هل أنت متأكد من حذف هذا التقرير؟')) {
+                const raw = localStorage.getItem(key);
                 localStorage.removeItem(key);
+                // نصّه يُرفع مع علامة الحذف فيبقى قابلاً للإرجاع
+                try { if (window.SupervisorCloud) SupervisorCloud.remove(key, raw); } catch (e) {}
                 renderSchoolReportsList();
                 showToast('تم الحذف بنجاح');
             }
