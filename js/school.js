@@ -876,7 +876,9 @@
             }
         }
 
-        function generateSchoolPreview(report) {
+        // `fromForm`: المعاينة جاءت من زرّ «معاينة» والنموذج معمورٌ بما كُتب
+        // فيه، لا من سجلّ التقارير حيث النموذج فارغ. الفرق كلّه في زرّ الرجوع.
+        function generateSchoolPreview(report, fromForm) {
             const typeName = (schoolVisitTypesData && schoolVisitTypesData[report.visitType]) ? schoolVisitTypesData[report.visitType].name : 'زيارة مدرسية';
             let objectivesHtml = '<ol class="list-decimal list-inside space-y-1 text-slate-700 mt-2">';
             
@@ -931,6 +933,11 @@
             const btnBack = document.getElementById('backToFormBtn');
             if(btnBack) {
                 btnBack.onclick = () => {
+                    /* الرجوع من معاينةِ النموذج لا يُعيد تحميل شيء: النموذج لم
+                       يُمَسّ، إنّما أُخفي. وإعادةُ تحميله كانت تمحو كلّ ما لم
+                       يُحفظ بعد — فرأيُ الزائر المولَّد يختفي، ومعه الطاقم
+                       وأوقات الوصول والانصراف، لأنّ حمولة المعاينة لا تحملها. */
+                    if (fromForm) { showSchoolForm(); return; }
                     if(document.getElementById('reportId')) document.getElementById('reportId').value = report.id || '';
                     if(report.id) {
                         editSchoolReport(report.id);

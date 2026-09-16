@@ -490,6 +490,27 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
         check('wiring: init.js يستدعي initAutofillBindings',
               /initAutofillBindings\(\)/.test(fs.readFileSync(path.join(ROOT, 'js/init.js'), 'utf8')));
 
+        // النسخة السحابيّة
+        check('wiring: cloud.js بعد identity.js وقبل init.js',
+              html.indexOf('js/cloud.js') > html.indexOf('js/identity.js')
+              && html.indexOf('js/cloud.js') < html.indexOf('js/init.js'));
+        check('wiring: بطاقة السحابة في الصفحة الرئيسيّة', html.includes('id="cloudCard"'));
+        check('wiring: init.js يستدعي SupervisorCloud.initCard',
+              /SupervisorCloud\.initCard\(\)/.test(fs.readFileSync(path.join(ROOT, 'js/init.js'), 'utf8')));
+        check('wiring: عامل الخدمة يخزّن cloud.js', sw.includes("'./js/cloud.js'"));
+
+        // معاينةُ النموذج ترجع إليه كما هو: إعادةُ تحميله تمحو ما لم يُحفظ —
+        // رأيَ الزائر المولَّد والطاقمَ وأوقات الوصول (حمولة المعاينة لا تحملها)
+        const initSrc = fs.readFileSync(path.join(ROOT, 'js/init.js'), 'utf8');
+        const schoolSrc = fs.readFileSync(path.join(ROOT, 'js/school.js'), 'utf8');
+        check('preview: زرّ المعاينة يُعلم أنّ المصدر هو النموذج',
+              /generateSchoolPreview\(tempReport,\s*true\)/.test(initSrc));
+        check('preview: الرجوع من معاينة النموذج لا يُعيد تحميله',
+              /function generateSchoolPreview\(report, fromForm\)/.test(schoolSrc)
+              && /if \(fromForm\) \{ showSchoolForm\(\); return; \}/.test(schoolSrc));
+        check('preview: الرجوع من معاينة السجلّ ما زال يُحمّل التقرير',
+              /editSchoolReport\(report\.id\)/.test(schoolSrc));
+
         const block = src => {
             const s = src.slice(src.indexOf(BEGIN), src.indexOf(END));
             return {

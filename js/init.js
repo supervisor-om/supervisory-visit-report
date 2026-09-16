@@ -403,7 +403,8 @@
                             return; 
                         }
                         
-                        generateSchoolPreview(tempReport);
+                        // معاينةٌ من النموذج: الرجوع يُظهره كما هو ولا يُعيد تحميله
+                        generateSchoolPreview(tempReport, true);
                         document.getElementById('schoolFormView')?.classList.add('hidden');
                         document.getElementById('reportPreviewContainer')?.classList.remove('hidden');
                     });
