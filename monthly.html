@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>التقرير الشهري — الزيارات الإشرافية</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e40af">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+                        colors: { primary: '#1e40af' } } } };
+</script>
+<style> body { font-family: 'Tajawal', sans-serif; } input[type=number]::-webkit-inner-spin-button { opacity: .4 } </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] transition-all duration-300 opacity-0 pointer-events-none">
+    <div class="bg-slate-900 text-white rounded-xl px-5 py-3 shadow-lg flex items-center gap-3">
+        <span id="toast-icon"></span><span id="toast-message"><span id="toast-text"></span></span>
+    </div>
+</div>
+
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center"><i class="fa-solid fa-calendar-check"></i></span>
+      <div>
+        <h1 class="font-bold">التقرير الشهري</h1>
+        <p class="text-xs text-slate-500" id="who">يُبنى من خطة السير وتقاريرك وتأكيدات البوابة</p>
+      </div>
+    </div>
+    <a href="index.html" class="text-sm text-slate-600 hover:text-blue-700"><i class="fa-solid fa-arrow-left ml-1"></i> الرئيسية</a>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-6 space-y-5">
+
+  <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <label class="text-sm">الشهر
+        <input id="month" type="month" class="mt-1 w-full border border-slate-300 rounded-lg p-2.5 text-sm"></label>
+      <label class="text-sm">رقم المشرف في خطة السير
+        <input id="planId" type="text" inputmode="numeric" class="mt-1 w-full border border-slate-300 rounded-lg p-2.5 text-sm"></label>
+      <label class="text-sm">بادئة اسم الملف
+        <input id="prefix" type="text" class="mt-1 w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="6- اسعد"></label>
+      <label class="text-sm">نموذج التقرير (Word)
+        <input id="tplFile" type="file" accept=".docx" class="mt-1 w-full text-xs file:ml-2 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:px-3 file:py-2"></label>
+    </div>
+    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+      <span id="tplState"></span><span id="planState"></span><span id="dataState"></span>
+    </div>
+    <p class="mt-2 text-xs text-slate-500">
+      النموذج يُحفظ في هذا المتصفّح وحده ولا يُرفع إلى الموقع. التقرير يُبنى بنسخ صفوف نموذجك نفسه، فتبقى الخطوط والألوان والشعارات كما اعتمدها المشرف الأول.</p>
+    <button id="prepare" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-6 py-2.5 text-sm">
+      <i class="fa-solid fa-wand-magic-sparkles ml-1"></i> تجهيز التقرير</button>
+  </section>
+
+  <div id="report" hidden class="space-y-5">
+    <section id="summary"></section>
+    <section id="warnings"></section>
+
+    <section class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm overflow-x-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold text-sm">المراجعة قبل الإخراج — عدّل ما تشاء</h2>
+        <button id="reset" class="text-xs border border-slate-200 hover:border-blue-400 rounded-lg px-3 py-1.5">إعادة التعبئة من البيانات</button>
+      </div>
+      <div id="grid"></div>
+      <label class="block mt-4 text-sm">الأسباب (تظهر في صفّ نسبة الإنجاز)
+        <input id="reasons" type="text" class="mt-1 w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="إجازة مرضية (1)(رقم الإجازة)"></label>
+    </section>
+
+    <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <div id="attachments" class="mb-4"></div>
+      <div class="flex flex-wrap gap-3">
+        <button id="dlReport" class="bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl px-5 py-2.5 text-sm">
+          <i class="fa-solid fa-file-word ml-1"></i> تنزيل التقرير الشهري</button>
+        <button id="dlPackage" class="bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl px-5 py-2.5 text-sm">
+          <i class="fa-solid fa-box-archive ml-1"></i> تنزيل الحزمة كاملة (ZIP)</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="js/state.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/export.js"></script>
+<script src="js/identity.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/monthly-core.js"></script>
+<script src="js/monthly-docx.js"></script>
+<script src="js/monthly.js"></script>
+<script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
