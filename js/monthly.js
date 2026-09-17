@@ -282,6 +282,22 @@
         recompute();
     }
 
+    // بلا ربط: تُطوى أدوات الصفحة ويُعرض الطريق إلى الربط
+    function showLinkNeeded() {
+        document.querySelectorAll('main > section').forEach(s => { s.hidden = true; });
+        const rep = el('report');
+        if (rep) rep.hidden = true;
+        const box = document.createElement('section');
+        box.className = 'bg-white border border-amber-200 rounded-2xl p-6 shadow-sm text-center space-y-3';
+        box.innerHTML = '<div class="text-amber-600 text-3xl"><i class="fa-solid fa-link-slash"></i></div>'
+            + '<h2 class="font-bold text-slate-800">التقرير الشهري يحتاج ربط قاعدة بيانات المعلمين</h2>'
+            + '<p class="text-sm text-slate-600 leading-7">يُبنى التقرير من خطة السير ومن زياراتك لمعلّميك،'
+            + ' ويُكتب باسمك كما هو في القاعدة. اربط رمزك من الصفحة الرئيسية ثمّ عُد إلى هنا.</p>'
+            + '<a href="index.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-5 py-2.5 text-sm">الصفحة الرئيسية</a>';
+        document.querySelector('main')?.appendChild(box);
+        el('who').textContent = 'غير مرتبط بقاعدة المعلمين';
+    }
+
     async function init() {
         const now = new Date();
         // الافتراض: الشهر الماضي في أوّل خمسة أيّام من الشهر، وإلّا الشهر الجاري
@@ -290,10 +306,13 @@
         el('planId').value = localStorage.getItem(PLAN_ID_KEY) || '6';
         el('prefix').value = localStorage.getItem(PREFIX_KEY) || '6- اسعد';
 
-        try {
-            const me = window.SupervisorIdentity && SupervisorIdentity.getIdentity();
-            if (me) el('who').textContent = 'المشرف: ' + me.name;
-        } catch (e) {}
+        // الصفحة للمشرف الذي ربط قاعدته وحده: بلا ربطٍ لا اسم في التقرير ولا
+        // معلّمين تُنسب إليهم الزيارات. ومن فتحها برابطٍ مباشر يُقال له السبب
+        // بدل أن يجد صفحةً تُخرج تقريراً ناقصاً.
+        let me = null;
+        try { me = window.SupervisorIdentity && SupervisorIdentity.getIdentity(); } catch (e) {}
+        if (!me) { showLinkNeeded(); return; }
+        el('who').textContent = 'المشرف: ' + me.name;
 
         const saved = await tplGet().catch(() => null);
         if (saved && saved.data) { state.template = saved.data; state.templateName = saved.name; }

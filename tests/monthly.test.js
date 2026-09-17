@@ -171,5 +171,21 @@ if (!fs.existsSync(TPL)) {
           rateRow.replace(/\s+/g, ' ').slice(0, 200));
 }
 
+/* ── التوصيل: الصفحة للمرتبط بقاعدة المعلمين وحده ── */
+{
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const init = fs.readFileSync(path.join(ROOT, 'js/init.js'), 'utf8');
+    const page = fs.readFileSync(path.join(ROOT, 'js/monthly.js'), 'utf8');
+    const card = (html.match(/<a id="monthlyCard"[^>]*>/) || [''])[0];
+    check('الربط: البطاقة مخفيّةٌ في الصفحة نفسها', /class="[^"]*\bhidden\b/.test(card), card);
+    check('الربط: تُكشف عند الربط وتُخفى عند فكّه',
+          /monthlyCard[\s\S]{0,400}?classList\.toggle\('hidden', !linked\)/.test(init) &&
+          /addEventListener\('svf-teachers-changed', svfToggleMonthlyCard\)/.test(init));
+    check('الربط: الصفحة نفسها محروسةٌ لمن يفتحها برابطٍ مباشر',
+          /if \(!me\) \{ showLinkNeeded\(\); return; \}/.test(page) && /function showLinkNeeded/.test(page));
+    check('الربط: الحراسة تطوي أدوات الصفحة',
+          /main > section'\)\.forEach\(s => \{ s\.hidden = true; \}\)/.test(page));
+}
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);

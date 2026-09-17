@@ -206,6 +206,18 @@
                 try { if (typeof svfClassroomInit === 'function') svfClassroomInit(); }
                 catch (e) { console.error('Classroom Error', e); }
 
+                // بطاقة التقرير الشهري: تظهر للمشرف الذي ربط قاعدته وحده — التقرير
+                // يُبنى من خطة السير وأسماء معلّميه، فلا معنى لها قبل الربط.
+                const svfToggleMonthlyCard = () => {
+                    const card = document.getElementById('monthlyCard');
+                    if (!card) return;
+                    let linked = false;
+                    try { linked = !!(window.SupervisorIdentity && SupervisorIdentity.getIdentity()); } catch (e) {}
+                    card.classList.toggle('hidden', !linked);
+                };
+                svfToggleMonthlyCard();
+                document.addEventListener('svf-teachers-changed', svfToggleMonthlyCard);
+
                 // --- Initialize School App ---
                 try { loadSchoolVisitTypes(); } catch(e) { console.error('School Types Error', e); }
                 try { renderSchoolReportsList(); } catch(e) { console.error('School Reports Error', e); }
