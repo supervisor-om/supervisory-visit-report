@@ -437,6 +437,11 @@ const between = (a, b) => {
         id: 'supervision_v6_school_report_1', schoolName: 'مدرسة النور الخاصة', visitDate: '2026-09-10',
         visitType: 'private_exploratory', arrivalTime: '07:15', departureTime: '11:30',
         objectives: ['1- مقابلة الفاضلة مديرة المدرسة.', '2- حضور الطابور المدرسي.'],
+        // موقفٌ صفّيٌّ بالبنية الجديدة: فيه ما جرّته قاعدة المعلمين زيادةً على ما يُرسَل
+        classroomVisits: [{ teacher: 'سارة بنت علي الهنائية', grade: '7', period: '3',
+                           subject: 'المهارات الحركية', rating: 'ممتاز',
+                           teacherName: 'سارة بنت علي الهنائية', teacherFile: '16203690',
+                           gender: 'f', teacherSchool: 'مدرسة النور الخاصة' }],
         visitorOpinion: '1- تم مقابلة ...', recommendations: ''
     };
     const older = Object.assign({}, full, { id: 'supervision_v6_school_report_0', schoolName: 'مدرسة الفجر', visitDate: '2026-09-02', visitType: 'supervisory' });
@@ -487,6 +492,12 @@ const between = (a, b) => {
               v[1].date === '10/09/2026' && v[1].arrivalTime === '07:15' && v[1].departureTime === '11:30',
               [v[1].date, v[1].arrivalTime, v[1].departureTime].join(' / '));
         check('مدرسيّة: الأهداف بلا ترقيم', v[1].objectives[0] === 'مقابلة الفاضلة مديرة المدرسة.', v[1].objectives[0]);
+        const cv = (v[1].classroomVisits || [])[0] || {};
+        check('مدرسيّة: الموقف الصفّيّ يصل بحقوله الخمسة',
+              cv.teacher === 'سارة بنت علي الهنائية' && cv.grade === '7' && cv.period === '3' &&
+              cv.subject === 'المهارات الحركية' && cv.rating === 'ممتاز', JSON.stringify(cv));
+        check('مدرسيّة: ولا يُرسَل رقم الملف ولا الجنس إلى البوّابة',
+              Object.keys(cv).length === 5 && !('teacherFile' in cv) && !('gender' in cv), Object.keys(cv).join(','));
     }
     check('مدرسيّة: الناقصة تُستبعد مع ذكر السبب',
           alerts.some(m => m.includes('مدرسة ناقصة') && m.includes('أهداف الزيارة') && m.includes('رأي الزائر')),

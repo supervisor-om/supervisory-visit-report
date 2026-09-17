@@ -198,6 +198,14 @@
                 try { if (typeof initAutofillBindings === 'function') initAutofillBindings(); }
                 catch (e) { console.error('Autofill Error', e); }
 
+                // منشئ التوصيات في الزيارة المدرسيّة
+                try { if (typeof initRecsBuilder === 'function') initRecsBuilder(); }
+                catch (e) { console.error('Recs Error', e); }
+
+                // المواقف الصفّيّة: القوائم من قاعدة المعلمين وزرّ التقرير الإشرافيّ
+                try { if (typeof svfClassroomInit === 'function') svfClassroomInit(); }
+                catch (e) { console.error('Classroom Error', e); }
+
                 // --- Initialize School App ---
                 try { loadSchoolVisitTypes(); } catch(e) { console.error('School Types Error', e); }
                 try { renderSchoolReportsList(); } catch(e) { console.error('School Reports Error', e); }
@@ -209,6 +217,7 @@
                         try {
                             const repForm = document.getElementById('reportForm');
                             if(repForm) repForm.reset();
+                            if (typeof setSchoolRecs === 'function') setSchoolRecs([]);
                             
                             const repId = document.getElementById('reportId');
                             if(repId) repId.value = '';

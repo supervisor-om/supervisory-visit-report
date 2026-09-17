@@ -230,7 +230,9 @@
             departureTime:   d.departureTime || '12:00',
             objectives:      (Array.isArray(d.objectives) ? d.objectives : [])
                                 .map(o => String(o).replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim()),
-            classroomVisits: Array.isArray(d.classroomVisits) ? d.classroomVisits : [],
+            // خمسة حقولٍ فقط كما تقرؤها البوّابة — لا رقم ملفٍّ ولا جنس (انظر export.js)
+            classroomVisits: (Array.isArray(d.classroomVisits) ? d.classroomVisits : []).map(cv =>
+                ({ teacher: cv.teacher, grade: cv.grade, period: cv.period, subject: cv.subject, rating: cv.rating })),
             visitorOpinion:  d.visitorOpinion || '',
             recommendations: d.recommendations || ''
         };

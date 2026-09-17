@@ -405,7 +405,10 @@
                 arrivalTime:     document.getElementById('schoolArrivalTime')?.value || '08:00',
                 departureTime:   document.getElementById('schoolDepartureTime')?.value || '12:00',
                 objectives,
-                classroomVisits: schoolClassroomVisits || [],
+                // البوّابة تقرأ خمسة حقولٍ فقط: ما أضافته قاعدة المعلمين (رقم الملف
+                // والجنس) يبقى في التقرير ولا يُثقل حمولة الرابط ولا يُرسَل بلا حاجة
+                classroomVisits: (schoolClassroomVisits || []).map(cv =>
+                    ({ teacher: cv.teacher, grade: cv.grade, period: cv.period, subject: cv.subject, rating: cv.rating })),
                 visitorOpinion,
                 recommendations
             };

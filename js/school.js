@@ -192,6 +192,7 @@
                         <span class="text-slate-500 mx-1">|</span>
                         <span class="font-semibold text-slate-700">${visit.rating || '-'}</span>
                     </div>
+                    ${typeof svfCvActions === 'function' ? svfCvActions(visit, index) : ''}
                     <button type="button" class="text-red-500 hover:text-red-700 delete-visit-btn p-1" data-index="${index}">
                         <i class="fa-solid fa-times"></i>
                     </button>
@@ -208,6 +209,7 @@
                     }
                 });
             });
+            if (typeof svfBindCvActions === 'function') svfBindCvActions();
         }
 
         // =========================================================================
@@ -401,7 +403,8 @@
             }
             
             if(!Array.isArray(schoolClassroomVisits)) schoolClassroomVisits = [];
-            schoolClassroomVisits.push({ teacher, grade, period, subject, rating });
+            const meta = (typeof svfCvMeta === 'function') ? svfCvMeta(teacher) : {};
+            schoolClassroomVisits.push({ teacher: meta.teacherName || teacher, grade, period, subject, rating, ...meta });
             renderSchoolClassroomVisits();
             
             if(document.getElementById('cvTeacher')) document.getElementById('cvTeacher').value = '';
@@ -805,7 +808,9 @@
                 teachers: Array.isArray(schoolTeachers) ? schoolTeachers : [],
                 principal: readPrincipalFromForm(),
                 visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
-                recommendations: document.getElementById('recommendations')?.value || ''
+                recommendations: document.getElementById('recommendations')?.value || '',
+                // بنية التوصيات بجانب نصّها: منها تُعرف مواعيد الاستحقاق والمتابعة
+                recs: (typeof getSchoolRecs === 'function' ? getSchoolRecs() : [])
             };
             
             try {
@@ -830,6 +835,7 @@
                 if(document.getElementById('visitTypeSelect')) document.getElementById('visitTypeSelect').value = report.visitType || '';
                 if(document.getElementById('visitorOpinion')) document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
                 if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
+                if (typeof setSchoolRecs === 'function') setSchoolRecs(report.recs || []);
                 if(report.arrivalTime && document.getElementById('schoolArrivalTime')) document.getElementById('schoolArrivalTime').value = report.arrivalTime;
                 if(report.departureTime && document.getElementById('schoolDepartureTime')) document.getElementById('schoolDepartureTime').value = report.departureTime;
 
