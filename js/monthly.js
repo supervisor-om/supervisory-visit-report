@@ -14,8 +14,32 @@
     const C = window.MonthlyCore, D = window.MonthlyDocx;
     const el = id => document.getElementById(id);
     const DRAFT = (y, m) => `svf_monthly_${y}_${m + 1}`;
-    const PLAN_ID_KEY = 'svf_monthly_plan_id';
-    const PREFIX_KEY = 'svf_monthly_prefix';
+    // مفاتيح المسوّدة **لكلّ مشرفٍ على حدة**: المتصفّح قد يتناوبه أكثر من مشرف،
+    // وقيمةٌ واحدةٌ مشتركةٌ كانت تُورِث الثاني رقمَ خطة الأوّل وبادئة اسم ملفّه.
+    const PLAN_ID_KEY = id => 'svf_monthly_plan_id_' + id;
+    const PREFIX_KEY = id => 'svf_monthly_prefix_' + id;
+
+    // أرقام المشرفين في خطة السير — بترتيب قائمة plan.supervisor-mct.com نفسها.
+    // تُراجَع إذا أُضيف مشرفٌ هناك أو حُذف. المطابقة بالاسم لا بالموضع، فترتيب
+    // قائمة identity.js لا يُلزمنا شيئاً.
+    const PLAN_NUMBERS = {
+        'صباح المقبالي': '1', 'ماجد الأخزمي': '2', 'ناصر الرزيقي': '3', 'هشام العدواني': '4',
+        'ناصر الناعبي': '5', 'أسعد الخصيبي': '6', 'هند الهنائية': '7', 'يسرى الذخرية': '8',
+        'رؤى المحاربية': '9', 'أمل النعمانية': '10', 'رياء الشريقية': '11', 'عائشة البلوشية': '12',
+        'مهرة اليعقوبية': '13', 'رقية العميرية': '14', 'آسية الكندية': '15'
+    };
+    const normName = v => (window.SupervisorIdentity ? SupervisorIdentity.normName(v) : String(v || '').trim());
+    const planNumberFor = name => {
+        const want = normName(name);
+        const hit = Object.keys(PLAN_NUMBERS).find(n => normName(n) === want);
+        return hit ? PLAN_NUMBERS[hit] : '';
+    };
+    // اسمٌ لمشرفٍ آخر معروف: تقريرهُ لا يدخل تقريري الشهريّ
+    const isOtherSupervisor = (name, me) => {
+        const want = normName(name);
+        if (!want || want === normName(me)) return false;
+        return Object.keys(PLAN_NUMBERS).some(n => normName(n) === want);
+    };
     const PLAN_CACHE = (id, y, m) => `svf_monthly_plan_${id}_${y}_${m}`;
 
     const PLAN_FB = {
@@ -35,23 +59,33 @@
     const toast = (m, t) => { try { showToast(m, t); } catch (e) { console.log(m); } };
 
     // ───────────────────────────── بيانات الجهاز
-    function loadLocal(year, month0) {
+    // `me`: اسم المشرف المرتبط. التقرير الذي يحمل اسم **مشرفٍ آخر معروف** يُستبعد —
+    // المتصفّح قد يتناوبه اثنان، والتقرير وثيقةٌ باسم صاحبها. وما لا اسم فيه أو فيه
+    // اسمٌ غير معروف (نيابةً عن زميل، أو تقريرٌ قديمٌ قبل الهويّة) يبقى لصاحب الجهاز:
+    // إسقاطُه يُنقص تقريرَه الشهريّ، والخطأ هنا أفدح من زيادةٍ يراها ويحذفها.
+    function loadLocal(year, month0, me) {
         const pref = `${year}-${String(month0 + 1).padStart(2, '0')}`;
         const school = [], sup = [];
+        let skipped = 0;
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
             if (!k) continue;
             if (k.indexOf('supervision_v6_school_report_') === 0) {
                 const r = readJSON(k, null);
-                if (r && String(r.visitDate || '').indexOf(pref) === 0)
+                if (r && String(r.visitDate || '').indexOf(pref) === 0) {
+                    if (isOtherSupervisor(r.supervisor, me)) { skipped++; continue; }
                     school.push({ key: k, schoolName: r.schoolName, visitDate: r.visitDate, visitType: r.visitType,
                                   classroomVisits: r.classroomVisits });
+                }
             } else if (k.indexOf('supervision_v6_visit_') === 0) {
                 const r = readJSON(k, null);
-                if (r && String(r.visitDate || '').indexOf(pref) === 0)
+                if (r && String(r.visitDate || '').indexOf(pref) === 0) {
+                    if (isOtherSupervisor(r.supervisor, me)) { skipped++; continue; }
                     sup.push({ key: k, teacherName: r.teacherName, visitDate: r.visitDate, school: r.school, formData: r.formData || {} });
+                }
             }
         }
+        state.skipped = skipped;
         const sort = (a, b) => String(a.visitDate).localeCompare(String(b.visitDate));
         state.schoolReports = school.sort(sort);
         state.supReports = sup.sort(sort);
@@ -234,7 +268,8 @@
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     };
 
-    const folderName = () => `${(localStorage.getItem(PREFIX_KEY) || '6- اسعد').trim()} تقرير ${C.MONTH_NAMES[state.month0]}`;
+    // اسم المجلّد من بادئة المشرف نفسه لا من قيمةٍ ثابتة
+    const folderName = () => `${(el('prefix').value || '').trim() || C.firstName(state.me.name)} تقرير ${C.MONTH_NAMES[state.month0]}`;
 
     async function downloadReport() {
         const { blob, pages } = await buildDocx();
@@ -267,17 +302,18 @@
             el('dataState').textContent = 'جارٍ مزامنة التقارير…';
             try { await SupervisorCloud.sync(); } catch (e) {}
         }
-        loadLocal(state.year, state.month0);
+        loadLocal(state.year, state.month0, state.me && state.me.name);
 
         const planId = (el('planId').value || '').trim();
-        try { localStorage.setItem(PLAN_ID_KEY, planId); } catch (e) {}
+        try { localStorage.setItem(PLAN_ID_KEY(state.me.id), planId); } catch (e) {}
         el('planState').textContent = 'جارٍ جلب الخطة…';
         const p = await fetchPlan(planId, state.year, state.month0);
         state.plan = p.visits; state.events = p.events;
         el('planState').textContent = p.status === 'live' ? `الخطة المعتمدة: ${Object.keys(p.visits).length} يوماً`
             : p.status === 'cache' ? 'تعذّر الاتصال — استُعملت آخر نسخة محفوظة'
             : p.status === 'empty' ? 'لا خطة محفوظة لهذا الشهر في موقع الخطة' : 'تعذّر جلب الخطة: ' + (p.error || '');
-        el('dataState').textContent = `${state.schoolReports.length} زيارة مدرسية · ${state.supReports.length} زيارة إشرافية من هذا الجهاز`;
+        el('dataState').textContent = `${state.schoolReports.length} زيارة مدرسية · ${state.supReports.length} زيارة إشرافية من هذا الجهاز`
+            + (state.skipped ? ` · استُبعدت (${state.skipped}) لمشرفٍ آخر` : '');
         el('report').hidden = false;
         recompute();
     }
@@ -303,8 +339,6 @@
         // الافتراض: الشهر الماضي في أوّل خمسة أيّام من الشهر، وإلّا الشهر الجاري
         const d = now.getDate() <= 5 ? new Date(now.getFullYear(), now.getMonth() - 1, 1) : now;
         el('month').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        el('planId').value = localStorage.getItem(PLAN_ID_KEY) || '6';
-        el('prefix').value = localStorage.getItem(PREFIX_KEY) || '6- اسعد';
 
         // الصفحة للمشرف الذي ربط قاعدته وحده: بلا ربطٍ لا اسم في التقرير ولا
         // معلّمين تُنسب إليهم الزيارات. ومن فتحها برابطٍ مباشر يُقال له السبب
@@ -312,7 +346,21 @@
         let me = null;
         try { me = window.SupervisorIdentity && SupervisorIdentity.getIdentity(); } catch (e) {}
         if (!me) { showLinkNeeded(); return; }
+        state.me = me;
         el('who').textContent = 'المشرف: ' + me.name;
+
+        // رقم خطة السير من هويّة المشرف لا من قيمةٍ محفوظةٍ في المتصفّح: كان افتراضه
+        // (6) للجميع، فأيّ مشرفٍ يفتح الصفحة كان يسحب خطة مشرفٍ آخر ويبني عليها تقريره.
+        const num = planNumberFor(me.name);
+        const savedId = localStorage.getItem(PLAN_ID_KEY(me.id));
+        const savedPrefix = localStorage.getItem(PREFIX_KEY(me.id));
+        el('planId').value = num || savedId || '';
+        if (num) {
+            el('planId').readOnly = true;
+            el('planId').classList.add('bg-slate-100', 'text-slate-600');
+            el('planId').title = 'رقمك في خطة السير — من هويّتك';
+        }
+        el('prefix').value = savedPrefix || ((num ? num + '- ' : '') + C.firstName(me.name));
 
         const saved = await tplGet().catch(() => null);
         if (saved && saved.data) { state.template = saved.data; state.templateName = saved.name; }
@@ -327,7 +375,7 @@
             toast('حُفظ النموذج في هذا المتصفّح');
         });
         el('prepare').addEventListener('click', () => prepare().catch(e => toast(e.message, 'error')));
-        el('prefix').addEventListener('change', e => { try { localStorage.setItem(PREFIX_KEY, e.target.value.trim()); } catch (x) {} });
+        el('prefix').addEventListener('change', e => { try { localStorage.setItem(PREFIX_KEY(me.id), e.target.value.trim()); } catch (x) {} });
         el('reset').addEventListener('click', () => { state.overrides = {}; state.reasons = null; recompute(); toast('أُعيدت التعبئة من البيانات'); });
         el('reasons').addEventListener('input', e => { state.reasons = e.target.value; saveDraft(); });
         el('grid').addEventListener('change', e => {

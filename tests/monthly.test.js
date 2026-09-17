@@ -185,6 +185,22 @@ if (!fs.existsSync(TPL)) {
           /if \(!me\) \{ showLinkNeeded\(\); return; \}/.test(page) && /function showLinkNeeded/.test(page));
     check('الربط: الحراسة تطوي أدوات الصفحة',
           /main > section'\)\.forEach\(s => \{ s\.hidden = true; \}\)/.test(page));
+
+    // كلٌّ يرى تقريره هو: رقم خطته، وبادئة ملفّه، وزياراته
+    check('الملكيّة: رقم خطة السير من هويّة المشرف',
+          /planNumberFor\(me\.name\)/.test(page) && /el\('planId'\)\.value = num \|\| savedId/.test(page));
+    check('الملكيّة: ولا يبقى الرقم (6) افتراضاً للجميع',
+          !/localStorage\.getItem\(PLAN_ID_KEY\) \|\| '6'/.test(page) && !/PREFIX_KEY\) \|\| '6- اسعد'/.test(page));
+    check('الملكيّة: مفاتيح المسوّدة لكلّ مشرفٍ على حدة',
+          /const PLAN_ID_KEY = id =>/.test(page) && /const PREFIX_KEY = id =>/.test(page));
+    check('الملكيّة: أرقام المشرفين خمسة عشر كما في موقع الخطة',
+          (page.match(/'\d+'/g) || []).length >= 15 && /'أسعد الخصيبي': '6'/.test(page) && /'هند الهنائية': '7'/.test(page));
+    check('الملكيّة: تقرير مشرفٍ آخر لا يدخل الحساب',
+          /isOtherSupervisor\(r\.supervisor, me\)/.test(page) &&
+          (page.match(/isOtherSupervisor\(r\.supervisor, me\)/g) || []).length === 2);
+    check('الملكيّة: وما لا اسم فيه يبقى لصاحب الجهاز',
+          /if \(!want \|\| want === normName\(me\)\) return false;/.test(page));
+    check('الملكيّة: ويُقال كم استُبعد', /استُبعدت \(\$\{state\.skipped\}\)/.test(page));
 }
 
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
