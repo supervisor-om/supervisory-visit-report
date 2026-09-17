@@ -76,6 +76,56 @@
             return parseInt(document.querySelector('input[name="genderMode"]:checked')?.value || '0');
         }
 
+        // ملاحظات الأهداف من النموذج نفسه لحظة الحفظ — الذاكرة قد تكون متأخّرةً عنه
+        function collectObjectiveNotes() {
+            const notes = {};
+            document.querySelectorAll('#objectivesContainer .objective-item').forEach((item, i) => {
+                const v = item.querySelector('.objective-note')?.value.trim();
+                if (v) notes[i] = v;
+            });
+            return notes;
+        }
+
+        // ── استعادة الأهداف المحدَّدة ──
+        // الهدف يُحفظ بنصّه **بعد** تطبيق مفتاح الجنس ([معلم/معلمة/معلمين/معلمات])،
+        // وكانت الاستعادة تطابق النصّ حرفاً بحرف والمفتاح لا يُحفظ: فمن حدّد أهدافه
+        // بصيغة «معلمات» ثمّ فتح التقرير والمفتاح عاد إلى «معلم» وجدها بلا تحديد.
+        // الآن يُحفظ المفتاح، والتقارير القديمة يُستنتج مفتاحها من أهدافها نفسها،
+        // ثمّ يُطابَق الهدف بموضعه في قائمة النوع مهما اختلفت صيغته.
+        function restoreSchoolObjectives(report) {
+            const saved = Array.isArray(report.objectives) ? report.objectives : [];
+            if (!saved.length) return;
+            const tmpl = ((schoolVisitTypesData || {})[report.visitType] || {}).objectives || [];
+            const resolved = m => tmpl.map(o => applyGenderFilter(String(o == null ? '' : o), m));
+
+            let mode = Number.isInteger(report.genderMode) ? report.genderMode : null;
+            if (mode === null) {
+                let hits = 0;
+                for (let m = 0; m <= 3; m++) {
+                    const set = new Set(resolved(m));
+                    const n = saved.filter(v => set.has(v)).length;
+                    if (n > hits) { hits = n; mode = m; }
+                }
+            }
+            if (mode !== null && mode !== getGenderMode()) {
+                const radio = document.querySelector(`input[name="genderMode"][value="${mode}"]`);
+                if (radio) { radio.checked = true; renderSchoolObjectives(report.visitType); }
+            }
+
+            const boxes = Array.from(document.querySelectorAll('input[name="objectives"]'));
+            let missing = 0;
+            saved.forEach(val => {
+                let cb = boxes.find(el => el.value === val);
+                for (let m = 0; m <= 3 && !cb; m++) {
+                    const i = resolved(m).indexOf(val);
+                    if (i >= 0) cb = boxes[i];
+                }
+                if (cb) cb.checked = true; else missing++;
+            });
+            // هدفٌ حُذف أو غُيّر نصّه في الإعدادات بعد الحفظ: يُقال ولا يُسكت عنه
+            if (missing) showToast(`(${missing}) من أهداف التقرير لم تعد في قائمة هذا النوع`, 'info');
+        }
+
         function renderSchoolObjectives(typeKey) {
             const objectivesContainer = document.getElementById('objectivesContainer');
             if(!objectivesContainer) return;
@@ -811,6 +861,10 @@
                 visitDate: formData.get('visitDate') || '',
                 visitType: visitType,
                 objectives: objectives,
+                // مفتاح الجنس وملاحظات الأهداف: بدونهما تعود الأهداف بلا تحديد
+                // وتضيع الملاحظات عند فتح التقرير للتعديل
+                genderMode: getGenderMode(),
+                objectiveNotes: collectObjectiveNotes(),
                 arrivalTime: document.getElementById('schoolArrivalTime')?.value || '',
                 departureTime: document.getElementById('schoolDepartureTime')?.value || '',
                 classroomVisits: Array.isArray(schoolClassroomVisits) ? schoolClassroomVisits : [],
@@ -853,21 +907,22 @@
                 schoolPrincipal = (report.principal && typeof report.principal === 'object')
                     ? report.principal : { name: '', gender: 'f' };
                 prevRecommendationsStatus = [];
+                // ملاحظات هذا التقرير وحده: كانت تبقى من التقرير المفتوح قبله فتُنسب إليه
+                objectiveNotes = (report.objectiveNotes && typeof report.objectiveNotes === 'object')
+                    ? Object.assign({}, report.objectiveNotes) : {};
                 renderSchoolClassroomVisits();
                 applyRosterToForm();
                 updateRosterVisibility(report.visitType);
+                // مفتاح الجنس قبل الرسم: نصّ الهدف يُبنى عليه
+                if (Number.isInteger(report.genderMode)) {
+                    const gm = document.querySelector(`input[name="genderMode"][value="${report.genderMode}"]`);
+                    if (gm) gm.checked = true;
+                }
                 renderSchoolObjectives(report.visitType);
                 // تحميل توصيات الزيارة السابقة لهذه المدرسة (باستثناء التقرير الحالي)
                 setTimeout(() => loadPreviousRecommendations(), 50);
 
-                if (Array.isArray(report.objectives)) {
-                    setTimeout(() => {
-                        report.objectives.forEach(objVal => {
-                            const cb = Array.from(document.querySelectorAll('input[name="objectives"]')).find(el => el.value === objVal);
-                            if (cb) cb.checked = true;
-                        });
-                    }, 0);
-                }
+                restoreSchoolObjectives(report);
                 showSchoolForm();
             } catch(e) {
                 showToast('خطأ في استرجاع التقرير', 'error');
@@ -969,15 +1024,12 @@
                         renderSchoolClassroomVisits();
                         applyRosterToForm();
                         updateRosterVisibility(report.visitType);
+                        if (Number.isInteger(report.genderMode)) {
+                            const gm = document.querySelector(`input[name="genderMode"][value="${report.genderMode}"]`);
+                            if (gm) gm.checked = true;
+                        }
                         renderSchoolObjectives(report.visitType);
-                        setTimeout(() => { 
-                            if(Array.isArray(report.objectives)) {
-                                report.objectives.forEach(val => { 
-                                    const cb = Array.from(document.querySelectorAll('input[name="objectives"]')).find(el => el.value === val); 
-                                    if(cb) cb.checked = true; 
-                                });
-                            }
-                        }, 0);
+                        restoreSchoolObjectives(report);
                         showSchoolForm();
                     }
                 };
