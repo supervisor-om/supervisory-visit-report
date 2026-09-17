@@ -390,6 +390,21 @@
             });
         }
 
+        // سطر الموقف الصفّيّ في رأي الزائر. كان بلا اسمٍ عمداً، والمشرف طلب إظهاره.
+        // الصفة من جنس المعلّم: من بيانات الموقف (قاعدة المعلمين) أو من الطاقم —
+        // ومن لا يُعرف جنسه يُكتب اسمه مجرّداً، فلا يُذكَّر معلّمةٌ ولا العكس.
+        function classroomVisitLine(cv) {
+            const name = String(cv.teacherName || cv.teacher || '').trim();
+            let who = '';
+            if (name) {
+                const norm = v => (window.SupervisorIdentity ? SupervisorIdentity.normName(v) : String(v || '').trim());
+                const fromRoster = rosterList().find(t => t.name && norm(t.name) === norm(name));
+                const g = cv.gender || (fromRoster && fromRoster.gender) || '';
+                who = (g === 'f' ? 'المعلمة ' : g === 'm' ? 'المعلم ' : '') + name + ' – ';
+            }
+            return `   • ${who}الحصة (${cv.period}): درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
+        }
+
         function addSchoolClassroomVisit() {
             const teacher = document.getElementById('cvTeacher')?.value.trim();
             const grade = document.getElementById('cvGrade')?.value.trim();
@@ -594,10 +609,7 @@
                 if (isClassroomObj && hasClassroomVisits) {
                     // دمج تفاصيل المواقف الصفية داخل هذا الهدف مباشرةً
                     opinionText += counter + "- " + text + "، وذلك على النحو الآتي:\n";
-                    schoolClassroomVisits.forEach(cv => {
-                        // بلا اسم المعلّم: رأي الزائر سجلٌّ عن المدرسة لا عن الأشخاص
-                        opinionText += `   • الحصة (${cv.period}): درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
-                    });
+                    schoolClassroomVisits.forEach(cv => { opinionText += classroomVisitLine(cv); });
                     classroomVisitsHandled = true;
                 } else if (note) {
                     opinionText += counter + "- " + withNote(text, note) + "\n";
@@ -613,10 +625,7 @@
             // إضافة المواقف الصفية كبند مستقل فقط إذا لم يُعالَج ضمن هدف "موقف صفي"
             if (!classroomVisitsHandled && hasClassroomVisits) {
                 opinionText += counter + "- تم حضور مواقف صفية وإجراء المداولة الإشرافية، وذلك على النحو الآتي:\n";
-                schoolClassroomVisits.forEach(cv => {
-                    // بلا اسم المعلّم هنا أيضاً — الحالتان تكتبان السطر نفسه
-                    opinionText += `   • الحصة (${cv.period}): درس ${cv.subject} – الصف ${cv.grade}، وكان مستوى الأداء ${cv.rating}.\n`;
-                });
+                schoolClassroomVisits.forEach(cv => { opinionText += classroomVisitLine(cv); });
             }
 
             const visOp = document.getElementById('visitorOpinion');

@@ -288,6 +288,15 @@ function buildEnv(extra) {
     check('wiring: الأزرار تُربط بعد الرسم', /svfBindCvActions === 'function'/.test(school));
     check('wiring: الإضافة تحفظ بيانات القاعدة', /svfCvMeta === 'function'/.test(school));
     check('wiring: ولا تُستدعى performReset من هنا', !/performReset/.test(fs.readFileSync(path.join(ROOT, 'js/classroom.js'), 'utf8').replace(/\/\/.*/g, '')));
+
+    // رأي الزائر: اسم المعلّم في سطر الموقف الصفّيّ — كان محذوفاً وطلب المشرف إظهاره
+    check('رأي الزائر: السطر يُبنى من دالّةٍ واحدة',
+          /function classroomVisitLine/.test(school) &&
+          (school.match(/opinionText \+= classroomVisitLine\(cv\)/g) || []).length === 2,
+          String((school.match(/opinionText \+= classroomVisitLine\(cv\)/g) || []).length));
+    check('رأي الزائر: الاسم في السطر', /\$\{who\}الحصة \(\$\{cv\.period\}\)/.test(school));
+    check('رأي الزائر: الصفة من الجنس لا من التخمين',
+          /g === 'f' \? 'المعلمة ' : g === 'm' \? 'المعلم ' : ''/.test(school));
 }
 
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
