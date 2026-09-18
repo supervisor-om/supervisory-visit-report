@@ -208,20 +208,13 @@
         // =========================================================================
         // BACKUP / IMPORT
         // =========================================================================
-        // ما يدخل النسخة زيادةً على تقارير الموقع. كانت تأكيدات البوّابة تبقى خارجها،
-        // فمن انتقل إلى جهازٍ جديدٍ فقد كلّ علامات ✓ وانقلبت زياراته إلى «مرفق» في
-        // التقرير الشهري. والهويّة ونسخة المعلمين **لا تُصدَّران**: فيهما بيانات
-        // معلّمين، والربط يُعاد برمزٍ في ثوانٍ.
-        const BACKUP_KEYS = ['svf_sent_visits', 'svf_sent_school_visits',
-                             'svf_queued_visits', 'svf_queued_school', 'svf_recs_equipment'];
-        const BACKUP_PREFIXES = ['supervision_v6_', 'visit_v5_', 'svf_monthly_prefix_', 'svf_monthly_plan_id_'];
-        const inBackup = key => BACKUP_PREFIXES.some(p => key.startsWith(p)) || BACKUP_KEYS.includes(key);
-
         function exportBackup() {
             const backup = {};
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (inBackup(key)) backup[key] = localStorage.getItem(key);
+                if (key.startsWith('supervision_v6_') || key.startsWith('visit_v5_')) {
+                    backup[key] = localStorage.getItem(key);
+                }
             }
             if (Object.keys(backup).length === 0) {
                 showToast('لا توجد بيانات للتصدير', 'error');
@@ -243,22 +236,18 @@
             reader.onload = (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    let count = 0, failed = 0;
-                    // كلّ سجلٍّ على حدة: امتلاء التخزين في المنتصف كان يقطع الاستيراد
-                    // ويُظهر «خطأ في قراءة الملف» — فيظنّ المستخدم الملفّ تالفاً وقد
-                    // دخل نصفه. الآن يمضي ما يمضي، ويُقال كم سجلّاً لم يدخل ولماذا.
+                    let count = 0;
                     Object.keys(data).forEach(key => {
-                        if (!inBackup(key)) return;
-                        try { localStorage.setItem(key, data[key]); count++; }
-                        catch (e) { failed++; }
+                        if (key.startsWith('supervision_v6_') || key.startsWith('visit_v5_')) {
+                            localStorage.setItem(key, data[key]);
+                            count++;
+                        }
                     });
-                    if (failed) showToast(`استُورد ${count} سجلاً، وتعذّر ${failed} — مساحة المتصفّح ممتلئة`, 'error');
-                    else showToast('تم استيراد ' + count + ' سجل بنجاح');
+                    showToast('تم استيراد ' + count + ' سجل بنجاح');
                     renderSavedReports();
                     try { renderSchoolReportsList(); } catch(e) {}
-                    try { if (typeof loadSchoolVisitTypes === 'function') loadSchoolVisitTypes(); } catch(e) {}
                 } catch (err) {
-                    showToast('تعذّرت قراءة الملف — تأكّد أنّه نسخةٌ صدّرها هذا الموقع', 'error');
+                    showToast('خطأ في قراءة الملف', 'error');
                 }
             };
             reader.readAsText(file);

@@ -465,7 +465,7 @@
                             const key = deleteBtn.dataset.key;
                             if (confirm('هل أنت متأكد من حذف هذا النوع؟')) {
                                 delete schoolVisitTypesData[key];
-                                svfSafeSet('supervision_v6_school_visit_types', JSON.stringify(schoolVisitTypesData), 'حذف نوع الزيارة');
+                                localStorage.setItem('supervision_v6_school_visit_types', JSON.stringify(schoolVisitTypesData));
                                 renderSchoolVisitTypesList();
                                 populateSchoolVisitTypeDropdown();
                                 showToast('تم حذف النوع بنجاح');
@@ -525,7 +525,7 @@
                         }
                         
                         schoolVisitTypesData[key] = { name, objectives };
-                        svfSafeSet('supervision_v6_school_visit_types', JSON.stringify(schoolVisitTypesData), 'نوع الزيارة وأهدافه');
+                        localStorage.setItem('supervision_v6_school_visit_types', JSON.stringify(schoolVisitTypesData));
                         renderSchoolVisitTypesList();
                         populateSchoolVisitTypeDropdown();
                         document.getElementById('addEditTypeModal')?.classList.add('hidden');

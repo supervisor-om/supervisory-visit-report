@@ -31,7 +31,7 @@
                 }
             } else {
                 schoolVisitTypesData = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData));
-                svfSafeSet(newKey, JSON.stringify(schoolVisitTypesData), 'أنواع الزيارات');
+                localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             }
             // حذف الأنواع القديمة غير المرغوب فيها
             // 'private_exploratory' عاد نوعاً معتمداً (استطلاعية للمدارس الخاصة)،
@@ -42,7 +42,7 @@
             Object.keys(defaultSchoolVisitTypesData).forEach(k => {
                 schoolVisitTypesData[k] = JSON.parse(JSON.stringify(defaultSchoolVisitTypesData[k]));
             });
-            svfSafeSet(newKey, JSON.stringify(schoolVisitTypesData), 'أنواع الزيارات');
+            localStorage.setItem(newKey, JSON.stringify(schoolVisitTypesData));
             populateSchoolVisitTypeDropdown();
             renderSchoolVisitTypesList();
         }
