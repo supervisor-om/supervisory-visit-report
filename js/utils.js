@@ -1,6 +1,21 @@
         // =========================================================================
         // 2. SHARED UTILITIES
         // =========================================================================
+
+        // كتابةٌ محروسةٌ في تخزين المتصفّح. امتلاء التخزين يرمي استثناءً، والكتابة
+        // العارية تُسقط ما كُتب **بلا رسالة**: هكذا كانت تضيع أنواع الزيارات
+        // وأهدافها والمستخدم يظنّها حُفظت. ترجع true عند النجاح.
+        function svfSafeSet(key, value, whatFailed) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (e) {
+                console.error('storage', key, e);
+                try { showToast('تعذّر الحفظ: ' + (whatFailed || 'مساحة المتصفّح ممتلئة') + ' — صدّر نسخةً احتياطيّة واحذف تقارير قديمة', 'error'); } catch (x) {}
+                return false;
+            }
+        }
+
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             if(!container) return;

@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -40,6 +40,7 @@ const ASSETS = [
     'https://cdn.tailwindcss.com',
     'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.js',
     'https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',   // حزمة التقرير الشهري
     'https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Noto+Naskh+Arabic:wght@400;700&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];

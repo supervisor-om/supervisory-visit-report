@@ -1,0 +1,9 @@
+# ما لا يُنشر على supervisor-mct.com — ملفّات عملٍ داخليّة لا تخصّ المشرفين.
+# كانت CLAUDE.md (فيها تفاصيل أتمتة البوّابة) والاختبارات تُخدَم علناً.
+exclude:
+  - CLAUDE.md
+  - ai-agent-orchestration-guide.md
+  - tests/
+  - firestore.rules
+  - app.js.old
+  - tailwind.config.js
