@@ -23,7 +23,8 @@
                         serif: ['Noto Naskh Arabic', 'serif'],
                     },
                     colors: {
-                        primary: '#1e40af',
+                        blue: { 50: '#eef4f9', 100: '#d8e6f2', 200: '#b3cce4', 300: '#85acd1', 400: '#4f87b8', 500: '#2a6a9e', 600: '#0f4c81', 700: '#0c3e6a', 800: '#0a3256', 900: '#082742', 950: '#061c30' },
+                        primary: '#0f4c81',
                         secondary: '#15803d',
                         accent: '#b45309',
                         danger: '#b91c1c',
@@ -40,7 +41,30 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="تقارير إشرافية">
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen selection:bg-blue-100 selection:text-blue-900">
+<body class="bg-[#f7f8fa] text-slate-800 font-sans antialiased min-h-screen selection:bg-blue-100 selection:text-blue-900">
+<!-- شريط الهويّة — مشتركٌ بين صفحات supervisor-mct.com. المصدر: supervisory-visit-report/identity-bar.html -->
+<style>
+.svf-id{background:#0a1410;color:#f7f5ee;
+  font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;
+  display:flex;align-items:center;gap:14px;padding:10px 24px;
+  font-size:13px;line-height:1.45;direction:rtl}
+.svf-id b{font-weight:600;font-size:14.5px;letter-spacing:-.2px}
+.svf-id i{font-style:normal;opacity:.6}
+.svf-id a{margin-inline-start:auto;color:inherit;text-decoration:none;
+  border:1px solid rgba(247,245,238,.3);border-radius:999px;padding:5px 15px;
+  white-space:nowrap;transition:background-color .2s ease,border-color .2s ease}
+.svf-id a:hover{background:rgba(247,245,238,.12);border-color:rgba(247,245,238,.5)}
+.svf-id a:active{background:rgba(247,245,238,.06)}
+.svf-id a:focus-visible{outline:2px solid #f0b44a;outline-offset:2px}
+@media (max-width:560px){ .svf-id{padding:9px 16px;gap:10px} .svf-id i{display:none} }
+@media print{ .svf-id{display:none} }
+</style>
+<div class="svf-id">
+  <b>منظومة الإشراف التربوي</b>
+  <i>الرياضة المدرسية، محافظة مسقط</i>
+  <a href="https://supervisor-mct.com/">الرئيسية</a>
+</div>
+
 
     <div id="toast-container" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-[9999] transition-all duration-300 opacity-0 pointer-events-none">
         <div id="toast-message" class="bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium">
