@@ -173,7 +173,7 @@ if (!fs.existsSync(TPL)) {
 
 /* ── التوصيل: الصفحة للمرتبط بقاعدة المعلمين وحده ── */
 {
-    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(ROOT, 'reports.html'), 'utf8');
     const init = fs.readFileSync(path.join(ROOT, 'js/init.js'), 'utf8');
     const page = fs.readFileSync(path.join(ROOT, 'js/monthly.js'), 'utf8');
     const card = (html.match(/<a id="monthlyCard"[^>]*>/) || [''])[0];

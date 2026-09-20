@@ -2,7 +2,7 @@
     "name": "نظام التقارير الإشرافية",
     "short_name": "تقارير إشرافية",
     "description": "منصة موحدة لإدارة الزيارات الإشرافية والمدرسية بكفاءة",
-    "start_url": "./index.html",
+    "start_url": "./reports.html",
     "display": "standalone",
     "background_color": "#f8fafc",
     "theme_color": "#1e40af",

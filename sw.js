@@ -1,5 +1,5 @@
 // =========================================================================
-// Service Worker — نظام التقارير الإشرافية
+// Service Worker — نظام التقارير الإشرافية (reports.html؛ الجذر صار بوّابة الدخول)
 //
 // الاستراتيجية:
 //   • ملفات التطبيق (نفس الأصل) → الشبكة أولاً، والذاكرة احتياط عند انقطاعها
@@ -8,12 +8,13 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
     './',
     './index.html',
+    './reports.html',
     './monthly.html',
     './styles.css',
     './js/state.js',
@@ -89,7 +90,7 @@ self.addEventListener('fetch', event => {
                 .then(response => putInCache(request, response))
                 .catch(() => caches.match(request).then(cached => {
                     if (cached) return cached;
-                    if (request.mode === 'navigate') return caches.match('./index.html');
+                    if (request.mode === 'navigate') return caches.match('./reports.html');
                     return Response.error();
                 }))
         );

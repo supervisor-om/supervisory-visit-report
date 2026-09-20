@@ -94,7 +94,7 @@ const check = (name, ok, detail) => {
 
 /* ── ٥) التوصيل ── */
 {
-    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(ROOT, 'reports.html'), 'utf8');
     const school = fs.readFileSync(path.join(ROOT, 'js/school.js'), 'utf8');
     const init = fs.readFileSync(path.join(ROOT, 'js/init.js'), 'utf8');
     const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');

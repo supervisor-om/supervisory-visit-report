@@ -1,609 +1,378 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام التقارير الإشرافية المدمج | النسخة الاحترافية</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.js"></script>
-    <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Noto+Naskh+Arabic:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>منظومة الإشراف التربوي — الرياضة المدرسية</title>
+<meta name="description" content="بوّابة واحدة: خطة السير، وتقارير الزيارات، وقاعدة بيانات معلمي الرياضة المدرسية.">
+<meta name="theme-color" content="#0a1410">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230b3c28'/><circle cx='32' cy='32' r='13' fill='none' stroke='%23f7f5ee' stroke-width='3'/><path d='M32 6v52' stroke='%23f7f5ee' stroke-width='3'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · macrostructure: Marquee Hero (مشهد ملء الشاشة) · nav: N9 edge-aligned
+   · theme: custom «Field» — بنيةٌ مقتبسةٌ من واجهة Lumora
+   · motion: طبقاتٌ تنجرف بسرعاتٍ مختلفة + شمسٌ تشرق + علمٌ يرفرف + لوح زجاجٍ ينزلق ضوؤه
+   · كلّ حركةٍ على transform/opacity، وتُطفأ عند «تقليل الحركة» · contrast: pass */
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Tajawal', 'sans-serif'],
-                        serif: ['Noto Naskh Arabic', 'serif'],
-                    },
-                    colors: {
-                        primary: '#1e40af',
-                        secondary: '#15803d',
-                        accent: '#b45309',
-                        danger: '#b91c1c',
-                    }
-                }
-            }
-        }
-    </script>
+/* ===========================================================================
+   مشهدٌ واحد: الطابور الصباحيّ. فجرٌ فوق فناء المدرسة، وصفوفٌ تقف،
+   والعلم يُرفع. ثلاث طبقاتٍ تنجرف بسرعاتٍ مختلفة (عمقٌ لا صورة)، وفوقها
+   لوح زجاجٍ بانعكاسٍ ينزلق وهباءٍ يطفو. مرسومٌ كلّه هنا: لا فيديو ولا صور.
+   =========================================================================== */
+:root{
+  --ink-light:#f7f5ee;
+  --accent:#f0b44a;
+  --page:#0a1410; --on-light:#10201a;
+  --glass-bg:rgba(255,255,255,.01);
+  --glass-inset:rgba(255,255,255,.1);
+  --glass-hover:rgba(255,255,255,.12);
+  --sheet-bg:rgba(6,14,10,.72);
+  --mask:rgba(255,255,255,1);
+  --hairline:1.4px;
+  --pane-glare:rgba(255,255,255,.10);
+  --pane-frost:rgba(255,255,255,.07);
+  --pane-dark:rgba(4,10,8,.5);
+  --mote:rgba(255,255,255,.55);
+  --scrim-d:6,14,10;            /* ستارةٌ داكنةٌ تحمي قراءة النصّ فوق المشهد */
+  --dawn-1:#22203f; --dawn-2:#6d3a50; --dawn-3:#9c4a30; --dawn-4:#7b3524;
+  --sun-1:rgba(255,224,168,.7); --sun-2:rgba(255,196,120,.3);
+  --soil-1:#3f342e; --soil-2:#241d19;
+  --rank-1:#1b1117; --rank-2:#2a1a20;   /* صفوف الطابور: قريبةٌ وبعيدة */
+  --om-red:#db161b; --om-white:#ffffff; --om-green:#008000;   /* ألوان العلم */
+  --pole-1:rgba(255,255,255,.6); --pole-2:rgba(255,255,255,.25);
+  --line-w:rgba(255,255,255,.34);
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:24px; --s-6:32px;
+  --ease:cubic-bezier(.22,.7,.28,1);
+  --f-display:'Readex Pro','Segoe UI',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans Arabic','Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{overflow:hidden;overflow-x:clip;height:100%;margin:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--page);color:var(--ink-light);font-family:var(--f-body);line-height:1.7;
+  -webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:8px}
 
-    <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e40af">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="تقارير إشرافية">
+/* ── الزجاج السائل ── */
+.glass{background:var(--glass-bg);background-blend-mode:luminosity;
+  -webkit-backdrop-filter:blur(4px);border:none;
+  box-shadow:inset 0 1px 1px var(--glass-inset);position:relative;overflow:hidden}
+@supports (backdrop-filter: blur(4px)){ .glass{backdrop-filter:blur(4px)} }
+.glass::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:var(--hairline);
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.45) 0%, rgba(255,255,255,.15) 20%,
+    rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%,
+    rgba(255,255,255,.15) 80%, rgba(255,255,255,.45) 100%);
+  -webkit-mask:linear-gradient(var(--mask) 0 0) content-box, linear-gradient(var(--mask) 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+
+/* ── المسرح ── */
+.stage{position:fixed;inset:0;z-index:0;overflow:hidden}
+.scene{position:absolute;inset:0}
+.layer{position:absolute;inset:-6%}
+.far{animation:driftA 34s ease-in-out infinite alternate}
+.mid{animation:driftB 24s ease-in-out infinite alternate}
+.near{animation:driftC 18s ease-in-out infinite alternate}
+@keyframes driftA{from{transform:translate3d(0,0,0) scale(1.02)}to{transform:translate3d(-1.5%,.8%,0) scale(1.05)}}
+@keyframes driftB{from{transform:translate3d(0,0,0) scale(1.03)}to{transform:translate3d(2%,-1%,0) scale(1.07)}}
+@keyframes driftC{from{transform:translate3d(0,0,0) scale(1.04)}to{transform:translate3d(-3%,1.5%,0) scale(1.09)}}
+.scene svg{position:absolute;inset:0;width:100%;height:100%}
+.scene svg [data-l]{fill:none;stroke:var(--line-w);stroke-width:2;vector-effect:non-scaling-stroke}
+
+/* الطابور الصباحيّ */
+#s0 .far{background:linear-gradient(180deg,var(--dawn-1) 0%,var(--dawn-2) 34%,var(--dawn-3) 62%,var(--dawn-4) 100%)}
+#s0 .sun{position:absolute;inset-inline-start:22%;inset-block-start:60%;width:min(26vw,220px);aspect-ratio:1;
+  border-radius:50%;background:radial-gradient(circle,var(--sun-1) 0%,var(--sun-2) 45%,transparent 70%);
+  animation:rise 42s ease-in-out infinite alternate}
+@keyframes rise{from{transform:translateY(6%) scale(.96)}to{transform:translateY(-10%) scale(1.04)}}
+#s0 .ground{position:absolute;inset-block-start:78%;inset-inline:0;bottom:0;
+  background:linear-gradient(180deg,var(--soil-1) 0%,var(--soil-2) 100%)}
+/* الصفّان: البعيد أصغر وأبهت، والقريب أكبر وأدكن — عمقٌ بلا صورة */
+#s0 .rank-far{fill:var(--rank-2);opacity:.62}
+#s0 .rank-near{fill:var(--rank-1);opacity:.72}
+
+/* العلم */
+.flag-layer .flag{position:absolute;left:14%;top:20%;width:3px;height:60%;
+  background:linear-gradient(180deg,var(--pole-1),var(--pole-2))}
+/* قاعدة .scene svg تضبط inset:0 — وفي RTL يتغلّب right على left عند التعارض،
+   فيُلغى right صراحةً ليقف العلم في جهة ساريته */
+.flag-layer .flag .cloth{position:absolute;left:3px;right:auto;top:5px;bottom:auto;width:104px;height:52px;
+  transform-origin:0 50%;animation:wave 3.6s ease-in-out infinite;
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.35))}
+@keyframes wave{0%,100%{transform:skewY(0) scaleX(1)}50%{transform:skewY(3deg) scaleX(.95)}}
+
+/* ── لوح الزجاج فوق المشهد ── */
+.scrim{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,
+    rgba(var(--scrim-d),.62) 0%, rgba(var(--scrim-d),.20) 26%,
+    rgba(var(--scrim-d),.26) 64%, rgba(var(--scrim-d),.66) 100%)}
+.flag-layer{position:fixed;inset:0;z-index:2;pointer-events:none;
+  animation:driftC 18s ease-in-out infinite alternate}
+.pane{position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.pane .glare{position:absolute;inset:-25%;
+  background:linear-gradient(115deg,transparent 42%,var(--pane-glare) 48%,rgba(255,255,255,.02) 53%,transparent 62%);
+  transform:translateX(-35%);animation:sweepGlare 16s ease-in-out infinite}
+.pane .glare.two{animation-duration:23s;animation-delay:-8s;opacity:.55}
+@keyframes sweepGlare{0%{transform:translateX(-38%)}55%{transform:translateX(38%)}100%{transform:translateX(-38%)}}
+.pane .frost{position:absolute;inset:0;
+  background:radial-gradient(125% 85% at 50% 40%,transparent 44%,var(--pane-frost) 78%,var(--pane-dark) 100%)}
+.mote{position:absolute;width:3px;height:3px;border-radius:50%;background:var(--mote);opacity:.5;
+  animation:float linear infinite}
+@keyframes float{
+  from{transform:translate3d(0,8vh,0) scale(.7);opacity:0}
+  12%{opacity:.55}
+  88%{opacity:.45}
+  to{transform:translate3d(-6vw,-92vh,0) scale(1.1);opacity:0}
+}
+
+/* ── المحتوى ── */
+.shell{position:relative;z-index:3;height:100dvh;display:flex;flex-direction:column}
+.wrap{max-width:1180px;margin-inline:auto;width:100%;padding-inline:var(--s-5)}
+nav{display:flex;align-items:center;gap:var(--s-4);padding-block:var(--s-5)}
+.brand{font-family:var(--f-display);font-weight:600;font-size:17px;line-height:1.2;white-space:nowrap}
+.brand small{display:block;font-family:var(--f-body);font-weight:400;font-size:11.5px;opacity:.72;line-height:1.35}
+.pill{margin-inline-start:auto;display:none;align-items:center;gap:var(--s-1);border-radius:999px;padding:var(--s-1)}
+.pill a{padding:var(--s-2) var(--s-4);border-radius:999px;font-size:14px;opacity:.9;transition:opacity .2s var(--ease)}
+.pill a:hover{opacity:1}
+.pill a:active{opacity:.7}
+.pill .cta{background:var(--ink-light);color:var(--on-light);font-weight:500;padding-inline:var(--s-5);
+  transition:transform .2s var(--ease)}
+.pill .cta:hover{transform:translateY(-1px)}
+.pill .cta:active{transform:translateY(0)}
+.burger{margin-inline-start:auto;width:44px;height:44px;border-radius:999px;display:grid;place-items:center;
+  cursor:pointer;color:inherit;border:0;background:transparent}
+.burger:active{opacity:.7}
+.burger:disabled{opacity:.4;cursor:not-allowed}
+.burger span{position:relative;width:22px;height:22px;display:grid;place-items:center}
+.burger svg{position:absolute;width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round;transition:opacity .3s var(--ease),transform .3s var(--ease)}
+@media (min-width:880px){ .pill{display:flex} .burger{display:none} }
+
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding-inline:var(--s-5);gap:var(--s-5)}
+.badge{border-radius:999px;padding:var(--s-2) var(--s-4);font-size:13px;line-height:1.5}
+h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.6vw,62px);
+  line-height:1.15;letter-spacing:-.6px;max-width:16ch;overflow-wrap:anywhere;min-width:0;
+  text-shadow:0 2px 24px rgba(0,0,0,.28)}
+.lede{margin:0;max-width:52ch;font-size:clamp(14.5px,1.6vw,17px);opacity:.88}
+.doors{border-radius:999px;padding:var(--s-1);display:flex;align-items:center;gap:var(--s-1);
+  flex-wrap:wrap;justify-content:center;max-width:100%}
+.doors a{padding:var(--s-3) var(--s-5);border-radius:999px;font-size:14.5px;font-weight:500;white-space:nowrap;
+  transition:transform .2s var(--ease),background-color .2s var(--ease)}
+.doors a:hover{transform:translateY(-2px)}
+.doors a:active{transform:translateY(0)}
+.doors a.main{background:var(--ink-light);color:var(--on-light)}
+.doors a:not(.main):hover{background:var(--glass-hover)}
+.more{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--s-2) var(--s-5);font-size:13px;opacity:.78}
+.more a{border-bottom:1px solid transparent;padding-bottom:var(--s-1);transition:border-color .2s var(--ease)}
+.more a:hover{border-bottom-color:currentColor}
+.more a:active{opacity:.6}
+.facts{padding-block:var(--s-5) var(--s-6);display:flex;flex-wrap:wrap;justify-content:center;
+  align-items:center;gap:var(--s-2) var(--s-4);font-size:12.5px;opacity:.75}
+.facts i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.5;display:none}
+@media (min-width:640px){ .facts i{display:block} }
+
+.sheet{position:fixed;inset:0;z-index:50;background:var(--sheet-bg);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-5);
+  opacity:0;pointer-events:none;transition:opacity 500ms cubic-bezier(.4,0,.2,1)}
+.sheet.open{opacity:1;pointer-events:auto}
+.sheet a{font-family:var(--f-display);font-size:27px;color:var(--ink-light);opacity:0;transform:translateY(1rem);
+  transition:opacity 500ms cubic-bezier(.4,0,.2,1),transform 500ms cubic-bezier(.4,0,.2,1)}
+.sheet.open a{opacity:1;transform:none}
+.sheet .cta{background:var(--ink-light);color:var(--on-light);border-radius:999px;
+  padding:var(--s-3) var(--s-6);font-size:16px;font-family:var(--f-body);font-weight:500;
+  transform:scale(.92);transition-delay:300ms}
+.sheet.open .cta{transform:scale(1)}
+
+@media (max-width:620px){
+  .hero{gap:var(--s-4)}
+  .doors{flex-direction:column;border-radius:26px;padding:var(--s-2);width:100%;max-width:320px}
+  .doors a{width:100%;text-align:center;padding-block:var(--s-3)}
+  .more{gap:var(--s-2) var(--s-4);font-size:12.5px}
+  .flag-layer{display:none}
+  /* المشهد يُقصّ على الشاشة الضيّقة فتكبر الصفوف؛ تُصغَّر حول خطّ وقوفها */
+  #s0 .rank-far,#s0 .rank-near{transform:translate(600px,556px) scale(.55) translate(-600px,-556px)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
+  .mote{display:none}
+}
+</style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen selection:bg-blue-100 selection:text-blue-900">
+<body>
 
-    <div id="toast-container" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-[9999] transition-all duration-300 opacity-0 pointer-events-none">
-        <div id="toast-message" class="bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3 font-medium">
-            <span id="toast-icon"></span>
-            <span id="toast-text"></span>
-        </div>
+<div class="stage" aria-hidden="true">
+  <div class="scene" id="s0">
+    <div class="layer far"></div>
+    <div class="layer mid"><span class="sun"></span>
+      <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <!-- تلميذٌ واقف، قاعدته عند y=0 -->
+          <g id="pupil">
+            <circle cx="0" cy="-46" r="9.5"/>
+            <path d="M-13 -36 q13 -7 26 0 l5 36 h-36 z"/>
+          </g>
+        </defs>
+        <!-- الصفّ البعيد: يُصغَّر حول نقطةٍ على خطّ وقوفه فيبقى واقفاً عليه -->
+        <g class="rank-far">
+          <use href="#pupil" transform="translate(206,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(257,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(308,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(359,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(410,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(461,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(512,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(563,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(614,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(665,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(716,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(767,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(818,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(869,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(920,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(971,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(1022,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(1073,547) scale(0.38)"/>
+          <use href="#pupil" transform="translate(1124,547) scale(0.38)"/>
+        </g>
+      </svg>
+    </div>
+    <div class="layer near"><span class="ground"></span>
+      <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <!-- الصفّ القريب -->
+        <g class="rank-near">
+          <use href="#pupil" transform="translate(252,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(332,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(412,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(492,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(572,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(652,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(732,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(812,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(892,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(972,588) scale(0.66)"/>
+          <use href="#pupil" transform="translate(1052,588) scale(0.66)"/>
+        </g>
+        <!-- خطوط الفناء -->
+        <path data-l d="M120 664h960M240 700l70-92M960 700l-70-92" opacity=".5"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" aria-hidden="true"></div>
+<div class="flag-layer" aria-hidden="true">
+  <span class="flag" aria-hidden="true">
+    <svg class="cloth" viewBox="0 0 600 300" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="150" y="0"   width="450" height="100" fill="var(--om-white)"/>
+      <rect x="150" y="100" width="450" height="100" fill="var(--om-red)"/>
+      <rect x="150" y="200" width="450" height="100" fill="var(--om-green)"/>
+      <rect x="0"   y="0"   width="150" height="300" fill="var(--om-red)"/>
+      <!-- الشعار الوطنيّ: صورةٌ ظلّيّة مصمتة مستخرَجة من الملفّ الرسميّ -->
+      <image href="data:image/png;base64,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" x="17" y="20" width="116" height="116" preserveAspectRatio="xMidYMid meet"/>
+    </svg>
+  </span>
+</div>
+
+<div class="pane" id="pane" aria-hidden="true">
+  <span class="glare"></span>
+  <span class="glare two"></span>
+  <span class="frost"></span>
+</div>
+
+<div class="shell" id="shell">
+  <nav class="wrap">
+    <span class="brand">منظومة الإشراف التربوي
+      <small>الرياضة المدرسية، محافظة مسقط</small>
+    </span>
+    <span class="pill glass">
+      <a href="https://plan.supervisor-mct.com/" target="_blank" rel="noopener">خطة السير</a>
+      <a href="https://teachers.supervisor-mct.com/data.html" target="_blank" rel="noopener">قاعدة المعلمين</a>
+      <a href="https://supervisor-mct.com/monthly.html" target="_blank" rel="noopener">التقرير الشهري</a>
+      <a class="cta" href="https://supervisor-mct.com/reports.html" target="_blank" rel="noopener">افتح نظام التقارير</a>
+    </span>
+    <button class="burger" id="burger" type="button" aria-label="القائمة" aria-expanded="false">
+      <span>
+        <svg class="ic-menu" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="ic-close" viewBox="0 0 24 24" aria-hidden="true" style="opacity:0;transform:rotate(-90deg) scale(.75)"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </span>
+    </button>
+  </nav>
+
+  <main class="hero">
+    <span class="badge glass">ثلاثة أنظمة يعمل عليها المشرف، ومدخل واحد إليها</span>
+    <h1>ميدان عملك الإشرافي في صفحة واحدة</h1>
+    <p class="lede">خطة السير، وتقارير الزيارات الإشرافية والمدرسية، وقاعدة بيانات معلمي الرياضة. تفتحها من الهاتف في فناء المدرسة أو من الحاسوب في المكتب.</p>
+
+    <div class="doors glass">
+      <a class="main" href="https://supervisor-mct.com/reports.html" target="_blank" rel="noopener">نظام التقارير</a>
+      <a href="https://plan.supervisor-mct.com/" target="_blank" rel="noopener">خطة السير</a>
+      <a href="https://teachers.supervisor-mct.com/" target="_blank" rel="noopener">قاعدة المعلمين</a>
     </div>
 
-    <!-- PAGE 1: Welcome View -->
-    <div id="welcomeView" class="fade-in min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-blue-100 to-transparent -z-10"></div>
-        <div class="absolute -top-20 -right-20 w-64 h-64 bg-blue-200 rounded-full blur-3xl opacity-30 -z-10"></div>
-        <div class="absolute bottom-0 -left-20 w-80 h-80 bg-green-100 rounded-full blur-3xl opacity-30 -z-10"></div>
-
-        <div class="text-center mb-12 max-w-2xl">
-            <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight leading-tight">نظام التقارير الإشرافية المدمج</h1>
-            <p class="text-lg text-slate-600">منصة موحدة لإدارة الزيارات الإشرافية والمدرسية بكفاءة (نسخة محلية)</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl px-4">
-            <div id="showSupervisoryAppBtn" class="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 cursor-pointer relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-2 h-full bg-blue-600 transition-all duration-300 group-hover:w-full group-hover:opacity-5"></div>
-                <div class="relative z-10 flex flex-col h-full">
-                    <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 transition-transform">
-                        <i class="fa-solid fa-chalkboard-user text-2xl"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-slate-800 mb-3 group-hover:text-blue-700 transition-colors">الزيارات الإشرافية</h2>
-                    <p class="text-slate-500 leading-relaxed mb-6 flex-grow">تقييم أداء المعلمين في الرياضة المدرسية مع أدوات تحليلية.</p>
-                    <span class="inline-flex items-center text-blue-600 font-semibold group-hover:translate-x-[-5px] transition-transform">
-                        دخول النظام <i class="fa-solid fa-arrow-left mr-2"></i>
-                    </span>
-                </div>
-            </div>
-
-            <div id="showSchoolAppBtn" class="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 cursor-pointer relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-2 h-full bg-green-600 transition-all duration-300 group-hover:w-full group-hover:opacity-5"></div>
-                <div class="relative z-10 flex flex-col h-full">
-                    <div class="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 mb-6 group-hover:scale-110 transition-transform">
-                        <i class="fa-solid fa-school text-2xl"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-slate-800 mb-3 group-hover:text-green-700 transition-colors">الزيارات المدرسية</h2>
-                    <p class="text-slate-500 leading-relaxed mb-6 flex-grow">توثيق الزيارات المدرسية وتحديد الأهداف والملاحظات.</p>
-                    <span class="inline-flex items-center text-green-600 font-semibold group-hover:translate-x-[-5px] transition-transform">
-                        دخول النظام <i class="fa-solid fa-arrow-left mr-2"></i>
-                    </span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- التقرير الشهري يحتاج خطة السير وقاعدة المعلمين: يظهر بالربط وحده -->
-        <a id="monthlyCard" href="monthly.html" class="hidden mt-10 w-full max-w-xl px-4 group">
-            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex items-center gap-4">
-                <span class="w-11 h-11 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center flex-none"><i class="fa-solid fa-calendar-check"></i></span>
-                <div class="min-w-0 text-right">
-                    <div class="font-bold text-slate-800">التقرير الشهري</div>
-                    <div class="text-sm text-slate-500">يُبنى من خطة السير وتقاريرك وتأكيدات البوابة، ويخرج بنموذجك المعتمد</div>
-                </div>
-                <i class="fa-solid fa-arrow-left text-slate-400 group-hover:text-blue-600 mr-auto"></i>
-            </div>
-        </a>
-
-        <div id="identityCard" class="mt-6 w-full max-w-xl px-4"></div>
-        <div id="cloudCard" class="mt-4 w-full max-w-xl px-4"></div>
-
-        <div class="mt-10 flex flex-col items-center gap-3">
-            <p class="text-xs text-slate-400 font-medium">النسخ الاحتياطي والاستيراد</p>
-            <div class="flex gap-3">
-                <button id="exportBackupBtn" class="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50 text-slate-600 hover:text-blue-700 text-sm font-medium px-5 py-2.5 rounded-xl shadow-sm transition-all">
-                    <i class="fa-solid fa-cloud-arrow-down"></i> تصدير نسخة احتياطية
-                </button>
-                <button id="importBackupBtn" class="flex items-center gap-2 bg-white border border-slate-200 hover:border-green-400 hover:bg-green-50 text-slate-600 hover:text-green-700 text-sm font-medium px-5 py-2.5 rounded-xl shadow-sm transition-all">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> استيراد نسخة احتياطية
-                </button>
-                <input type="file" id="importBackupInput" accept=".json" class="hidden">
-            </div>
-        </div>
-
-        <footer class="mt-10 text-center text-slate-400 text-sm font-medium">
-            <p class="mb-2">جميع الحقوق محفوظة © وزارة التربية والتعليم</p>
-            <p class="text-slate-500 font-bold">حقوق الإعداد والتصميم: اسعد الخصيبي – مشرف الرياضة المدرسية – محافظة مسقط</p>
-        </footer>
+    <div class="more">
+      <a href="https://supervisor-mct.com/monthly.html" target="_blank" rel="noopener">التقرير الشهري</a>
+      <a href="https://teachers.supervisor-mct.com/data.html" target="_blank" rel="noopener">البيانات المجمّعة</a>
+      <a href="https://supervisor-mct.com/school-visits-automation.user.js" target="_blank" rel="noopener">سكربت الرفع إلى البوّابة</a>
     </div>
+  </main>
 
-    <!-- PAGE 2: Supervisory App -->
-    <div id="supervisoryVisitsApp" class="hidden min-h-screen bg-slate-50 pb-12">
-        <div class="main-container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-            <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8 sticky top-4 z-40">
-                <div class="flex flex-col lg:flex-row justify-between items-center gap-4">
-                    <div class="flex bg-slate-100 p-1 rounded-xl w-full lg:w-auto overflow-x-auto">
-                        <button class="nav-tab active flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-bold transition-all duration-200" data-view="form-view">
-                            <i class="fa-solid fa-file-pen ml-2"></i>نموذج التقييم
-                        </button>
-                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="dashboard-view">
-                            <i class="fa-solid fa-chart-pie ml-2"></i>التحليل البياني
-                        </button>
-                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="saved-reports-view">
-                            <i class="fa-solid fa-box-archive ml-2"></i>الأرشيف
-                        </button>
-                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="stats-view">
-                            <i class="fa-solid fa-chart-column ml-2"></i>الإحصائيات
-                        </button>
-                    </div>
-                    <button id="backToWelcomeFromSupervisory" class="text-slate-500 hover:text-red-600 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors flex items-center">
-                        <i class="fa-solid fa-power-off ml-2"></i> خروج
-                    </button>
-                </div>
-            </header>
+  <div class="wrap facts">
+    <span>الزيارة الإشرافية بثلاثة عشر بنداً</span><i aria-hidden="true"></i>
+    <span>التقرير الشهري يُبنى من خطتك</span><i aria-hidden="true"></i>
+    <span>الأرشيف في جهازك</span><i aria-hidden="true"></i>
+    <span>يعمل بلا إنترنت</span>
+  </div>
+</div>
 
-            <div id="form-view" class="fade-in space-y-6">
-                <div class="bg-gradient-to-r from-blue-700 to-blue-900 rounded-2xl p-8 text-white shadow-lg text-center relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                    <h1 class="text-2xl md:text-3xl font-bold mb-2 relative z-10">استمارة زيارة إشرافية إلكترونية</h1>
-                    <p class="text-blue-100 relative z-10">نظام التقييم المطور لمادة الرياضة المدرسية</p>
-                </div>
+<div class="sheet" id="sheet">
+  <a href="https://plan.supervisor-mct.com/" target="_blank" rel="noopener" style="transition-delay:100ms">خطة السير</a>
+  <a href="https://teachers.supervisor-mct.com/" target="_blank" rel="noopener" style="transition-delay:150ms">قاعدة المعلمين</a>
+  <a href="https://supervisor-mct.com/monthly.html" target="_blank" rel="noopener" style="transition-delay:200ms">التقرير الشهري</a>
+  <a href="https://supervisor-mct.com/school-visits-automation.user.js" target="_blank" rel="noopener" style="transition-delay:250ms">سكربت البوّابة</a>
+  <a class="cta" href="https://supervisor-mct.com/reports.html" target="_blank" rel="noopener">افتح نظام التقارير</a>
+</div>
 
-                <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <div class="lg:col-span-4 space-y-6">
-                        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                            <h2 class="text-lg font-bold text-slate-800 border-r-4 border-blue-500 pr-3 mb-6">بيانات الزيارة</h2>
-                            <div class="space-y-4">
-                                <div class="input-wrapper">
-                                    <label class="block text-sm font-medium text-slate-600 mb-1">المدرسة</label>
-                                    <input id="school" type="text" placeholder="اكتب اسم المدرسة" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
-                                </div>
-                                <div class="input-wrapper">
-                                    <label class="block text-sm font-medium text-slate-600 mb-1">المعلم / المعلمة</label>
-                                    <input id="teacherName" type="text" placeholder="اكتب الاسم رباعياً" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
-                                    <div class="flex items-center gap-4 mt-2">
-                                        <span class="text-xs font-medium text-slate-500">الجنس:</span>
-                                        <label class="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700 select-none">
-                                            <input type="radio" name="supervisoryTeacherGender" id="genderMale" value="0" checked class="accent-blue-600">
-                                            ذكر
-                                        </label>
-                                        <label class="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700 select-none">
-                                            <input type="radio" name="supervisoryTeacherGender" id="genderFemale" value="1" class="accent-pink-500">
-                                            أنثى
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-xs font-medium text-slate-500 mb-1">رقم الملف</label>
-                                        <input id="fileNumber" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium text-slate-500 mb-1">المادة</label>
-                                        <input id="subject" type="text" value="الرياضة المدرسية" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-xs font-medium text-slate-500 mb-1">التاريخ</label>
-                                        <input id="visitDate" type="date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium text-slate-500 mb-1">رقم الزيارة</label>
-                                        <input id="visitNumber" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-xs font-medium text-slate-500 mb-1">الصف</label>
-                                        <input id="class" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium text-slate-500 mb-1">الحصة</label>
-                                        <input id="lesson" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-slate-500 mb-1">الموضوع</label>
-                                    <input id="topic" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                                </div>
-                            </div>
-                        </section>
-                    </div>
+<script>
+(() => {
+  'use strict';
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-                    <div class="lg:col-span-8 space-y-6">
-                        <div id="template-bar" class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 mb-2">
-                            <div class="flex items-center gap-2 mb-3">
-                                <i class="fa-solid fa-wand-magic-sparkles text-blue-500 text-sm"></i>
-                                <span class="text-sm font-bold text-blue-800">قوالب التقييم السريع</span>
-                                <span class="text-xs text-blue-400 mr-1">— اختر قالباً ثم عدّل البنود كما تشاء</span>
-                            </div>
-                            <div class="flex flex-wrap gap-2" id="template-buttons"></div>
-                        </div>
-
-                        <form id="evaluationForm" class="space-y-6">
-                            <!-- Items inserted by JS -->
-                        </form>
-
-                        <section id="reportSection" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-primary">
-                            <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
-                                <i class="fa-solid fa-file-contract ml-3 text-blue-600"></i> التقرير النهائي
-                            </h2>
-                            <div class="space-y-6">
-                                <div class="report-box">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <h3 class="font-bold text-slate-700">جوانب الإجادة في الأداء وأدلتها</h3>
-                                        <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="strengthsContent">نسخ</button>
-                                    </div>
-                                    <textarea id="strengthsContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[100px] focus:ring-blue-500 focus:border-blue-500"></textarea>
-                                </div>
-                                <div class="report-box">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <h3 class="font-bold text-slate-700">الجوانب التي تحتاج إلى تطوير في الأداء وأدلتها</h3>
-                                        <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="developmentContent">نسخ</button>
-                                    </div>
-                                    <textarea id="developmentContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[100px] focus:ring-blue-500 focus:border-blue-500"></textarea>
-                                </div>
-                                <div class="report-box">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <h3 class="font-bold text-slate-700">الدعم المقدم / التوصيات</h3>
-                                        <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="recommendationsContent">نسخ</button>
-                                    </div>
-                                    <textarea id="recommendationsContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[100px] focus:ring-blue-500 focus:border-blue-500"></textarea>
-                                </div>
-                            </div>
-                        </section>
-
-                        <section class="bg-slate-100 rounded-xl p-6 border border-slate-200">
-                            <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">توقيع الزائر</h2>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input id="visitorName" type="text" placeholder="اسم الزائر" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm">
-                                <input id="visitorPosition" type="text" placeholder="الوظيفة" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm">
-                            </div>
-                        </section>
-                        
-                        <p id="status-message" class="text-center font-medium opacity-0 transition-opacity duration-500 min-h-[20px]"></p>
-
-                        <section class="sticky bottom-0 md:bottom-4 z-30 bg-white/95 backdrop-blur-sm px-3 py-2 md:p-4 border-t md:border md:rounded-xl border-slate-200 shadow-lg">
-                            <div class="grid grid-cols-3 gap-1.5 md:flex md:justify-end md:gap-3">
-                                <button type="button" id="generateReportBtn"       class="col-span-3 md:col-span-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 md:px-6 rounded-lg shadow-sm text-sm">توليد التقرير</button>
-                                <button type="button" id="savePermanentReportBtn"  class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">حفظ بالأرشيف</button>
-                                <button type="button" id="printOfficialReportBtn"  class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">طباعة</button>
-                                <button type="button" id="exportToWordBtn"         class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">Word</button>
-                                <button type="button" id="exportToMoeBtn"          class="col-span-2 md:col-span-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">🚀 تصدير للوزارة</button>
-                                <button type="button" id="showResetConfirmationBtn" class="bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-600 font-bold py-2 px-2 md:px-6 rounded-lg shadow-sm text-xs md:text-sm">إعادة تعيين</button>
-                            </div>
-                        </section>
-                    </div>
-                </main>
-            </div>
-
-            <div id="dashboard-view" class="hidden fade-in space-y-6">
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">اختر المعلم</label>
-                            <select id="teacher-dashboard-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5"></select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">نوع التحليل</label>
-                            <select id="chartTypeSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
-                                <option value="radar">تحليل زيارة واحدة (راداري)</option>
-                                <option value="line">تطور الأداء عبر الزيارات (خطي)</option>
-                                <option value="bar">متوسط الأداء العام (شريطي)</option>
-                            </select>
-                        </div>
-                        <div id="visitDateGroup" class="hidden">
-                            <label class="block text-sm font-medium text-slate-600 mb-1">تاريخ الزيارة</label>
-                            <select id="visitDateSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5"></select>
-                        </div>
-                    </div>
-                    <button id="updateDashboardViewBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-sm mb-6 transition-colors">عرض التحليل البياني</button>
-                    <div id="chart-container" class="relative h-[500px] w-full border rounded-xl p-4 bg-slate-50"><canvas id="performanceChart"></canvas></div>
-                    <div id="no-data-message" class="hidden text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300 mt-4"><p class="text-slate-500">لا توجد بيانات محفوظة.</p></div>
-                </div>
-            </div>
-
-            <div id="saved-reports-view" class="hidden fade-in space-y-6">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <div class="flex-grow w-full md:w-auto">
-                        <label class="block text-sm font-medium text-slate-600 mb-1">بحث في الأرشيف</label>
-                        <input type="text" id="filter-reports-input" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5" placeholder="ابحث باسم المعلم أو المدرسة...">
-                    </div>
-                    <div class="w-full md:w-48 shrink-0">
-                        <label class="block text-sm font-medium text-slate-600 mb-1">تصفية بالشهر</label>
-                        <input type="month" id="filter-reports-month" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg p-2.5">
-                    </div>
-                </div>
-                <div class="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <button type="button" id="selectAllReportsBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg transition-colors">تحديد الكل</button>
-                        <button type="button" id="clearSelectionBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg transition-colors">إلغاء التحديد</button>
-                        <span id="selectionCount" class="text-sm text-slate-500">لم تحدّد شيئاً</span>
-                    </div>
-                    <button type="button" id="sendSelectedToMoeBtn" disabled class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-sm text-sm transition-colors opacity-50 cursor-not-allowed">
-                        <i class="fa-solid fa-cloud-arrow-up ml-2"></i>رفع المحدد إلى البوابة
-                    </button>
-                </div>
-                <div id="saved-reports-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                <div id="no-saved-reports-message" class="hidden text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300"><p class="text-slate-500">الأرشيف فارغ حالياً.</p></div>
-            </div>
-
-            <div id="stats-view" class="hidden fade-in space-y-6">
-                <!-- Populated dynamically by renderStatistics() -->
-            </div>
-        </div>
-
-        <div class="print-view hidden" id="printView">
-            <!-- سيتم تعبئته ديناميكياً لتجنب التكرار -->
-        </div>
-    </div>
-
-    <!-- PAGE 3: School Visits App -->
-    <div id="schoolVisitsApp" class="hidden min-h-screen bg-slate-50">
-        <div id="schoolDashboardView" class="container mx-auto max-w-6xl p-6 fade-in">
-             <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h1 class="text-2xl font-bold text-slate-800 flex items-center">
-                        <span class="bg-green-100 text-green-600 p-2 rounded-lg ml-3"><i class="fa-solid fa-school"></i></span>
-                        سجل التقارير المدرسية
-                    </h1>
-                </div>
-                <div class="flex items-center gap-3 w-full md:w-auto">
-                    <button id="backToWelcomeFromSchool" class="text-slate-600 bg-slate-100 hover:bg-slate-200 font-medium rounded-lg text-sm px-4 py-2.5 transition-colors">
-                        <i class="fa-solid fa-home ml-2"></i>الرئيسية
-                    </button>
-                    <button id="addNewReportBtn" class="text-white bg-green-600 hover:bg-green-700 font-bold rounded-lg text-sm px-6 py-2.5 transition-colors shadow-sm">
-                        <i class="fa-solid fa-plus ml-2"></i> تقرير جديد
-                    </button>
-                </div>
-            </header>
-            <div class="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <button type="button" id="selectAllSchoolReportsBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg transition-colors">تحديد الكل</button>
-                    <button type="button" id="clearSchoolSelectionBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg transition-colors">إلغاء التحديد</button>
-                    <span id="schoolSelectionCount" class="text-sm text-slate-500">لم تحدّد شيئاً</span>
-                </div>
-                <button type="button" id="sendSelectedSchoolToMoeBtn" disabled class="w-full md:w-auto bg-green-700 hover:bg-green-800 text-white font-bold py-2.5 px-5 rounded-lg shadow-sm text-sm transition-colors opacity-50 cursor-not-allowed">
-                    <i class="fa-solid fa-cloud-arrow-up ml-2"></i>رفع المحدد إلى البوابة
-                </button>
-            </div>
-            <div id="reportsListContainer" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[300px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-        </div>
-
-        <div id="schoolFormView" class="container mx-auto max-w-5xl p-6 fade-in hidden">
-            <header class="text-center mb-8">
-                <h1 id="formTitle" class="text-3xl font-bold text-slate-800">إنشاء تقرير زيارة</h1>
-            </header>
-            <form id="reportForm" class="space-y-6">
-                 <input type="hidden" id="reportId" value="">
-                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="flex items-center mb-4"><h3 class="text-lg font-bold text-slate-700">بيانات أساسية</h3></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label class="block mb-2 text-sm font-medium text-slate-700">المدرسة</label><input type="text" id="schoolName" name="schoolName" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg w-full p-2.5" required></div>
-                        <div><label class="block mb-2 text-sm font-medium text-slate-700">تاريخ الزيارة</label><input type="date" id="schoolVisitDate" name="visitDate" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg w-full p-2.5" required></div>
-                        <div><label class="block mb-2 text-sm font-medium text-slate-700">وقت الوصول</label><input type="time" id="schoolArrivalTime" name="arrivalTime" value="08:00" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg w-full p-2.5"></div>
-                        <div><label class="block mb-2 text-sm font-medium text-slate-700">وقت الانصراف</label><input type="time" id="schoolDepartureTime" name="departureTime" value="12:00" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg w-full p-2.5"></div>
-                    </div>
-                 </div>
-                 
-                 <!-- لوحة متابعة توصيات الزيارة السابقة -->
-                 <div id="prevRecsPanel" class="hidden bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 shadow-sm">
-                    <div class="flex items-center gap-2 mb-1">
-                        <i class="fa-solid fa-clock-rotate-left text-amber-500"></i>
-                        <h3 class="text-base font-bold text-amber-800">متابعة توصيات الزيارة السابقة</h3>
-                        <span class="text-xs bg-amber-100 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full mr-auto">بتاريخ: <span id="prevRecsDate">-</span></span>
-                    </div>
-                    <p class="text-xs text-amber-600 mb-4">حدد مستوى تنفيذ كل توصية ثم اضغط "توليد رأي الزائر" لإدراجها تلقائياً.</p>
-                    <div id="prevRecsList" class="space-y-3"></div>
-                 </div>
-
-                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-slate-700">نوع وأهداف الزيارة</h3>
-                        <button type="button" id="manageVisitTypesBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg">إدارة الأنواع</button>
-                    </div>
-                    <select id="visitTypeSelect" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg block w-full p-2.5 mb-3"></select>
-                    <div id="genderNumberSelector" class="hidden mb-4 bg-blue-50 border border-blue-100 rounded-xl p-3">
-                        <p class="text-xs font-bold text-blue-700 mb-2"><i class="fa-solid fa-user-gear ml-1"></i>نوع الكادر التعليمي:</p>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                <input type="radio" name="genderMode" value="0" checked class="accent-blue-600">
-                                <span class="text-sm text-slate-700">ذكور - جماعة</span>
-                            </label>
-                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                <input type="radio" name="genderMode" value="1" class="accent-blue-600">
-                                <span class="text-sm text-slate-700">ذكر - مفرد</span>
-                            </label>
-                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                <input type="radio" name="genderMode" value="2" class="accent-blue-600">
-                                <span class="text-sm text-slate-700">إناث - جماعة</span>
-                            </label>
-                            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                <input type="radio" name="genderMode" value="3" class="accent-blue-600">
-                                <span class="text-sm text-slate-700">أنثى - مفرد</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-sm font-medium text-slate-500">الأهداف المحددة:</span>
-                        <div class="flex gap-2">
-                            <button type="button" id="toggleAllObjectivesBtn" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded font-medium">تحديد الكل</button>
-                            <button type="button" id="copyObjectivesBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded">نسخ الأهداف</button>
-                        </div>
-                    </div>
-                    <div id="objectivesContainer" class="space-y-2 max-h-60 overflow-y-auto p-2 border rounded-lg bg-slate-50"></div>
-                </div>
-
-                <div id="teachersRosterCard" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="flex items-center justify-between mb-1">
-                        <h3 class="text-lg font-bold text-slate-700">طاقم المدرسة</h3>
-                        <div class="flex items-center gap-3">
-                            <button type="button" id="pullRosterBtn" class="hidden text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 px-3 py-1.5 rounded-lg font-medium transition-colors">
-                                <i class="fa-solid fa-cloud-arrow-down ml-1"></i>استدعاء من قاعدة المعلمين
-                            </button>
-                            <span class="text-xs text-slate-400">يُدرَج في رأي الزائر عند التوليد</span>
-                        </div>
-                    </div>
-                    <p class="text-xs text-slate-500 mb-4">اسم مدير المدرسة ومعلمو الرياضة المدرسية وأنصبتهم — يُحفظ للمدرسة ويُستدعى في زيارتها القادمة.</p>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                        <input type="text" id="schoolPrincipal" placeholder="اسم مدير/مديرة المدرسة" class="md:col-span-2 bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <select id="schoolPrincipalGender" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                            <option value="f">مديرة</option>
-                            <option value="m">مدير</option>
-                        </select>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
-                        <input type="text" id="stName" placeholder="اسم المعلم" class="md:col-span-2 bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <select id="stGender" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                            <option value="f">معلمة</option>
-                            <option value="m">معلم</option>
-                        </select>
-                        <input type="text" id="stLoad" inputmode="numeric" placeholder="النصاب (حصص)" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <input type="text" id="stGrades" placeholder="الصفوف (5-12)" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <select id="stSection" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                            <option value="">بلا فئة</option>
-                            <option value="ذكور">ذكور</option>
-                            <option value="إناث">إناث</option>
-                        </select>
-                    </div>
-                    <button type="button" id="addSchoolTeacherBtn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 rounded-lg mb-4 text-sm">إضافة معلم</button>
-                    <div id="schoolTeachersList" class="space-y-2"></div>
-                </div>
-
-                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <h3 class="text-lg font-bold text-slate-700 mb-4">متابعة المواقف الصفية</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
-                        <input type="text" id="cvTeacher" placeholder="اسم المعلم" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <input type="text" id="cvGrade" placeholder="الصف" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <input type="text" id="cvPeriod" placeholder="الحصة" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <input type="text" id="cvSubject" placeholder="المهارة/الدرس" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <select id="cvRating" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                            <option value="ممتاز">ممتاز</option><option value="جيد جداً">جيد جداً</option><option value="جيد">جيد</option><option value="متوسط">متوسط</option><option value="ضعيف">ضعيف</option>
-                        </select>
-                    </div>
-                    <button type="button" id="addClassroomVisitBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg mb-4 text-sm">إضافة موقف صفي</button>
-                    <div id="classroomVisitsList" class="space-y-2"></div>
-                </div>
-
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-slate-700">رأي الزائر</h3>
-                        <div class="flex gap-2">
-                             <button type="button" id="copyVisitorOpinionBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg font-bold">نسخ</button>
-                            <button type="button" id="generateVisitorOpinionBtn" class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg font-bold">توليد رأي الزائر</button>
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <textarea id="visitorOpinion" rows="6" class="block p-3 w-full text-sm text-slate-900 bg-slate-50 rounded-lg border border-slate-300" placeholder="اضغط على زر التوليد..."></textarea>
-                        <button type="button" class="mic-btn absolute bottom-3 left-3 text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-full"><i class="fa-solid fa-microphone"></i></button>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="flex items-center justify-between mb-4">
-                         <h3 class="text-lg font-bold text-slate-700">التوصيات والملاحظات العامة</h3>
-                         <div class="flex gap-2">
-                            <button type="button" id="generateRecommendationsBtn" class="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg font-bold"><i class="fa-solid fa-wand-magic-sparkles ml-1"></i>توليد التوصيات</button>
-                            <button type="button" id="copyRecommendationsBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg font-bold">نسخ</button>
-                        </div>
-                    </div>
-                    <div id="recsBuilder" class="mb-4"></div>
-                    <div class="relative">
-                        <textarea id="recommendations" rows="4" class="block p-3 w-full text-sm text-slate-900 bg-slate-50 rounded-lg border border-slate-300" placeholder="اكتب التوصيات..."></textarea>
-                        <button type="button" class="mic-btn absolute bottom-3 left-3 text-slate-400 hover:text-blue-600 transition-colors p-1 rounded-full"><i class="fa-solid fa-microphone"></i></button>
-                    </div>
-                </div>
-
-                <div class="sticky bottom-0 md:bottom-4 z-30 bg-white/95 backdrop-blur-sm px-3 py-2 md:p-4 border-t md:border md:rounded-xl border-slate-200 shadow-lg">
-                    <div class="grid grid-cols-2 gap-1.5 md:flex md:justify-end md:gap-3">
-                        <button type="button" id="backToDashboardBtn" class="col-span-2 md:col-span-1 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium py-2 px-3 text-sm md:px-6 md:py-2.5">إلغاء</button>
-                        <button type="button" id="previewReportBtn" class="text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-bold py-2 px-3 text-sm md:px-6 md:py-2.5">معاينة</button>
-                        <button type="submit" class="text-white bg-green-600 hover:bg-green-700 rounded-lg font-bold py-2 px-3 text-sm md:px-6 md:py-2.5">حفظ التقرير</button>
-                        <button type="button" id="exportSchoolToMoeBtn" class="col-span-2 md:col-span-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-2 px-3 md:px-6 rounded-lg shadow-sm text-sm">🚀 تصدير للوزارة</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <div id="reportPreviewContainer" class="container mx-auto max-w-4xl p-8 my-10 bg-white rounded-2xl shadow-xl hidden">
-            <div id="reportContent" class="prose max-w-none font-sans"></div>
-            <div class="flex justify-center pt-8 mt-8 border-t border-slate-100 no-print gap-3">
-                <button id="backToFormBtn" class="px-6 py-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg font-medium">رجوع للتعديل</button>
-                <button onclick="window.print()" class="px-6 py-2 text-white bg-slate-800 hover:bg-slate-900 rounded-lg font-medium">طباعة</button>
-            </div>
-        </div>
-
-        <div id="manageTypesModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[60] flex items-center justify-center">
-            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 mx-4 max-h-[80vh] flex flex-col">
-                <div class="flex justify-between items-center mb-4 border-b pb-2">
-                    <h3 class="text-xl font-bold text-slate-800">إدارة أنواع الزيارات</h3>
-                    <button id="closeManageModalBtn" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times text-xl"></i></button>
-                </div>
-                <div id="visitTypesList" class="space-y-2 overflow-y-auto mb-4 pr-2 flex-grow"></div>
-                <button id="openAddTypeModalBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shrink-0">إضافة نوع جديد</button>
-            </div>
-        </div>
-
-        <div id="addEditTypeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[70] flex items-center justify-center">
-             <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 mx-4">
-                <h3 id="addEditModalTitle" class="text-xl font-bold text-slate-800 mb-4">إضافة نوع زيارة</h3>
-                <form id="addEditTypeForm" class="space-y-4">
-                    <input type="hidden" id="editTypeKey" value="">
-                    <div><label class="block mb-1 text-sm font-medium text-slate-700">اسم الزيارة</label><input type="text" id="typeName" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5" required></div>
-                    <div><label class="block mb-1 text-sm font-medium text-slate-700">الأهداف (هدف في كل سطر)</label><textarea id="typeObjectives" rows="5" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5" required></textarea></div>
-                    <div class="flex justify-end gap-3 pt-4 border-t">
-                        <button type="button" id="cancelEditBtn" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg">إلغاء</button>
-                        <button type="submit" id="saveTypeBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg font-bold">حفظ</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="supervisoryConfirmationModal" class="modal-overlay fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[100] flex justify-center items-center">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4">
-            <div class="text-center">
-                <h3 id="supervisory-modal-title" class="text-lg font-bold text-slate-900"></h3>
-                <div class="mt-2"><p id="supervisory-modal-message" class="text-sm text-slate-500"></p></div>
-                <div class="mt-5 flex justify-center gap-3">
-                    <button id="supervisory-modal-confirm-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex-1">تأكيد</button>
-                    <button id="supervisory-modal-cancel-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg flex-1">إلغاء</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="js/state.js"></script>
-    <script src="js/templates.js"></script>
-    <script src="js/db.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/export.js"></script>
-    <script src="js/queue-export.js"></script>
-    <script src="js/supervisory.js"></script>
-    <script src="js/charts.js"></script>
-    <script src="js/storage.js"></script>
-    <script src="js/school.js"></script>
-    <script src="js/recs.js"></script>
-    <script src="js/recs-ui.js"></script>
-    <script src="js/identity.js"></script>
-    <script src="js/cloud.js"></script>
-    <script src="js/autofill.js"></script>
-    <script src="js/classroom.js"></script>
-    <script src="js/init.js"></script>
-    <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW registration failed:', err));
+  /* هباءٌ يطفو فوق المشهد: يُبنى مرّةً، ويُطفأ مع تقليل الحركة */
+  if (!calm) {
+    const pane = document.getElementById('pane');
+    for (let i = 0; i < 14; i++) {
+      const m = document.createElement('span');
+      m.className = 'mote';
+      m.style.insetInlineStart = (4 + Math.random() * 92).toFixed(1) + '%';
+      m.style.insetBlockStart = (60 + Math.random() * 45).toFixed(1) + '%';
+      m.style.animationDuration = (26 + Math.random() * 26).toFixed(1) + 's';
+      m.style.animationDelay = (-Math.random() * 40).toFixed(1) + 's';
+      m.style.opacity = (0.25 + Math.random() * 0.4).toFixed(2);
+      pane.appendChild(m);
     }
-    </script>
+  }
+
+  const burger = document.getElementById('burger');
+  const sheet = document.getElementById('sheet');
+  const menuIcon = burger.querySelector('.ic-menu');
+  const closeIcon = burger.querySelector('.ic-close');
+  function setMenu(open){
+    sheet.classList.toggle('open', open);
+    burger.setAttribute('aria-expanded', String(open));
+    menuIcon.style.opacity = open ? '0' : '1';
+    menuIcon.style.transform = open ? 'rotate(90deg) scale(.75)' : '';
+    closeIcon.style.opacity = open ? '1' : '0';
+    closeIcon.style.transform = open ? '' : 'rotate(-90deg) scale(.75)';
+  }
+  burger.addEventListener('click', () => setMenu(!sheet.classList.contains('open')));
+  sheet.addEventListener('click', e => { if (e.target === sheet) setMenu(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
+})();
+</script>
 </body>
 </html>

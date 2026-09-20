@@ -329,7 +329,7 @@
             + '<h2 class="font-bold text-slate-800">التقرير الشهري يحتاج ربط قاعدة بيانات المعلمين</h2>'
             + '<p class="text-sm text-slate-600 leading-7">يُبنى التقرير من خطة السير ومن زياراتك لمعلّميك،'
             + ' ويُكتب باسمك كما هو في القاعدة. اربط رمزك من الصفحة الرئيسية ثمّ عُد إلى هنا.</p>'
-            + '<a href="index.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-5 py-2.5 text-sm">الصفحة الرئيسية</a>';
+            + '<a href="reports.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-5 py-2.5 text-sm">الصفحة الرئيسية</a>';
         document.querySelector('main')?.appendChild(box);
         el('who').textContent = 'غير مرتبط بقاعدة المعلمين';
     }

@@ -21,6 +21,8 @@
 | `monthly.html` + `js/monthly-core.js` + `js/monthly-docx.js` + `js/monthly.js` | الموقع | التقرير الشهري وحزمته — اختباره `node tests/monthly.test.js` |
 | `js/recs.js` + `js/recs-ui.js` | الموقع | منشئ توصيات الزيارة المدرسيّة — اختباره `node tests/recs.test.js` |
 | `js/classroom.js` | الموقع | المواقف الصفّيّة: القوائم من قاعدة المعلمين، والتقرير الإشرافيّ منها — اختباره `node tests/classroom.test.js` |
+| `index.html` | جذر الموقع | بوّابة الدخول — مشهد الطابور الصباحيّ وروابط الأنظمة الثلاثة. صفحةٌ واحدة مستقلّة، لا تشارك `styles.css` ولا `js/` |
+| `reports.html` | جذر الموقع | **نظام التقارير نفسه** — كان `index.html` حتّى ٢٠ سبتمبر ٢٠٢٦. أيّ رابطٍ داخليٍّ إليه يُكتب `reports.html` |
 | `sim-moe/SupervisionVisitsModule.html` | **غير موجود بعد** في المستودع ولا الموقع | محاكاة البوّابة للاختبار المحلّي |
 
 **بنية التقرير المحفوظ في الموقع** (`savePermanentReport` في `js/supervisory.js`): المفتاح

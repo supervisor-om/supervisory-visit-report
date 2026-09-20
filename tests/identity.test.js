@@ -479,7 +479,7 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
 
     /* ── ٧) التوصيل والقائمة الحقيقيّة ── */
     {
-        const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+        const html = fs.readFileSync(path.join(ROOT, 'reports.html'), 'utf8');
         check('wiring: identity.js يُحمَّل قبل init.js',
               html.indexOf('js/identity.js') > 0 && html.indexOf('js/identity.js') < html.indexOf('js/init.js'));
         check('wiring: بطاقة الربط في الصفحة الرئيسيّة', html.includes('id="identityCard"'));

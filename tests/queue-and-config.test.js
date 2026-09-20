@@ -182,7 +182,7 @@ const between = (a, b) => {
 
 /* ── ٥) توصيل الواجهة: مربّع اختيارٍ لكلّ بطاقة، وزرٌّ يرفع المحدَّد ── */
 (function testArchiveWiring() {
-    const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(SITE, 'reports.html'), 'utf8');
     const exp  = fs.readFileSync(path.join(SITE, 'js/export.js'), 'utf8');
     const init = fs.readFileSync(path.join(SITE, 'js/init.js'), 'utf8');
 
@@ -346,7 +346,7 @@ const between = (a, b) => {
 (function testRoster() {
     const tpl = fs.readFileSync(path.join(SITE, 'js/templates.js'), 'utf8');
     const sch = fs.readFileSync(path.join(SITE, 'js/school.js'), 'utf8');
-    const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(SITE, 'reports.html'), 'utf8');
     const init = fs.readFileSync(path.join(SITE, 'js/init.js'), 'utf8');
     const grab = (a, b) => sch.slice(sch.indexOf(a), sch.indexOf(b));
 
@@ -431,7 +431,7 @@ const between = (a, b) => {
 
 /* ── ١٠) طابور الزيارات المدرسيّة: من السجل إلى البوّابة ── */
 (function testSchoolQueue() {
-    const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(SITE, 'reports.html'), 'utf8');
     const sch  = fs.readFileSync(path.join(SITE, 'js/school.js'), 'utf8');
     const init = fs.readFileSync(path.join(SITE, 'js/init.js'), 'utf8');
 
