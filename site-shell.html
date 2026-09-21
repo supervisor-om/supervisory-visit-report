@@ -2,7 +2,8 @@
      قشرة الموقع — مشتركةٌ بين كلّ صفحات supervisor-mct.com ونطاقاتها الفرعيّة
      (نظام التقارير، التقرير الشهري، خطة السير، بيانات المعلّمين واستمارتهم).
 
-     تحمل ثلاثة أشياء: شريط الهويّة، ومشهد الطابور خلفيّةً، والزجاج.
+     تحمل أربعة أشياء: شريط الهويّة وفيه التنقّل بين الأنظمة، ومشهد الطابور
+     خلفيّةً، والزجاج، والانتقال الفوريّ بين الصفحات (تحميلٌ مسبق + تلاشٍ).
 
      المشهد هو مشهد البوّابة نفسه — السماء والشمس والأرض والصفوف —
      لكن بدرجاتِ ما بعد الشروق لا الفجر: نصوص هذه الصفحات داكنة، وهي
@@ -16,6 +17,13 @@
 
      ولا يُربط من الشبكة: النطاقات مختلفة، ونظام التقارير يعمل دون إنترنت.
      ويختفي كلّه عند الطباعة.
+
+     ملاحظة: قاعدة @view-transition ليست هنا بل في <head> كلّ صفحة. الصفحة المستقبِلة تقرؤها
+     قبل أوّل رسم، و<style> داخل body يصل بعده فلا يُفعَّل التلاشي (قِيس ذلك).
+
+     كلّ صفحةٍ تحدّد نفسها بسمةٍ على وسم body:  data-svf-page="reports|monthly|plan|data|form"
+     فيُعلَّم رابطها في الشريط. و«form» (استمارة المعلّمين) تُخفي التنقّل كلّه:
+     هي صفحةٌ يفتحها المعلّم لا المشرف، فلا تُعرض عليه أدوات الإشراف.
      ========================================================================= -->
 <style>
 :root{
@@ -28,6 +36,7 @@
   --svf-glass-line:rgba(255,255,255,.85);
   --svf-sheen:rgba(255,255,255,.35);
 }
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s}
 html{background:var(--svf-day-1)}
 body{background:transparent !important}
 
@@ -72,14 +81,21 @@ body{background:transparent !important}
   font-size:13px;line-height:1.45;direction:rtl;position:relative;z-index:1}
 .svf-id b{font-weight:600;font-size:14.5px;letter-spacing:-.2px}
 .svf-id i{font-style:normal;opacity:.6}
-.svf-id a{margin-inline-start:auto;color:inherit;text-decoration:none;
-  border:1px solid rgba(247,245,238,.3);border-radius:999px;padding:5px 15px;
-  white-space:nowrap;transition:background-color .2s ease,border-color .2s ease}
-.svf-id a:hover{background:rgba(247,245,238,.12);border-color:rgba(247,245,238,.5)}
-.svf-id a:active{background:rgba(247,245,238,.06)}
-.svf-id a:focus-visible{outline:2px solid var(--svf-gold);outline-offset:2px}
+.svf-nav{margin-inline-start:auto;display:flex;align-items:center;gap:2px}
+.svf-nav a{color:inherit;text-decoration:none;border-radius:999px;padding:5px 13px;white-space:nowrap;
+  opacity:.78;transition:background-color .2s ease,opacity .2s ease}
+.svf-nav a:hover{opacity:1;background:rgba(247,245,238,.1)}
+.svf-nav a:active{background:rgba(247,245,238,.05)}
+.svf-nav a[aria-current]{opacity:1;background:rgba(247,245,238,.16);cursor:default}
+.svf-nav a:focus-visible{opacity:1;outline:2px solid var(--svf-gold);outline-offset:2px}
+body[data-svf-page="form"] .svf-nav{display:none}
 
-@media (max-width:560px){ .svf-id{padding:9px 16px;gap:10px} .svf-id i{display:none} }
+@media (max-width:900px){ .svf-id i{display:none} }
+@media (max-width:640px){
+  .svf-id{flex-wrap:wrap;padding:9px 12px 5px;gap:4px 10px}
+  .svf-nav{order:3;width:100%;margin-inline-start:0;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+  .svf-nav::-webkit-scrollbar{display:none}
+}
 @media (prefers-reduced-motion:reduce){ .svf-scene *{animation:none !important} }
 @media print{
   .svf-scene,.svf-id{display:none !important}
@@ -123,5 +139,21 @@ body{background:transparent !important}
 <div class="svf-id">
   <b>منظومة الإشراف التربوي</b>
   <i>الرياضة المدرسية، محافظة مسقط</i>
-  <a href="https://supervisor-mct.com/">الرئيسية</a>
+  <nav class="svf-nav" aria-label="أنظمة المنظومة">
+    <a data-p="home" href="https://supervisor-mct.com/">الرئيسية</a>
+    <a data-p="reports" href="https://supervisor-mct.com/reports.html">نظام التقارير</a>
+    <a data-p="monthly" href="https://supervisor-mct.com/monthly.html">التقرير الشهري</a>
+    <a data-p="plan" href="https://plan.supervisor-mct.com/">خطة السير</a>
+    <a data-p="data" href="https://teachers.supervisor-mct.com/data.html">البيانات المجمّعة</a>
+  </nav>
 </div>
+<script>
+(function(){var k=document.body.getAttribute('data-svf-page');if(!k)return;
+var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('aria-current','page');})();
+</script>
+<!-- روابط التنقّل: ما كان في الأصل نفسه يُحمَّل مسبقاً كاملاً عند المرور عليه، وما كان في نطاقٍ فرعيٍّ يُجلب فقط -->
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"selector_matches":".svf-nav a"},{"href_matches":"/*"}]},"eagerness":"moderate"}],
+ "prefetch":[{"where":{"and":[{"selector_matches":".svf-nav a"},{"not":{"href_matches":"/*"}}]},"eagerness":"moderate"}]}
+</script>
+<!-- /svf-shell -->

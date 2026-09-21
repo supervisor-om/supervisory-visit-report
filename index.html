@@ -48,6 +48,8 @@
   --f-display:'Readex Pro','Segoe UI',system-ui,sans-serif;
   --f-body:'IBM Plex Sans Arabic','Segoe UI',system-ui,sans-serif;
 }
+@media (prefers-reduced-motion:no-preference){ @view-transition{navigation:auto} }
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s}
 *{box-sizing:border-box}
 html,body{overflow:hidden;overflow-x:clip;height:100%;margin:0}
 html{-webkit-text-size-adjust:100%}
@@ -132,7 +134,7 @@ a{color:inherit;text-decoration:none}
 .shell{position:relative;z-index:3;height:100dvh;display:flex;flex-direction:column}
 .wrap{max-width:1180px;margin-inline:auto;width:100%;padding-inline:var(--s-5)}
 nav{display:flex;align-items:center;gap:var(--s-4);padding-block:var(--s-5)}
-.brand{font-family:var(--f-display);font-weight:600;font-size:17px;line-height:1.2;white-space:nowrap}
+.brand{font-family:var(--f-body);font-weight:600;font-size:17px;line-height:1.2;white-space:nowrap}
 .brand small{display:block;font-family:var(--f-body);font-weight:400;font-size:11.5px;opacity:.72;line-height:1.35}
 .pill{margin-inline-start:auto;display:none;align-items:center;gap:var(--s-1);border-radius:999px;padding:var(--s-1)}
 .pill a{padding:var(--s-2) var(--s-4);border-radius:999px;font-size:14px;opacity:.9;transition:opacity .2s var(--ease)}
@@ -201,6 +203,10 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
   .mote{display:none}
 }
 </style>
+<script type="speculationrules">
+{"prerender":[{"where":{"or":[{"href_matches":"/reports.html"},{"href_matches":"/monthly.html"}]},"eagerness":"moderate"}],
+ "prefetch":[{"where":{"selector_matches":"a[href^='https://plan.'], a[href^='https://teachers.']"},"eagerness":"moderate"}]}
+</script>
 </head>
 <body>
 
@@ -289,10 +295,10 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
       <small>الرياضة المدرسية، محافظة مسقط</small>
     </span>
     <span class="pill glass">
-      <a href="https://plan.supervisor-mct.com/" target="_blank" rel="noopener">خطة السير</a>
-      <a href="https://teachers.supervisor-mct.com/data.html" target="_blank" rel="noopener">البيانات المجمّعة</a>
-      <a href="https://supervisor-mct.com/monthly.html" target="_blank" rel="noopener">التقرير الشهري</a>
-      <a class="cta" href="https://supervisor-mct.com/reports.html" target="_blank" rel="noopener">افتح نظام التقارير</a>
+      <a href="https://plan.supervisor-mct.com/">خطة السير</a>
+      <a href="https://teachers.supervisor-mct.com/data.html">البيانات المجمّعة</a>
+      <a href="https://supervisor-mct.com/monthly.html">التقرير الشهري</a>
+      <a class="cta" href="https://supervisor-mct.com/reports.html">افتح نظام التقارير</a>
     </span>
     <button class="burger" id="burger" type="button" aria-label="القائمة" aria-expanded="false">
       <span>
@@ -307,15 +313,15 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
     <p class="lede">الزيارات الإشرافيّة والمدرسيّة، وخطّة السير، وبيانات المعلّمين — لمشرفي محافظة مسقط.</p>
 
     <div class="doors glass">
-      <a class="main" href="https://supervisor-mct.com/reports.html" target="_blank" rel="noopener">نظام التقارير</a>
-      <a href="https://plan.supervisor-mct.com/" target="_blank" rel="noopener">خطة السير</a>
-      <a href="https://teachers.supervisor-mct.com/data.html" target="_blank" rel="noopener">البيانات المجمّعة</a>
+      <a class="main" href="https://supervisor-mct.com/reports.html">نظام التقارير</a>
+      <a href="https://plan.supervisor-mct.com/">خطة السير</a>
+      <a href="https://teachers.supervisor-mct.com/data.html">البيانات المجمّعة</a>
     </div>
 
     <div class="more">
-      <a href="https://supervisor-mct.com/monthly.html" target="_blank" rel="noopener">التقرير الشهري</a>
-      <a href="https://teachers.supervisor-mct.com/" target="_blank" rel="noopener">استمارة المعلّمين</a>
-      <a href="https://supervisor-mct.com/school-visits-automation.user.js" target="_blank" rel="noopener">أداة الرفع إلى بوّابة الوزارة</a>
+      <a href="https://supervisor-mct.com/monthly.html">التقرير الشهري</a>
+      <a href="https://teachers.supervisor-mct.com/">استمارة المعلّمين</a>
+      <a href="https://supervisor-mct.com/school-visits-automation.user.js">أداة الرفع إلى بوّابة الوزارة</a>
     </div>
   </main>
 
@@ -328,12 +334,12 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
 </div>
 
 <div class="sheet" id="sheet">
-  <a href="https://plan.supervisor-mct.com/" target="_blank" rel="noopener" style="transition-delay:100ms">خطة السير</a>
-  <a href="https://teachers.supervisor-mct.com/data.html" target="_blank" rel="noopener" style="transition-delay:150ms">البيانات المجمّعة</a>
-  <a href="https://teachers.supervisor-mct.com/" target="_blank" rel="noopener" style="transition-delay:200ms">استمارة المعلّمين</a>
-  <a href="https://supervisor-mct.com/monthly.html" target="_blank" rel="noopener" style="transition-delay:250ms">التقرير الشهري</a>
-  <a href="https://supervisor-mct.com/school-visits-automation.user.js" target="_blank" rel="noopener" style="transition-delay:300ms">أداة الرفع</a>
-  <a class="cta" href="https://supervisor-mct.com/reports.html" target="_blank" rel="noopener">افتح نظام التقارير</a>
+  <a href="https://plan.supervisor-mct.com/" style="transition-delay:100ms">خطة السير</a>
+  <a href="https://teachers.supervisor-mct.com/data.html" style="transition-delay:150ms">البيانات المجمّعة</a>
+  <a href="https://teachers.supervisor-mct.com/" style="transition-delay:200ms">استمارة المعلّمين</a>
+  <a href="https://supervisor-mct.com/monthly.html" style="transition-delay:250ms">التقرير الشهري</a>
+  <a href="https://supervisor-mct.com/school-visits-automation.user.js" style="transition-delay:300ms">أداة الرفع</a>
+  <a class="cta" href="https://supervisor-mct.com/reports.html">افتح نظام التقارير</a>
 </div>
 
 <script>

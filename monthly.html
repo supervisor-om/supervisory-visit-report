@@ -3,9 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>التقرير الشهري — الزيارات الإشرافية</title>
+<title>التقرير الشهري — منظومة الإشراف التربوي</title>
+<style>@media (prefers-reduced-motion:no-preference){ @view-transition{navigation:auto} }</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>@media print{ body{font-family:'Tajawal',sans-serif !important} }</style>
+<script>addEventListener('DOMContentLoaded',function(){ if (document.fonts) ['400','500','700','800'].forEach(function(w){ document.fonts.load(w+' 1em Tajawal'); }); });</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230b3c28'/><circle cx='32' cy='32' r='13' fill='none' stroke='%23f7f5ee' stroke-width='3'/><path d='M32 6v52' stroke='%23f7f5ee' stroke-width='3'/></svg>">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1e40af">
+<meta name="theme-color" content="#0a1410">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -13,14 +18,14 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script>
     tailwind.config = { theme: { extend: {
-    fontFamily: { sans: ['Tajawal', 'sans-serif'] },
+    fontFamily: { sans: ['IBM Plex Sans Arabic', 'sans-serif'] },
     colors: { primary: '#0f4c81', blue: { 50: '#eef4f9', 100: '#d8e6f2', 200: '#b3cce4', 300: '#85acd1', 400: '#4f87b8', 500: '#2a6a9e', 600: '#0f4c81', 700: '#0c3e6a', 800: '#0a3256', 900: '#082742', 950: '#061c30' } }
 } } };
 </script>
-<style> body { font-family: 'Tajawal', sans-serif; } input[type=number]::-webkit-inner-spin-button { opacity: .4 } </style>
+<style> body { font-family: 'IBM Plex Sans Arabic', sans-serif; } input[type=number]::-webkit-inner-spin-button { opacity: .4 } </style>
 </head>
-<body class="bg-[#f7f8fa] text-slate-800">
-<!-- قشرة الموقع (شريط الهويّة + مشهد الطابور + الزجاج) — المصدر: supervisory-visit-report/site-shell.html -->
+<body class="bg-[#f7f8fa] text-slate-800" data-svf-page="monthly">
+<!-- قشرة الموقع (شريط الهويّة + مشهد الطابور + الزجاج + التنقّل) — المصدر: supervisory-visit-report/site-shell.html -->
 <style>
 :root{
   --svf-dark:#0a1410; --svf-ink:#f7f5ee; --svf-gold:#f0b44a;
@@ -32,6 +37,7 @@
   --svf-glass-line:rgba(255,255,255,.85);
   --svf-sheen:rgba(255,255,255,.35);
 }
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s}
 html{background:var(--svf-day-1)}
 body{background:transparent !important}
 
@@ -76,14 +82,21 @@ body{background:transparent !important}
   font-size:13px;line-height:1.45;direction:rtl;position:relative;z-index:1}
 .svf-id b{font-weight:600;font-size:14.5px;letter-spacing:-.2px}
 .svf-id i{font-style:normal;opacity:.6}
-.svf-id a{margin-inline-start:auto;color:inherit;text-decoration:none;
-  border:1px solid rgba(247,245,238,.3);border-radius:999px;padding:5px 15px;
-  white-space:nowrap;transition:background-color .2s ease,border-color .2s ease}
-.svf-id a:hover{background:rgba(247,245,238,.12);border-color:rgba(247,245,238,.5)}
-.svf-id a:active{background:rgba(247,245,238,.06)}
-.svf-id a:focus-visible{outline:2px solid var(--svf-gold);outline-offset:2px}
+.svf-nav{margin-inline-start:auto;display:flex;align-items:center;gap:2px}
+.svf-nav a{color:inherit;text-decoration:none;border-radius:999px;padding:5px 13px;white-space:nowrap;
+  opacity:.78;transition:background-color .2s ease,opacity .2s ease}
+.svf-nav a:hover{opacity:1;background:rgba(247,245,238,.1)}
+.svf-nav a:active{background:rgba(247,245,238,.05)}
+.svf-nav a[aria-current]{opacity:1;background:rgba(247,245,238,.16);cursor:default}
+.svf-nav a:focus-visible{opacity:1;outline:2px solid var(--svf-gold);outline-offset:2px}
+body[data-svf-page="form"] .svf-nav{display:none}
 
-@media (max-width:560px){ .svf-id{padding:9px 16px;gap:10px} .svf-id i{display:none} }
+@media (max-width:900px){ .svf-id i{display:none} }
+@media (max-width:640px){
+  .svf-id{flex-wrap:wrap;padding:9px 12px 5px;gap:4px 10px}
+  .svf-nav{order:3;width:100%;margin-inline-start:0;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+  .svf-nav::-webkit-scrollbar{display:none}
+}
 @media (prefers-reduced-motion:reduce){ .svf-scene *{animation:none !important} }
 @media print{
   .svf-scene,.svf-id{display:none !important}
@@ -127,8 +140,24 @@ body{background:transparent !important}
 <div class="svf-id">
   <b>منظومة الإشراف التربوي</b>
   <i>الرياضة المدرسية، محافظة مسقط</i>
-  <a href="https://supervisor-mct.com/">الرئيسية</a>
+  <nav class="svf-nav" aria-label="أنظمة المنظومة">
+    <a data-p="home" href="https://supervisor-mct.com/">الرئيسية</a>
+    <a data-p="reports" href="https://supervisor-mct.com/reports.html">نظام التقارير</a>
+    <a data-p="monthly" href="https://supervisor-mct.com/monthly.html">التقرير الشهري</a>
+    <a data-p="plan" href="https://plan.supervisor-mct.com/">خطة السير</a>
+    <a data-p="data" href="https://teachers.supervisor-mct.com/data.html">البيانات المجمّعة</a>
+  </nav>
 </div>
+<script>
+(function(){var k=document.body.getAttribute('data-svf-page');if(!k)return;
+var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('aria-current','page');})();
+</script>
+<!-- روابط التنقّل: ما كان في الأصل نفسه يُحمَّل مسبقاً كاملاً عند المرور عليه، وما كان في نطاقٍ فرعيٍّ يُجلب فقط -->
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"selector_matches":".svf-nav a"},{"href_matches":"/*"}]},"eagerness":"moderate"}],
+ "prefetch":[{"where":{"and":[{"selector_matches":".svf-nav a"},{"not":{"href_matches":"/*"}}]},"eagerness":"moderate"}]}
+</script>
+<!-- /svf-shell -->
 
 
 <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] transition-all duration-300 opacity-0 pointer-events-none">

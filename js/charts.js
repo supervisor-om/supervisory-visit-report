@@ -210,7 +210,7 @@
                             responsive: true,
                             maintainAspectRatio: true,
                             plugins: {
-                                legend: { position: 'bottom', rtl: true, labels: { font: { family: 'Tajawal' } } }
+                                legend: { position: 'bottom', rtl: true, labels: { font: { family: 'IBM Plex Sans Arabic' } } }
                             }
                         }
                     });
