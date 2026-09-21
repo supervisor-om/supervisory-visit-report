@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="أسعد الخصيبي">
+<meta name="copyright" content="© 2026 أسعد الخصيبي — تصميم وتطوير">
 <title>التقرير الشهري — منظومة الإشراف التربوي</title>
 <style>@media (prefers-reduced-motion:no-preference){ @view-transition{navigation:auto} }</style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
@@ -91,6 +93,12 @@ body{background:transparent !important}
 .svf-nav a:focus-visible{opacity:1;outline:2px solid var(--svf-gold);outline-offset:2px}
 body[data-svf-page="form"] .svf-nav{display:none}
 
+/* ── عبارة حقوق المصمّم: تذييلٌ في آخر الصفحة، وتُخفى عند الطباعة لأنّ التقارير أوراقٌ رسميّة ── */
+.svf-credit{position:relative;z-index:1;text-align:center;padding:20px 16px 26px;
+  font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;font-size:12.5px;line-height:1.75;color:#3b4554}
+.svf-credit p{margin:0}
+.svf-credit b{font-weight:600}
+.svf-credit .r{font-size:11.5px;opacity:.82;margin-top:2px}
 @media (max-width:900px){ .svf-id i{display:none} }
 @media (max-width:640px){
   .svf-id{flex-wrap:wrap;padding:9px 12px 5px;gap:4px 10px}
@@ -99,7 +107,7 @@ body[data-svf-page="form"] .svf-nav{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .svf-scene *{animation:none !important} }
 @media print{
-  .svf-scene,.svf-id{display:none !important}
+  .svf-scene,.svf-id,.svf-credit{display:none !important}
   html{background:#fff}
   .bg-white,.svf-glass{background-color:#fff !important;backdrop-filter:none;box-shadow:none}
 }
@@ -239,5 +247,12 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
 <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
+<!-- svf-credit -->
+<footer class="svf-credit">
+  <p>إعداد وتصميم: <b>أ. أسعد الخصيبي</b></p>
+  <p>مشرف الرياضة المدرسية</p>
+  <p class="r">جميع حقوق التصميم والتطوير محفوظة © 2026</p>
+</footer>
+<!-- /svf-credit -->
 </body>
 </html>

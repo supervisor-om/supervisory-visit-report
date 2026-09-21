@@ -4,6 +4,8 @@
 
      تحمل أربعة أشياء: شريط الهويّة وفيه التنقّل بين الأنظمة، ومشهد الطابور
      خلفيّةً، والزجاج، والانتقال الفوريّ بين الصفحات (تحميلٌ مسبق + تلاشٍ).
+     وقسمٌ ثانٍ في آخر الملفّ بين <!-- svf-credit --> و<!-- /svf-credit -->: عبارة حقوق المصمّم،
+     وهي تذييلٌ يُنسخ قبل آخر </body> لا في أوّلها.
 
      المشهد هو مشهد البوّابة نفسه — السماء والشمس والأرض والصفوف —
      لكن بدرجاتِ ما بعد الشروق لا الفجر: نصوص هذه الصفحات داكنة، وهي
@@ -90,6 +92,12 @@ body{background:transparent !important}
 .svf-nav a:focus-visible{opacity:1;outline:2px solid var(--svf-gold);outline-offset:2px}
 body[data-svf-page="form"] .svf-nav{display:none}
 
+/* ── عبارة حقوق المصمّم: تذييلٌ في آخر الصفحة، وتُخفى عند الطباعة لأنّ التقارير أوراقٌ رسميّة ── */
+.svf-credit{position:relative;z-index:1;text-align:center;padding:20px 16px 26px;
+  font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;font-size:12.5px;line-height:1.75;color:#3b4554}
+.svf-credit p{margin:0}
+.svf-credit b{font-weight:600}
+.svf-credit .r{font-size:11.5px;opacity:.82;margin-top:2px}
 @media (max-width:900px){ .svf-id i{display:none} }
 @media (max-width:640px){
   .svf-id{flex-wrap:wrap;padding:9px 12px 5px;gap:4px 10px}
@@ -98,7 +106,7 @@ body[data-svf-page="form"] .svf-nav{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .svf-scene *{animation:none !important} }
 @media print{
-  .svf-scene,.svf-id{display:none !important}
+  .svf-scene,.svf-id,.svf-credit{display:none !important}
   html{background:#fff}
   .bg-white,.svf-glass{background-color:#fff !important;backdrop-filter:none;box-shadow:none}
 }
@@ -157,3 +165,11 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
  "prefetch":[{"where":{"and":[{"selector_matches":".svf-nav a"},{"not":{"href_matches":"/*"}}]},"eagerness":"moderate"}]}
 </script>
 <!-- /svf-shell -->
+
+<!-- svf-credit -->
+<footer class="svf-credit">
+  <p>إعداد وتصميم: <b>أ. أسعد الخصيبي</b></p>
+  <p>مشرف الرياضة المدرسية</p>
+  <p class="r">جميع حقوق التصميم والتطوير محفوظة © 2026</p>
+</footer>
+<!-- /svf-credit -->
