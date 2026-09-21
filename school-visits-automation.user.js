@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.1
+// @version      15.2
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -141,6 +141,22 @@
         } catch (e) { return null; }
     }
 
+    // خطّ سير اليوم: حين تكون للمشرف أكثر من زيارةٍ في اليوم يُكتب أسفل الأهداف
+    // «#قادم من مدرسة …» و«#متجه إلى مدرسة …». هذه نسخةٌ من js/route.js في الموقع —
+    // السكربت مستقلٌّ عنه — و tests/route.test.js يقارن النسختين على المدخلات نفسها. عدّلهما معاً.
+    function svfRouteName(name) {
+        let n = String(name == null ? '' : name).replace(/\s+/g, ' ').trim()
+                    .replace(/\s*\(\s*[\d٠-٩]+\s*[-–]\s*[\d٠-٩]+\s*\)\s*$/, '').trim();
+        if (!n) return '';
+        return /^(مدرسة|مدارس|معهد|مركز|كلية|روضة|إدارة|دائرة|مديرية)(\s|$)/.test(n) ? n : 'مدرسة ' + n;
+    }
+    function svfRouteLines(cameFrom, goingTo) {
+        const a = svfRouteName(cameFrom), b = svfRouteName(goingTo), out = [];
+        if (a) out.push('#قادم من ' + a);
+        if (b) out.push('#متجه إلى ' + b);
+        return out;
+    }
+
     const TYPE_LABELS = { '1': 'إشرافية', '2': 'استطلاعية', '3': 'أخرى' };
 
     function parseVisitType(text) {
@@ -211,9 +227,12 @@
             try { typeName = schoolVisitTypesData?.[typeKey]?.name || typeKey; } catch (e) {}
 
             // أهداف الزيارة (checkboxes داخل objectivesContainer)
-            const objectives = $$('#objectivesContainer input[name="objectives"]:checked')
+            const realObjectives = $$('#objectivesContainer input[name="objectives"]:checked')
                 .map(cb => cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim())
                 .filter(Boolean);
+            // خطّ سير اليوم بعد الأهداف: تدمج التعبئةُ المصفوفةَ بسطرٍ لكلّ عنصر
+            const routeLines = svfRouteLines($('#schoolCameFrom')?.value, $('#schoolGoingTo')?.value);
+            const objectives = realObjectives.concat(routeLines);
 
             // المواقف الصفية
             const classroomVisits = [];
@@ -261,8 +280,10 @@
                 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;' +
                 'display:flex;align-items:center;justify-content:center;padding:16px;direction:rtl;font-family:system-ui,sans-serif;';
 
-            const objPreview = data.objectives.length > 0
-                ? data.objectives.slice(0, 3).map(s => s.slice(0, 60)).join(' • ')
+            const realObjs = data.objectives.filter(s => String(s).charAt(0) !== '#');
+            const routeObjs = data.objectives.filter(s => String(s).charAt(0) === '#');
+            const objPreview = realObjs.length > 0
+                ? realObjs.slice(0, 3).map(s => s.slice(0, 60)).join(' • ')
                 : 'لا توجد';
 
             overlay.innerHTML =
@@ -287,7 +308,11 @@
                         '<tr><td style="padding:5px 8px;color:#6b7280">وقت الانصراف</td>' +
                             '<td style="padding:5px 8px;font-weight:600">' + esc(data.departureTime) + '</td></tr>' +
                         '<tr style="background:#f9fafb"><td style="padding:5px 8px;color:#6b7280">الأهداف</td>' +
-                            '<td style="padding:5px 8px;font-size:11px">' + esc(objPreview.slice(0, 90)) + (data.objectives.length > 3 ? '...' : '') + '</td></tr>' +
+                            '<td style="padding:5px 8px;font-size:11px">' + esc(objPreview.slice(0, 90)) + (realObjs.length > 3 ? '...' : '') + '</td></tr>' +
+                        (routeObjs.length > 0
+                            ? '<tr><td style="padding:5px 8px;color:#6b7280">خطّ السير</td>' +
+                              '<td style="padding:5px 8px;font-size:11px">' + routeObjs.map(esc).join(' • ') + '</td></tr>'
+                            : '') +
                         (data.classroomVisits.length > 0
                             ? '<tr><td style="padding:5px 8px;color:#6b7280">مواقف صفية</td>' +
                               '<td style="padding:5px 8px;font-weight:600">' + data.classroomVisits.length + ' موقف</td></tr>'

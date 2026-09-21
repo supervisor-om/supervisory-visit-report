@@ -228,8 +228,10 @@
             // النموذج لم يكن يحفظ الوقتين في التقارير القديمة — تُستعمل ساعات الدوام
             arrivalTime:     d.arrivalTime || '08:00',
             departureTime:   d.departureTime || '12:00',
+            // الأهداف ثمّ خطّ سير اليوم (قادم من / متجه إلى) — السكربت يدمج المصفوفة بسطرٍ لكلّ عنصر
             objectives:      (Array.isArray(d.objectives) ? d.objectives : [])
-                                .map(o => String(o).replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim()),
+                                .map(o => String(o).replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim())
+                                .concat(typeof SchoolRoute !== 'undefined' ? SchoolRoute.routeLines(d.cameFrom, d.goingTo) : []),
             // خمسة حقولٍ فقط كما تقرؤها البوّابة — لا رقم ملفٍّ ولا جنس (انظر export.js)
             classroomVisits: (Array.isArray(d.classroomVisits) ? d.classroomVisits : []).map(cv =>
                 ({ teacher: cv.teacher, grade: cv.grade, period: cv.period, subject: cv.subject, rating: cv.rating })),
@@ -242,7 +244,8 @@
         const gaps = [];
         if (!v.school) gaps.push('اسم المدرسة');
         if (!v.date)   gaps.push('التاريخ');
-        if (!v.objectives.length) gaps.push('أهداف الزيارة');
+        // سطر خطّ السير يبدأ بـ«#» ولا يُحتسب هدفاً: زيارةٌ بلا أهدافٍ وبخطّ سيرٍ وحده ناقصة
+        if (!v.objectives.filter(o => String(o).charAt(0) !== '#').length) gaps.push('أهداف الزيارة');
         if (!v.visitorOpinion && !v.recommendations) gaps.push('رأي الزائر أو التوصيات');
         return gaps;
     }

@@ -203,6 +203,7 @@
                 catch (e) { console.error('Recs Error', e); }
 
                 // المواقف الصفّيّة: القوائم من قاعدة المعلمين وزرّ التقرير الإشرافيّ
+                try { if (typeof schoolRouteInit === 'function') schoolRouteInit(); } catch (e) { console.warn('schoolRouteInit', e); }
                 try { if (typeof svfClassroomInit === 'function') svfClassroomInit(); }
                 catch (e) { console.error('Classroom Error', e); }
 
@@ -299,9 +300,11 @@
                 if (copyObjBtn) {
                     copyObjBtn.addEventListener('click', () => {
                         const checked = Array.from(document.querySelectorAll('#objectivesContainer input:checked'))
-                            .map((cb, index) => (index + 1) + '- ' + cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, ''))
-                            .join('\n');
-                        copyText(checked);
+                            .map((cb, index) => (index + 1) + '- ' + cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, ''));
+                        // خطّ سير اليوم بعد الأهداف، غير مرقَّم
+                        const route = (typeof SchoolRoute !== 'undefined')
+                            ? SchoolRoute.routeLines(document.getElementById('schoolCameFrom')?.value, document.getElementById('schoolGoingTo')?.value) : [];
+                        copyText(checked.concat(route).join('\n'));
                     });
                 }
 
@@ -414,6 +417,8 @@
                             visitDate: formData.get('visitDate') || '',
                             visitType: document.getElementById('visitTypeSelect')?.value || '',
                             objectives: objectives,
+                            cameFrom: (document.getElementById('schoolCameFrom')?.value || '').trim(),
+                            goingTo: (document.getElementById('schoolGoingTo')?.value || '').trim(),
                             classroomVisits: schoolClassroomVisits || [],
                             visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
                             recommendations: document.getElementById('recommendations')?.value || ''

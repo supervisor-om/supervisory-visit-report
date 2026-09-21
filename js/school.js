@@ -865,6 +865,9 @@
                 // وتضيع الملاحظات عند فتح التقرير للتعديل
                 genderMode: getGenderMode(),
                 objectiveNotes: collectObjectiveNotes(),
+                // خطّ سير اليوم: حقلان مستقلّان لا هدفان (انظر js/route.js)
+                cameFrom: (document.getElementById('schoolCameFrom')?.value || '').trim(),
+                goingTo: (document.getElementById('schoolGoingTo')?.value || '').trim(),
                 arrivalTime: document.getElementById('schoolArrivalTime')?.value || '',
                 departureTime: document.getElementById('schoolDepartureTime')?.value || '',
                 classroomVisits: Array.isArray(schoolClassroomVisits) ? schoolClassroomVisits : [],
@@ -897,6 +900,8 @@
                 if(document.getElementById('schoolVisitDate')) document.getElementById('schoolVisitDate').value = report.visitDate || '';
                 if(document.getElementById('visitTypeSelect')) document.getElementById('visitTypeSelect').value = report.visitType || '';
                 if(document.getElementById('visitorOpinion')) document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
+                if(document.getElementById('schoolCameFrom')) document.getElementById('schoolCameFrom').value = report.cameFrom || '';
+                if(document.getElementById('schoolGoingTo')) document.getElementById('schoolGoingTo').value = report.goingTo || '';
                 if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
                 if (typeof setSchoolRecs === 'function') setSchoolRecs(report.recs || []);
                 if(report.arrivalTime && document.getElementById('schoolArrivalTime')) document.getElementById('schoolArrivalTime').value = report.arrivalTime;
@@ -958,6 +963,12 @@
                 objectivesHtml += '<li class="text-slate-400 italic">لا توجد أهداف محددة.</li>';
             }
             objectivesHtml += '</ol>';
+            // خطّ سير اليوم بعد الأهداف، بلا ترقيم: ليس هدفاً
+            const routeLines = (typeof SchoolRoute !== 'undefined') ? SchoolRoute.routeLines(report.cameFrom, report.goingTo) : [];
+            if (routeLines.length) {
+                objectivesHtml += '<div class="mt-3 text-slate-600 space-y-1">'
+                    + routeLines.map(l => '<p>' + schoolRouteEsc(l) + '</p>').join('') + '</div>';
+            }
 
             // اسم المشرف يظهر في ذيل التقرير حين يكون معروفاً — من التقرير
             // المحفوظ أوّلاً (فتقاريرُ غيره تُعرض باسم كاتبها) ثمّ من الهويّة
@@ -1016,6 +1027,8 @@
                         if(document.getElementById('schoolVisitDate')) document.getElementById('schoolVisitDate').value = report.visitDate || '';
                         if(document.getElementById('visitTypeSelect')) document.getElementById('visitTypeSelect').value = report.visitType || '';
                         if(document.getElementById('visitorOpinion')) document.getElementById('visitorOpinion').value = report.visitorOpinion || '';
+                        if(document.getElementById('schoolCameFrom')) document.getElementById('schoolCameFrom').value = report.cameFrom || '';
+                        if(document.getElementById('schoolGoingTo')) document.getElementById('schoolGoingTo').value = report.goingTo || '';
                         if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
                         schoolClassroomVisits = Array.isArray(report.classroomVisits) ? report.classroomVisits : [];
                         schoolTeachers = Array.isArray(report.teachers) ? report.teachers : [];
@@ -1089,9 +1102,95 @@
             renderSchoolReportsList();
         }
         
+        // ─── خطّ سير اليوم: «قادم من» و«متجه إلى» أسفل الأهداف (الصياغة في js/route.js) ───
+        function schoolRouteEsc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g,
+                c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function schoolRouteValues() {
+            return {
+                cameFrom: (document.getElementById('schoolCameFrom')?.value || '').trim(),
+                goingTo:  (document.getElementById('schoolGoingTo')?.value  || '').trim()
+            };
+        }
+
+        // مدارس زياراتٍ أخرى محفوظةٍ في اليوم نفسه: تُعرض اقتراحاً يُنقر، لا تُملأ تلقائياً —
+        // ترتيب الزيارات في اليوم غير معروف (الوصول والانصراف يبقيان غالباً 08:00/12:00)
+        function schoolRouteSameDay() {
+            if (typeof SchoolRoute === 'undefined') return [];
+            const date = (document.getElementById('schoolVisitDate')?.value || '').trim();
+            if (!date) return [];
+            const curId = document.getElementById('reportId')?.value || '';
+            const cur = SchoolRoute.routeName(document.getElementById('schoolName')?.value);
+            const seen = new Set(), out = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key || key === curId) continue;
+                if (!(key.startsWith('supervision_v6_school_report_') || key.startsWith('school_report_'))) continue;
+                let r; try { r = JSON.parse(localStorage.getItem(key)); } catch (e) { continue; }
+                if (!r || r.visitDate !== date) continue;
+                const full = SchoolRoute.routeName(r.schoolName);
+                if (!full || full === cur || seen.has(full)) continue;
+                seen.add(full);
+                out.push({ name: SchoolRoute.bareName(r.schoolName), arrival: r.arrivalTime || '', key });
+            }
+            return out.sort((a, b) => a.arrival.localeCompare(b.arrival) || a.key.localeCompare(b.key));
+        }
+
+        function renderSchoolRoute() {
+            if (typeof SchoolRoute === 'undefined' || !document.getElementById('schoolRouteBox')) return;
+            const v = schoolRouteValues();
+            const lines = SchoolRoute.routeLines(v.cameFrom, v.goingTo);
+            const pv = document.getElementById('schoolRoutePreview');
+            if (pv) {
+                pv.textContent = lines.length ? 'سيُكتب أسفل الأهداف:\n' + lines.join('\n') : '';
+                pv.classList.toggle('hidden', !lines.length);
+            }
+            const holder = document.getElementById('schoolRouteSameDay');
+            if (!holder) return;
+            const others = schoolRouteSameDay();
+            holder.innerHTML = '';
+            holder.classList.toggle('hidden', !others.length);
+            if (!others.length) return;
+            const head = document.createElement('div');
+            head.className = 'mb-1 text-slate-500';
+            head.textContent = 'زيارات أخرى في هذا اليوم — اضغط لتضعها في الخانة:';
+            holder.appendChild(head);
+            others.forEach(o => {
+                const row = document.createElement('div');
+                row.className = 'flex flex-wrap items-center gap-2 mb-1';
+                const nm = document.createElement('span');
+                nm.className = 'text-slate-700 font-medium';
+                nm.textContent = o.name;
+                row.appendChild(nm);
+                [['قادم منها', 'schoolCameFrom'], ['متجه إليها', 'schoolGoingTo']].forEach(([label, id]) => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'px-2 py-0.5 rounded border border-slate-300 bg-slate-50 hover:bg-blue-50 hover:border-blue-400 text-slate-600';
+                    b.textContent = label;
+                    b.addEventListener('click', () => {
+                        const el = document.getElementById(id);
+                        if (el) { el.value = o.name; renderSchoolRoute(); }
+                    });
+                    row.appendChild(b);
+                });
+                holder.appendChild(row);
+            });
+        }
+
+        function schoolRouteInit() {
+            ['schoolCameFrom', 'schoolGoingTo'].forEach(id =>
+                document.getElementById(id)?.addEventListener('input', renderSchoolRoute));
+            // الاقتراح يتبع تاريخ الزيارة ومدرستها
+            ['schoolVisitDate', 'schoolName'].forEach(id =>
+                document.getElementById(id)?.addEventListener('change', renderSchoolRoute));
+        }
+
         function showSchoolForm() {
             document.getElementById('schoolDashboardView')?.classList.add('hidden');
             document.getElementById('schoolFormView')?.classList.remove('hidden');
             document.getElementById('reportPreviewContainer')?.classList.add('hidden');
+            renderSchoolRoute();
         }
 

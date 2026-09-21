@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v10';
+const VERSION = 'v11';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -20,6 +20,7 @@ const ASSETS = [
     './js/state.js',
     './js/templates.js',
     './js/utils.js',
+    './js/route.js',
     './js/supervisory.js',
     './js/school.js',
     './js/charts.js',

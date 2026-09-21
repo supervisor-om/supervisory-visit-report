@@ -397,6 +397,9 @@
             const objectives = Array.from(document.querySelectorAll('#objectivesContainer input[name="objectives"]:checked'))
                 .map(cb => cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim());
 
+            const routeLines = (typeof SchoolRoute !== 'undefined')
+                ? SchoolRoute.routeLines(document.getElementById('schoolCameFrom')?.value, document.getElementById('schoolGoingTo')?.value) : [];
+
             const exportData = {
                 visitType:       visitTypeNum,
                 visitTypeName:   typeName,
@@ -404,7 +407,8 @@
                 date:            portalDate,
                 arrivalTime:     document.getElementById('schoolArrivalTime')?.value || '08:00',
                 departureTime:   document.getElementById('schoolDepartureTime')?.value || '12:00',
-                objectives,
+                // الأهداف ثمّ خطّ سير اليوم: السكربت يدمج المصفوفة بسطرٍ لكلّ عنصر (js/route.js)
+                objectives: objectives.concat(routeLines),
                 // البوّابة تقرأ خمسة حقولٍ فقط: ما أضافته قاعدة المعلمين (رقم الملف
                 // والجنس) يبقى في التقرير ولا يُثقل حمولة الرابط ولا يُرسَل بلا حاجة
                 classroomVisits: (schoolClassroomVisits || []).map(cv =>
@@ -452,6 +456,7 @@
                   <tr><td class="px-3 py-2 text-slate-500">وقت الوصول</td><td class="px-3 py-2 font-semibold">${exportData.arrivalTime}</td></tr>
                   <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">وقت الانصراف</td><td class="px-3 py-2 font-semibold">${exportData.departureTime}</td></tr>
                   <tr><td class="px-3 py-2 text-slate-500">الأهداف</td><td class="px-3 py-2 text-xs">${objectives.length > 0 ? objectives.slice(0,3).join(' • ').substring(0, 80) + '...' : '—'}</td></tr>
+                  ${routeLines.length ? '<tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">خطّ السير</td><td class="px-3 py-2 text-xs">' + routeLines.map(l => l.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))).join(' • ') + '</td></tr>' : ''}
                 </table>
                 <div class="flex gap-3">
                   <button id="svf-go-btn" class="flex-1 bg-gradient-to-br from-amber-600 to-amber-800 hover:from-amber-700 hover:to-amber-900 text-white py-3 rounded-xl text-sm font-bold transition-colors">

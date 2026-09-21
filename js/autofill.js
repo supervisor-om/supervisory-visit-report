@@ -86,6 +86,8 @@
             svfBindList('teacherName', SVF_TEACHER_LIST, on);   // الزيارة الإشرافيّة
             svfBindList('school',      SVF_SCHOOL_LIST,  on);
             svfBindList('schoolName',  SVF_SCHOOL_LIST,  on);   // الزيارة المدرسيّة
+            svfBindList('schoolCameFrom', SVF_SCHOOL_LIST, on);  // خطّ سير اليوم
+            svfBindList('schoolGoingTo',  SVF_SCHOOL_LIST, on);
             svfRefreshRosterSuggestions();
 
             const btn = document.getElementById('pullRosterBtn');
