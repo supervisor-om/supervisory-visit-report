@@ -494,7 +494,9 @@ const between = (a, b) => {
         check('مدرسيّة: التاريخ بصيغة البوّابة والوقتان من التقرير',
               v[1].date === '10/09/2026' && v[1].arrivalTime === '07:15' && v[1].departureTime === '11:30',
               [v[1].date, v[1].arrivalTime, v[1].departureTime].join(' / '));
-        check('مدرسيّة: الأهداف بلا ترقيم', v[1].objectives[0] === 'مقابلة الفاضلة مديرة المدرسة.', v[1].objectives[0]);
+        check('مدرسيّة: الأهداف مرقَّمة تسلسليّاً كترقيم رأي الزائر',
+              v[1].objectives[0] === '1- مقابلة الفاضلة مديرة المدرسة.' && v[1].objectives[1] === '2- حضور الطابور المدرسي.',
+              v[1].objectives.slice(0, 2).join(' ¦ '));
         const cv = (v[1].classroomVisits || [])[0] || {};
         check('مدرسيّة: الموقف الصفّيّ يصل بحقوله الخمسة',
               cv.teacher === 'سارة بنت علي الهنائية' && cv.grade === '7' && cv.period === '3' &&

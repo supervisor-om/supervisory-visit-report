@@ -394,8 +394,12 @@
                 if ((typeName || typeKey).includes(key)) { visitTypeNum = val; break; }
             }
 
+            // البوّابة كانت تتلقّى الأهداف بلا ترقيمٍ (رقم القائمة الكاملة يُنزَع لأنّه لا يطابق
+            // المحدَّد)، فيخرج «موضوع الزيارة» كتلة نصٍّ متلاصقة. تُرقَّم هنا تسلسليّاً ١، ٢، …
+            // بنفس ترقيم رأي الزائر (كلاهما من الأهداف المحدَّدة بالترتيب نفسه).
             const objectives = Array.from(document.querySelectorAll('#objectivesContainer input[name="objectives"]:checked'))
-                .map(cb => cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim());
+                .map(cb => cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim())
+                .map((o, i) => (i + 1) + '- ' + o);
 
             const routeLines = (typeof SchoolRoute !== 'undefined')
                 ? SchoolRoute.routeLines(document.getElementById('schoolCameFrom')?.value, document.getElementById('schoolGoingTo')?.value) : [];

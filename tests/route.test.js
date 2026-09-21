@@ -108,10 +108,11 @@ const J = JSON.stringify;
     const built = ctx.svfBuildSchoolFromKeys(Object.values(rep).map(r => r.id));
     const byKey = k => (built.ready.find(x => x.key === k) || {}).visit;
     const va = byKey(rep.a.id);
-    check('الطابور: الأهداف ثمّ خطّ السير في المصفوفة المرسَلة',
-          va && J(va.objectives) === J(['الهدف الأوّل', 'الهدف الثاني', '#قادم من مدرسة الشيخ زايد', '#متجه إلى مدرسة الأمل']), va && J(va.objectives));
-    check('الطابور: بلا خطّ سير ← الأهداف كما هي', J((byKey(rep.b.id) || {}).objectives) === J(['الهدف الأوّل', 'الهدف الثاني']), J((byKey(rep.b.id) || {}).objectives));
-    check('الطابور: «قادم من» وحده', J((byKey(rep.d.id) || {}).objectives) === J(['الهدف الأوّل', 'الهدف الثاني', '#قادم من مدرسة الشيخ زايد']));
+    // الأهداف تُرقَّم تسلسليّاً ١، ٢، … (كترقيم رأي الزائر) قبل إلحاق خطّ السير غير المرقَّم
+    check('الطابور: الأهداف مرقَّمةٌ تسلسليّاً ثمّ خطّ السير في المصفوفة المرسَلة',
+          va && J(va.objectives) === J(['1- الهدف الأوّل', '2- الهدف الثاني', '#قادم من مدرسة الشيخ زايد', '#متجه إلى مدرسة الأمل']), va && J(va.objectives));
+    check('الطابور: بلا خطّ سير ← الأهداف مرقَّمةً وحدها', J((byKey(rep.b.id) || {}).objectives) === J(['1- الهدف الأوّل', '2- الهدف الثاني']), J((byKey(rep.b.id) || {}).objectives));
+    check('الطابور: «قادم من» وحده', J((byKey(rep.d.id) || {}).objectives) === J(['1- الهدف الأوّل', '2- الهدف الثاني', '#قادم من مدرسة الشيخ زايد']));
     const cBroken = built.broken.find(x => x.key === rep.c.id);
     check('الطابور: خطّ السير لا يُعوِّض غياب الأهداف (يبقى ناقصاً)', !byKey(rep.c.id) && cBroken && cBroken.gaps.includes('أهداف الزيارة'),
           cBroken ? J(cBroken.gaps) : 'أُرسل رغم غياب الأهداف');
@@ -152,6 +153,13 @@ const J = JSON.stringify;
     check('wiring: المعاينة من النموذج تحمل الحقلين', /cameFrom: \(document\.getElementById\('schoolCameFrom'\)[\s\S]{0,200}classroomVisits: schoolClassroomVisits/.test(init));
     check('wiring: «نسخ الأهداف» تنسخ خطّ السير بعد المرقَّمة', /SchoolRoute\.routeLines\([^)]*schoolCameFrom[\s\S]{0,160}checked\.concat\(route\)/.test(init));
     check('wiring: التصدير المفرد يُلحق الأسطر بالأهداف ويعرضها', /objectives: objectives\.concat\(routeLines\)/.test(exp) && exp.includes('خطّ السير'));
+    // الأهداف تُرقَّم تسلسليّاً ١، ٢، … كترقيم رأي الزائر — في الموقعين والسكربت الثلاثة معاً
+    const usr = fs.readFileSync(path.join(ROOT, 'school-visits-automation.user.js'), 'utf8');
+    const que = fs.readFileSync(path.join(ROOT, 'js/queue-export.js'), 'utf8');
+    check('wiring: الأهداف مرقَّمةٌ عند التصدير في المواضع الثلاثة (كترقيم رأي الزائر)',
+          /\.map\(\(o, i\) => \(i \+ 1\) \+ '- ' \+ o\);/.test(exp)
+          && /\.map\(\(o, i\) => \(i \+ 1\) \+ '- ' \+ o\)\s*\r?\n\s*\.concat/.test(que)
+          && /\.map\(\(o, i\) => \(i \+ 1\) \+ '- ' \+ o\);/.test(usr));
     check('wiring: التهيئة تُستدعى، و«تقرير جديد» تصفّر النموذج كلّه',
           /schoolRouteInit\(\)/.test(init) && /repForm\.reset\(\)/.test(init));
     check('wiring: showSchoolForm تحدّث الاقتراح', /function showSchoolForm\(\) \{[\s\S]{0,400}renderSchoolRoute\(\);/.test(school));

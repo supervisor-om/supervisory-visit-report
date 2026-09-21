@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.2
+// @version      15.3
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -227,9 +227,11 @@
             try { typeName = schoolVisitTypesData?.[typeKey]?.name || typeKey; } catch (e) {}
 
             // أهداف الزيارة (checkboxes داخل objectivesContainer)
+            // تُرقَّم تسلسليّاً ١، ٢، … كترقيم رأي الزائر — نسخةٌ من الترقيم نفسه في js/export.js
             const realObjectives = $$('#objectivesContainer input[name="objectives"]:checked')
                 .map(cb => cb.value.replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim())
-                .filter(Boolean);
+                .filter(Boolean)
+                .map((o, i) => (i + 1) + '- ' + o);
             // خطّ سير اليوم بعد الأهداف: تدمج التعبئةُ المصفوفةَ بسطرٍ لكلّ عنصر
             const routeLines = svfRouteLines($('#schoolCameFrom')?.value, $('#schoolGoingTo')?.value);
             const objectives = realObjectives.concat(routeLines);

@@ -228,9 +228,11 @@
             // النموذج لم يكن يحفظ الوقتين في التقارير القديمة — تُستعمل ساعات الدوام
             arrivalTime:     d.arrivalTime || '08:00',
             departureTime:   d.departureTime || '12:00',
-            // الأهداف ثمّ خطّ سير اليوم (قادم من / متجه إلى) — السكربت يدمج المصفوفة بسطرٍ لكلّ عنصر
+            // الأهداف تُرقَّم تسلسليّاً ١، ٢، … كترقيم رأي الزائر (كلاهما بترتيب الأهداف
+            // المحدَّدة نفسه) ثمّ خطّ سير اليوم بلا ترقيم — السكربت يدمج المصفوفة بسطرٍ لكلّ عنصر
             objectives:      (Array.isArray(d.objectives) ? d.objectives : [])
                                 .map(o => String(o).replace(/^[\d٠-٩]+\s*[-–]\s*/, '').trim())
+                                .map((o, i) => (i + 1) + '- ' + o)
                                 .concat(typeof SchoolRoute !== 'undefined' ? SchoolRoute.routeLines(d.cameFrom, d.goingTo) : []),
             // خمسة حقولٍ فقط كما تقرؤها البوّابة — لا رقم ملفٍّ ولا جنس (انظر export.js)
             classroomVisits: (Array.isArray(d.classroomVisits) ? d.classroomVisits : []).map(cv =>
