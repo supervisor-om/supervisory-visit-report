@@ -86,6 +86,24 @@
             return notes;
         }
 
+        // تعديلات نصوص الأهداف من النموذج نفسه لحظة الحفظ — تُقرأ من حقل التعديل مباشرةً
+        // إن كان مفتوحاً (لا من متغيّر الحالة) فتعديلٌ لم يُغادَر حقلُه بعد لا يضيع
+        function collectObjectiveEdits() {
+            const edits = {};
+            document.querySelectorAll('#objectivesContainer .objective-item').forEach((item, i) => {
+                if (item.dataset.default === undefined) return;
+                const isEditing = !item.querySelector('.obj-editing')?.classList.contains('hidden');
+                const prefixEl = item.querySelector('.obj-display span, .obj-editing span');
+                const prefix = prefixEl ? prefixEl.textContent : '';
+                const body = isEditing
+                    ? (item.querySelector('.obj-edit-input')?.value.trim() || '')
+                    : (item.querySelector('.obj-text')?.textContent || '');
+                const full = prefix + body;
+                if (body && full !== item.dataset.default) edits[i] = full;
+            });
+            return edits;
+        }
+
         // ── استعادة الأهداف المحدَّدة ──
         // الهدف يُحفظ بنصّه **بعد** تطبيق مفتاح الجنس ([معلم/معلمة/معلمين/معلمات])،
         // وكانت الاستعادة تطابق النصّ حرفاً بحرف والمفتاح لا يُحفظ: فمن حدّد أهدافه
@@ -132,11 +150,15 @@
 
             const genderSelector = document.getElementById('genderNumberSelector');
 
-            // حفظ الملاحظات والحالة قبل إعادة الرسم
+            // حفظ الملاحظات والتعديلات والحالة قبل إعادة الرسم
             objectivesContainer.querySelectorAll('.objective-item').forEach((item, i) => {
                 const noteInput = item.querySelector('.objective-note');
                 if (noteInput && noteInput.value.trim()) objectiveNotes[i] = noteInput.value.trim();
                 else delete objectiveNotes[i];
+
+                const cb = item.querySelector('input[name="objectives"]');
+                if (cb && item.dataset.default !== undefined && cb.value !== item.dataset.default) objectiveEdits[i] = cb.value;
+                else delete objectiveEdits[i];
             });
 
             objectivesContainer.innerHTML = '';
@@ -148,17 +170,39 @@
                 const mode = getGenderMode();
                 typeData.objectives.forEach((obj, index) => {
                     if(!obj) return;
-                    const resolved = applyGenderFilter(obj, mode);
+                    const defaultResolved = applyGenderFilter(obj, mode);
+                    const edited = objectiveEdits[index];
+                    const resolved = edited !== undefined ? edited : defaultResolved;
                     const safeVal = resolved.replace(/"/g, '&quot;');
                     const savedNote = objectiveNotes[index] || '';
                     const hasNote = !!savedNote;
+                    const isEdited = edited !== undefined;
+
+                    // رقم القائمة أوّل النصّ ثابتٌ لا يُعدَّل — يبقى تعديل التصدير الذي يُعيد
+                    // ترقيم المحدَّد تسلسليّاً سليماً — والجسم بعده هو وحده القابل للتعديل
+                    const numMatch = resolved.match(/^([\d٠-٩]+\s*[-–]\s*)([\s\S]*)$/);
+                    const prefix = numMatch ? numMatch[1] : '';
+                    const body = numMatch ? numMatch[2] : resolved;
 
                     const div = document.createElement('div');
                     div.className = 'objective-item rounded-lg border ' + (hasNote ? 'border-amber-200 bg-amber-50' : 'border-transparent hover:bg-slate-50');
+                    div.dataset.default = defaultResolved;
+                    div.dataset.index = String(index);
                     div.innerHTML = `
                         <div class="flex items-start gap-2 p-2">
                             <input type="checkbox" name="objectives" value="${safeVal}" id="obj-${index}" class="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                            <label for="obj-${index}" class="flex-1 text-sm font-medium text-gray-900 cursor-pointer select-none whitespace-pre-line">${resolved}</label>
+                            <label for="obj-${index}" class="sr-only">تحديد هذا الهدف</label>
+                            <div class="flex-1 min-w-0">
+                                <div class="obj-display flex items-start gap-1">
+                                    <span class="text-sm font-medium text-gray-900">${schoolRouteEsc(prefix)}</span>
+                                    <button type="button" class="obj-text flex-1 text-right text-sm font-medium text-gray-900 bg-transparent border-0 p-0 m-0 whitespace-pre-line cursor-text hover:underline decoration-dotted underline-offset-4 rounded" title="اضغط لتعديل نصّ الهدف">${schoolRouteEsc(body)}</button>
+                                </div>
+                                <div class="obj-editing hidden flex items-start gap-1">
+                                    <span class="text-sm font-medium text-gray-900 pt-1.5">${schoolRouteEsc(prefix)}</span>
+                                    <input type="text" class="obj-edit-input flex-1 text-sm bg-white border border-sky-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-sky-400" value="${schoolRouteEsc(body)}">
+                                </div>
+                            </div>
+                            <button type="button" class="obj-edited-badge flex-shrink-0 text-[10px] leading-none px-1.5 py-1 rounded-full bg-sky-100 text-sky-600 border border-sky-300 self-start mt-1.5 ${isEdited ? '' : 'hidden'}" title="نصٌّ معدَّل — اضغط لإرجاع النصّ الأصليّ">معدَّل</button>
                             <button type="button" class="note-toggle flex-shrink-0 text-xs px-2 py-1 rounded-full border transition-all ${hasNote ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-300'}" data-index="${index}" title="إضافة ملاحظة">
                                 <i class="fa-solid fa-flag"></i>
                             </button>
@@ -187,6 +231,59 @@
                             btn.className = btn.className.replace('bg-amber-100 text-amber-700 border-amber-300', 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-300');
                             item.className = 'objective-item rounded-lg border border-transparent hover:bg-slate-50';
                         }
+                    });
+                });
+
+                // ربط تعديل نصّ الهدف: يعدّل الجسم بعد الرقم الثابت وحده، ولا يمسّ تحديد
+                // المربّع (كان النصّ كلّه داخل <label for> فيُبدّل التحديد عند أيّ نقرة عليه)
+                objectivesContainer.querySelectorAll('.objective-item').forEach(item => {
+                    const index = item.dataset.index;
+                    const textBtn = item.querySelector('.obj-text');
+                    const displayRow = item.querySelector('.obj-display');
+                    const editRow = item.querySelector('.obj-editing');
+                    const editInput = item.querySelector('.obj-edit-input');
+                    const badge = item.querySelector('.obj-edited-badge');
+                    const cb = item.querySelector('input[name="objectives"]');
+                    const prefixEl = displayRow?.querySelector('span');
+                    if (!textBtn || !displayRow || !editRow || !editInput || !badge || !cb || !prefixEl) return;
+                    const prefix = prefixEl.textContent;
+
+                    // إخفاء حقل التعديل (.hidden = display:none) بينما التركيز عليه يُفقده
+                    // تلقائيّاً — فيُطلق blur من تلقاء نفسه. Escape يجب أن يُخفي الحقل هو
+                    // الآخر (بصريّاً)، فمن دون هذا العلَم كان الإلغاء يُطلق commit() بنصّه
+                    // المكتوب قبل الإلغاء، فيُحفظ ما ضغط المستخدم Escape ليتراجع عنه بالذات.
+                    let cancelling = false;
+                    const openEdit = () => {
+                        editInput.value = textBtn.textContent;
+                        displayRow.classList.add('hidden');
+                        editRow.classList.remove('hidden');
+                        editInput.focus();
+                        editInput.select();
+                    };
+                    const commit = () => {
+                        editRow.classList.add('hidden');
+                        displayRow.classList.remove('hidden');
+                        if (cancelling) { cancelling = false; return; }
+                        const newBody = editInput.value.trim();
+                        if (!newBody) return;   // فارغٌ ← إلغاءٌ صامت، فلا هدف بلا نصّ
+                        const newFull = prefix + newBody;
+                        cb.value = newFull;
+                        textBtn.textContent = newBody;
+                        if (newFull !== item.dataset.default) { objectiveEdits[index] = newFull; badge.classList.remove('hidden'); }
+                        else { delete objectiveEdits[index]; badge.classList.add('hidden'); }
+                    };
+                    textBtn.addEventListener('click', openEdit);
+                    editInput.addEventListener('keydown', e => {
+                        if (e.key === 'Enter') { e.preventDefault(); editInput.blur(); }
+                        else if (e.key === 'Escape') { e.preventDefault(); cancelling = true; editInput.blur(); }
+                    });
+                    editInput.addEventListener('blur', commit);
+                    badge.addEventListener('click', () => {
+                        const m = item.dataset.default.match(/^([\d٠-٩]+\s*[-–]\s*)([\s\S]*)$/);
+                        delete objectiveEdits[index];
+                        cb.value = item.dataset.default;
+                        textBtn.textContent = m ? m[2] : item.dataset.default;
+                        badge.classList.add('hidden');
                     });
                 });
             } else {
@@ -839,6 +936,11 @@
             e.preventDefault();
             const reportForm = document.getElementById('reportForm');
             if(!reportForm) return;
+            // تعديل هدفٍ لم يُغادَر حقلُه بعد (لم يُنقر خارجه) يُغادَر قسراً هنا، فلا يُحفظ
+            // مربّع تحديده بنصّه القديم بينما تعديله الجديد يظهر عند إعادة الفتح فقط
+            document.querySelectorAll('#objectivesContainer .obj-editing').forEach(row => {
+                if (!row.classList.contains('hidden')) row.querySelector('.obj-edit-input')?.blur();
+            });
             const formData = new FormData(reportForm);
             const objectives = [];
             reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
@@ -865,6 +967,7 @@
                 // وتضيع الملاحظات عند فتح التقرير للتعديل
                 genderMode: getGenderMode(),
                 objectiveNotes: collectObjectiveNotes(),
+                objectiveEdits: collectObjectiveEdits(),
                 // خطّ سير اليوم: حقلان مستقلّان لا هدفان (انظر js/route.js)
                 cameFrom: (document.getElementById('schoolCameFrom')?.value || '').trim(),
                 goingTo: (document.getElementById('schoolGoingTo')?.value || '').trim(),
@@ -915,6 +1018,9 @@
                 // ملاحظات هذا التقرير وحده: كانت تبقى من التقرير المفتوح قبله فتُنسب إليه
                 objectiveNotes = (report.objectiveNotes && typeof report.objectiveNotes === 'object')
                     ? Object.assign({}, report.objectiveNotes) : {};
+                // وتعديلات نصوص أهدافه — قبل الرسم، فنصّ الهدف يُبنى عليها
+                objectiveEdits = (report.objectiveEdits && typeof report.objectiveEdits === 'object')
+                    ? Object.assign({}, report.objectiveEdits) : {};
                 renderSchoolClassroomVisits();
                 applyRosterToForm();
                 updateRosterVisibility(report.visitType);
@@ -1034,6 +1140,8 @@
                         schoolTeachers = Array.isArray(report.teachers) ? report.teachers : [];
                         schoolPrincipal = (report.principal && typeof report.principal === 'object')
                             ? report.principal : { name: '', gender: 'f' };
+                        objectiveEdits = (report.objectiveEdits && typeof report.objectiveEdits === 'object')
+                            ? Object.assign({}, report.objectiveEdits) : {};
                         renderSchoolClassroomVisits();
                         applyRosterToForm();
                         updateRosterVisibility(report.visitType);

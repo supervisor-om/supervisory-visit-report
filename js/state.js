@@ -18,6 +18,9 @@
         let schoolVisitTypesData = {};
         let schoolClassroomVisits = [];
         let objectiveNotes = {};
+        // نصّ الهدف بعد تعديلٍ يدويٍّ خفيف من المشرف — مفتاحها موضع الهدف في قائمة نوعه،
+        // وقيمتها النصّ الكامل بعد التعديل (بالرقم الثابت أوّله). غيابها يعني: النصّ الافتراضيّ.
+        let objectiveEdits = {};
         let prevRecommendationsStatus = []; // [{ text, status: 'done'|'partial'|'not-done'|null }]
         // طاقم المدرسة: يُدرَج في رأي الزائر عند التوليد ويُحفظ لكلّ مدرسةٍ باسمها
         let schoolTeachers = [];           // [{ name, gender: 'm'|'f', load, grades, section }]

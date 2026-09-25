@@ -245,6 +245,7 @@
                             schoolTeachers = [];
                             schoolPrincipal = { name: '', gender: 'f' };
                             objectiveNotes = {};
+                            objectiveEdits = {};
                             prevRecommendationsStatus = [];
                             document.getElementById('prevRecsPanel')?.classList.add('hidden');
                             renderSchoolClassroomVisits();
