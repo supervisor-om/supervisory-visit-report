@@ -5,7 +5,7 @@
     "start_url": "./reports.html",
     "display": "standalone",
     "background_color": "#f7f8fa",
-    "theme_color": "#0a1410",
+    "theme_color": "#0f4c81",
     "orientation": "any",
     "dir": "rtl",
     "lang": "ar",
