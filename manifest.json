@@ -11,27 +11,27 @@
     "lang": "ar",
     "icons": [
         {
-            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj4gPHJlY3Qgd2lkdGg9IjE5MiIgaGVpZ2h0PSIxOTIiIHJ4PSIzNiIgZmlsbD0iIzBiM2MyOCIvPiA8Y2lyY2xlIGN4PSI5NiIgY3k9Ijk2IiByPSIzOSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZjdmNWVlIiBzdHJva2Utd2lkdGg9IjkiLz4gPHBhdGggZD0iTTk2IDE4djE1NiIgc3Ryb2tlPSIjZjdmNWVlIiBzdHJva2Utd2lkdGg9IjkiLz4gPC9zdmc+",
+            "src": "icons/icon-192.png",
             "sizes": "192x192",
-            "type": "image/svg+xml",
+            "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4gPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0iIzBiM2MyOCIvPiA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjEwNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZjdmNWVlIiBzdHJva2Utd2lkdGg9IjI0Ii8+IDxwYXRoIGQ9Ik0yNTYgNDh2NDE2IiBzdHJva2U9IiNmN2Y1ZWUiIHN0cm9rZS13aWR0aD0iMjQiLz4gPC9zdmc+",
+            "src": "icons/icon-512.png",
             "sizes": "512x512",
-            "type": "image/svg+xml",
+            "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj4gPHJlY3Qgd2lkdGg9IjE5MiIgaGVpZ2h0PSIxOTIiIGZpbGw9IiMwYjNjMjgiLz4gPGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iMzEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2Y3ZjVlZSIgc3Ryb2tlLXdpZHRoPSI3Ii8+IDxwYXRoIGQ9Ik05NiAzOHYxMTYiIHN0cm9rZT0iI2Y3ZjVlZSIgc3Ryb2tlLXdpZHRoPSI3Ii8+IDwvc3ZnPg==",
+            "src": "icons/icon-192-maskable.png",
             "sizes": "192x192",
-            "type": "image/svg+xml",
+            "type": "image/png",
             "purpose": "maskable"
         },
         {
-            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4gPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIGZpbGw9IiMwYjNjMjgiLz4gPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSI4MyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZjdmNWVlIiBzdHJva2Utd2lkdGg9IjE5Ii8+IDxwYXRoIGQ9Ik0yNTYgMTAydjMwOCIgc3Ryb2tlPSIjZjdmNWVlIiBzdHJva2Utd2lkdGg9IjE5Ii8+IDwvc3ZnPg==",
+            "src": "icons/icon-512-maskable.png",
             "sizes": "512x512",
-            "type": "image/svg+xml",
+            "type": "image/png",
             "purpose": "maskable"
         }
     ]
