@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.5
+// @version      15.6
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -2619,17 +2619,77 @@
         }
 
         // ─── الحفظ في وحدة الزيارات الإشرافية ───
+        // بحثٌ موسَّع: البوّابة تسمّي زرّ الحفظ بأسماء شتّى (Save/Update)، وقد
+        // يكون صورةً بلا نصٍّ إلّا في alt أو title. الضيق منها ترك السكربت
+        // يقول «لم أجد زر الحفظ» ويطلب الحفظ اليدويّ (سجلّ 2026-09-26).
         function supFindSave() {
+            const sels = [
+                '[id$="ImgSave"]', '[id*="btnSave"]', '[id*="ImgUpdate"]', '[id*="btnUpdate"]',
+                'input[type="submit"][value*="حفظ"]', 'input[type="button"][value*="حفظ"]',
+                'input[type="image"][alt*="حفظ"]', 'input[type="image"][title*="حفظ"]',
+                'input[type="image"][id*="Save"]', 'button[id*="Save"]', 'a[id*="Save"]'
+            ];
             for (const d of docs()) {
-                const el = d.getElementById('ctl00_content_ImgSave')
-                        || d.getElementById('ctl00_content_btnSave')
-                        || d.querySelector('[id$="ImgSave"]')
-                        || d.querySelector('[id*="btnSave"]')
-                        || d.querySelector('input[type="submit"][value*="حفظ"]')
-                        || d.querySelector('input[type="image"][id*="Save"]');
-                if (el) return el;
+                for (const sel of sels) {
+                    let el = null;
+                    try { el = d.querySelector(sel); } catch (e) {}
+                    if (el) return el;
+                }
+                // وأخيراً بالنصّ الظاهر: زرٌّ مكتوبٌ عليه «حفظ» مهما كان معرّفه
+                let els = [];
+                try { els = Array.from(d.querySelectorAll('input, button, a')); } catch (e) { continue; }
+                const hit = els.find(el => {
+                    const t = normAr((el.value || el.alt || el.title || el.textContent || '').trim());
+                    return t && t.length <= 20 && t.includes(normAr('حفظ'));
+                });
+                if (hit) return hit;
             }
             return null;
+        }
+
+        // حين لا يُعثر على الزرّ: تُسرد أزرار الصفحة بمعرّفاتها في السجلّ نفسه،
+        // فيكفي «نسخ السجل» لمعرفة اسم الزرّ بلا جولة تشخيصٍ أخرى
+        function supDumpButtons() {
+            slog('--- أزرار الصفحة (لمعرفة اسم زرّ الحفظ) ---', 'warn');
+            let n = 0;
+            for (const d of docs()) {
+                let els = [];
+                try {
+                    els = Array.from(d.querySelectorAll(
+                        'input[type="submit"], input[type="button"], input[type="image"], button, a[onclick]'));
+                } catch (e) { continue; }
+                els.slice(0, 40).forEach(el => {
+                    const label = String(el.value || el.alt || el.title || (el.textContent || '').trim() || '—').slice(0, 28);
+                    let oc = '';
+                    try { oc = String(el.getAttribute('onclick') || '').slice(0, 40); } catch (e) {}
+                    slog('  [' + el.tagName + '] #' + (el.id || '—') + ' «' + label + '»' + (oc ? ' ← ' + oc : ''), 'info');
+                    n++;
+                });
+            }
+            if (!n) slog('  لا أزرار في الصفحة', 'error');
+        }
+
+        // نافذة «إعلام» في البوّابة تبقى فوق النموذج فتحجب ما تحتها. تُغلق
+        // بزرّها («عودة» أو الإغلاق) قبل البحث عن الحفظ — وهو ما يفعله المستخدم
+        // بيده ثمّ يحفظ فينجح.
+        function supDismissNotice() {
+            const OK = ['عوده', 'موافق', 'اغلاق', 'خروج'].map(normAr);
+            for (const d of docs()) {
+                let els = [];
+                try {
+                    els = Array.from(d.querySelectorAll('input[type="button"], input[type="submit"], button, a'));
+                } catch (e) { continue; }
+                for (const el of els) {
+                    let t = '';
+                    try { t = normAr(String(el.value || el.textContent || el.alt || el.title || '').trim()); } catch (e) { continue; }
+                    if (!t || t.length > 12 || OK.indexOf(t) === -1) continue;
+                    if (el.offsetParent === null) continue;       // مخفيّةٌ: ليست النافذة المعروضة
+                    try { el.click(); } catch (e) { continue; }
+                    slog('أُغلقت نافذة البوّابة بـ«' + t + '»', 'warn');
+                    return true;
+                }
+            }
+            return false;
         }
 
         function supPortalErrors() {
@@ -2663,11 +2723,16 @@
                 return;
             }
 
-            const btn = supFindSave();
+            // النافذة المعروضة تحجب الزرّ: تُغلق أوّلاً ثمّ يُبحث عنه
+            if (supDismissNotice()) await wait(800);
+
+            let btn = supFindSave();
+            if (!btn) { await wait(1200); btn = supFindSave(); }   // إعادة رسمٍ بعد إغلاق النافذة
             if (!btn) {
                 sstat('لم أجد زر الحفظ — احفظ يدوياً');
                 slog('🛑 لم يُعثر على زر الحفظ', 'error');
-                slog('اضغط «تشخيص» وأرسل السجل للمطوّر', 'warn');
+                supDumpButtons();
+                slog('اضغط «نسخ السجل» وأرسله للمطوّر', 'warn');
                 return;
             }
 
@@ -2971,16 +3036,36 @@
             return null;
         }
 
+        // تبويبات صفحة التقييم بمعرّفاتها كما في البوّابة (مثبَّتةٌ من سجلّ حقيقيّ):
+        //   TM1 بنود الاستمارة · TM2 حقول الاستمارة · TM3 تقييم المهارات
+        const SUP_TABS = { 'بنود الاستمارة': 'TM1', 'حقول الاستمارة': 'TM2', 'تقييم المهارات': 'TM3' };
+
+        // نصوص رسائل البوّابة تحتوي أسماء التبويبات («رجاء استكمال تعبئة حقول
+        // الاستمارة»)، والبحث بالنصّ وحده كان يضغط الرسالة ظانّاً أنّها التبويب.
+        const TAB_NOISE = ['رجاء', 'استكمال', 'يجب'].map(normAr);
+
         function supClickTab(label) {
+            const id = SUP_TABS[label];
+            if (id) {
+                for (const d of docs()) {
+                    let el = null;
+                    try { el = d.getElementById(id); } catch (e) {}
+                    if (el) {
+                        try { el.click(); slog('فُتح تبويب: ' + label + ' (#' + id + ')', 'info'); return true; }
+                        catch (e) {}
+                    }
+                }
+            }
+
             const want = normAr(label);
             for (const d of docs()) {
                 let els = [];
-                try { els = Array.from(d.querySelectorAll('a, span, td, div, li')); } catch (e) { continue; }
+                try { els = Array.from(d.querySelectorAll('td[id^="TM"], a, span, td, li')); } catch (e) { continue; }
                 for (const el of els) {
                     const t = normAr(el.textContent || '');
-                    if (t && t.length < 40 && t.includes(want)) {
-                        try { el.click(); slog('فُتح تبويب: ' + label, 'info'); return true; } catch (e) {}
-                    }
+                    if (!t || t.length >= 40 || !t.includes(want)) continue;
+                    if (TAB_NOISE.some(n => t.includes(n))) continue;   // رسالة تحقّقٍ لا تبويب
+                    try { el.click(); slog('فُتح تبويب: ' + label, 'info'); return true; } catch (e) {}
                 }
             }
             return false;
@@ -3008,6 +3093,7 @@
             // ── بنود التقييم: rptrFormItems_ctl01..ctl13_ddlItemEvals ──
             supClickTab('بنود الاستمارة');
             await wait(1500);
+            supDismissNotice();   // تبديل التبويب قد يُظهر نافذة تحقّقٍ تحجب ما بعده
 
             let ok = 0; const miss = [];
             const notes = sup.notes || {};
@@ -3083,6 +3169,7 @@
             // ── الحقول النصّيّة: rptrFormFields_ctl01..ctl04_txtFieldValue ──
             supClickTab('حقول الاستمارة');
             await wait(1500);
+            supDismissNotice();
 
             // أسماء الحقول كما هي في البوّابة (جدول FieldsTable)
             // «التوصيات» في الموقع هي «الدعم المقدم» في البوّابة — حقلٌ واحدٌ باسمين
