@@ -1,7 +1,7 @@
 // اختبار انحدار: node tests/supervisory-form.test.js
 // استمارة الزيارة الإشرافيّة المُصدَّرة (Word/PDF) مطابقةٌ للقالب الرسميّ 2026/2027:
 //   ١) كلّ نصٍّ ثابتٍ في القالب (tests/fixtures/supervisory-form-2026.docx) موجودٌ في المُصدَّر بترتيبه
-//   ٢) البنية: جدولان فقط (معلومات + تقييم)، والتقييم متّصلٌ بدمجٍ رأسيٍّ صحيح، والتوصيات صفٌّ فيه
+//   ٢) البنية: جدول معلوماتٍ + جدول تقييمٍ متّصلٌ بدمجٍ رأسيٍّ صحيح (والتوصيات صفٌّ فيه) + صفّ الزائر
 //   ٣) بلا شعاراتٍ ولا صفٍّ للزائر (لا وجود لهما في القالب)، والعام الدراسي من تاريخ الزيارة
 //   ٤) ارتباط الأرقام: officialFormItems بترتيب evaluationItems نفسه (البوّابة تلتقط بالترتيب لا بالأسماء)
 const fs = require('fs');
@@ -53,8 +53,8 @@ const text = plain(html);
 
 /* ── ٢) البنية ── */
 {
-    check('جدولان فقط: المعلومات والتقييم (لا جدولان للتقييم ولا فاصل صفحة)',
-          (html.match(/<table/g) || []).length === 2 && !/page-break/.test(html), String((html.match(/<table/g) || []).length));
+    check('جدول تقييمٍ واحدٌ متّصل (لا جدولان بفاصل صفحة)، وجدول معلوماتٍ، وصفّ الزائر جدولٌ ثالثٌ منفصل',
+          (html.match(/<table/g) || []).length === 3 && !/page-break/.test(html), String((html.match(/<table/g) || []).length));
     check('رأس جدول التقييم: الأعمدة الستّة بترتيبها', (() => {
         const head = html.slice(html.indexOf('<thead>'), html.indexOf('</thead>'));
         const cols = (head.match(/<th[\s\S]*?<\/th>/g) || []).map(plain);
@@ -82,7 +82,9 @@ const text = plain(html);
     check('عمود التطوير يشمل 8–13 وعنوانه داخل الخليّة قبل نصّه',
           side[1] && side[1][0] === 6 && side[1][1] === 'الجوانب التي تحتاج إلى تطوير في الأداء وأدلتها نص-التطوير-الفريد', JSON.stringify(side[1]));
 
-    const lastRow = html.slice(html.lastIndexOf('<tr>'), html.lastIndexOf('</table>'));
+    // آخر صفٍّ في جدول التقييم تحديداً — لا في صفّ الزائر الذي يليه في جدولٍ ثالث
+    const evalTableEnd = html.indexOf('</table>', html.indexOf('<thead>'));
+    const lastRow = html.slice(html.lastIndexOf('<tr>', evalTableEnd), evalTableEnd);
     check('التوصيات: آخر صفٍّ في جدول التقييم نفسه بخليّةٍ تشمل الأعمدة الستّة',
           /<td colspan="6"/.test(lastRow) && plain(lastRow) === 'التوصيات: نص-التوصيات-الفريد', plain(lastRow));
 
@@ -99,8 +101,10 @@ const text = plain(html);
 /* ── ٣) ما ليس في القالب وما يُشتقّ ── */
 {
     check('بلا شعاراتٍ ولا صور', !/<img/.test(html) && !/imgur/.test(html));
-    check('بلا «نموذج رئيسي» ولا عنوانٍ فرعيٍّ ولا صفّ اسم الزائر ووظيفته',
-          !/نموذج رئيسي/.test(text) && !/عملية إعداد/.test(text) && !/اسم الزائر/.test(text) && !/الوظيفة/.test(text));
+    check('بلا «نموذج رئيسي» ولا عنوانٍ فرعيّ (غير موجودين في القالب)',
+          !/نموذج رئيسي/.test(text) && !/عملية إعداد/.test(text));
+    check('صفّ اسم الزائر ووظيفته: أعاده المشرف بعد القالب الجديد — بعد جدول التقييم (بعد التوصيات) لا داخله',
+          html.indexOf('التوصيات:') < html.indexOf('اسم الزائر') && /اسم الزائر: أسعد الخصيبي/.test(text) && /الوظيفة: مشرف/.test(text));
     check('المادة/المجال: «رياضة مدرسية» حين تكون فارغة، وما كُتب يغلبها',
           /المادة\/ المجال: رياضة مدرسية/.test(text) && /المادة\/ المجال: تربية بدنية/.test(plain(ctx.getReportHTML(Object.assign({}, base, { subject: 'تربية بدنية' })))));
 

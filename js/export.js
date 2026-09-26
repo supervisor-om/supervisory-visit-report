@@ -96,6 +96,13 @@
                         </tbody>
                     </table>
 
+                    <table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-top:8pt;">
+                        <tr>
+                            <td style="width:50%; border:none; padding:2pt 4pt;">${p('اسم الزائر: ' + data.visitorName, `font-family:${BODY}; font-size:12pt; font-weight:bold;`)}</td>
+                            <td style="width:50%; border:none; padding:2pt 4pt;">${p('الوظيفة: ' + data.visitorPosition, `font-family:${BODY}; font-size:12pt; font-weight:bold; text-align:left;`)}</td>
+                        </tr>
+                    </table>
+
                     ${p('معيار التقييم: متميز (1) - جيد (2) - ملائم (3) - غير ملائم (4) - يحتاج إلى تدخل (5)', `margin-top:6pt; text-align:center; font-family:${BODY}; font-size:12pt;`)}
                 </div>
             `;
