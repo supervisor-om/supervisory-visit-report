@@ -103,6 +103,31 @@ const base = {
           JSON.stringify(C.countSupervisory('(1) أ. دينا (مرفق) + (2) أ. علي')));
 }
 
+/* ── ٢ب) زيارتان إشرافيّتان في يومٍ واحدٍ لمعلّمين في مدرستين مختلفتين ── */
+const multiSchool = Object.assign({}, base, {
+    supReports: base.supReports.concat([
+        { key: 'v4', teacherName: 'عدنان سالم الحارثي', visitDate: iso(9), school: 'مشاعل مسقط' },
+        { key: 'v5', teacherName: 'خالصة راشد المعمري', visitDate: iso(9), school: 'مدرسة الريادة الخاصة' }
+    ])
+});
+{
+    const rows = C.buildRows(multiSchool);
+    const day9 = rows.find(r => r.day === 9);
+    check('مدرستان: سطرٌ لكلّ معلّمٍ لا «+» بينهما',
+          day9.supervisory.split('\n').length === 2, day9.supervisory);
+    check('مدرستان: كلّ سطرٍ يحمل اسم مدرسته مختصراً بعد اسم المعلّم',
+          day9.supervisory === '(1) أ. عدنان- مشاعل مسقط (مرفق)\n(1) أ. خالصة- الريادة (خ) (مرفق)',
+          day9.supervisory);
+    check('مدرستان: عدّ الإشرافيّة يُقسَّم على السطر أيضاً لا «+» وحدها',
+          JSON.stringify(C.countSupervisory(day9.supervisory)) === JSON.stringify({ portal: 0, attached: 2, total: 2 }),
+          JSON.stringify(C.countSupervisory(day9.supervisory)));
+
+    // مدرسةٌ واحدةٌ بين معلّمي اليوم (كما في base) تبقى بصيغتها القديمة — لا رجعةً في هذا
+    const by = d => rows.find(r => r.day === d);
+    check('مدرسةٌ واحدة: الصيغة القديمة (+) بلا اسم مدرسةٍ تبقى كما هي',
+          by(2).supervisory === '(2) أ. علي', by(2).supervisory);
+}
+
 /* ── ٣) ملء نموذج Word ── */
 const TPL = process.env.SVF_MONTHLY_TEMPLATE ||
     'C:\\Users\\PC10\\OneDrive - Ministry Of Education - Oman\\التقارير الشهرية\\‏‏‏‏‏‏‏‏‏6- اسعد تقرير يونيو\\‏6- اسعد تقرير يونيو.docx';
@@ -145,6 +170,20 @@ if (!fs.existsSync(TPL)) {
     const tplCell = D.cellsOf(tplRows[0])[2], outCell = D.cellsOf(outRows[0])[2];
     check('docx: خليّة «الخطة المعتمدة» بخصائص النموذج نفسها', shape(tplCell) === shape(outCell),
           shape(outCell).slice(0, 120) + ' ⟷ ' + shape(tplCell).slice(0, 120));
+
+    // مدرستان في يومٍ واحد: <w:br/> يفصل السطرين داخل الخليّة نفسها (لا فقرةٌ جديدة)
+    const msRows = C.buildRows(multiSchool);
+    const msRes = D.fill(xml, { monthName: 'يونيو', year: 2026, rows: msRows, totals: C.totals(msRows) });
+    const msOutRows = D.tables(msRes.xml).map(([a, b]) => msRes.xml.slice(a, b))
+        .filter(t => /الخطة الشهرية المعتمدة/.test(D.textOf(t)))
+        .flatMap(t => D.analyseTable(t).data);
+    const day9Cell = D.cellsOf(msOutRows.find(r => D.textOf(r).startsWith('9/6')))[5];
+    check('docx: خليّة الإشرافيّة ليومٍ بمدرستين تحمل <w:br/>', /<w:br\s*\/>/.test(day9Cell), day9Cell.slice(0, 200));
+    check('docx: نصّ السطرين كلاهما موجودٌ في الخليّة',
+          D.textOf(day9Cell).includes('عدنان') && D.textOf(day9Cell).includes('خالصة'), D.textOf(day9Cell));
+    const balanced2 = tags.every(t => (msRes.xml.match(new RegExp('<' + t + '[ >]', 'g')) || []).length ===
+                                      (msRes.xml.match(new RegExp('</' + t + '>', 'g')) || []).length);
+    check('docx: الوسوم متوازنةٌ أيضاً مع خليّة السطرين', balanced2);
 
     const marks = D.cellsOf(outRows[0])[4];
     check('docx: خليّة ✓ بخطّ الرمز من النموذج', /Segoe UI Symbol|Wingdings/.test(marks), marks.slice(0, 80));

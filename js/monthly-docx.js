@@ -63,8 +63,11 @@
             return /<w:color /.test(rPr) ? rPr.replace(/<w:color [^>]*\/>/, `<w:color w:val="${color}"/>`)
                                          : rPr.replace('</w:rPr>', `<w:color w:val="${color}"/></w:rPr>`);
         };
-        const newRuns = parts.filter(x => x.text !== '').map(x =>
-            `<w:r>${withColor(x.color)}<w:t xml:space="preserve">${encode(x.text)}</w:t></w:r>`).join('');
+        // فاصل سطرٍ داخل الفقرة نفسها (لا فقرةٌ جديدة) — أكثر من مدرسةٍ في زيارات
+        // إشرافية يومٍ واحد، مثلاً؛ x.br بلا نصٍّ فلا يسقطه فلتر «لا فارغ»
+        const newRuns = parts.filter(x => x.text !== '' || x.br).map(x =>
+            x.br ? `<w:r>${withColor(x.color)}<w:br/></w:r>`
+                 : `<w:r>${withColor(x.color)}<w:t xml:space="preserve">${encode(x.text)}</w:t></w:r>`).join('');
 
         // تُحذف التشغيلات كلّها (نصّاً ورموزاً) ويُكتب الجديد بعد خصائص الفقرة
         let rest = para;
@@ -134,8 +137,13 @@
     function buildRow(proto, row, bandIndex) {
         const shd = Math.floor(bandIndex / BAND) % 2 === 0 ? proto.shdGray : proto.shdWhite;
         const checks = row.marks > 0 ? Array(row.marks).fill('✓').join(' ') : '-';
-        const redCounts = s => String(s).split(/(\(\d+\))/).filter(x => x !== '')
-            .map(x => ({ text: x, color: /^\(\d+\)$/.test(x) ? RED : null }));
+        // أكثر من مدرسةٍ في اليوم ← سطرٌ لكلّ معلّمٍ (buildRows في monthly-core.js)؛
+        // الفصل بـ<w:br/> داخل الفقرة نفسها لا فقرةٌ جديدة، فلا حاجة لفتحةٍ في القالب
+        const redCounts = s => String(s).split('\n').flatMap((line, i, lines) => {
+            const parts = line.split(/(\(\d+\))/).filter(x => x !== '')
+                .map(x => ({ text: x, color: /^\(\d+\)$/.test(x) ? RED : null }));
+            return i < lines.length - 1 ? [...parts, { text: '', br: true }] : parts;
+        });
         const values = [
             [{ text: row.date }],
             [{ text: row.dayName }],

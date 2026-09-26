@@ -105,17 +105,23 @@
             visits.filter(v => !v.sent).forEach(v =>
                 warnings.push(`زيارة «${v.name}» محفوظة ولم يُؤكَّد حفظها في البوابة — لا ✓ لها`));
 
-            // الزيارات الإشرافيّة: معلّمٌ واحدٌ بعدد زياراته
+            // الزيارات الإشرافيّة: معلّمٌ واحدٌ بعدد زياراته، ومدرسته أوّل زيارةٍ له
             const byTeacher = new Map();
             for (const r of (input.supReports || [])) {
                 if (!r || r.visitDate !== iso || !trim(r.teacherName)) continue;
                 const t = trim(r.teacherName);
-                const g = byTeacher.get(t) || { teacher: t, count: 0, keys: [], sent: false };
+                const g = byTeacher.get(t) || { teacher: t, count: 0, keys: [], sent: false, school: trim(r.school) };
                 g.count++; g.keys.push(r.key);
                 if (sentSup.has(t + '|' + pd)) g.sent = true;
                 byTeacher.set(t, g);
             }
             const sup = [...byTeacher.values()].map(g => ({ ...g, first: firstName(g.teacher), attached: !g.sent }));
+            // مدرسةٌ واحدةٌ بين معلّمي اليوم ← لا لبس، فالاسم الأوّل يكفي («+» بينهم).
+            // أكثر من مدرسةٍ ← يُضاف اسم مدرسة كلٍّ مختصراً، وسطرٌ مستقلٌّ لكلّ معلّم
+            const supSchools = new Set(sup.map(p => p.school).filter(Boolean));
+            const supLabel = p => `(${p.count}) أ. ${p.first}` +
+                (supSchools.size > 1 && p.school ? '- ' + shortSchool(p.school) : '') +
+                (p.attached ? ' (مرفق)' : '');
 
             let executed = visits.length ? visits.map(v => v.short).join(' + ')
                          : isOff(planned) ? planned : OFFICE;
@@ -130,7 +136,7 @@
                 executed,
                 marks: visits.filter(v => v.sent).length,
                 supParts: sup,
-                supervisory: sup.length ? sup.map(p => `(${p.count}) أ. ${p.first}${p.attached ? ' (مرفق)' : ''}`).join(' + ') : DASH,
+                supervisory: sup.length ? sup.map(supLabel).join(supSchools.size > 1 ? '\n' : ' + ') : DASH,
                 methods: sup.length ? METHOD_CLASSROOM : visits.length ? METHOD_SCHOOL : DASH,
                 followE: DASH,
                 followA: DASH,
@@ -149,10 +155,11 @@
         });
     }
 
-    // «(1) أ. دينا (مرفق) + (2) أ. علي» ← عدّ ما في البوّابة وما أُرفق، ولو عُدِّل النصّ باليد
+    // «(1) أ. دينا (مرفق) + (2) أ. علي» ← عدّ ما في البوّابة وما أُرفق، ولو عُدِّل النصّ باليد.
+    // وبأكثر من مدرسةٍ يفصل الأسطرَ سطرٌ لا «+» (انظر buildRows) — يُقسَّم على كليهما
     function countSupervisory(text) {
         let portal = 0, attached = 0;
-        for (const part of String(text || '').split('+')) {
+        for (const part of String(text || '').split(/[+\n]/)) {
             const m = part.match(/\((\d+)\)/);
             if (!m) continue;
             if (/مرفق/.test(part)) attached += +m[1]; else portal += +m[1];

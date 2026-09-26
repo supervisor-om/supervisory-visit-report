@@ -146,7 +146,7 @@
         { k: 'planned', label: 'الخطة الشهرية المعتمدة' },
         { k: 'executed', label: 'الخطة المنفذة فعلياً' },
         { k: 'marks', label: '✓ الزيارة المدرسية', num: true, w: 'w-20' },
-        { k: 'supervisory', label: 'عدد الزيارات الاشرافية' },
+        { k: 'supervisory', label: 'عدد الزيارات الاشرافية', multiline: true },
         { k: 'methods', label: 'الأساليب الإشرافية المنفذة' },
         { k: 'followE', label: 'متابعة إلكترونية', w: 'w-24' },
         { k: 'followA', label: 'متابعة إدارية وفنية', w: 'w-24' }
@@ -205,6 +205,15 @@
                 const v = r[c.k];
                 const edited = r.edited.includes(c.k) ? 'ring-1 ring-blue-300' : '';
                 if (c.ro) return `<td class="border border-slate-200 p-1 text-center font-bold text-slate-600">${v}</td>`;
+                // متعدّد الأسطر — أكثر من مدرسةٍ في يوم الزيارات الإشرافية (انظر buildRows):
+                // <input> يبتلع أسطر النصّ، فلا يظهر الفصل ولا يمكن كتابته يدويّاً
+                if (c.multiline) {
+                    const escText = String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const lines = Math.max(1, String(v).split('\n').length);
+                    return `<td class="border border-slate-200 p-1"><textarea data-day="${r.day}" data-field="${c.k}" rows="${lines}"
+                              class="w-full bg-transparent px-1 py-0.5 rounded resize-none leading-tight ${edited} focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
+                              >${escText}</textarea></td>`;
+                }
                 return `<td class="border border-slate-200 p-1"><input data-day="${r.day}" data-field="${c.k}" value="${String(v).replace(/"/g, '&quot;')}"
                           class="w-full bg-transparent px-1 py-0.5 rounded ${edited} ${c.num ? 'text-center' : ''} focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
                           ${c.num ? 'type="number" min="0" max="9"' : 'type="text"'}></td>`;
