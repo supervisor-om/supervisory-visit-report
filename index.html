@@ -214,6 +214,7 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
 {"prerender":[{"where":{"or":[{"href_matches":"/reports.html"},{"href_matches":"/monthly.html"}]},"eagerness":"moderate"}],
  "prefetch":[{"where":{"selector_matches":"a[href^='https://plan.'], a[href^='https://teachers.']"},"eagerness":"moderate"}]}
 </script>
+<script src="js/gate.js"></script>
 </head>
 <body>
 
@@ -328,7 +329,7 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
     <div class="more">
       <a href="https://supervisor-mct.com/monthly.html">التقرير الشهري</a>
       <a href="https://teachers.supervisor-mct.com/">استمارة المعلّمين</a>
-      <a href="https://supervisor-mct.com/school-visits-automation.user.js">أداة الرفع إلى بوّابة الوزارة</a>
+      <a href="https://supervisor-mct.com/tools/daf51553aa5f5d6215/school-visits-automation.user.js">أداة الرفع إلى بوّابة الوزارة</a>
     </div>
   </main>
 
@@ -350,7 +351,7 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
   <a href="https://teachers.supervisor-mct.com/data.html" style="transition-delay:150ms">البيانات المجمّعة</a>
   <a href="https://teachers.supervisor-mct.com/" style="transition-delay:200ms">استمارة المعلّمين</a>
   <a href="https://supervisor-mct.com/monthly.html" style="transition-delay:250ms">التقرير الشهري</a>
-  <a href="https://supervisor-mct.com/school-visits-automation.user.js" style="transition-delay:300ms">أداة الرفع</a>
+  <a href="https://supervisor-mct.com/tools/daf51553aa5f5d6215/school-visits-automation.user.js" style="transition-delay:300ms">أداة الرفع</a>
   <a class="cta" href="https://supervisor-mct.com/reports.html">افتح نظام التقارير</a>
 </div>
 
@@ -391,5 +392,6 @@ h1{font-family:var(--f-display);font-weight:600;margin:0;font-size:clamp(30px,5.
   addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
 })();
 </script>
+<script src="js/identity.js"></script>
 </body>
 </html>

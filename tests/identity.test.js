@@ -109,7 +109,11 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
         e.use({});
         const msg = await rejects(e.api.link('code-wrong'));
         check('link: رمزٌ خاطئ يُرفض', msg === 'رمز غير صحيح.', msg);
-        check('link: الرمز الخاطئ لا يحفظ شيئاً', Object.keys(e.data).length === 0, Object.keys(e.data).join(','));
+        // بصمات الرموز (svf_code_overrides) تُحفظ للتحقّق بلا إنترنت وليست سرّاً —
+        // المقصود ألّا تُحفظ هويّةٌ ولا نسخةُ معلّمين لرمزٍ مرفوض
+        check('link: الرمز الخاطئ لا يحفظ هويّةً ولا معلّمين',
+              !e.data.svf_identity && !Object.keys(e.data).some(k => k.startsWith('svf_teachers_cache_')),
+              Object.keys(e.data).join(','));
 
         const log = e.use({});
         const { identity, teachers } = await e.api.link('  code-a  ');

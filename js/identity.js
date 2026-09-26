@@ -165,11 +165,40 @@
         return sdkPromise;
     }
 
+    // الرموز التي غيّرها المشرفون تُحفظ محلّيّاً كذلك: بوّابة الدخول تتحقّق بها
+    // بلا إنترنت، وإلّا رُفض رمزُ من غيّر رمزه وهو غير متّصل
+    const OVERRIDES_KEY = 'svf_code_overrides';
+
+    function cachedOverrides() {
+        const v = readJSON(OVERRIDES_KEY);
+        return (v && typeof v === 'object') ? v : {};
+    }
+
     async function loadOverrides(sdk) {
         const snap = await sdk.getDocs(sdk.collection(sdk.db, 'supervisor_codes'));
         const m = {};
         snap.forEach(d => { const v = d.data(); if (v && v.hash) m[d.id] = v.hash; });
+        try { writeJSON(OVERRIDES_KEY, m); } catch (e) { /* التخزين ليس شرطاً للتحقّق */ }
         return m;
+    }
+
+    // تحقّقٌ من الرمز بلا ربط: محلّيّاً أوّلاً (الملفّ + الرموز المحفوظة)، ثمّ
+    // من القاعدة إن لم يُطابق ووُجد اتّصال — فرمزٌ غُيّر للتوّ على جهازٍ آخر يُقبل
+    async function verifyCode(code) {
+        const text = String(code == null ? '' : code).trim();
+        if (!text) return null;
+        const h = await sha256(text);
+
+        const local = resolveHash(h, cachedOverrides());
+        if (local) return local;
+
+        try {
+            const sdk = await api.loadSdk();
+            const fresh = await loadOverrides(sdk);
+            return resolveHash(h, fresh);
+        } catch (e) {
+            return null;   // بلا اتّصال: يبقى الحكم على ما هو محفوظ
+        }
     }
 
     function pick(row) {
@@ -257,6 +286,18 @@
         writeJSON(CACHE_PREFIX + identity.id, { id: identity.id, v: CACHE_VERSION, at: Date.now(), teachers });
         announce();
         return { identity, teachers };
+    }
+
+    // هويّةٌ تحقّقت بالفعل (بوّابة الدخول) — تُحفظ فوراً بلا شبكة، وسحب المعلّمين
+    // يتولّاه refresh عند أوّل فتحٍ لصفحةٍ تحمل الوحدة. الانتقال بين الصفحات
+    // يقطع أيّ طلبٍ يُبدأ لحظة الدخول، فلا يُعوَّل عليه.
+    function adopt(who) {
+        if (!who || !who.id || !who.hash || who.admin) return null;
+        const me = { id: who.id, hash: who.hash, linkedAt: Date.now() };
+        try { writeJSON(ID_KEY, me); } catch (e) { return null; }
+        clearCaches();
+        announce();
+        return getIdentity();
     }
 
     function unlink() {
@@ -479,7 +520,7 @@
     }
 
     const api = {
-        getIdentity, getTeachers, link, unlink, refresh, initCard, loadSdk,
+        getIdentity, getTeachers, link, unlink, refresh, initCard, loadSdk, verifyCode, adopt,
         findTeacher, teachersOfSchool, principalOfSchool, schoolNames, teacherNames,
         normalize, normName, tidyGrades
     };

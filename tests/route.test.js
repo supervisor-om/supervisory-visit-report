@@ -64,7 +64,7 @@ const J = JSON.stringify;
 
 /* ── ٣) نسخة السكربت = نسخة الموقع ── */
 {
-    const us = fs.readFileSync(path.join(ROOT, 'school-visits-automation.user.js'), 'utf8').replace(/\r\n/g, '\n');
+    const us = fs.readFileSync(path.join(ROOT, 'tools/daf51553aa5f5d6215/school-visits-automation.user.js'), 'utf8').replace(/\r\n/g, '\n');
     const a = us.indexOf('function svfRouteName'), b = us.indexOf("const TYPE_LABELS");
     check('السكربت: يحمل نسخته من الصياغة', a > 0 && b > a);
     const ctx = {};
@@ -154,7 +154,7 @@ const J = JSON.stringify;
     check('wiring: «نسخ الأهداف» تنسخ خطّ السير بعد المرقَّمة', /SchoolRoute\.routeLines\([^)]*schoolCameFrom[\s\S]{0,160}checked\.concat\(route\)/.test(init));
     check('wiring: التصدير المفرد يُلحق الأسطر بالأهداف ويعرضها', /objectives: objectives\.concat\(routeLines\)/.test(exp) && exp.includes('خطّ السير'));
     // الأهداف تُرقَّم تسلسليّاً ١، ٢، … كترقيم رأي الزائر — في الموقعين والسكربت الثلاثة معاً
-    const usr = fs.readFileSync(path.join(ROOT, 'school-visits-automation.user.js'), 'utf8');
+    const usr = fs.readFileSync(path.join(ROOT, 'tools/daf51553aa5f5d6215/school-visits-automation.user.js'), 'utf8');
     const que = fs.readFileSync(path.join(ROOT, 'js/queue-export.js'), 'utf8');
     check('wiring: الأهداف مرقَّمةٌ عند التصدير في المواضع الثلاثة (كترقيم رأي الزائر)',
           /\.map\(\(o, i\) => \(i \+ 1\) \+ '- ' \+ o\);/.test(exp)

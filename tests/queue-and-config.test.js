@@ -9,7 +9,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const [, , USER = path.join(ROOT, 'school-visits-automation.user.js'),
+const [, , USER = path.join(ROOT, 'tools/daf51553aa5f5d6215/school-visits-automation.user.js'),
              QUEUE = path.join(ROOT, 'js/queue-export.js'),
              SEL = path.join(ROOT, 'selectors.json'),
              SITE = ROOT] = process.argv;

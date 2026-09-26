@@ -15,7 +15,7 @@ const check = (name, ok, detail) => {
     if (!ok) failures++;
 };
 
-const us = fs.readFileSync(path.join(ROOT, 'school-visits-automation.user.js'), 'utf8').replace(/\r\n/g, '\n');
+const us = fs.readFileSync(path.join(ROOT, 'tools/daf51553aa5f5d6215/school-visits-automation.user.js'), 'utf8').replace(/\r\n/g, '\n');
 
 /* ── ١) استخراج الدالّة من السكربت (كما تُحمَّل فعلاً) ── */
 const a = us.indexOf('function sanitizeForPortal');
