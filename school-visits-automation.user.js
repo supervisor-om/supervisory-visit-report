@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.3
+// @version      15.4
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -126,6 +126,28 @@
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    // ═══ سلامة النصّ قبل الكتابة في حقول البوّابة ═══
+    // ASP.NET القديم (Framework 4.0) يرفض الحفظ كلّه — بلا تمييز حقلٍ عن آخر —
+    // إن وجد في أيّ حقلٍ نصّيّ "&#" أو "<" متبوعةً بحرف/!/؟// (CrossSiteScriptingValidation)،
+    // فرأي زائرٍ أو توصيةٌ منسوخةٌ من وورد أو صفحة ويب قد تحمل ترميز HTML حرفيّاً
+    // (&#1644; مثلاً) فيسقط حفظ الزيارة كاملةً برسالة خطأٍ من خادم الوزارة لا من هذا
+    // السكربت. تُفكّ الترميزات إلى حروفها الحقيقيّة (فلا يضيع المعنى)، وتُحيَّد
+    // "<" الخطرة وحدها ببديلٍ آمنٍ بصريّاً — نادرةٌ أصلاً في نصٍّ عربيّ.
+    function sanitizeForPortal(value) {
+        if (!value) return value;
+        let s = String(value);
+        s = s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+             .replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+        s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+            try { return String.fromCodePoint(parseInt(hex, 16)); } catch (e) { return ''; }
+        });
+        s = s.replace(/&#(\d+);/g, (_, dec) => {
+            try { return String.fromCodePoint(parseInt(dec, 10)); } catch (e) { return ''; }
+        });
+        s = s.replace(/<(?=[a-zA-Z!/?])/g, '‹');
+        return s;
     }
 
     const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -1975,7 +1997,7 @@
         }
 
         function setFieldValue(el, value) {
-            el.value = value;
+            el.value = sanitizeForPortal(value);
             el.dispatchEvent(new Event('input',  { bubbles: true }));
             el.dispatchEvent(new Event('change', { bubbles: true }));
         }
@@ -2400,7 +2422,7 @@
         }
         function sstat(t) { const e = document.getElementById(S); if (e) e.textContent = t; }
         function setVal(el, v) {
-            el.value = v;
+            el.value = sanitizeForPortal(v);
             el.dispatchEvent(new Event('input', { bubbles: true }));
             el.dispatchEvent(new Event('change', { bubbles: true }));
         }
