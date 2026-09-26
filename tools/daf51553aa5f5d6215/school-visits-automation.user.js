@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.8
+// @version      15.9
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -2743,7 +2743,27 @@
                 await wait(500);
             }
             slog('قائمة ' + label + ' لم تمتلئ خلال المهلة — تُملأ يدوياً', 'warn');
+            supDumpSelects(label);
             return false;
+        }
+
+        // القائمة التي نعرفها بقيت فارغةً: تُسرد قوائم الصفحة كلّها بمعرّفاتها
+        // وأعداد خياراتها — فإمّا أنّ المادّة في قائمةٍ أخرى وإمّا أنّ البوّابة لم تملأها
+        function supDumpSelects(label) {
+            slog('--- قوائم الصفحة (بحثاً عن ' + label + ') ---', 'warn');
+            let n = 0;
+            for (const d of docs()) {
+                let sels = [];
+                try { sels = Array.from(d.querySelectorAll('select')); } catch (e) { continue; }
+                sels.slice(0, 25).forEach(s => {
+                    const opts = Array.from(s.options || []);
+                    const first = opts.slice(0, 3).map(o => (o.text || '').trim()).filter(Boolean).join(' / ');
+                    slog('  #' + (s.id || '—') + ' — ' + opts.length + ' خياراً'
+                         + (first ? ': ' + first : '') + (s.offsetParent === null ? ' (مخفيّة)' : ''), 'info');
+                    n++;
+                });
+            }
+            if (!n) slog('  لا قوائم في الصفحة', 'error');
         }
 
         // رسائلُ ما بعد الضغط وحدها، وفيها حروف: عناصر الرسائل في هذه البوّابة
@@ -2755,8 +2775,32 @@
                 (baseline || []).indexOf(m) === -1 && /[؀-ۿA-Za-z]{2,}/.test(m));
         }
 
+        // نصّ نافذة «إعلام»: يقع في صفٍّ بلا معرّف، فلا تلتقطه محدّدات الرسائل
+        // أدناه — ولهذا مضى الحفظ بلا نتيجةٍ في سجلّ 2026-09-26 رغم ظهور النافذة.
+        // يُقرأ من حاوية زرّ DoOk نفسه.
+        function supNoticeText() {
+            for (const d of docs()) {
+                let btns = [];
+                try { btns = Array.from(d.querySelectorAll('[onclick]')); } catch (e) { continue; }
+                for (const b of btns) {
+                    let oc = '';
+                    try { oc = String(b.getAttribute('onclick') || ''); } catch (e) { continue; }
+                    if (!/\bDoOk\s*\(/.test(oc) || b.offsetParent === null) continue;
+                    let box = b;
+                    for (let up = 0; up < 6 && box.parentElement; up++) {
+                        box = box.parentElement;
+                        const t = String(box.textContent || '').replace(/\s+/g, ' ').trim();
+                        if (t.length >= 6 && t.length < 400) return t;
+                    }
+                }
+            }
+            return '';
+        }
+
         function supPortalErrors() {
             const out = [];
+            const notice = supNoticeText();
+            if (notice) out.push(notice);
             for (const d of docs()) {
                 let els = [];
                 try {
@@ -2770,6 +2814,11 @@
             }
             return out;
         }
+
+        // حفظٌ جارٍ بين بدء العدّ ونتيجته — يحرس زرّ الحفظ التلقائيّ من نقرةٍ
+        // تُطفئه فيتوقّف الطابور (وقع ثلاث مرّاتٍ لحظة الضغط على الحفظ، 2026-09-26)
+        let supSaveInFlight = false;
+        let supOffConfirmAt = 0;
 
         async function supSave(written) {
             const bad = [];
@@ -2805,52 +2854,58 @@
                 return;
             }
 
-            sstat('الحفظ بعد ' + (SAVE_GRACE_MS / 1000) + ' ثوانٍ — اضغط «إلغاء الحفظ»');
-            slog('⏳ مهلة ' + (SAVE_GRACE_MS / 1000) + ' ثوانٍ قبل الحفظ', 'warn');
-            const go = await supCountdown(SAVE_GRACE_MS);
-            if (!go) { sstat('أُلغي الحفظ — احفظ يدوياً إن شئت'); return; }
+            // عَلَمُ «حفظٌ جارٍ»: زرّ الحفظ التلقائيّ يطلب تأكيداً أثناءه
+            supSaveInFlight = true;
+            try {
+                sstat('الحفظ بعد ' + (SAVE_GRACE_MS / 1000) + ' ثوانٍ — اضغط «إلغاء الحفظ»');
+                slog('⏳ مهلة ' + (SAVE_GRACE_MS / 1000) + ' ثوانٍ قبل الحفظ', 'warn');
+                const go = await supCountdown(SAVE_GRACE_MS);
+                if (!go) { sstat('أُلغي الحفظ — احفظ يدوياً إن شئت'); return; }
 
-            // خطُّ الأساس قبل الضغط: ما كان في عناصر الرسائل أصلاً ليس نتيجةَ حفظنا
-            const baseline = supPortalErrors();
+                // خطُّ الأساس قبل الضغط: ما كان في عناصر الرسائل أصلاً ليس نتيجةَ حفظنا
+                const baseline = supPortalErrors();
 
-            sstat('جارٍ الحفظ...');
-            slog('💾 ضغط زر الحفظ...', 'info');
-            btn.click();
+                sstat('جارٍ الحفظ...');
+                slog('💾 ضغط زر الحفظ...', 'info');
+                btn.click();
 
-            const deadline = Date.now() + 25000;
-            while (Date.now() < deadline) {
-                await new Promise(r => setTimeout(r, 1000));
-                const msgs = supFreshMessages(baseline);
-                const c = classifyPortalMessages(msgs);
-                if (c.ok.length && !c.fail.length) {
-                    sstat('✅ حُفظت الزيارة في البوّابة');
-                    slog('📨 البوّابة: ' + c.ok.join(' | '), 'success');
-                    slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
-                    try { GM_deleteValue(SUP_KEY); } catch (e) {}
-                    if (svfRecordSaved(sup)) slog('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في الأرشيف', 'info');
-                    await queueAdvance();
-                    return;
+                const deadline = Date.now() + 25000;
+                while (Date.now() < deadline) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    const msgs = supFreshMessages(baseline);
+                    const c = classifyPortalMessages(msgs);
+                    if (c.ok.length && !c.fail.length) {
+                        sstat('✅ حُفظت الزيارة في البوّابة');
+                        slog('📨 البوّابة: ' + c.ok.join(' | '), 'success');
+                        slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
+                        try { GM_deleteValue(SUP_KEY); } catch (e) {}
+                        if (svfRecordSaved(sup)) slog('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في الأرشيف', 'info');
+                        await queueAdvance();
+                        return;
+                    }
+                    if (c.fail.length) {
+                        sstat('رفضت البوّابة الحفظ');
+                        slog('⚠️ رفضت البوّابة الحفظ:', 'error');
+                        c.fail.forEach(e => slog('   • ' + e, 'error'));
+                        slog('بياناتك باقية — لن تحتاج إعادة التصدير', 'success');
+                        return;
+                    }
+                    if (onListPage() && !formFieldsPresent()) {
+                        sstat('✅ حُفظت الزيارة في البوّابة');
+                        slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
+                        try { GM_deleteValue(SUP_KEY); } catch (e) {}
+                        // تُسجَّل هنا لا في الموقع: النطاقان لا يتشاركان تخزيناً
+                        if (svfRecordSaved(sup)) slog('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في الأرشيف', 'info');
+                        await queueAdvance();
+                        return;
+                    }
                 }
-                if (c.fail.length) {
-                    sstat('رفضت البوّابة الحفظ');
-                    slog('⚠️ رفضت البوّابة الحفظ:', 'error');
-                    c.fail.forEach(e => slog('   • ' + e, 'error'));
-                    slog('بياناتك باقية — لن تحتاج إعادة التصدير', 'success');
-                    return;
-                }
-                if (onListPage() && !formFieldsPresent()) {
-                    sstat('✅ حُفظت الزيارة في البوّابة');
-                    slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
-                    try { GM_deleteValue(SUP_KEY); } catch (e) {}
-                    // تُسجَّل هنا لا في الموقع: النطاقان لا يتشاركان تخزيناً
-                    if (svfRecordSaved(sup)) slog('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في الأرشيف', 'info');
-                    await queueAdvance();
-                    return;
-                }
+                sstat('لم تتأكّد نتيجة الحفظ — راجع البوّابة');
+                slog('⚠️ لم تتأكّد نتيجة الحفظ خلال المهلة', 'error');
+                slog('راجع الصفحة بنفسك: قد تكون حُفظت وقد لا تكون', 'warn');
+            } finally {
+                supSaveInFlight = false;
             }
-            sstat('لم تتأكّد نتيجة الحفظ — راجع البوّابة');
-            slog('⚠️ لم تتأكّد نتيجة الحفظ خلال المهلة', 'error');
-            slog('راجع الصفحة بنفسك: قد تكون حُفظت وقد لا تكون', 'warn');
         }
 
         function supCountdown(ms) {
@@ -3052,6 +3107,12 @@
         document.getElementById('svfs-fill')?.addEventListener('click', supFill);
         document.getElementById('svfs-autosave')?.addEventListener('click', (e) => {
             const next = !autoSaveOn();
+            // إطفاؤه أثناء حفظٍ جارٍ يوقف الطابور — يُطلب تأكيدٌ بنقرةٍ ثانية
+            if (!next && supSaveInFlight && Date.now() - supOffConfirmAt > 4000) {
+                supOffConfirmAt = Date.now();
+                slog('⚠️ حفظٌ جارٍ الآن — اضغط الزرّ مرّةً أخرى خلال ٤ ثوانٍ إن أردت إطفاء الحفظ التلقائيّ فعلاً', 'error');
+                return;
+            }
             setAutoSave(next);
             e.target.textContent = next ? 'الحفظ التلقائي: مُشغَّل' : 'الحفظ التلقائي: مُطفأ';
             slog(next ? 'الحفظ التلقائي مُشغَّل' : 'الحفظ التلقائي مُطفأ', 'warn');

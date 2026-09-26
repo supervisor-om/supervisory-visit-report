@@ -189,7 +189,7 @@ function load(els) {
     check('msg: ويصنّف الرسائل الجديدة بدل عدّها كلّها رفضاً',
           /supFreshMessages\(baseline\)[\s\S]{0,120}classifyPortalMessages\(msgs\)/.test(SRC));
     check('msg: ونجاحُ الحفظ يُسجّل الزيارة ويُقدّم الطابور',
-          /c\.ok\.length && !c\.fail\.length[\s\S]{0,420}queueAdvance\(\)/.test(SRC));
+          /c\.ok\.length && !c\.fail\.length[\s\S]{0,700}queueAdvance\(\)/.test(SRC));
 }
 
 /* ── ٦) المادّة: تُسرد الخيارات حين لا تُطابق ── */
@@ -240,6 +240,44 @@ function load(els) {
           /x2\.disabled = true;[\s\S]{0,140}جارٍ الحفظ/.test(SRC));
 }
 
+/* ── ٦هـ) نصّ نافذة البوّابة يُقرأ فيُعرف سبب الرفض ── */
+{
+    const fresh2 = between('        // نصّ نافذة «إعلام»', '        function supPortalErrors()');
+    const ctx = { console };
+    const okImg = el('IMG', { id: '', onclick: 'DoOk()' });
+    const cell = { tagName: 'TD', textContent: 'رجاء استكمال تعبئة حقول الاستمارة', parentElement: null };
+    okImg.parentElement = cell;
+    ctx.docs = () => [doc([okImg])];
+    ctx.normAr = v => String(v || '');
+    vm.createContext(ctx);
+    vm.runInContext(fresh2 + '\nthis.supNoticeText = supNoticeText;', ctx);
+    check('notice: نصّ النافذة يُقرأ من حاوية زرّ DoOk',
+          /رجاء استكمال/.test(ctx.supNoticeText() || ''), JSON.stringify(ctx.supNoticeText()));
+
+    check('notice: ويُضمّ إلى رسائل البوّابة فتُصنَّف',
+          /const notice = supNoticeText\(\);\s*\n\s*if \(notice\) out\.push\(notice\);/.test(SRC),
+          'غير مضموم');
+}
+
+/* ── ٦و) القوائم تُسرد حين لا تمتلئ قائمة المادّة ── */
+{
+    check('subject: تُسرد قوائم الصفحة عند إخفاق الانتظار',
+          /لم تمتلئ خلال المهلة[\s\S]{0,120}supDumpSelects\(label\)/.test(SRC));
+    check('subject: السرد يذكر المعرّف وعدد الخيارات وأوائلها',
+          /function supDumpSelects[\s\S]{0,700}opts\.length \+ ' خياراً'/.test(SRC));
+}
+
+/* ── ٦ز) الحفظ التلقائيّ لا يُطفأ بنقرةٍ أثناء الحفظ ── */
+{
+    check('autosave: عَلَمُ «حفظٌ جارٍ» يُرفع قبل العدّ ويُخفض في finally',
+          /supSaveInFlight = true;\s*\n\s*try \{/.test(SRC)
+          && /\} finally \{\s*\n\s*supSaveInFlight = false;/.test(SRC));
+    check('autosave: الإطفاء أثناءه يطلب نقرةً ثانية',
+          /if \(!next && supSaveInFlight && Date\.now\(\) - supOffConfirmAt > 4000\)[\s\S]{0,320}return;/.test(SRC));
+    check('autosave: والتأكيد الثاني يمضي (لا منعَ دائم)',
+          /supOffConfirmAt = Date\.now\(\);/.test(SRC));
+}
+
 /* ── ٧) التوصيل في مسار الحفظ ── */
 {
     check('wiring: النافذة تُغلق قبل البحث عن الزرّ',
@@ -250,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 15.8', /@version\s+15\.8/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 15.9', /@version\s+15\.9/.test(SRC));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
