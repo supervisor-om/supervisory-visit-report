@@ -244,15 +244,9 @@
     // تقرير زيارةٍ إشرافيّةٍ محفوظ ← ملف Word، بنفس مُخرَج «تصدير Word» في الموقع
     async function supervisoryDocx(report) {
         const fd = report.formData || {};
-        const [imgMinistry, imgQuality, imgVision] = await Promise.all([
-            getBase64Image('https://i.imgur.com/TeE90J3.png', 60),
-            getBase64Image('https://i.imgur.com/tbfi4V4.png', 60),
-            getBase64Image('https://i.imgur.com/AmHGqEM.jpeg', 60)
-        ]);
         const scores = {};
         evaluationItems.forEach(item => { scores['item-' + item.id] = fd['score-' + item.id] || '3'; });
         const data = {
-            imgMinistry, imgQuality, imgVision,
             school: report.school || fd.school || '', teacher: report.teacherName || fd.teacherName || '',
             subject: fd.subject || '', date: report.visitDate || fd.visitDate || '',
             fileNo: fd.fileNumber || '', visitNo: fd.visitNumber || '', className: fd.class || '',
@@ -266,7 +260,7 @@
         const html = `<!DOCTYPE html><html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'
             xmlns='http://www.w3.org/TR/REC-html40' lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير</title></head>
             <body>${getReportHTML(data, true)}</body></html>`;
-        return htmlDocx.asBlob(html, { orientation: 'portrait', margins: { top: 720, bottom: 720, left: 720, right: 720 } });
+        return htmlDocx.asBlob(html, { orientation: 'portrait', margins: { top: 360, bottom: 720, left: 720, right: 720 } });
     }
 
     const download = (blob, name) => {

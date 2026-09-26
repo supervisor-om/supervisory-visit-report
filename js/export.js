@@ -2,191 +2,112 @@
         // 3. UNIFIED HTML GENERATOR FOR PRINT & WORD
         // =========================================================================
         function getReportHTML(data, isWord = false) {
-            const itemsTable1 = evaluationItems.filter(i => i.id <= 7);
-            const itemsTable2 = evaluationItems.filter(i => i.id >= 8);
+            // استمارة الزيارة الإشرافية الرسميّة (العام الدراسي 2026/2027) — انظر officialFormItems في templates.js.
+            // رأسٌ نصّيّ بلا شعارات، وكتلة معلوماتٍ رماديّة بعمودين بلا حدود، وجدولٌ واحدٌ متّصلٌ من ستّة
+            // أعمدة (المجال/المعيار مدموجان رأسيّاً)، عمود «الإجادة» على البنود 1–7 و«التطوير» على 8–13،
+            // وآخر صفٍّ «التوصيات» في الجدول نفسه.
+            const FORM = officialFormItems;
+            const SPLIT_AT = 8;
+            const HEAD = "'Adobe Arabic','Traditional Arabic','Times New Roman',serif";
+            const TITLE = "'Tajawal Black','Tajawal',Arial,sans-serif";
+            const BODY = "Arial,'Helvetica Neue',sans-serif";
+            const CELL = 'border:0.75pt solid #000; padding:2pt 4pt; vertical-align:middle;';
+            const nbsp = n => '&nbsp;'.repeat(n);
 
-            const generateTableRows = (items, sideContent) => {
-                let rowsHtml = '';
-                const grouped = items.reduce((acc, item) => {
-                    if (!acc[item.domain]) acc[item.domain] = {};
-                    if (!acc[item.domain][item.standard]) acc[item.domain][item.standard] = [];
-                    acc[item.domain][item.standard].push(item);
-                    return acc;
-                }, {});
+            // كلّ نصّ خليّةٍ في فقرةٍ بلا هوامش: Word يستورد نصّ الخليّة المجرَّد بمسافةٍ قبل وبعد
+            // («Normal (Web)») فتتضخّم الصفوف ويفيض الجدول عن صفحةٍ واحدة، والقالب الرسميّ بلا هذه المسافات
+            const p = (text, style) => `<p style="margin:0; mso-margin-top-alt:0pt; mso-margin-bottom-alt:0pt; ${style || ''}">${text}</p>`;
 
-                let isFirstItemOfTable = true;
-                
-                for (const domain in grouped) {
-                    const standards = grouped[domain];
-                    const domainItemCount = Object.values(standards).reduce((acc, curr) => acc + curr.length, 0);
-                    let isFirstRowOfDomain = true;
-                    
-                    for (const standard in standards) {
-                        const standardItems = standards[standard];
-                        const standardItemCount = standardItems.length;
-                        let isFirstRowOfStandard = true;
-                        
-                        standardItems.forEach((item) => {
-                            const score = data.scores[`item-${item.id}`] || '';
-                            
-                            let domainCell = isFirstRowOfDomain ? `<td rowspan="${domainItemCount}" style="width:12%; border:1px solid #000; padding:4px; text-align:center; vertical-align:middle; font-weight:bold; background-color:#f2f2f2;">${domain}</td>` : '';
-                            let standardCell = isFirstRowOfStandard ? `<td rowspan="${standardItemCount}" style="width:12%; border:1px solid #000; padding:4px; text-align:center; vertical-align:middle; background-color:#f2f2f2;">${standard}</td>` : '';
-                            
-                            let sideCell = '';
-                            if (isFirstItemOfTable) {
-                                sideCell = `<td rowspan="${items.length}" style="width:28%; border:1px solid #000; padding:4px; text-align:right; vertical-align:top;">${sideContent}</td>`;
-                                isFirstItemOfTable = false;
-                            }
-                            
-                            rowsHtml += `<tr>
-                                ${domainCell}
-                                ${standardCell}
-                                <td style="width:4%; border:1px solid #000; padding:4px; text-align:center;">${item.id}</td>
-                                <td style="width:38%; border:1px solid #000; padding:4px; text-align:right;">${item.title}</td>
-                                <td style="width:6%; border:1px solid #000; padding:4px; text-align:center; font-weight:bold;">${score}</td>
-                                ${sideCell}
-                            </tr>`;
-                            
-                            isFirstRowOfDomain = false;
-                            isFirstRowOfStandard = false;
-                        });
-                    }
-                }
-                return rowsHtml;
+            // العام الدراسي من تاريخ الزيارة (يبدأ في أغسطس)؛ بلا تاريخٍ صحيحٍ يبقى كما في الاستمارة
+            const academicYear = (d) => {
+                const m = String(d || '').match(/^(\d{4})-(\d{2})/);
+                if (!m) return '2026/2027';
+                const start = +m[2] >= 8 ? +m[1] : +m[1] - 1;
+                return `${start}/${start + 1}`;
             };
 
-            const rows1 = generateTableRows(itemsTable1, data.strengths);
-            const rows2 = generateTableRows(itemsTable2, data.needs);
+            const spanFrom = (i, same) => { let n = 1; while (FORM[i + n] && same(FORM[i], FORM[i + n])) n++; return n; };
+            const firstBlock = FORM.filter(x => x.id < SPLIT_AT).length;
+            const secondBlock = FORM.length - firstBlock;
 
-            const pageBreak = isWord ? '<br clear="all" style="page-break-before:always" />' : '';
-            
-            const imgMinistryTag = `<img src="${data.imgMinistry}" style="height: 60px; width: auto;" alt="شعار الوزارة">`;
-            const imgQualityTag = `<img src="${data.imgQuality}" style="height: 60px; width: auto;" alt="شعار الجودة">`;
-            const imgVisionTag = `<img src="${data.imgVision}" style="height: 60px; width: auto;" alt="رؤية عمان">`;
+            const bodyRows = FORM.map((item, i) => {
+                const prev = FORM[i - 1];
+                const newDomain = !prev || prev.domain !== item.domain;
+                const newStandard = newDomain || prev.standard !== item.standard;
+                const score = data.scores[`item-${item.id}`] || '';
+
+                let side = '';
+                if (i === 0) {
+                    side = `<td rowspan="${firstBlock}" style="${CELL} vertical-align:top;">${p(data.strengths, 'text-align:right; font-size:10pt;')}</td>`;
+                } else if (item.id === SPLIT_AT) {
+                    side = `<td rowspan="${secondBlock}" style="${CELL} vertical-align:top;">${p('الجوانب التي تحتاج إلى تطوير في الأداء وأدلتها', 'text-align:center; font-weight:bold; font-size:12pt;')}${p(data.needs, 'text-align:right; font-size:10pt;')}</td>`;
+                }
+
+                return `<tr>
+                    ${newDomain ? `<td rowspan="${spanFrom(i, (a, b) => a.domain === b.domain)}" style="${CELL}">${p(item.domain, 'text-align:center;')}</td>` : ''}
+                    ${newStandard ? `<td rowspan="${spanFrom(i, (a, b) => a.domain === b.domain && a.standard === b.standard)}" style="${CELL}">${p(item.standard, 'text-align:center;')}</td>` : ''}
+                    <td style="${CELL}">${p(item.id, 'text-align:center;')}</td>
+                    <td style="${CELL}">${p(item.title, 'text-align:right;')}</td>
+                    <td style="${CELL}">${p(score, 'text-align:center;')}</td>
+                    ${side}
+                </tr>`;
+            }).join('');
+
+            const infoCell = (w, text) => `<td style="width:${w}%; background-color:#F2F2F2; border:none; padding:3pt 5pt;">${p(text, `font-family:${HEAD}; font-size:12pt; font-weight:bold; text-align:justify;`)}</td>`;
+            const infoRow = (a, b) => `<tr>${infoCell(58, a)}${infoCell(42, b)}</tr>`;
+
+            const th = (w, text, shaded) => `<th style="width:${w}%; ${CELL} height:32px;${shaded ? ' background-color:#F2F2F2;' : ''}">${p(text, 'text-align:center; font-weight:bold; font-size:12pt;')}</th>`;
 
             return `
-                <div style="font-family: 'Times New Roman', Times, serif; font-size: 13px; color: #000; direction: rtl; text-align: right; width: 100%;">
-                    
-                    <table style="width: 100%; border: none; margin-bottom: 10px;">
-                        <tr>
-                            <td style="width: 33%; text-align: right; border: none; vertical-align: middle;">${imgMinistryTag}</td>
-                            <td style="width: 34%; text-align: center; border: none; vertical-align: middle;">${imgQualityTag}</td>
-                            <td style="width: 33%; text-align: left; border: none; vertical-align: middle;">${imgVisionTag}</td>
-                        </tr>
+                <div style="font-family:${BODY}; font-size:12pt; color:#000; direction:rtl; text-align:right; width:100%;">
+
+                    ${p(`المديرية العامة للتعليم بمحافظة مسقط${nbsp(32)}العام الدراسي: (${academicYear(data.date)}م)`, `font-family:${HEAD}; font-size:12pt; font-weight:bold;`)}
+                    ${p(`${nbsp(14)}دائرة تطوير الأداء المدرسي`, `font-family:${HEAD}; font-size:12pt; font-weight:bold;`)}
+                    ${p('&nbsp;', 'text-align:center; font-size:12pt;')}
+                    <p style="margin:0 0 6pt; mso-margin-top-alt:0pt; text-align:center; font-family:${TITLE}; font-size:14pt; font-weight:bold;">استمارة زيارة إشرافية لمعلم مجال/ مادة</p>
+
+                    <table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-bottom:8pt;">
+                        ${infoRow('المدرسة: ' + data.school, 'اسم المعلم: ' + data.teacher)}
+                        ${infoRow('رقم الملف: ' + data.fileNo, 'المادة/ المجال: ' + (data.subject || 'رياضة مدرسية'))}
+                        ${infoRow('رقم الزيارة: ' + data.visitNo, 'التاريخ: ' + data.date)}
+                        ${infoRow('الصف: ' + data.className, 'الحصة: ' + data.lesson)}
+                        ${infoRow('الموضوع: ' + data.topic, '')}
                     </table>
 
-                    <div style="text-align: center; margin-bottom: 15px;">
-                        <div style="font-size: 11px; font-weight: bold; margin-bottom: 3px;">نموذج رئيسي رقم(5 )</div>
-                        <div style="font-size: 16px; font-weight: bold; text-decoration: underline; margin-bottom: 3px;">استمارة زيارة إشرافية لمعلم مجال / مادة</div>
-                        <div style="font-size: 12px;">(عملية إعداد وتنفيذ الخطة التشغيلية للإشراف الفنية)</div>
-                    </div>
-
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px;">
-                        <tr>
-                            <td style="width: 15%; border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">المدرسة:</td>
-                            <td style="width: 35%; border: 1px solid #000; padding: 4px;">${data.school}</td>
-                            <td style="width: 15%; border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">اسم المعلم:</td>
-                            <td style="width: 35%; border: 1px solid #000; padding: 4px;">${data.teacher}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">رقم الملف:</td>
-                            <td style="border: 1px solid #000; padding: 4px;">${data.fileNo}</td>
-                            <td style="border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">المادة/ المجال:</td>
-                            <td style="border: 1px solid #000; padding: 4px;">${data.subject}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">رقم الزيارة:</td>
-                            <td style="border: 1px solid #000; padding: 4px;">${data.visitNo}</td>
-                            <td style="border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">التاريخ:</td>
-                            <td style="border: 1px solid #000; padding: 4px;">${data.date}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">الصف:</td>
-                            <td style="border: 1px solid #000; padding: 4px;">${data.className}</td>
-                            <td style="border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">الحصة:</td>
-                            <td style="border: 1px solid #000; padding: 4px;">${data.lesson}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid #000; padding: 4px; background-color: #f2f2f2; font-weight: bold;">الموضوع:</td>
-                            <td style="border: 1px solid #000; padding: 4px;" colspan="3">${data.topic}</td>
-                        </tr>
-                    </table>
-
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px; table-layout: fixed;">
+                    <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-family:${BODY}; font-size:12pt;">
                         <thead>
                             <tr>
-                                <th style="width: 12%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">المجال</th>
-                                <th style="width: 12%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">المعيار</th>
-                                <th style="width: 4%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">م</th>
-                                <th style="width: 38%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">البنود/المؤشرات</th>
-                                <th style="width: 6%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">التقدير</th>
-                                <th style="width: 28%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">جوانب الإجادة في الأداء وأدلتها*</th>
+                                ${th(13, 'المجال', true)}
+                                ${th(14, 'المعيار', true)}
+                                ${th(6, 'البنود', true)}
+                                ${th(35, 'المؤشرات', true)}
+                                ${th(7, 'التقدير', true)}
+                                ${th(25, 'جوانب الإجادة في الأداء وأدلتها', false)}
                             </tr>
                         </thead>
                         <tbody>
-                            ${rows1}
-                        </tbody>
-                    </table>
-                    
-                    ${pageBreak}
-
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px; table-layout: fixed;">
-                        <thead>
+                            ${bodyRows}
                             <tr>
-                                <th style="width: 12%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">المجال</th>
-                                <th style="width: 12%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">المعيار</th>
-                                <th style="width: 4%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">م</th>
-                                <th style="width: 38%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">البنود/المؤشرات</th>
-                                <th style="width: 6%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">التقدير</th>
-                                <th style="width: 28%; border: 1px solid #000; padding: 4px; background-color: #d9d9d9;">الجوانب التى تحتاج إلى تطوير في الأداء وأدلتها*</th>
+                                <td colspan="6" style="${CELL} height:68px; vertical-align:top; padding:4pt 6pt;">
+                                    ${p('التوصيات:', "text-align:right; font-family:'Times New Roman',serif; font-size:14pt;")}
+                                    ${p(data.recs, 'text-align:right; font-size:12pt;')}
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            ${rows2}
                         </tbody>
                     </table>
 
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px;">
-                        <tr>
-                            <th style="border: 1px solid #000; padding: 5px; background-color: #d9d9d9; text-align: right;">الدعم المقدم / التوصيات*</th>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid #000; padding: 10px; min-height: 80px; vertical-align: top;">${data.recs}</td>
-                        </tr>
-                    </table>
-
-                    <table style="width: 100%; border: none; font-size: 12px; font-weight: bold; margin-bottom: 10px;">
-                        <tr>
-                            <td style="border: none; width: 50%;">اسم الزائر: ${data.visitorName}</td>
-                            <td style="border: none; width: 50%; text-align: left;">الوظيفة: ${data.visitorPosition}</td>
-                        </tr>
-                    </table>
-
-                    <div style="border-top: 1px solid #000; padding-top: 5px; text-align: center; font-size: 10px; font-weight: bold;">
-                        ● معيار التقييم: متميز (1) – جيد (2) - ملائم (3) – غير ملائم (4) – يحتاج إلى تدخل سريع (5)
-                    </div>
+                    ${p('معيار التقييم: متميز (1) - جيد (2) - ملائم (3) - غير ملائم (4) - يحتاج إلى تدخل (5)', `margin-top:6pt; text-align:center; font-family:${BODY}; font-size:12pt;`)}
                 </div>
             `;
         }
 
         async function getReportData() {
-            const imgMinistryUrl = "https://i.imgur.com/TeE90J3.png";
-            const imgQualityUrl = "https://i.imgur.com/tbfi4V4.png";
-            const imgVisionUrl = "https://i.imgur.com/AmHGqEM.jpeg";
-
-            const [imgMinistry, imgQuality, imgVision] = await Promise.all([
-                getBase64Image(imgMinistryUrl, 60),
-                getBase64Image(imgQualityUrl, 60),
-                getBase64Image(imgVisionUrl, 60)
-            ]);
-
             const scores = {};
             evaluationItems.forEach(item => {
                 scores[`item-${item.id}`] = document.querySelector(`#score-${item.id}`).textContent;
             });
 
             return {
-                imgMinistry, imgQuality, imgVision,
                 school: document.querySelector('#school').value || "",
                 teacher: document.querySelector('#teacherName').value || "",
                 subject: document.querySelector('#subject').value || "",
@@ -497,22 +418,12 @@
                 const fd = stored.formData;
                 showToast('جاري تجهيز الطباعة...', 'info');
 
-                const imgMinistryUrl = "https://i.imgur.com/TeE90J3.png";
-                const imgQualityUrl = "https://i.imgur.com/tbfi4V4.png";
-                const imgVisionUrl = "https://i.imgur.com/AmHGqEM.jpeg";
-                const [imgMinistry, imgQuality, imgVision] = await Promise.all([
-                    getBase64Image(imgMinistryUrl, 60),
-                    getBase64Image(imgQualityUrl, 60),
-                    getBase64Image(imgVisionUrl, 60)
-                ]);
-
                 const scores = {};
                 evaluationItems.forEach(item => {
                     scores[`item-${item.id}`] = fd[`score-${item.id}`] || '3';
                 });
 
                 const data = {
-                    imgMinistry, imgQuality, imgVision,
                     school: fd.school || '',
                     teacher: fd.teacherName || '',
                     subject: fd.subject || '',

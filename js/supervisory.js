@@ -258,7 +258,7 @@
             `;
             
             const fileName = `${data.visitNo || 'زيارة'} - ${data.school} - ${data.teacher}.docx`;
-            const converted = htmlDocx.asBlob(wordHTML, { orientation: 'portrait', margins: { top: 720, bottom: 720, left: 720, right: 720 } });
+            const converted = htmlDocx.asBlob(wordHTML, { orientation: 'portrait', margins: { top: 360, bottom: 720, left: 720, right: 720 } });
             const finalBlob = new Blob([converted], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
             
             const url = window.URL.createObjectURL(finalBlob);
