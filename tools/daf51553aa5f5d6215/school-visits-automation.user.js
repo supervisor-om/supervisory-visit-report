@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.6
+// @version      15.7
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -2692,6 +2692,15 @@
             return false;
         }
 
+        // رسائلُ ما بعد الضغط وحدها، وفيها حروف: عناصر الرسائل في هذه البوّابة
+        // تحمل أرقاماً مجرّدةً («123» في سجلّ 2026-09-26) ونصوصاً كانت قبل الحفظ،
+        // فكان الحفظ الناجح يُقرأ رفضاً. وهو العلاج نفسه الذي جرى في الوحدة
+        // المدرسيّة (v14.7/14.8) ولم يكن قد نُقل إلى الإشرافيّة.
+        function supFreshMessages(baseline) {
+            return supPortalErrors().filter(m =>
+                (baseline || []).indexOf(m) === -1 && /[؀-ۿA-Za-z]{2,}/.test(m));
+        }
+
         function supPortalErrors() {
             const out = [];
             for (const d of docs()) {
@@ -2747,6 +2756,9 @@
             const go = await supCountdown(SAVE_GRACE_MS);
             if (!go) { sstat('أُلغي الحفظ — احفظ يدوياً إن شئت'); return; }
 
+            // خطُّ الأساس قبل الضغط: ما كان في عناصر الرسائل أصلاً ليس نتيجةَ حفظنا
+            const baseline = supPortalErrors();
+
             sstat('جارٍ الحفظ...');
             slog('💾 ضغط زر الحفظ...', 'info');
             btn.click();
@@ -2754,11 +2766,21 @@
             const deadline = Date.now() + 25000;
             while (Date.now() < deadline) {
                 await new Promise(r => setTimeout(r, 1000));
-                const errs = supPortalErrors();
-                if (errs.length) {
+                const msgs = supFreshMessages(baseline);
+                const c = classifyPortalMessages(msgs);
+                if (c.ok.length && !c.fail.length) {
+                    sstat('✅ حُفظت الزيارة في البوّابة');
+                    slog('📨 البوّابة: ' + c.ok.join(' | '), 'success');
+                    slog('━━━ ✅ حُفظت الزيارة في بوّابة الوزارة ━━━', 'success');
+                    try { GM_deleteValue(SUP_KEY); } catch (e) {}
+                    if (svfRecordSaved(sup)) slog('سُجِّلت في سجلّ المحفوظ — سيظهر وسمها في الأرشيف', 'info');
+                    await queueAdvance();
+                    return;
+                }
+                if (c.fail.length) {
                     sstat('رفضت البوّابة الحفظ');
                     slog('⚠️ رفضت البوّابة الحفظ:', 'error');
-                    errs.forEach(e => slog('   • ' + e, 'error'));
+                    c.fail.forEach(e => slog('   • ' + e, 'error'));
                     slog('بياناتك باقية — لن تحتاج إعادة التصدير', 'success');
                     return;
                 }
@@ -3515,7 +3537,14 @@
                           });
                 if (o) { el.value = o.value; el.dispatchEvent(new Event('change', { bubbles: true }));
                          slog('اختير ' + label + ': ' + o.text.trim(), 'success'); }
-                else slog(label + ': «' + val + '» ليس في الخيارات', 'error');
+                else {
+                    slog(label + ': «' + val + '» ليس في الخيارات', 'error');
+                    // الخيارات المتاحة تُسرد في السجلّ: إمّا القائمة لم تمتلئ بعد
+                    // (تمتلئ بعد postback) وإمّا أنّ البوّابة تسمّي المادّة باسمٍ آخر —
+                    // ولا يُعرف أيّهما إلّا برؤيتها
+                    const opts = Array.from(el.options || []).map(x => (x.text || '').trim()).filter(Boolean);
+                    slog('   الخيارات (' + opts.length + '): ' + (opts.slice(0, 10).join(' | ') || 'لا خيارات بعد'), 'warn');
+                }
             } else { setVal(el, val); slog('عُبّئ ' + label, 'success'); }
         }
 

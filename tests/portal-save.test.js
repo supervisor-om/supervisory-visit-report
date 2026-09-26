@@ -146,7 +146,52 @@ function load(els) {
     check('notice: لا تُضغط أزرارٌ أخرى', e3.ctx.supDismissNotice() === false);
 }
 
-/* ── ٥) التوصيل في مسار الحفظ ── */
+/* ── ٥) رسائل البوّابة: «123» ليست رفضاً ── */
+{
+    // الدالّتان الحقيقيّتان: تصنيف الرسائل من الوحدة المدرسيّة، والترشيح الإشرافيّ
+    const cls = between('        const SAVE_FAIL_RE', '        // ═══ الحفظ عبر إعادة تحميل الصفحة ═══');
+    const fresh = between('        function supFreshMessages(baseline)', '        function supPortalErrors()');
+    let msgs = [];
+    const ctx = { console, supPortalErrors: () => msgs };
+    vm.createContext(ctx);
+    vm.runInContext(cls + fresh
+        + '\nthis.classifyPortalMessages = classifyPortalMessages; this.supFreshMessages = supFreshMessages;', ctx);
+
+    msgs = ['123'];
+    check('msg: رقمٌ مجرّدٌ («123») لا يُعدّ رسالةً أصلاً',
+          ctx.supFreshMessages([]).length === 0, JSON.stringify(ctx.supFreshMessages([])));
+
+    msgs = ['رسالةٌ كانت قبل الحفظ'];
+    check('msg: نصٌّ كان موجوداً قبل الضغط يُهمَل',
+          ctx.supFreshMessages(['رسالةٌ كانت قبل الحفظ']).length === 0);
+
+    msgs = ['تم الحفظ بنجاح'];
+    let c = ctx.classifyPortalMessages(ctx.supFreshMessages([]));
+    check('msg: «تم الحفظ بنجاح» نجاحٌ لا رفض', c.ok.length === 1 && c.fail.length === 0, JSON.stringify(c));
+
+    msgs = ['لم يتم الحفظ'];
+    c = ctx.classifyPortalMessages(ctx.supFreshMessages([]));
+    check('msg: «لم يتم الحفظ» رفضٌ رغم احتوائه «تم الحفظ»', c.fail.length === 1 && c.ok.length === 0);
+
+    msgs = ['رجاء استكمال تعبئة حقول الاستمارة'];
+    c = ctx.classifyPortalMessages(ctx.supFreshMessages([]));
+    check('msg: رسالة التحقّق رفضٌ صريح', c.fail.length === 1);
+
+    check('msg: مسار الحفظ الإشرافيّ يأخذ خطّ أساسٍ قبل الضغط',
+          /const baseline = supPortalErrors\(\);[\s\S]{0,200}btn\.click\(\)/.test(SRC));
+    check('msg: ويصنّف الرسائل الجديدة بدل عدّها كلّها رفضاً',
+          /supFreshMessages\(baseline\)[\s\S]{0,120}classifyPortalMessages\(msgs\)/.test(SRC));
+    check('msg: ونجاحُ الحفظ يُسجّل الزيارة ويُقدّم الطابور',
+          /c\.ok\.length && !c\.fail\.length[\s\S]{0,420}queueAdvance\(\)/.test(SRC));
+}
+
+/* ── ٦) المادّة: تُسرد الخيارات حين لا تُطابق ── */
+{
+    check('subject: الخيارات تُسرد في السجلّ عند الإخفاق',
+          /ليس في الخيارات[\s\S]{0,420}الخيارات \(/.test(SRC), 'لا تُسرد');
+}
+
+/* ── ٧) التوصيل في مسار الحفظ ── */
 {
     check('wiring: النافذة تُغلق قبل البحث عن الزرّ',
           /if \(supDismissNotice\(\)\) await wait\(800\);[\s\S]{0,200}supFindSave\(\)/.test(SRC));
@@ -156,7 +201,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 15.6', /@version\s+15\.6/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 15.7', /@version\s+15\.7/.test(SRC));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
