@@ -53,7 +53,7 @@ const check = (name, ok, detail) => {
           /if \(window\.svfSchoolIsSent[\s\S]{0,300}\} else \{[\s\S]{0,900}confirm-sent-school-btn/.test(sch));
     check('school.js: الزرّ يحمل المدرسة والتاريخ نفسيهما اللذين تُبنى منهما svfSchoolIsSent',
           /data-school="\$\{attrSchool\}" data-date="\$\{attrDate\}"/.test(sch)
-          && /const attrSchool = String\(report\.schoolName/.test(sch));
+          && /const attrSchool = .*report\.schoolName/.test(sch));
 }
 
 /* ── ٣) الربط في init.js: النقر يستدعي svfMarkSent/svfSchoolMarkSent ثمّ يُعيد الرسم ── */

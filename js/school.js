@@ -329,15 +329,15 @@
                 div.className = 'flex justify-between items-center bg-indigo-50 p-2 rounded-lg text-sm';
                 div.innerHTML = `
                     <div class="flex-grow">
-                        <span class="font-bold text-indigo-700">${visit.teacher || '-'}</span> 
+                        <span class="font-bold text-indigo-700">${schoolRouteEsc(visit.teacher) || '-'}</span> 
                         <span class="text-slate-500 mx-1">|</span> 
-                        <span class="text-slate-600">الصف ${visit.grade || '-'}</span>
+                        <span class="text-slate-600">الصف ${schoolRouteEsc(visit.grade) || '-'}</span>
                         <span class="text-slate-500 mx-1">|</span>
-                        <span class="text-slate-600">الحصة ${visit.period || '-'}</span>
+                        <span class="text-slate-600">الحصة ${schoolRouteEsc(visit.period) || '-'}</span>
                         <span class="text-slate-500 mx-1">|</span>
-                        <span class="text-slate-600">${visit.subject || '-'}</span>
+                        <span class="text-slate-600">${schoolRouteEsc(visit.subject) || '-'}</span>
                         <span class="text-slate-500 mx-1">|</span>
-                        <span class="font-semibold text-slate-700">${visit.rating || '-'}</span>
+                        <span class="font-semibold text-slate-700">${schoolRouteEsc(visit.rating) || '-'}</span>
                     </div>
                     ${typeof svfCvActions === 'function' ? svfCvActions(visit, index) : ''}
                     <button type="button" class="text-red-500 hover:text-red-700 delete-visit-btn p-1" data-index="${index}">
@@ -438,12 +438,12 @@
                 const div = document.createElement('div');
                 div.className = 'flex justify-between items-center bg-teal-50 p-2 rounded-lg text-sm';
                 const bits = [];
-                if (t.load) bits.push('النصاب ' + t.load);
-                if (t.grades) bits.push('الصفوف ' + t.grades);
-                if (t.section) bits.push(t.section);
+                if (t.load) bits.push('النصاب ' + schoolRouteEsc(t.load));
+                if (t.grades) bits.push('الصفوف ' + schoolRouteEsc(t.grades));
+                if (t.section) bits.push(schoolRouteEsc(t.section));
                 div.innerHTML = `
                     <div class="flex-grow">
-                        <span class="font-bold text-teal-800">${t.name || '-'}</span>
+                        <span class="font-bold text-teal-800">${schoolRouteEsc(t.name) || '-'}</span>
                         <span class="text-slate-400 mx-1">|</span>
                         <span class="text-slate-600">${t.gender === 'm' ? 'معلم' : 'معلمة'}</span>
                         ${bits.length ? '<span class="text-slate-400 mx-1">|</span><span class="text-slate-600">' + bits.join(' – ') + '</span>' : ''}
@@ -629,8 +629,8 @@
                     }
                     // تأكيدٌ يدويّ — الكشف التلقائيّ (سكربت تامبر مانكي) قد لا يصل أحياناً
                     // (جهازٌ آخر، أو سكربتٌ غير مثبَّت)؛ يكتب المفتاح نفسه الذي يكتبه الكشف التلقائيّ
-                    const attrSchool = String(report.schoolName || '').replace(/"/g, '&quot;');
-                    const attrDate = String(portalDate).replace(/"/g, '&quot;');
+                    const attrSchool = schoolRouteEsc(report.schoolName || '');
+                    const attrDate = schoolRouteEsc(portalDate);
                     confirmSentBtn = `<button type="button" class="confirm-sent-school-btn text-[11px] font-bold text-slate-400 hover:text-emerald-700 hover:underline" data-school="${attrSchool}" data-date="${attrDate}" title="اضغط إن كنت متأكّداً أنّ هذه الزيارة حُفظت فعلاً في البوابة">✓ تأكيد الحفظ يدويّاً</button>`;
                 }
 
@@ -641,11 +641,11 @@
                         ${stateBadge}${confirmSentBtn}
                     </label>
                     <div class="flex justify-between items-start mb-3">
-                        <h3 class="font-bold text-lg text-slate-800">${report.schoolName || 'بدون اسم'}</h3>
-                        <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200">${typeName}</span>
+                        <h3 class="font-bold text-lg text-slate-800">${schoolRouteEsc(report.schoolName) || 'بدون اسم'}</h3>
+                        <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200">${schoolRouteEsc(typeName)}</span>
                     </div>
                     <div class="text-sm text-slate-500 mb-4 space-y-1">
-                        <div class="flex items-center"><i class="fa-regular fa-calendar ml-2 w-4"></i> ${report.visitDate || '-'}</div>
+                        <div class="flex items-center"><i class="fa-regular fa-calendar ml-2 w-4"></i> ${schoolRouteEsc(report.visitDate) || '-'}</div>
                         <div class="flex items-center"><i class="fa-solid fa-check-double ml-2 w-4"></i> ${objLen} أهداف محققة</div>
                     </div>
                     <div class="mt-auto flex gap-2 pt-3 border-t border-slate-100">
@@ -910,7 +910,7 @@
                 const div = document.createElement('div');
                 div.className = 'prev-rec-item bg-white rounded-xl border border-amber-100 p-3 space-y-2';
                 div.innerHTML = `
-                    <p class="text-sm text-slate-700 font-medium">${idx + 1}. ${rec}</p>
+                    <p class="text-sm text-slate-700 font-medium">${idx + 1}. ${schoolRouteEsc(rec)}</p>
                     <div class="flex gap-2">
                         <button type="button" class="prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-green-400 hover:bg-green-50 hover:text-green-700 transition-all" data-idx="${idx}" data-status="done">✅ نُفِّذت</button>
                         <button type="button" class="prev-rec-btn flex-1 text-xs py-2 rounded-lg border border-slate-200 text-slate-500 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700 transition-all" data-idx="${idx}" data-status="partial">⚠️ جزئياً</button>
@@ -1191,11 +1191,11 @@
                 div.className = 'p-3 bg-slate-50 rounded-lg border border-slate-200';
                 
                 const objArray = Array.isArray(type.objectives) ? type.objectives : [];
-                const objectivesList = objArray.map(obj => `<li class="text-xs text-slate-600 truncate">• ${obj}</li>`).join('');
+                const objectivesList = objArray.map(obj => `<li class="text-xs text-slate-600 truncate">• ${schoolRouteEsc(obj)}</li>`).join('');
                 
                 div.innerHTML = `
                     <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-bold text-slate-700">${type.name || 'بدون اسم'}</h4>
+                        <h4 class="font-bold text-slate-700">${schoolRouteEsc(type.name) || 'بدون اسم'}</h4>
                         <div class="flex gap-2">
                             <button class="text-blue-500 hover:text-blue-700 edit-type-btn p-1" data-key="${key}">
                                 <i class="fa-solid fa-pen-to-square"></i>
@@ -1219,7 +1219,10 @@
         }
         
         // ─── خطّ سير اليوم: «قادم من» و«متجه إلى» أسفل الأهداف (الصياغة في js/route.js) ───
+        // تهريب النصّ الداخل إلى HTML — تطبيقه في utils.js (svfEscapeHtml)،
+        // وهذا اسمُه القديم يُبقيه موضعاً واحداً لا تطبيقين يفترقان
         function schoolRouteEsc(s) {
+            if (typeof svfEscapeHtml === 'function') return svfEscapeHtml(s);
             return String(s == null ? '' : s).replace(/[&<>"']/g,
                 c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
