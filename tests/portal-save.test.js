@@ -36,6 +36,13 @@ function el(tag, o) {
 // مستندٌ مصغَّر: querySelector يفهم ما تستعمله الدوالّ فعلاً
 function doc(els) {
     const match = (e, sel) => {
+        // وجودُ سمةٍ بلا قيمة: [onclick]
+        const bare = /^(\w+|\*)?\[(\w+)\]$/.exec(sel);
+        if (bare) {
+            const [, btag, battr] = bare;
+            if (btag && btag !== '*' && e.tagName.toLowerCase() !== btag.toLowerCase()) return false;
+            return e[battr] != null && String(e[battr]) !== '';
+        }
         const m = /^(\w+|\*)?(?:\[type="([^"]+)"\])?(?:\[id([$*^]?)="([^"]+)"\])?(?:\[(alt|title|value)\*="([^"]+)"\])?$/.exec(sel);
         if (!m) return false;
         const [, tag, type, idOp, idVal, attr, attrVal] = m;
@@ -191,6 +198,48 @@ function load(els) {
           /ليس في الخيارات[\s\S]{0,420}الخيارات \(/.test(SRC), 'لا تُسرد');
 }
 
+/* ── ٦ب) نافذة البوّابة تُغلق بزرٍّ بلا نصّ (onclick=DoOk) ── */
+{
+    const okImg = el('IMG', { id: '', onclick: 'DoOk()' });
+    const save = el('INPUT', { id: 'ctl00_content_ImgSave', type: 'image' });
+    const { ctx, logs } = load([okImg, save]);
+    check('notice: تُغلق بصورة DoOk() رغم خلوّها من النصّ',
+          ctx.supDismissNotice() === true && okImg.clicks === 1, 'لم تُغلق');
+    check('notice: ويُسجَّل ذلك', /DoOk/.test(logs.join(' ')), logs.join(' '));
+    check('notice: ولا يُمسّ زرّ الحفظ', save.clicks === 0);
+
+    const hiddenOk = el('IMG', { id: '', onclick: 'DoOk()', offsetParent: null });
+    const e2 = load([hiddenOk]);
+    check('notice: صورةٌ مخفيّةٌ بـDoOk لا تُضغط', e2.ctx.supDismissNotice() === false && hiddenOk.clicks === 0);
+
+    const other = el('IMG', { id: '', onclick: 'DoDelete()' });
+    const e3 = load([other]);
+    check('notice: onclick آخر لا يُضغط', e3.ctx.supDismissNotice() === false && other.clicks === 0);
+}
+
+/* ── ٦ج) قائمة المادّة تُنتظر حتّى تمتلئ ── */
+{
+    check('subject: تُنتظر القائمة قبل اختيار المادّة',
+          /supWaitOptions\(STAGE1_FIELDS\['المادة'\], 'المادة'\);[\s\S]{0,40}supPut\(STAGE1_FIELDS\['المادة'\]/.test(SRC),
+          'لا انتظار');
+    check('subject: الانتظار يتجاهل الخيار الفارغ و«-1»',
+          /String\(o\.value \|\| ''\)\.trim\(\)[\s\S]{0,160}!== '-1'/.test(SRC));
+    check('subject: وتُسجَّل النتيجة امتلأت أم لم تمتلئ',
+          /امتلأت \(/.test(SRC) && /لم تمتلئ خلال المهلة/.test(SRC));
+}
+
+/* ── ٦د) شريحة العدّ لا تُزال لحظة الحفظ ── */
+{
+    check('grace: الشريحة تبقى بعد انتهاء العدّ (لا إزالةً فوريّة)',
+          !/const finish = \(ok\) => \{ clearInterval\(iv\); bar\.remove\(\); resolve\(ok\); \};/.test(SRC),
+          'ما زالت تُزال فوراً');
+    check('grace: تُزال بعد مهلةٍ لا في اللحظة نفسها',
+          (SRC.match(/setTimeout\(\(\) => bar\.remove\(\), 8000\)/g) || []).length === 2,
+          'العدد غير متوقَّع');
+    check('grace: وزرّ الإلغاء يُعطَّل بدل أن يختفي',
+          /x2\.disabled = true;[\s\S]{0,140}جارٍ الحفظ/.test(SRC));
+}
+
 /* ── ٧) التوصيل في مسار الحفظ ── */
 {
     check('wiring: النافذة تُغلق قبل البحث عن الزرّ',
@@ -201,7 +250,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 15.7', /@version\s+15\.7/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 15.8', /@version\s+15\.8/.test(SRC));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.7
+// @version      15.8
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -1689,7 +1689,23 @@
                 const body = $('#svf-body-v7');
                 if (body) body.insertBefore(bar, body.firstChild);
 
-                const finish = (ok) => { clearInterval(iv); bar.remove(); resolve(ok); };
+                // لا تُزال الشريحة لحظة انتهاء العدّ: إزالتها تُصعّد أزرار اللوحة،
+                // فنقرةٌ قُصد بها «إلغاء الحفظ» تقع على الزرّ الذي صعد مكانها —
+                // «الحفظ التلقائي» — فيُطفأ ويتوقّف الطابور (سجلّا 2026-09-26).
+                const finish = (ok) => {
+                    clearInterval(iv);
+                    const t2 = document.getElementById('svf-grace-t');
+                    const x2 = document.getElementById('svf-grace-x');
+                    if (t2) t2.textContent = ok ? 'يُحفظ الآن…' : 'أُلغي الحفظ';
+                    if (x2) {
+                        x2.disabled = true;
+                        x2.textContent = ok ? 'جارٍ الحفظ…' : 'أُلغي';
+                        x2.style.opacity = '.55';
+                        x2.style.cursor = 'default';
+                    }
+                    setTimeout(() => bar.remove(), 8000);
+                    resolve(ok);
+                };
 
                 document.getElementById('svf-grace-x')?.addEventListener('click', () => {
                     cancelled = true;
@@ -2674,6 +2690,23 @@
         // بيده ثمّ يحفظ فينجح.
         function supDismissNotice() {
             const OK = ['عوده', 'موافق', 'اغلاق', 'خروج'].map(normAr);
+
+            // زرّ «موافق» في نافذة البوّابة صورةٌ بلا نصٍّ ولا معرّف، وعلامتها
+            // الوحيدة onclick=DoOk() (سجلّ 2026-09-26). النصّ وحده لا يجدها.
+            for (const d of docs()) {
+                let els = [];
+                try { els = Array.from(d.querySelectorAll('[onclick]')); } catch (e) { continue; }
+                for (const el of els) {
+                    let oc = '';
+                    try { oc = String(el.getAttribute('onclick') || ''); } catch (e) { continue; }
+                    if (!/\bDoOk\s*\(/.test(oc)) continue;
+                    if (el.offsetParent === null) continue;
+                    try { el.click(); } catch (e) { continue; }
+                    slog('أُغلقت نافذة البوّابة (DoOk)', 'warn');
+                    return true;
+                }
+            }
+
             for (const d of docs()) {
                 let els = [];
                 try {
@@ -2689,6 +2722,27 @@
                     return true;
                 }
             }
+            return false;
+        }
+
+        // انتظار امتلاء قائمةٍ منسدلة: البوّابة تملؤها بطلبٍ للخادم بعد فتح القسم،
+        // فالقراءة الفوريّة تجدها فارغة. تُنتظر حتّى تحمل خياراً حقيقيّاً (لا العنوان
+        // الفارغ «اختر…») أو تنتهي المهلة.
+        async function supWaitOptions(names, label, ms) {
+            const limit = Date.now() + (ms || 6000);
+            while (Date.now() < limit) {
+                const el = findAnywhere(names);
+                if (el && el.tagName === 'SELECT') {
+                    const real = Array.from(el.options || []).filter(o => String(o.value || '').trim()
+                                                                      && String(o.value) !== '-1');
+                    if (real.length) {
+                        slog('قائمة ' + label + ': امتلأت (' + real.length + ' خياراً)', 'info');
+                        return true;
+                    }
+                }
+                await wait(500);
+            }
+            slog('قائمة ' + label + ' لم تمتلئ خلال المهلة — تُملأ يدوياً', 'warn');
             return false;
         }
 
@@ -2814,7 +2868,23 @@
                 const status = document.getElementById(S);
                 if (status && status.parentNode) status.parentNode.insertBefore(bar, status.nextSibling);
 
-                const finish = (ok) => { clearInterval(iv); bar.remove(); resolve(ok); };
+                // لا تُزال الشريحة لحظة انتهاء العدّ: إزالتها تُصعّد أزرار اللوحة،
+                // فنقرةٌ قُصد بها «إلغاء الحفظ» تقع على الزرّ الذي صعد مكانها —
+                // «الحفظ التلقائي» — فيُطفأ ويتوقّف الطابور (سجلّا 2026-09-26).
+                const finish = (ok) => {
+                    clearInterval(iv);
+                    const t2 = document.getElementById('svfs-grace-t');
+                    const x2 = document.getElementById('svfs-grace-x');
+                    if (t2) t2.textContent = ok ? 'يُحفظ الآن…' : 'أُلغي الحفظ';
+                    if (x2) {
+                        x2.disabled = true;
+                        x2.textContent = ok ? 'جارٍ الحفظ…' : 'أُلغي';
+                        x2.style.opacity = '.55';
+                        x2.style.cursor = 'default';
+                    }
+                    setTimeout(() => bar.remove(), 8000);
+                    resolve(ok);
+                };
                 document.getElementById('svfs-grace-x')?.addEventListener('click', () => {
                     cancelled = true;
                     slog('🛑 ألغيتَ الحفظ — البيانات باقية في النموذج', 'warn');
@@ -3597,6 +3667,9 @@
             await supOpenTeacherData();
             supPut(STAGE1_FIELDS['عنوان الدرس'], sup.lessonTitle, 'عنوان الدرس');
             supPut(STAGE1_FIELDS['الحصة'],       sup.period,      'الحصة');
+            // قائمة المادّة تمتلئ بعد فتح بيانات المعلّم (postback): قراءتها فور
+            // الفتح تجدها فارغةً — «الخيارات (0)» في سجلّ 2026-09-26 — فتُنتظر
+            await supWaitOptions(STAGE1_FIELDS['المادة'], 'المادة');
             supPut(STAGE1_FIELDS['المادة'],      sup.subject,     'المادة');
             await wait(400);
 
