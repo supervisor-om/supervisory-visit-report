@@ -620,17 +620,25 @@
                 const portalDate = (report.visitDate || '').includes('-')
                     ? report.visitDate.split('-').reverse().join('/') : (report.visitDate || '');
                 let stateBadge = '';
+                let confirmSentBtn = '';
                 if (window.svfSchoolIsSent && window.svfSchoolIsSent(report.schoolName || '', portalDate)) {
                     stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`;
-                } else if (window.svfSchoolIsQueued && window.svfSchoolIsQueued(report.key)) {
-                    stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
+                } else {
+                    if (window.svfSchoolIsQueued && window.svfSchoolIsQueued(report.key)) {
+                        stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
+                    }
+                    // تأكيدٌ يدويّ — الكشف التلقائيّ (سكربت تامبر مانكي) قد لا يصل أحياناً
+                    // (جهازٌ آخر، أو سكربتٌ غير مثبَّت)؛ يكتب المفتاح نفسه الذي يكتبه الكشف التلقائيّ
+                    const attrSchool = String(report.schoolName || '').replace(/"/g, '&quot;');
+                    const attrDate = String(portalDate).replace(/"/g, '&quot;');
+                    confirmSentBtn = `<button type="button" class="confirm-sent-school-btn text-[11px] font-bold text-slate-400 hover:text-emerald-700 hover:underline" data-school="${attrSchool}" data-date="${attrDate}" title="اضغط إن كنت متأكّداً أنّ هذه الزيارة حُفظت فعلاً في البوابة">✓ تأكيد الحفظ يدويّاً</button>`;
                 }
 
                 card.innerHTML = `
                     <label class="flex items-center gap-2 mb-3 cursor-pointer select-none">
                         <input type="checkbox" class="queue-pick-school w-4 h-4 accent-green-700" data-key="${report.key}" ${picked ? 'checked' : ''}>
                         <span class="text-xs text-slate-500">تحديد للرفع</span>
-                        ${stateBadge}
+                        ${stateBadge}${confirmSentBtn}
                     </label>
                     <div class="flex justify-between items-start mb-3">
                         <h3 class="font-bold text-lg text-slate-800">${report.schoolName || 'بدون اسم'}</h3>

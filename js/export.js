@@ -592,10 +592,18 @@
                     const portalDate = visitDate.includes('-')
                         ? visitDate.split('-').reverse().join('/') : visitDate;
                     let stateBadge = '';
+                    let confirmSentBtn = '';
                     if (window.svfIsSent && window.svfIsSent(tName, portalDate)) {
                         stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`;
-                    } else if (window.svfIsQueued && window.svfIsQueued(key)) {
-                        stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
+                    } else {
+                        if (window.svfIsQueued && window.svfIsQueued(key)) {
+                            stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
+                        }
+                        // تأكيدٌ يدويّ — الكشف التلقائيّ (سكربت تامبر مانكي) قد لا يصل أحياناً
+                        // (جهازٌ آخر، أو سكربتٌ غير مثبَّت)؛ يكتب المفتاح نفسه الذي يكتبه الكشف التلقائيّ
+                        const attrTeacher = String(tName).replace(/"/g, '&quot;');
+                        const attrDate = String(portalDate).replace(/"/g, '&quot;');
+                        confirmSentBtn = `<button type="button" class="confirm-sent-btn text-[11px] font-bold text-slate-400 hover:text-emerald-700 hover:underline" data-teacher="${attrTeacher}" data-date="${attrDate}" title="اضغط إن كنت متأكّداً أنّ هذه الزيارة حُفظت فعلاً في البوابة">✓ تأكيد الحفظ يدويّاً</button>`;
                     }
 
                     const card = document.createElement('div');
@@ -604,7 +612,7 @@
                         <label class="flex items-center gap-2 mb-3 cursor-pointer select-none">
                             <input type="checkbox" class="queue-pick w-4 h-4 accent-indigo-600" data-key="${key}" ${picked ? 'checked' : ''}>
                             <span class="text-xs text-slate-500">تحديد للرفع</span>
-                            ${stateBadge}
+                            ${stateBadge}${confirmSentBtn}
                         </label>
                         <div class="mb-4">
                             <h4 class="font-bold text-slate-800 text-lg">${tName || 'غير معروف'}</h4>

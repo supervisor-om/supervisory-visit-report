@@ -102,16 +102,23 @@
                 
                 const supSavedList = document.querySelector('#saved-reports-list');
                 if(supSavedList) {
-                    supSavedList.addEventListener('click', e => { 
-                        if(e.target.dataset.key) { 
+                    supSavedList.addEventListener('click', e => {
+                        if(e.target.dataset.key) {
                             if(e.target.classList.contains('load-btn')) loadPermanentReport(e.target.dataset.key);
                             if(e.target.classList.contains('edit-btn')) loadPermanentReport(e.target.dataset.key);
                             if(e.target.classList.contains('delete-btn')) deletePermanentReport(e.target.dataset.key);
                             if(e.target.classList.contains('print-archive-btn') || e.target.closest('.print-archive-btn')) {
                                 const btn = e.target.closest('.print-archive-btn') || e.target;
                                 printArchivedReport(btn.dataset.key);
-                            } 
-                        } 
+                            }
+                        }
+                        // تأكيدٌ يدويّ أنّ الزيارة حُفظت في البوّابة — لمن لم يصله الكشف
+                        // التلقائيّ (سكربت تامبر مانكي على جهازٍ آخر، أو غير مثبَّت)
+                        const confirmBtn = e.target.closest('.confirm-sent-btn');
+                        if (confirmBtn && window.svfMarkSent) {
+                            window.svfMarkSent([{ teacher: confirmBtn.dataset.teacher, date: confirmBtn.dataset.date }]);
+                            renderSavedReports();
+                        }
                     });
                 }
                 
@@ -443,6 +450,13 @@
                         if (e.target.classList.contains('delete-report-btn')) deleteSchoolReport(e.target.dataset.key);
                         if (e.target.classList.contains('edit-report-btn')) editSchoolReport(e.target.dataset.key);
                         if (e.target.classList.contains('view-report-btn')) viewSchoolReport(e.target.dataset.key);
+                        // تأكيدٌ يدويّ أنّ الزيارة حُفظت في البوّابة — لمن لم يصله الكشف
+                        // التلقائيّ (سكربت تامبر مانكي على جهازٍ آخر، أو غير مثبَّت)
+                        const confirmBtn = e.target.closest('.confirm-sent-school-btn');
+                        if (confirmBtn && window.svfSchoolMarkSent) {
+                            window.svfSchoolMarkSent([{ school: confirmBtn.dataset.school, date: confirmBtn.dataset.date }]);
+                            renderSchoolReportsList();
+                        }
                     });
                 }
 

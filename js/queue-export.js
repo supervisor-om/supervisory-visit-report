@@ -199,6 +199,7 @@
     window.svfSchoolSelected = schoolSelected;
     window.svfSchoolIsQueued = key => readSet(SCHOOL_QUEUED_KEY).has(key);
     window.svfSchoolIsSent   = (school, date) => readSet(SCHOOL_SENT_KEY).has(school + '|' + date);
+    window.svfSchoolMarkSent = list => addToSet(SCHOOL_SENT_KEY, list.map(v => v.school + '|' + v.date));
 
     // نوع الزيارة في البوّابة: ١ إشرافية، ٢ استطلاعية، ٣ أخرى
     function schoolVisitTypeNum(typeKey) {
