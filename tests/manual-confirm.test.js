@@ -47,7 +47,7 @@ const check = (name, ok, detail) => {
           /if \(window\.svfIsSent[\s\S]{0,300}\} else \{[\s\S]{0,900}confirm-sent-btn/.test(exp));
     check('export.js: الزرّ يحمل المعلّم والتاريخ نفسيهما اللذين تُبنى منهما svfIsSent',
           /data-teacher="\$\{attrTeacher\}" data-date="\$\{attrDate\}"/.test(exp)
-          && /const attrTeacher = String\(tName\)/.test(exp) && /const attrDate = String\(portalDate\)/.test(exp));
+          && /const attrTeacher = .*tName/.test(exp) && /const attrDate = .*portalDate/.test(exp));
 
     check('school.js: confirm-sent-school-btn داخل الفرع "غير محفوظة" لا الفرع "محفوظة"',
           /if \(window\.svfSchoolIsSent[\s\S]{0,300}\} else \{[\s\S]{0,900}confirm-sent-school-btn/.test(sch));

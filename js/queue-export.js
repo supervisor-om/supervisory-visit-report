@@ -121,6 +121,8 @@
         return { ready, broken };
     }
     window.svfBuildFromKeys = buildFromKeys;
+    // التصدير المفرد يتحقّق بالقاعدة نفسها: ما يرفضه الطابور ترفضه البوّابة
+    window.svfValidateVisit = validate;
 
     /* ─── الرفع ─── */
     function sendSelected() {

@@ -55,6 +55,12 @@
             teacherNames.forEach(name => teacherSelect.innerHTML += `<option value="${name}">${name}</option>`); 
         }
 
+        // درجة بندٍ في زيارةٍ من أرشيف الرسوم — null إن لم تُسجَّل
+        function svfScoreOf(visit, itemId) {
+            const v = visit && visit.scores ? parseInt(visit.scores['item-' + itemId], 10) : NaN;
+            return (v >= 1 && v <= 5) ? v : null;
+        }
+
         function updateDashboardView() { 
             if (performanceChartInstance) performanceChartInstance.destroy(); 
             
@@ -116,9 +122,12 @@
                     responsive: true, 
                     maintainAspectRatio: false, 
                     plugins: { legend: { position: 'bottom' } }, 
+                    // السلّم مقلوب: 1 = متميّز و5 = يحتاج. بلا reverse يظهر
+                    // الأضعف أعلى من المتميّز فيُقرأ الرسم عكس معناه
+                    // (تبويب الإحصائيات يقلبه أصلاً — charts.js)
                     scales: { 
-                        r: { min: 0, max: 5, ticks: { stepSize: 1 } }, 
-                        y: { min: 0, max: 5 } 
+                        r: { min: 1, max: 5, reverse: true, ticks: { stepSize: 1 } }, 
+                        y: { min: 1, max: 5, reverse: true, title: { display: true, text: 'المعدل (1 = أفضل)' } } 
                     } 
                 } 
             }; 
@@ -126,13 +135,15 @@
             if (chartType === 'line') { 
                 chartConfig.data.datasets = evaluationItems.map((item, i) => ({ 
                     label: item.title.substring(0, 20) + '...', 
-                    data: archive.map(v => v.scores && v.scores[`item-${item.id}`] ? v.scores[`item-${item.id}`] : 0), 
+                    // البند بلا درجةٍ يُترك فجوةً في الخطّ: حسابه صفراً كان
+                    // يُنزله تحت «متميّز» فيبدو أفضل من كلّ درجةٍ حقيقيّة
+                    data: archive.map(v => svfScoreOf(v, item.id)), 
                     borderColor: colors[i % colors.length], 
                     tension: 0.2 
                 })); 
             } else if (chartType === 'radar') { 
                 const visitData = archive.find(v => v.date === visitDateSelect.value); 
-                const data = visitData && visitData.scores ? evaluationItems.map(item => visitData.scores[`item-${item.id}`] || 0) : []; 
+                const data = visitData ? evaluationItems.map(item => svfScoreOf(visitData, item.id)) : []; 
                 chartConfig.data.datasets = [{ 
                     label: `أداء ${visitDateSelect.value}`, 
                     data: data, 
@@ -142,8 +153,9 @@
                 }]; 
             } else { 
                 const avgScores = evaluationItems.map(item => { 
-                    const s = archive.map(v => v.scores && v.scores[`item-${item.id}`] ? v.scores[`item-${item.id}`] : 0); 
-                    return s.length > 0 ? (s.reduce((a,b)=>a+b,0)/s.length) : 0; 
+                    // الزيارات التي لا تحمل هذا البند تُستبعد من متوسّطه
+                    const s = archive.map(v => svfScoreOf(v, item.id)).filter(n => n !== null); 
+                    return s.length > 0 ? (s.reduce((a,b)=>a+b,0)/s.length) : null; 
                 }); 
                 chartConfig.data.datasets = [{ 
                     label: 'المتوسط العام', 

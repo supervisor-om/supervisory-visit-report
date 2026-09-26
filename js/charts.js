@@ -39,12 +39,9 @@
             const scoreLevels = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
             let totalScoreEntries = 0;
             reports.forEach(r => {
-                if (Array.isArray(r.scores)) {
-                    r.scores.forEach(s => {
-                        const v = parseInt(s);
-                        if (v >= 1 && v <= 5) { scoreLevels[v]++; totalScoreEntries++; }
-                    });
-                }
+                // الدرجات من formData أو من جذر التقرير القديم — قراءة الجذر
+                // وحده كانت تُفرغ هذا القسم من كلّ تقريرٍ حديث
+                svfReportScores(r).forEach(v => { scoreLevels[v]++; totalScoreEntries++; });
             });
 
             // Most visited schools (top 5)
@@ -81,10 +78,11 @@
 
             // Average performance per visit (chronological)
             const avgPerVisit = reports
-                .filter(r => r.visitDate && Array.isArray(r.scores) && r.scores.length > 0)
-                .sort((a, b) => (a.visitDate || '').localeCompare(b.visitDate || ''))
-                .map(r => {
-                    const avg = r.scores.reduce((s, v) => s + parseInt(v), 0) / r.scores.length;
+                .map(r => ({ r, sc: svfReportScores(r) }))
+                .filter(x => x.r.visitDate && x.sc.length > 0)
+                .sort((a, b) => (a.r.visitDate || '').localeCompare(b.r.visitDate || ''))
+                .map(({ r, sc }) => {
+                    const avg = sc.reduce((s, v) => s + v, 0) / sc.length;
                     return { date: r.visitDate, avg: Math.round(avg * 100) / 100, teacher: r.teacherName };
                 });
 

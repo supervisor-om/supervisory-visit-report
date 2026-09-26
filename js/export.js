@@ -199,10 +199,12 @@
                 portalDate = d + '/' + mo + '/' + y;
             }
 
-            // مصفوفة التقييمات بالترتيب (13 قيمة)
-            const ratings = evaluationItems.map(item =>
-                parseInt(document.querySelector('#score-' + item.id)?.textContent?.trim() || '3', 10)
-            );
+            // مصفوفة التقييمات بالترتيب (13 قيمة). البند بلا درجةٍ صالحةٍ يبقى
+            // null فيوقفه التحقّق أدناه — ولا يُخمَّن له «3» كما كان.
+            const ratings = evaluationItems.map(item => {
+                const n = parseInt(document.querySelector('#score-' + item.id)?.textContent?.trim(), 10);
+                return (n >= 1 && n <= 5) ? n : null;
+            });
 
             // الوصف الإشرافي لكل بند — يُعبَّأ في خانة بنده بالبوّابة
             const notes = {};
@@ -229,6 +231,16 @@
                 development:     needsDev,
                 recommendations: recs
             };
+
+            // ما ترفضه البوّابة يُكشف هنا لا بعد فتحها: الطابور يتحقّق منذ v14.3
+            // والتصدير المفرد كان يمضي بلا تحقّق فيقف السكربت عند «عنوان الدرس»
+            if (typeof window.svfValidateVisit === 'function') {
+                const gaps = window.svfValidateVisit(exportData);
+                if (gaps.length) {
+                    showToast('لا يمكن التصدير — ينقص: ' + gaps.join('، '), 'error');
+                    return;
+                }
+            }
 
             const jsonStr = JSON.stringify(exportData);
 
@@ -487,6 +499,9 @@
 
             let found = false;
 
+            // اسم المعلّم والمدرسة يدخلان HTML: المزامنة تجلبهما من أجهزةٍ أخرى
+            const esc = s => (typeof svfEscapeHtml === 'function' ? svfEscapeHtml(s) : String(s == null ? '' : s));
+
             reports.forEach(({ key, data }) => {
                 if (!data) return;
                 const schoolName = data.school || '-';
@@ -501,9 +516,12 @@
 
                 if (matchText && matchMonth) {
                     found = true;
-                    const scoreTotal = Array.isArray(data.scores) ? data.scores.reduce((s, v) => s + v, 0) : null;
+                    // الدرجات من formData أو من جذر التقرير القديم — كانت تُقرأ
+                    // من الجذر وحده فلا تظهر الشارة لأيّ تقريرٍ حديث
+                    const scoreList = typeof svfReportScores === 'function' ? svfReportScores(data) : [];
+                    const scoreTotal = scoreList.length ? scoreList.reduce((s, v) => s + v, 0) : null;
                     const scoreLabel = scoreTotal !== null
-                        ? `<span class="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full mt-1">${scoreTotal} / 65</span>`
+                        ? `<span class="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full mt-1" title="مجموع البنود: ${scoreList.length} = متميّز في كلّها، ${scoreList.length * 5} = يحتاج تطويراً في كلّها">${scoreTotal} / ${scoreList.length * 5}</span>`
                         : '';
                     // مربّع الاختيار للرفع إلى البوّابة، والتحديد يبقى بعد إعادة الرسم
                     const picked = window.svfSelected ? window.svfSelected.has(key) : false;
@@ -519,8 +537,8 @@
                         }
                         // تأكيدٌ يدويّ — الكشف التلقائيّ (سكربت تامبر مانكي) قد لا يصل أحياناً
                         // (جهازٌ آخر، أو سكربتٌ غير مثبَّت)؛ يكتب المفتاح نفسه الذي يكتبه الكشف التلقائيّ
-                        const attrTeacher = String(tName).replace(/"/g, '&quot;');
-                        const attrDate = String(portalDate).replace(/"/g, '&quot;');
+                        const attrTeacher = esc(tName);
+                        const attrDate = esc(portalDate);
                         confirmSentBtn = `<button type="button" class="confirm-sent-btn text-[11px] font-bold text-slate-400 hover:text-emerald-700 hover:underline" data-teacher="${attrTeacher}" data-date="${attrDate}" title="اضغط إن كنت متأكّداً أنّ هذه الزيارة حُفظت فعلاً في البوابة">✓ تأكيد الحفظ يدويّاً</button>`;
                     }
 
@@ -533,9 +551,9 @@
                             ${stateBadge}${confirmSentBtn}
                         </label>
                         <div class="mb-4">
-                            <h4 class="font-bold text-slate-800 text-lg">${tName || 'غير معروف'}</h4>
+                            <h4 class="font-bold text-slate-800 text-lg">${esc(tName) || 'غير معروف'}</h4>
                             <div class="text-sm text-slate-500 mt-1 flex flex-col gap-1">
-                                <span><i class="fa-solid fa-school ml-1 text-slate-400"></i> ${schoolName}</span>
+                                <span><i class="fa-solid fa-school ml-1 text-slate-400"></i> ${esc(schoolName)}</span>
                                 <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${visitDate || '-'}</span>
                                 ${scoreLabel}
                             </div>

@@ -112,3 +112,43 @@
             });
         };
 
+
+        // =========================================================================
+        //  درجات تقريرٍ إشرافيّ محفوظ
+        //
+        //  savePermanentReport يحفظها داخل formData بمعرّفات عناصر النموذج
+        //  (score-1 … score-13)، بينما كانت نسخةٌ أقدم تحفظها مصفوفةً في جذر
+        //  التقرير. قرّاء الدرجات (شارة المجموع، توزيع التقييمات، متوسط الأداء)
+        //  كانوا يقرأون الجذر وحده، فلم تظهر لهم درجةُ أيّ تقريرٍ حديث.
+        //  تُقرأ الصيغتان هنا في موضعٍ واحد.
+        // =========================================================================
+        function svfReportScores(report) {
+            if (!report || typeof report !== 'object') return [];
+
+            const clean = n => {
+                const v = parseInt(n, 10);
+                return (v >= 1 && v <= 5) ? v : null;
+            };
+
+            if (Array.isArray(report.scores)) {
+                return report.scores.map(clean).filter(v => v !== null);
+            }
+
+            const fd = report.formData;
+            if (!fd || typeof fd !== 'object') return [];
+
+            return Object.keys(fd)
+                .map(k => {
+                    const m = /^score-(\d+)$/.exec(k);
+                    return m ? { id: parseInt(m[1], 10), v: clean(fd[k]) } : null;
+                })
+                .filter(x => x && x.v !== null)
+                .sort((a, b) => a.id - b.id)
+                .map(x => x.v);
+        }
+
+        // نصٌّ يدخل HTML: أسماء المعلمين والمدارس تصل من أجهزةٍ أخرى بالمزامنة
+        function svfEscapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+        }
