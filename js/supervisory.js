@@ -1,8 +1,11 @@
         // =========================================================================
         // 4. SUPERVISORY APP FUNCTIONS
         // =========================================================================
+        // القيمة الفارغة (كأن يُفرَّغ زرّ الاختيار) تُقرأ NaN فيسقط تبديل الجنس
+        // صامتاً إلى صيغة المذكّر — فيُردّ إلى 0 صراحةً
         function getSupervisoryGender() {
-            return parseInt(document.querySelector('input[name="supervisoryTeacherGender"]:checked')?.value ?? '0');
+            const v = parseInt(document.querySelector('input[name="supervisoryTeacherGender"]:checked')?.value ?? '0', 10);
+            return Number.isFinite(v) ? v : 0;
         }
 
         function generateEvaluationForm() {
@@ -355,12 +358,35 @@
             });
         }
 
+        // مفتاح التقرير المفتوح من الأرشيف. وجودُه يعني أنّ «حفظ» يُحدّث هذا
+        // التقرير في مكانه؛ وغيابُه يعني إنشاء تقريرٍ جديد. كان لا يُضبط أبداً،
+        // فكلّ حفظٍ بعد «تعديل» يُنشئ نسخةً ثانيةً للزيارة نفسها — ويحسبها
+        // التقرير الشهريّ زيارتين.
+        function setEditingKey(key, data) {
+            currentEditingKey = key || null;
+            const banner = document.getElementById('editingBanner');
+            const label = document.getElementById('editingBannerLabel');
+            const saveBtn = document.getElementById('savePermanentReportBtn');
+            if (banner) banner.classList.toggle('hidden', !key);
+            if (label && key) {
+                const t = (data && data.teacherName) || '';
+                const d = (data && data.visitDate) || '';
+                label.textContent = [t, d].filter(Boolean).join(' — ') || 'تقرير محفوظ';
+            }
+            if (saveBtn) saveBtn.textContent = key ? 'حفظ التعديلات' : 'حفظ بالأرشيف';
+        }
+
         function performReset() {
-            document.querySelector('#evaluationForm').reset(); 
-            document.querySelectorAll('input:not([type="button"]), textarea').forEach(input => input.value = ''); 
+            document.querySelector('#evaluationForm').reset();
+            // التفريغ محصورٌ في النموذج الإشرافيّ: الصفحة تحمل النظام المدرسيّ أيضاً،
+            // وكان المسح يشمل حقوله فتضيع زيارةٌ مدرسيّةٌ قيد الكتابة.
+            // وأزرار الاختيار مستثناة: تفريغ قيمتها يُسقط تبديل «معلم/معلمة».
+            const scope = document.querySelector('#form-view') || document;
+            scope.querySelectorAll('input:not([type="button"]):not([type="radio"]):not([type="checkbox"]), textarea')
+                 .forEach(input => input.value = '');
             document.querySelector('#visitDate').value = new Date().toISOString().split('T')[0];
-            currentEditingKey = null;
-            
+            setEditingKey(null);
+
             evaluationItems.forEach(item => { 
                 updateScore(item.id, 3, true); 
                 document.querySelector(`#notes-${item.id}`).textContent = generateDescriptionText(item.id, 3); 
@@ -381,13 +407,14 @@
                 return; 
             }
             
-            // إذا كان فيه تقرير مفتوح للتعديل، استخدم مفتاحه بدل إنشاء جديد
-            let reportId;
-            if (currentEditingKey) {
-                reportId = currentEditingKey;
-                localStorage.removeItem(currentEditingKey); // نحذف القديم أولاً
-            } else {
-                reportId = `supervision_v6_visit_${Date.now()}`;
+            // تقريرٌ مفتوحٌ للتعديل ← يُكتب فوق مفتاحه. ولا يُحذف قبل الكتابة:
+            // الكتابة على المفتاح نفسه تُغني عنه، وحذفٌ ثمّ كتابةٌ تفشل (تخزينٌ
+            // ممتلئ) يضيّع الأصل.
+            const editing = !!currentEditingKey;
+            const reportId = editing ? currentEditingKey : `supervision_v6_visit_${Date.now()}`;
+            let previous = null;
+            if (editing) {
+                try { previous = JSON.parse(localStorage.getItem(reportId)); } catch (e) {}
             }
             const reportData = { 
                 id: reportId, 
@@ -439,11 +466,30 @@
                 archive.push(visitDataForDashboard); 
             }
             
-            archive.sort((a, b) => new Date(a.date) - new Date(b.date)); 
+            archive.sort((a, b) => new Date(a.date) - new Date(b.date));
             // الأرشيف الرقميّ للرسوم البيانيّة: فشلُه لا يُبطل حفظ التقرير نفسه
-            try { localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); } catch (e) {} 
-            
-            showToast('تم حفظ التقرير بنجاح');
+            try { localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); } catch (e) {}
+
+            // تعديلٌ غيّر اسم المعلّم أو التاريخ: تُزال قراءة الزيارة القديمة من
+            // أرشيف الرسوم، وإلّا بقيت زيارةٌ لا تقرير لها
+            if (editing && previous) {
+                const oldName = String(previous.teacherName || '').trim();
+                const oldDate = String(previous.visitDate || '').trim();
+                if (oldName && oldDate && (oldName !== teacherName || oldDate !== visitDate)) {
+                    const oldKey = `supervision_v6_teacher_archive_${oldName}`;
+                    try {
+                        let old = JSON.parse(localStorage.getItem(oldKey));
+                        if (Array.isArray(old)) {
+                            old = old.filter(v => v && v.date !== oldDate);
+                            if (old.length) localStorage.setItem(oldKey, JSON.stringify(old));
+                            else localStorage.removeItem(oldKey);
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            setEditingKey(reportId, reportData);   // يبقى مفتوحاً: حفظٌ ثانٍ يُحدّثه
+            showToast(editing ? 'تم تحديث التقرير' : 'تم حفظ التقرير بنجاح');
             renderSavedReports();
 
             // النسخة السحابيّة تتبع الحفظ ولا تسبقه: فشلها لا يُفقد التقرير
@@ -465,9 +511,12 @@
                     }); 
                     if(data.formData['school']) document.querySelector('#school').value = data.formData['school']; 
                     if(data.formData['teacherName']) document.querySelector('#teacherName').value = data.formData['teacherName']; 
-                    evaluationItems.forEach(item => updateScore(item.id, parseInt(data.formData[`score-${item.id}`] || 3))); 
-                    toggleSupervisoryView('form-view'); 
-                    showToast('تم تحميل التقرير'); 
+                    evaluationItems.forEach(item => updateScore(item.id, parseInt(data.formData[`score-${item.id}`] || 3)));
+                    // performReset صفّر المفتاح — يُعاد ضبطه هنا ليُحدَّث التقرير
+                    // نفسه عند الحفظ بدل إنشاء نسخةٍ ثانية
+                    setEditingKey(reportKey, data);
+                    toggleSupervisoryView('form-view');
+                    showToast('تم تحميل التقرير');
                 }
             } catch (e) {
                 showToast('خطأ في استرجاع التقرير', 'error');

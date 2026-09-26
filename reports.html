@@ -304,6 +304,18 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                     <p class="text-blue-100 relative z-10">نظام التقييم المطور لمادة الرياضة المدرسية</p>
                 </div>
 
+                <!-- يظهر عند فتح تقريرٍ من الأرشيف: الحفظ يُحدّثه ولا يُنشئ نسخةً ثانية -->
+                <div id="editingBanner" class="hidden bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                    <div class="text-sm text-amber-800 font-medium">
+                        <i class="fa-solid fa-pen-to-square ml-1"></i>
+                        تعديل تقريرٍ محفوظ: <span id="editingBannerLabel" class="font-bold"></span>
+                        <span class="text-amber-600 font-normal">— الحفظ يُحدّثه في مكانه</span>
+                    </div>
+                    <button type="button" id="newReportBtn" class="text-xs bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg font-bold transition-colors">
+                        بدء تقرير جديد بدلاً منه
+                    </button>
+                </div>
+
                 <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <div class="lg:col-span-4 space-y-6">
                         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">

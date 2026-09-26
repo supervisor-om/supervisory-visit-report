@@ -127,7 +127,9 @@
         if (form) form.reset();
         document.querySelectorAll('#form-view input:not([type="button"]):not([type="radio"]):not([type="checkbox"]), #form-view textarea')
             .forEach(i => { i.value = ''; });
-        currentEditingKey = null;
+        // عبر setEditingKey لا بإسنادٍ مباشر: لافتة التعديل وزرّ الحفظ يتبعانها
+        if (typeof setEditingKey === 'function') setEditingKey(null);
+        else currentEditingKey = null;
         try {
             evaluationItems.forEach(item => {
                 updateScore(item.id, 3, true);

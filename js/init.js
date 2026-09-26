@@ -87,6 +87,14 @@
 
                 const resetConfBtn = document.getElementById('showResetConfirmationBtn');
                 if(resetConfBtn) resetConfBtn.addEventListener('click', () => showConfirmationModal('إعادة تعيين', 'هل أنت متأكد؟', performReset));
+
+                // فكّ الارتباط بالتقرير المفتوح: ما بعده يُحفظ تقريراً جديداً
+                const newReportBtn = document.getElementById('newReportBtn');
+                if(newReportBtn) newReportBtn.addEventListener('click', () => {
+                    showConfirmationModal('تقرير جديد',
+                        'سيُفرَّغ النموذج ويُحفظ ما تكتبه تقريراً جديداً، ويبقى التقرير المحفوظ كما هو.',
+                        performReset);
+                });
                 
                 const updateDashBtn = document.getElementById('updateDashboardViewBtn');
                 if(updateDashBtn) updateDashBtn.addEventListener('click', updateDashboardView);
