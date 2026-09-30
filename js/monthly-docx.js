@@ -9,7 +9,9 @@
 //     (صفحةٌ لكلّ جدول). سعة الأوّل = عدد صفوفه في النموذج.
 //   • كلّ خليّةٍ تُؤخذ من نموذجٍ بنوع نصّها: ✓ من خليّة ✓، و«-» من خليّة «-»،
 //     والنصّ من خليّة نصّ — فخطّ Segoe UI Symbol لا يُطبَّق على «-».
-//   • تظليل الصفوف كتلاً من خمسة: رماديٌّ ثمّ أبيض، متّصلاً عبر الصفحتين.
+//   • التظليل بالأسبوع لا بالعدّ: أيّام الأسبوع الواحد (الأحد ← الخميس) لونٌ
+//     واحد، ثمّ يتبدّل في الأسبوع التالي، متّصلاً عبر الصفحتين. الكتل الخمسيّة
+//     السابقة كانت تنطبق على الأسابيع إن بدأ الشهر أحداً، وتنزلق عنها فيما عداه.
 //   • الإجازة في «الخطة المنفذة» بالأحمر، و«(1)» في الزيارات الإشرافيّة بالأحمر.
 // =========================================================================
 (function (global) {
@@ -17,7 +19,6 @@
 
     const RED = 'EE0000';
     const isOff = t => /^[اإ]جاز[ةه]/.test(String(t || '').trim());
-    const BAND = 5;
     const MONTH_RE = /(يناير|فبراير|مارس|[اأإ]بريل|مايو|يونيو|يوليو|[اأ]غسطس|سبتمبر|[اأ]كتوبر|نوفمبر|ديسمبر)/;
 
     const decode = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
@@ -90,11 +91,17 @@
         return c;
     }
 
+    // الصفّ غير المظلَّل في النموذج لا يحمل <w:shd> أصلاً، فيأتي shd فارغاً.
+    // كان الفراغ يُعيد الخليّة كما هي، فتبقى حاملةً تظليل خليّة النموذج
+    // المنسوخة عنها — فيخرج التقرير كلّه بلونٍ واحد ولا يتبدّل. والفراغ الآن
+    // معناه «انزع التظليل»، وهو ما يعطي الأبيض الذي في النموذج.
     function setShading(cell, shd) {
-        if (!shd) return cell;
-        if (/<w:shd [^>]*\/>/.test(cell.slice(0, cell.indexOf('</w:tcPr>'))))
-            return cell.replace(/<w:shd [^>]*\/>/, shd);
-        return cell.replace('</w:tcPr>', shd + '</w:tcPr>');
+        const at = cell.indexOf('</w:tcPr>');
+        if (at < 0) return cell;                       /* خليّة بلا خصائص: لا موضع للتظليل */
+        const head = cell.slice(0, at), tail = cell.slice(at);
+        const has = /<w:shd [^>]*\/>/.test(head);
+        if (!shd) return (has ? head.replace(/<w:shd [^>]*\/>/, '') : head) + tail;
+        return (has ? head.replace(/<w:shd [^>]*\/>/, shd) : head + shd) + tail;
     }
 
     // ── نماذج الخلايا من جدول النموذج ──
@@ -134,8 +141,8 @@
         return m[kindOf(text)] || m.text || m.dash || m.check || '';
     }
 
-    function buildRow(proto, row, bandIndex) {
-        const shd = Math.floor(bandIndex / BAND) % 2 === 0 ? proto.shdGray : proto.shdWhite;
+    function buildRow(proto, row, weekIndex) {
+        const shd = weekIndex % 2 === 0 ? proto.shdGray : proto.shdWhite;
         const checks = row.marks > 0 ? Array(row.marks).fill('✓').join(' ') : '-';
         // أكثر من مدرسةٍ في اليوم ← سطرٌ لكلّ معلّمٍ (buildRows في monthly-core.js)؛
         // الفصل بـ<w:br/> داخل الفقرة نفسها لا فقرةٌ جديدة، فلا حاجة لفتحةٍ في القالب
@@ -277,7 +284,17 @@
             ? [report.rows.slice(0, capacity), report.rows.slice(capacity)]
             : [report.rows];
 
-        let out = xml, offset = 0, band = 0;
+        // رقم الأسبوع متّصلٌ عبر الصفحتين: يتقدّم عند كلّ أحدٍ (أو عند رجوع رقم
+        // اليوم، إن غاب أحدُ الأسبوع من أيّام العمل)، فيتّحد تظليل الأحد ← الخميس
+        let week = 0, prevWd = null;
+        const weekOf = (row) => {
+            const wd = Number(row.weekday);
+            if (prevWd !== null && (wd === 0 || wd < prevWd)) week++;
+            prevWd = wd;
+            return week;
+        };
+
+        let out = xml, offset = 0;
         dataIdx.forEach((ti, k) => {
             const [a, b] = tbls[ti];
             const tbl = xml.slice(a, b);
@@ -286,7 +303,7 @@
             const firstRowAt = tbl.indexOf(an.rows[0]);
             const lastRow = an.rows[an.rows.length - 1];
             const rowsEnd = tbl.lastIndexOf(lastRow) + lastRow.length;
-            const pageRows = (pages[k] || []).map(row => buildRow(an.proto, row, band++)).join('');
+            const pageRows = (pages[k] || []).map(row => buildRow(an.proto, row, weekOf(row))).join('');
             const summary = isLast ? an.summary.map(s => fillSummary(s, report.totals)).join('') : '';
             const newTbl = tbl.slice(0, firstRowAt) + an.header.join('') + pageRows + summary + tbl.slice(rowsEnd);
             out = out.slice(0, a + offset) + newTbl + out.slice(b + offset);

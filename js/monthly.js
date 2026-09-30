@@ -236,7 +236,13 @@
         const xml = await zip.file('word/document.xml').async('string');
         const res = D.fill(xml, { monthName: C.MONTH_NAMES[state.month0], year: state.year, rows: state.rows,
                                   totals: C.totals(state.rows, state.reasons == null ? undefined : state.reasons) });
-        zip.file('word/document.xml', res.xml);
+        // شعار المديرية المعتمد مكان القديم أعلى يمين الصفحتين — النموذج المرفوع
+        // يبقى كما هو في متصفّح المشرف، والتبديل يجري في نسخة التوليد وحدها
+        let xmlOut = res.xml;
+        try {
+            if (window.MonthlyLogo) xmlOut = (await MonthlyLogo.apply(zip, xmlOut)).xml;
+        } catch (e) { console.error('تعذّر تبديل الشعار — يبقى شعار النموذج', e); }
+        zip.file('word/document.xml', xmlOut);
         const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
         return { blob, pages: res.pages };
     }

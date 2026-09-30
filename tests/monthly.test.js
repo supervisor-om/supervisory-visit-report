@@ -189,12 +189,26 @@ if (!fs.existsSync(TPL)) {
     check('docx: خليّة ✓ بخطّ الرمز من النموذج', /Segoe UI Symbol|Wingdings/.test(marks), marks.slice(0, 80));
     check('docx: «-» في عمود ✓ ليس بخطّ الرمز', !/Segoe UI Symbol|Wingdings/.test(D.cellsOf(outRows[2])[4]));
 
-    // تظليل الصفوف كتلاً من خمسة
+    // التظليل بالأسبوع: الأحد ← الخميس لونٌ واحد، ويتبدّل في الأسبوع التالي.
+    // يونيو 2026 يبدأ الاثنين، فأوّل «أسبوع» أربعة أيّامٍ لا خمسة — وهو ما كانت
+    // الكتل الخمسيّة تخطئ فيه: كانت تقطع التظليل في منتصف الأسبوع الثاني.
     const fillOf = r => (D.cellsOf(r)[0].match(/w:fill="([^"]+)"/) || [])[1];
-    check('docx: التظليل كتلاً من خمسة صفوف',
-          fillOf(outRows[0]) === fillOf(outRows[4]) && fillOf(outRows[0]) !== fillOf(outRows[5]) &&
-          fillOf(outRows[5]) === fillOf(outRows[9]),
-          [0, 4, 5, 9].map(i => fillOf(outRows[i])).join(','));
+    const fills = outRows.map(fillOf);
+    const wd = rows.map(r => r.weekday);
+    let bad = [];
+    for (let i = 1; i < outRows.length; i++) {
+        const newWeek = wd[i] === 0 || wd[i] < wd[i - 1];
+        const changed = fills[i] !== fills[i - 1];
+        if (newWeek !== changed) bad.push(i + ':' + rows[i].date + '(' + wd[i] + ')');
+    }
+    check('docx: التظليل يتبدّل عند الأحد وحده — لونٌ واحدٌ لكلّ أسبوع',
+          bad.length === 0, 'مواضع مخالفة: ' + bad.join(' · '));
+    check('docx: أيّام الأسبوع الأوّل (الاثنين ← الخميس) لونٌ واحد',
+          fills[0] === fills[1] && fills[1] === fills[2] && fills[2] === fills[3],
+          fills.slice(0, 4).join(','));
+    check('docx: والأسبوع التالي يتبدّل لونه', fills[4] !== fills[3], fills.slice(3, 6).join(','));
+    check('docx: ويعود اللون الأوّل في الأسبوع الثالث',
+          fills[9] === fills[3] && fills[9] !== fills[8], fills.slice(8, 11).join(','));
 
     // العنوان والمجاميع
     const titles = (res.xml.match(/يونيو/g) || []).length;

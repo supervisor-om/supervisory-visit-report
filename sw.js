@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v12';
+const VERSION = 'v13';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -34,6 +34,7 @@ const ASSETS = [
     './js/classroom.js',
     './js/monthly-core.js',
     './js/monthly-docx.js',
+    './js/monthly-logo.js',
     './js/monthly.js',
     './js/autofill.js',
     './js/storage.js',
