@@ -135,6 +135,14 @@
             return shuffled.slice(0, count);
         }
 
+        // إغلاق لوحة الأدلّة وإعادة البطاقة وحاويتها إلى ترتيبهما الطبيعيّ.
+        // موضعٌ واحدٌ للإغلاق: يستعمله زرّ «إغلاق» والنقر خارج اللوحة وفتحُ لوحةٍ أخرى.
+        function closeEvidencePanels() {
+            document.querySelectorAll('.evidence-panel').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.item-card.evidence-open').forEach(c => c.classList.remove('evidence-open'));
+            document.querySelectorAll('.evidence-open-wrap').forEach(c => c.classList.remove('evidence-open-wrap'));
+        }
+
         function openEvidencePanel(itemId) {
             const panel = document.querySelector(`#evidence-panel-${itemId}`);
             const listContainer = document.querySelector(`#evidence-list-${itemId}`);
@@ -144,10 +152,8 @@
             
             if (!content) return;
             
-            document.querySelectorAll('.evidence-panel').forEach(p => p.classList.add('hidden'));
             // بطاقةٌ واحدةٌ مرفوعةٌ في كلّ وقت: لوحة الأدلّة تطفو فوق شريط الأزرار اللاصق
-            document.querySelectorAll('.item-card.evidence-open').forEach(c => c.classList.remove('evidence-open'));
-            document.querySelectorAll('.evidence-open-wrap').forEach(c => c.classList.remove('evidence-open-wrap'));
+            closeEvidencePanels();
             
             const sourceList = (rating >= 4) ? (content.neg_evidences || []) : content.evidences;
             listContainer.innerHTML = '';

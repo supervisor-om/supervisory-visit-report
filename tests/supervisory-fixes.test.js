@@ -192,8 +192,20 @@ const UTILS = read('js/utils.js');
     check('ui: ولوحةٌ واحدةٌ مرفوعةٌ في كلّ وقت',
           /evidence-open'\)\.forEach\(c => c\.classList\.remove\('evidence-open'\)\)/.test(sup) &&
           /evidence-open-wrap'\)\.forEach\(c => c\.classList\.remove\('evidence-open-wrap'\)\)/.test(sup));
-    check('ui: والإغلاق يُعيد الترتيب الطبيعيّ',
-          /close-evidence-panel[\s\S]{0,400}classList\.remove\('evidence-open'\)[\s\S]{0,200}evidence-open-wrap/.test(ini));
+    check('ui: والإغلاق يمرّ بالموضع الواحد closeEvidencePanels',
+          /close-evidence-panel'\)\) \{\s*\n\s*closeEvidencePanels\(\);/.test(ini));
+
+    // الإغلاق بالنقر خارج اللوحة — نافذةٌ طافيةٌ تُغلق كما يتوقّع المستخدم
+    check('ui: موضعٌ واحدٌ للإغلاق يُعيد البطاقة وحاويتها',
+          /function closeEvidencePanels\(\)[\s\S]{0,400}evidence-open'\)[\s\S]{0,200}evidence-open-wrap'\)/.test(sup));
+    check('ui: النقر في الصفحة يغلق اللوحة المفتوحة',
+          /addEventListener\('click'[\s\S]{0,300}evidence-panel:not\(\.hidden\)[\s\S]{0,300}closeEvidencePanels\(\)/.test(ini));
+    check('ui: والنقر داخلها أو على زرّ فتحها لا يغلقها',
+          /e\.target\.closest\('\.evidence-panel'\) \|\| e\.target\.closest\('\.edit-evidence-btn'\)\) return;/.test(ini));
+    check('ui: وEsc يغلقها كذلك',
+          /addEventListener\('keydown'[\s\S]{0,200}'Escape'[\s\S]{0,300}closeEvidencePanels\(\)/.test(ini));
+    check('ui: ولا يُستدعى الإغلاق وما من لوحةٍ مفتوحة',
+          (ini.match(/if \(!document\.querySelector\('\.evidence-panel:not\(\.hidden\)'\)\) return;/g) || []).length === 2);
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

@@ -43,11 +43,7 @@
                             openEvidencePanel(itemId); 
                         } 
                         if (e.target.matches('.close-evidence-panel')) {
-                            e.target.closest('.evidence-panel').classList.add('hidden');
-                            // تُعاد البطاقة إلى ترتيبها الطبيعيّ بعد إغلاق اللوحة
-                            const c = e.target.closest('.item-card');
-                            c?.classList.remove('evidence-open');
-                            c?.parentElement?.classList.remove('evidence-open-wrap');
+                            closeEvidencePanels();   // تُعاد البطاقة وحاويتها إلى ترتيبهما
                         }
                         if (e.target.closest('.add-evidence-btn')) { 
                             const btn = e.target.closest('.add-evidence-btn'); 
@@ -198,6 +194,20 @@
                         document.getElementById('importBackupInput')?.click();
                     });
                 }
+
+                // لوحة الأدلّة نافذةٌ طافية: النقر خارجها يغلقها، وكذلك Esc.
+                // النقر داخلها (مربّع اختيار، حذف دليل، حقل الإضافة) لا يغلقها،
+                // والنقر على زرّ «تعديل الأدلة» يُترك لمعالجه فيفتح لوحة بنده.
+                document.addEventListener('click', (e) => {
+                    if (!document.querySelector('.evidence-panel:not(.hidden)')) return;
+                    if (e.target.closest('.evidence-panel') || e.target.closest('.edit-evidence-btn')) return;
+                    if (typeof closeEvidencePanels === 'function') closeEvidencePanels();
+                });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key !== 'Escape') return;
+                    if (!document.querySelector('.evidence-panel:not(.hidden)')) return;
+                    if (typeof closeEvidencePanels === 'function') closeEvidencePanels();
+                });
 
                 // الربط الاختياريّ بقاعدة بيانات المعلمين — بلا رمزٍ لا يُحمَّل شيء
                 try { if (window.SupervisorIdentity) SupervisorIdentity.initCard(); }
