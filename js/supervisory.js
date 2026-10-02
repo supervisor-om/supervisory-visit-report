@@ -84,9 +84,86 @@
                     btn.addEventListener('click', () => applyTemplate(tpl.id));
                     btnContainer.appendChild(btn);
                 });
+
+                // الزيارة الثانية لمعلّمٍ تشبه الأولى مع فروق: البدء من درجاتها
+                // أسرع من إعادة التقدير من الصفر، والفروق تظهر بوضوح
+                const prevBtn = document.createElement('button');
+                prevBtn.type = 'button';
+                prevBtn.id = 'tpl-previous-visit';
+                prevBtn.className = 'tpl-btn border text-xs font-bold px-3 py-1.5 rounded-full transition-all '
+                                  + 'bg-slate-800 text-white hover:bg-slate-700 border-slate-800';
+                prevBtn.innerHTML = '🕘 الزيارة السابقة';
+                prevBtn.title = 'يملأ البنود الثلاثة عشر بدرجات آخر زيارةٍ لهذا المعلّم';
+                prevBtn.addEventListener('click', applyPreviousVisitScores);
+                btnContainer.appendChild(prevBtn);
             }
 
             evaluationItems.forEach(item => updateScore(item.id, 3, true));
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        //  زيارات المعلّم السابقة: من الأرشيف نفسه (supervision_v6_visit_*)،
+        //  الأحدث أوّلاً، مع استبعاد التقرير المفتوح للتعديل حتّى لا يُحسب
+        //  زيارةً سابقةً لنفسه.
+        // ─────────────────────────────────────────────────────────────────
+        function supPreviousVisits(teacherName, excludeKey) {
+            const want = String(teacherName || '').trim();
+            if (!want) return [];
+            const out = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key || (!key.startsWith('supervision_v6_visit_') && !key.startsWith('visit_v5_'))) continue;
+                if (key === excludeKey) continue;
+                let d = null;
+                try { d = JSON.parse(localStorage.getItem(key)); } catch (e) { continue; }
+                if (!d || String(d.teacherName || '').trim() !== want) continue;
+                out.push({ key, date: d.visitDate || '', data: d });
+            }
+            return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        }
+
+        // السنة الدراسيّة تبدأ في سبتمبر: زيارةٌ في يناير تتبع العام الذي بدأ
+        // في سبتمبر الماضي، فلا يُصفَّر العدّ في منتصف العام
+        function academicYearOf(iso) {
+            const d = new Date(iso || Date.now());
+            if (isNaN(d)) return new Date().getFullYear();
+            return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+        }
+
+        // رقم الزيارة = ترتيبها بين زيارات هذا المعلّم في العام الدراسيّ نفسه.
+        // لا يُكتب فوق رقمٍ كتبه المشرف بنفسه.
+        function suggestVisitNumber() {
+            const field = document.querySelector('#visitNumber');
+            if (!field || field.value.trim()) return;
+            const teacher = document.querySelector('#teacherName')?.value.trim();
+            if (!teacher) return;
+            const date = document.querySelector('#visitDate')?.value || '';
+            const year = academicYearOf(date);
+            const before = supPreviousVisits(teacher, currentEditingKey)
+                .filter(v => v.date && academicYearOf(v.date) === year && v.date <= (date || v.date));
+            field.value = String(before.length + 1);
+            field.dataset.suggested = '1';
+        }
+
+        // درجات آخر زيارةٍ لهذا المعلّم نقطةَ بدء — الأوصاف تُعاد صياغتها معها
+        function applyPreviousVisitScores() {
+            const teacher = document.querySelector('#teacherName')?.value.trim();
+            if (!teacher) { showToast('اكتب اسم المعلم أولاً', 'error'); return; }
+
+            const prev = supPreviousVisits(teacher, currentEditingKey)[0];
+            if (!prev) { showToast('لا توجد زيارةٌ سابقةٌ محفوظةٌ لهذا المعلم', 'error'); return; }
+
+            const fd = prev.data.formData || {};
+            let applied = 0;
+            evaluationItems.forEach(item => {
+                const n = parseInt(fd['score-' + item.id], 10);
+                if (n >= 1 && n <= 5) { updateScore(item.id, n, true); applied++; }
+            });
+            if (!applied) { showToast('الزيارة السابقة بلا درجاتٍ صالحة', 'error'); return; }
+
+            document.querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('ring-2', 'ring-slate-400'));
+            document.querySelector('#tpl-previous-visit')?.classList.add('ring-2', 'ring-slate-400');
+            showToast('بدأنا من زيارة ' + (prev.date || 'سابقة') + ' — عدّل ما تغيّر');
         }
 
         function generateDescriptionText(itemId, rating, customEvidences = null) {

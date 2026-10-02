@@ -195,6 +195,14 @@
                     });
                 }
 
+                // رقم الزيارة يُقترح أيضاً لمن يكتب الاسم بيده (بلا ربطٍ بالقاعدة)
+                ['teacherName', 'visitDate'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener('change', () => {
+                        try { if (typeof suggestVisitNumber === 'function') suggestVisitNumber(); } catch (e) {}
+                    });
+                });
+
                 // لوحة الأدلّة نافذةٌ طافية: النقر خارجها يغلقها، وكذلك Esc.
                 // النقر داخلها (مربّع اختيار، حذف دليل، حقل الإضافة) لا يغلقها،
                 // والنقر على زرّ «تعديل الأدلة» يُترك لمعالجه فيفتح لوحة بنده.

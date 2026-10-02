@@ -137,6 +137,8 @@
                 }
             }
             if (filled.length) showToast('من قاعدة المعلمين: ' + filled.join(' و'));
+            // رقم الزيارة يُقترح بعد معرفة المعلّم: ترتيبها بين زياراته هذا العام
+            try { if (typeof suggestVisitNumber === 'function') suggestVisitNumber(); } catch (e) {}
         }
 
         // ── الطاقم: معلمو المدرسة وأنصبتهم وصفوفهم، واسم المدير حين تتّفق سجلّاته ──
