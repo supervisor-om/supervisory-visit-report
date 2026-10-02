@@ -292,7 +292,7 @@
         }
 
         function toggleSupervisoryView(viewId) {
-            document.querySelectorAll('#form-view, #dashboard-view, #saved-reports-view, #stats-view').forEach(view => {
+            document.querySelectorAll('#form-view, #dashboard-view, #saved-reports-view, #stats-view, #term-view').forEach(view => {
                 view.classList.add('hidden');
             });
 
@@ -314,6 +314,8 @@
                 updateDashboardView();
             } else if (viewId === 'stats-view') {
                 renderStatistics();
+            } else if (viewId === 'term-view') {
+                if (typeof renderTermBoard === 'function') renderTermBoard();
             }
         }
 

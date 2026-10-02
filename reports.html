@@ -291,6 +291,9 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                         <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="stats-view">
                             <i class="fa-solid fa-chart-column ml-2"></i>الإحصائيات
                         </button>
+                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="term-view">
+                            <i class="fa-solid fa-list-check ml-2"></i>إشرافي هذا الفصل
+                        </button>
                     </div>
                     <button id="backToWelcomeFromSupervisory" class="text-slate-500 hover:text-red-600 hover:bg-red-50 font-medium rounded-lg text-sm px-4 py-2 transition-colors flex items-center">
                         <i class="fa-solid fa-power-off ml-2"></i> خروج
@@ -499,6 +502,10 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
 
             <div id="stats-view" class="hidden fade-in space-y-6">
                 <!-- Populated dynamically by renderStatistics() -->
+            </div>
+
+            <div id="term-view" class="hidden fade-in space-y-6">
+                <!-- يُبنى في js/term-board.js عند فتح التبويب -->
             </div>
         </div>
 
@@ -774,6 +781,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
     <script src="js/identity.js"></script>
     <script src="js/cloud.js"></script>
     <script src="js/autofill.js"></script>
+    <script src="js/term-board.js"></script>
     <script src="js/classroom.js"></script>
     <script src="js/init.js"></script>
     <script>
