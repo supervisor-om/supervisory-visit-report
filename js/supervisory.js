@@ -145,6 +145,9 @@
             if (!content) return;
             
             document.querySelectorAll('.evidence-panel').forEach(p => p.classList.add('hidden'));
+            // بطاقةٌ واحدةٌ مرفوعةٌ في كلّ وقت: لوحة الأدلّة تطفو فوق شريط الأزرار اللاصق
+            document.querySelectorAll('.item-card.evidence-open').forEach(c => c.classList.remove('evidence-open'));
+            document.querySelectorAll('.evidence-open-wrap').forEach(c => c.classList.remove('evidence-open-wrap'));
             
             const sourceList = (rating >= 4) ? (content.neg_evidences || []) : content.evidences;
             listContainer.innerHTML = '';
@@ -165,6 +168,9 @@
                 });
             }
             panel.classList.remove('hidden');
+            const card = document.querySelector(`#item-${itemId}`);
+            card?.classList.add('evidence-open');
+            card?.parentElement?.classList.add('evidence-open-wrap');
         }
 
         function updateDescriptionFromPanel(itemId) {

@@ -42,9 +42,13 @@
                             const itemId = e.target.closest('.edit-evidence-btn').dataset.id; 
                             openEvidencePanel(itemId); 
                         } 
-                        if (e.target.matches('.close-evidence-panel')) { 
-                            e.target.closest('.evidence-panel').classList.add('hidden'); 
-                        } 
+                        if (e.target.matches('.close-evidence-panel')) {
+                            e.target.closest('.evidence-panel').classList.add('hidden');
+                            // تُعاد البطاقة إلى ترتيبها الطبيعيّ بعد إغلاق اللوحة
+                            const c = e.target.closest('.item-card');
+                            c?.classList.remove('evidence-open');
+                            c?.parentElement?.classList.remove('evidence-open-wrap');
+                        }
                         if (e.target.closest('.add-evidence-btn')) { 
                             const btn = e.target.closest('.add-evidence-btn'); 
                             if(typeof addCustomEvidence === 'function') addCustomEvidence(btn.dataset.id); 

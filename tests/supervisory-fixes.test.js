@@ -162,5 +162,39 @@ const UTILS = read('js/utils.js');
           validate({ ...full, ratings: [null, ...Array(12).fill(3)] }).some(g => /تقييم البند 1/.test(g)));
 })();
 
+/* ── ٨) واجهة التقييم والأدلّة أمام قاعدة الزجاج في القشرة ── */
+{
+    const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8');
+    const sup = fs.readFileSync(path.join(ROOT, 'js/supervisory.js'), 'utf8');
+    const ini = fs.readFileSync(path.join(ROOT, 'js/init.js'), 'utf8');
+
+    // القشرة تفرض ‎.bg-white{background-color:var(--svf-glass)!important}‎ وتأتي
+    // بعد styles.css في الصفحة، فتغلب عند تساوي الخصوصيّة. كان الزرّ المحدَّد
+    // يخرج أبيضَ على أبيض، واللوحة الطافية شفّافةً يظهر خلفها البند التالي.
+    check('ui: لون التقييم المحدَّد يعلو على زجاج القشرة',
+          [1, 2, 3, 4, 5].every(n => new RegExp('\\.rating-btn\\.active\\.score-' + n +
+              ' \\{[^}]*background-color:[^;]*!important').test(css)),
+          'إحدى القواعد بلا !important');
+    check('ui: ونصّه أبيضُ صراحةً فلا يُقرأ أبيضَ على أبيض',
+          (css.match(/\.rating-btn\.active\.score-\d \{[^}]*color: #fff !important/g) || []).length === 5);
+
+    check('ui: لوحة الأدلّة معتمة بخصوصيّةٍ أعلى من قاعدة الزجاج',
+          /\.evidence-panel\.bg-white[^{]*\{[^}]*background-color: #fff !important/.test(css),
+          'ما زالت شفّافة');
+    check('ui: وبلا ضبابيّةٍ خلفها', /\.evidence-panel[^{]*\{[^}]*backdrop-filter: none !important/.test(css));
+
+    check('ui: البطاقة وحاويتها تُرفعان فوق شريط الأزرار اللاصق',
+          /\.item-card\.evidence-open \{ z-index: 60; \}/.test(css) &&
+          /\.evidence-open-wrap \{ position: relative; z-index: 60; \}/.test(css));
+    check('ui: فتح اللوحة يرفع البطاقة وحاويتها',
+          /card\?\.classList\.add\('evidence-open'\)/.test(sup) &&
+          /card\?\.parentElement\?\.classList\.add\('evidence-open-wrap'\)/.test(sup));
+    check('ui: ولوحةٌ واحدةٌ مرفوعةٌ في كلّ وقت',
+          /evidence-open'\)\.forEach\(c => c\.classList\.remove\('evidence-open'\)\)/.test(sup) &&
+          /evidence-open-wrap'\)\.forEach\(c => c\.classList\.remove\('evidence-open-wrap'\)\)/.test(sup));
+    check('ui: والإغلاق يُعيد الترتيب الطبيعيّ',
+          /close-evidence-panel[\s\S]{0,400}classList\.remove\('evidence-open'\)[\s\S]{0,200}evidence-open-wrap/.test(ini));
+}
+
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);

@@ -9,12 +9,29 @@
         .mic-btn.recording { animation: pulse-red 1.5s infinite; background-color: #fee2e2; color: #dc2626; border-color: #dc2626; }
         @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
 
+        /* قشرة الموقع تفرض على كلّ ما يحمل bg-white خلفيةً زجاجيّةً بـ!important،
+           فكان الزرّ المحدَّد يخرج أبيضَ على أبيض (نصّه أبيض) — مربّعاً فارغاً.
+           لونُ التقييم يعلو عليها بـ!important كذلك. */
+        /* لوحة الأدلّة نافذةٌ طافية: قاعدة الزجاج في القشرة تجعلها شفّافةً
+           فيظهر خلفها البند التالي — فتُقرأ «غير مكتملة». تُجبَر على الإعتام.
+           وبطاقة البند تُرفع فوق شريط الأزرار اللاصق (z-30) ما دامت مفتوحة،
+           وإلّا غطّى الشريطُ أعلى اللوحة. */
+        /* قاعدة القشرة ‎.bg-white‎ بـ!important وبالخصوصيّة نفسها، وتأتي بعد هذا
+           الملفّ في الصفحة فتغلبه — فتُضاف ‎.bg-white‎ هنا لترجح الكفّة. */
+        .evidence-panel.bg-white, .evidence-panel { background-color: #fff !important;
+            backdrop-filter: none !important; box-shadow: 0 12px 28px rgba(15, 23, 42, .18) !important; }
+        .item-card.evidence-open { z-index: 60; }
+        /* حاوية البنود تصنع سياق تراصٍّ خاصّاً بها (القشرة تضيف backdrop-filter
+           لكلّ ‎.bg-white‎)، فتُحبس أولويّة البطاقة داخلها ويعلوها شريط الأزرار
+           اللاصق. تُرفع الحاوية نفسها ما دامت لوحةٌ مفتوحة. */
+        .evidence-open-wrap { position: relative; z-index: 60; }
+
         .rating-btn.active { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .rating-btn.active.score-1 { background-color: #166534; color: white; border-color: #166534; }
-        .rating-btn.active.score-2 { background-color: #1e40af; color: white; border-color: #1e40af; }
-        .rating-btn.active.score-3 { background-color: #ca8a04; color: white; border-color: #ca8a04; }
-        .rating-btn.active.score-4 { background-color: #9f1239; color: white; border-color: #9f1239; }
-        .rating-btn.active.score-5 { background-color: #991b1b; color: white; border-color: #991b1b; }
+        .rating-btn.active.score-1 { background-color: #166534 !important; color: #fff !important; border-color: #166534 !important; }
+        .rating-btn.active.score-2 { background-color: #1e40af !important; color: #fff !important; border-color: #1e40af !important; }
+        .rating-btn.active.score-3 { background-color: #ca8a04 !important; color: #fff !important; border-color: #ca8a04 !important; }
+        .rating-btn.active.score-4 { background-color: #9f1239 !important; color: #fff !important; border-color: #9f1239 !important; }
+        .rating-btn.active.score-5 { background-color: #991b1b !important; color: #fff !important; border-color: #991b1b !important; }
 
         @media print {
             @page { size: A4; margin: 10mm; }
