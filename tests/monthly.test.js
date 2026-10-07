@@ -234,7 +234,7 @@ if (!fs.existsSync(TPL)) {
     const card = (html.match(/<a id="monthlyCard"[^>]*>/) || [''])[0];
     check('الربط: البطاقة مخفيّةٌ في الصفحة نفسها', /class="[^"]*\bhidden\b/.test(card), card);
     check('الربط: تُكشف عند الربط وتُخفى عند فكّه',
-          /monthlyCard[\s\S]{0,400}?classList\.toggle\('hidden', !linked\)/.test(init) &&
+          /monthlyCard[\s\S]{0,800}?classList\.toggle\('hidden', !linked(?: \|\| !owner)?\)/.test(init) &&
           /addEventListener\('svf-teachers-changed', svfToggleMonthlyCard\)/.test(init));
     check('الربط: الصفحة نفسها محروسةٌ لمن يفتحها برابطٍ مباشر',
           /if \(!me\) \{ showLinkNeeded\(\); return; \}/.test(page) && /function showLinkNeeded/.test(page));

@@ -253,7 +253,10 @@
                     if (!card) return;
                     let linked = false;
                     try { linked = !!(window.SupervisorIdentity && SupervisorIdentity.getIdentity()); } catch (e) {}
-                    card.classList.toggle('hidden', !linked);
+                    // ولصاحب التقرير الشهريّ وحده (gate.js: MONTHLY_OWNERS)
+                    let owner = true;
+                    try { if (window.SupervisorGate && SupervisorGate.canMonthly) owner = SupervisorGate.canMonthly(); } catch (e) {}
+                    card.classList.toggle('hidden', !linked || !owner);
                 };
                 svfToggleMonthlyCard();
                 document.addEventListener('svf-teachers-changed', svfToggleMonthlyCard);

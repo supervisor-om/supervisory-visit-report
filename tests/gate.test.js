@@ -51,6 +51,7 @@ function env(store, opts) {
         removeAttribute(k) { delete this.attrs[k]; },
         hasAttribute(k) { return k in this.attrs; } };
     const body = mk('body');
+    body.getAttribute = k => (k === 'data-svf-page' ? (opts.page || null) : null);
     const head = mk('head');
     // العنصر المُنشأ يُسجَّل باسمه حين يُضاف، وinnerHTML يُحاكى بتسجيل ما فيه من معرّفات
     const AUTO = new Set(['svfGateForm', 'svfGateCode', 'svfGateBtn', 'svfGateMsg']);
@@ -103,6 +104,29 @@ function env(store, opts) {
 }
 
 (async () => {
+    /* ── ٠) التقرير الشهريّ لأسعد وحده (طلبه 2026-10-07) ── */
+    {
+        const sess = id => ({ svf_gate: JSON.stringify({ id, name: id, hash: sha('code-' + id), at: Date.now() }) });
+        const asad = env(sess('asad'));
+        check('monthly: جلسة أسعد ← الروابط ظاهرة', asad.root.hasAttribute('data-svf-monthly'));
+        check('monthly: canMonthly لأسعد', asad.ctx.SupervisorGate.canMonthly() === true);
+        const other = env(sess('hind'));
+        check('monthly: مشرفٌ آخر ← الروابط مخفيّة', !other.root.hasAttribute('data-svf-monthly'));
+        check('monthly: canMonthly لغيره false', other.ctx.SupervisorGate.canMonthly() === false);
+        const none = env({});
+        check('monthly: بلا جلسة ← مخفيّة', !none.root.hasAttribute('data-svf-monthly'));
+
+        const denied = env(sess('hind'), { page: 'monthly' });
+        check('monthly: صفحته لغير أسعد تُقفل بإشعار',
+              denied.root.hasAttribute('data-svf-monthly-denied') && !!denied.els['svfMonthlyDenied']);
+        const allowed = env(sess('asad'), { page: 'monthly' });
+        check('monthly: ولأسعد تُفتح', !allowed.root.hasAttribute('data-svf-monthly-denied') && !allowed.els['svfMonthlyDenied']);
+        const elsewhere = env(sess('hind'), { page: 'reports' });
+        check('monthly: صفحة التقارير لا تُقفل لغيره', !elsewhere.root.hasAttribute('data-svf-monthly-denied'));
+        check('monthly: قاعدة الإخفاء تشمل الروابط والبطاقة',
+              /html:not\(\[\$\{MONTHLY\}\]\) a\[href\*="monthly\.html"\]/.test(GATE) && /#monthlyCard \{ display: none !important; \}/.test(GATE));
+    }
+
     /* ── ١) القفل والفتح ── */
     {
         const e = env({});

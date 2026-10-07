@@ -18,6 +18,11 @@
 
     const KEY = 'svf_gate';
     const LOCK = 'data-svf-locked';
+    // التقرير الشهريّ مقصورٌ حاليّاً على هؤلاء (معرّف المشرف في identity.js) — طلب أسعد
+    // 2026-10-07: «إخفاء تبويب التقرير الشهري عن المشرفين، يظهر عند أسعد فقط».
+    // السمة على <html> تُظهر الروابط والبطاقة؛ وبدونها تُخفى، و monthly.html تُقفل.
+    const MONTHLY_OWNERS = ['asad'];
+    const MONTHLY = 'data-svf-monthly';
 
     function readSession() {
         try {
@@ -36,7 +41,32 @@
 
     // القفل يُوضع لحظة تنفيذ الملفّ (قبل رسم المحتوى) ويُرفع بعد الدخول
     function lock() { document.documentElement.setAttribute(LOCK, ''); }
-    function unlock() { document.documentElement.removeAttribute(LOCK); }
+    function unlock() {
+        document.documentElement.removeAttribute(LOCK);
+        // إخفاء التقرير الشهريّ تحسينٌ لا شرط: عطلٌ فيه لا يمنع فتح الصفحة
+        try { applyMonthly(); } catch (e) {}
+    }
+
+    function canMonthly() {
+        const s = readSession();
+        return !!(s && MONTHLY_OWNERS.indexOf(s.id) !== -1);
+    }
+
+    // روابط التقرير الشهريّ وبطاقته لصاحبه وحده، وصفحته تُقفل لغيره
+    function applyMonthly() {
+        const ok = canMonthly();
+        if (ok) document.documentElement.setAttribute(MONTHLY, '');
+        else document.documentElement.removeAttribute(MONTHLY);
+        const onPage = document.body && document.body.getAttribute('data-svf-page') === 'monthly';
+        if (!onPage || ok || !readSession() || document.getElementById('svfMonthlyDenied')) return;
+        document.documentElement.setAttribute('data-svf-monthly-denied', '');
+        const box = document.createElement('div');
+        box.id = 'svfMonthlyDenied';
+        box.innerHTML = '<div class="box"><h1>التقرير الشهري غير متاح</h1>'
+            + '<p>هذه الصفحة غير مفعّلة لحسابك حالياً.</p>'
+            + '<a href="reports.html">العودة إلى نظام التقارير</a></div>';
+        document.body.appendChild(box);
+    }
 
     function injectStyle() {
         const css = `
@@ -67,6 +97,17 @@
                 cursor: pointer; opacity: .55; transition: opacity .15s; }
             #svfLogout:hover { opacity: 1; }
             @media print { #svfGate, #svfLogout { display: none !important; } }
+            html:not([${MONTHLY}]) a[href*="monthly.html"],
+            html:not([${MONTHLY}]) #monthlyCard { display: none !important; }
+            html[data-svf-monthly-denied] body > *:not(#svfMonthlyDenied):not(#svfLogout):not(script):not(style) { display: none !important; }
+            #svfMonthlyDenied { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+                padding: 20px; background: #f7f8fa; font-family: 'Tajawal', system-ui, sans-serif; direction: rtl; }
+            #svfMonthlyDenied .box { max-width: 380px; text-align: center; background: #fff; border: 1px solid #e2e8f0;
+                border-radius: 18px; padding: 28px 24px; box-shadow: 0 10px 30px rgba(15,23,42,.08); }
+            #svfMonthlyDenied h1 { font-size: 18px; margin: 0 0 8px; color: #0f172a; }
+            #svfMonthlyDenied p { font-size: 14px; color: #475569; margin: 0 0 16px; }
+            #svfMonthlyDenied a { display: inline-block; background: #0f4c81; color: #fff; text-decoration: none;
+                border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 700; }
         `;
         const el = document.createElement('style');
         el.id = 'svfGateStyle';
@@ -165,6 +206,7 @@
 
     global.SupervisorGate = {
         session: readSession,
+        canMonthly,
         isOpen: () => !!readSession(),
         logout: () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
     };
