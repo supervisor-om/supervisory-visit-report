@@ -288,7 +288,54 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.0', /@version\s+16\.0/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.1', /@version\s+16\.1/.test(SRC));
+}
+
+/* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──
+   الموقع «مريم مصطفى موسى» والبوّابة «مريم مصطفى محمد السيد [معلم مادة رياضة مدرسية ]» */
+{
+    const normCode = between('function normAr(', 'let sup = null;');
+    const altCode = between('// صفوف شبكة نتائج البحث وحدها', '// بحث المعلّم واختياره من شبكة النتائج');
+    const logs = [];
+    const row = (name, num) => ({
+        querySelector: s => /DisplayInfo/.test(s) ? {} : null,
+        cells: [{ textContent: name + ' [معلم مادة رياضة مدرسية ]' }, { textContent: num }]
+    });
+    const state = { rows: [] };
+    const ctx = {
+        docs: () => [{ querySelectorAll: () => state.rows }],
+        slog: (m, t) => logs.push([t, m])
+    };
+    vm.createContext(ctx);
+    vm.runInContext(normCode + '\n' + altCode
+        + '\nthis.supAltTeacherRow = supAltTeacherRow; this.normName = normName; this.searchTerms = searchTerms;', ctx);
+    const want = ctx.normName('مريم مصطفى موسى');
+
+    state.rows = [row('مريم مصطفى محمد السيد', '32315171')];
+    let r = ctx.supAltTeacherRow(want, '');
+    check('teacher: صفٌّ وحيدٌ بأوّل اسمين يُختار', r && /مريم مصطفى محمد السيد/.test(r.name) && /أوّل اسمين/.test(r.why));
+
+    state.rows = [row('مريم مصطفى محمد السيد', '32315171'), row('مريم مصطفى علي', '11112222')];
+    r = ctx.supAltTeacherRow(want, '');
+    check('teacher: صفّان بأوّل اسمين — لا اختيار', r === null && logs.some(([, m]) => /لن أختار عنك/.test(m)));
+    const n = logs.length; ctx.supAltTeacherRow(want, '');
+    check('teacher: وتنبيه اللبس لا يتكرّر في كلّ استطلاع', logs.length === n);
+
+    r = ctx.supAltTeacherRow(want, '32315171');
+    check('teacher: الرقم الوظيفيّ يحسم بين المتشابهين', r && r.num === '32315171' && /الرقم الوظيفيّ/.test(r.why));
+
+    state.rows = [row('مريم سالم الهنائي', '32315171')];
+    r = ctx.supAltTeacherRow(want, '');
+    check('teacher: الاسم الأوّل وحده لا يكفي', r === null);
+
+    state.rows = [row('مريم مصطفى محمد السيد', '32315171')];
+    check('teacher: اسمٌ من كلمةٍ واحدة لا يُطابَق بأوّل اسمين', ctx.supAltTeacherRow(ctx.normName('مريم'), '') === null);
+
+    const terms = ctx.searchTerms('مريم مصطفى موسى');
+    check('teacher: البحث يجرّب «مريم مصطفى» قبل الاسم الأوّل وحده',
+          terms.indexOf(ctx.normName('مريم مصطفى')) > -1 && terms.indexOf(ctx.normName('مريم مصطفى')) < terms.indexOf('مريم'));
+    check('teacher: البديل يُستدعى بعد فشل المطابقة الكاملة في الانتظار',
+          /supSelectRow\(d, tr\)\) return true;[\s\S]{0,200}const alt = supAltTeacherRow\(want, sup && sup\.fileNumber\)/.test(SRC));
 }
 
 /* ── ٨) v16.0: حارس التاريخ، والتوصيات في خانتها و«لا يوجد» في الدعم المقدم ── */

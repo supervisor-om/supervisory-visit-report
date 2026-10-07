@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.0
+// @version      16.1
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -2287,6 +2287,9 @@
             const raw = normAr(name);
             const words = plain.split(' ').filter(Boolean);
             const terms = [plain, raw];
+            // الاسم الأوّل واسم الأب: الموقع قد يكتب الجدّ أو القبيلة بغير ما في البوّابة
+            // («مريم مصطفى موسى» ↔ «مريم مصطفى محمد السيد»)
+            if (words.length > 2) terms.push(words[0] + ' ' + words[1]);
             if (words.length > 2) terms.push(words[0] + ' ' + words[words.length - 1]);
             if (words.length > 1) terms.push(words[0]);
             return terms.filter((t, i) => t && terms.indexOf(t) === i);
@@ -3597,9 +3600,63 @@
                         if (await supSelectRow(d, tr)) return true;
                     }
                 }
+
+                // لم يُطابَق الاسم كاملاً: بالرقم الوظيفيّ، أو بأوّل اسمين في صفٍّ وحيد
+                const alt = supAltTeacherRow(want, sup && sup.fileNumber);
+                if (alt) {
+                    slog(alt.why + ': «' + alt.name + '» (في الموقع «' + (sup.teacher || '') + '»)', 'warn');
+                    if (await supSelectRow(alt.doc, alt.tr)) return true;
+                }
             }
             return false;
         }
+
+        // صفوف شبكة نتائج البحث وحدها (صفٌّ فيه DisplayInfo)، بالاسم والرقم الوظيفيّ
+        function supResultRows() {
+            const out = [];
+            for (const d of docs()) {
+                let rows = [];
+                try {
+                    rows = Array.from(d.querySelectorAll('[id*="GridviewEmployeeSearchResult"] tr'));
+                } catch (e) { continue; }
+                for (const tr of rows) {
+                    if (!tr.querySelector || !tr.querySelector('[onclick*="DisplayInfo"]')) continue;
+                    const cells = Array.from(tr.cells || []).map(c => (c.textContent || '').trim());
+                    const nameCell = cells.find(t => /[؀-ۿ]/.test(t)) || '';
+                    const name = nameCell.replace(/\[[^\]]*\]/g, '').trim();
+                    const num = (cells.join(' ').match(/\d{5,}/) || [''])[0];
+                    out.push({ doc: d, tr, name, num });
+                }
+            }
+            return out;
+        }
+
+        // بديلا المطابقة بالاسم كاملاً — كلاهما لا يختار إلّا صفّاً واحداً لا لبس فيه:
+        //  ١) الرقم الوظيفيّ = «رقم الملف» في الموقع؛
+        //  ٢) أوّل اسمين (الاسم واسم الأب) في صفٍّ وحيدٍ من النتائج — فإن تعدّد لا يُختار شيء.
+        function supAltTeacherRow(want, fileNumber) {
+            const rows = supResultRows();
+            if (!rows.length) return null;
+            const fn = String(fileNumber || '').replace(/\D/g, '');
+            if (fn.length >= 5) {
+                const byNum = rows.filter(r => r.num === fn);
+                if (byNum.length === 1) return Object.assign({ why: 'اختير بالرقم الوظيفيّ ' + fn }, byNum[0]);
+            }
+            const w = String(want || '').split(' ').filter(Boolean);
+            if (w.length < 2) return null;
+            const key = w[0] + ' ' + w[1];
+            const byName = rows.filter(r => {
+                const n = normName(r.name);
+                return n === key || n.startsWith(key + ' ');
+            });
+            if (byName.length === 1) return Object.assign({ why: 'اختير بأوّل اسمين — تأكّد أنّه المعلّم نفسه' }, byName[0]);
+            if (byName.length > 1 && !supAmbiguousLogged.has(key)) {
+                supAmbiguousLogged.add(key);   // الانتظار يستطلع كلّ 700ms — سطرٌ واحدٌ يكفي
+                slog('أكثر من موظّفٍ يبدأ اسمه «' + key + '» (' + byName.length + ') — لن أختار عنك', 'warn');
+            }
+            return null;
+        }
+        const supAmbiguousLogged = new Set();
 
         // بحث المعلّم واختياره من شبكة النتائج — بصيغةٍ بعد صيغة
         async function supPickTeacher() {
