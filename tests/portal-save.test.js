@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.2', /@version\s+16\.2/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.3', /@version\s+16\.3/.test(SRC));
 }
 
 /* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──
@@ -419,11 +419,33 @@ function load(els) {
     check('form: والفحص قبل تعبئة الدرجات',
           SRC.indexOf('if (evals.length !== (sup.ratings || []).length)') < SRC.indexOf('(sup.ratings || []).forEach((score, i)'));
     check('form: الاستمارة المختارة مسبقاً تُستبدل إن لم تكن استمارة المعلّم',
-          /const wrongForm = [\s\S]{0,200}!isTeacherForm\(curForm\)/.test(SRC) && /\|\| wrongForm\)\) \{/.test(SRC));
+          /const curOk = [\s\S]{0,200}supIsTeacherForm\(curForm\.text\)/.test(SRC) && /if \(forms && !curOk\) \{/.test(SRC));
     check('teacher: المعلّم المختار يدويّاً لا يُعاد البحث عنه',
           /المعلّم مختارٌ أصلاً/.test(SRC) && SRC.indexOf('المعلّم مختارٌ أصلاً') < SRC.indexOf('const terms = searchTerms(sup.teacher);'));
     check('texts: الخانات بلا تكرار، والفارغ في التقرير يُقال',
           /\.filter\(\(b, i, a\) => a\.indexOf\(b\) === i\)/.test(SRC) && /فارغٌ في التقرير/.test(SRC));
+}
+
+/* ── ١١) v16.3: «لمعلم أول مادة/ مجال» ليست استمارة المعلّم (سجلّ 2026-10-07 الثاني) ── */
+{
+    const code = between('function normAr(', 'let sup = null;') + '\n'
+               + between('// استمارة المعلّم: «… لمعلم مجال/ مادة»', 'async function supStage1()');
+    const ctx = {};
+    vm.createContext(ctx);
+    vm.runInContext(code + '\nthis.isT = supIsTeacherForm; this.pick = supPickTeacherForm;', ctx);
+    const senior = 'استمارة الزيارة إشرافية لمعلم أول مادة/ مجال 2026 / 2027';
+    const food   = 'استمارة الزيارة الاشرافية لخدمات التغذية المدرسية 2026/ 2027';
+    const health = 'استمارة الزيارة الإشرافية لخدمات الصحة المدرسية 2026/ 2027';
+    const teacher = 'استمارة زيارة إشرافية لمعلم مجال/ مادة 2026/2027';
+    check('form: «لمعلم أول» مرفوضة', ctx.isT(senior) === false);
+    check('form: استمارات الخدمات مرفوضة', !ctx.isT(food) && !ctx.isT(health));
+    check('form: «لمعلم مجال/ مادة» مقبولة', ctx.isT(teacher) === true);
+    const o = (text, value) => ({ text, value });
+    check('form: الاختيار يتخطّى «معلم أول» وإن كانت الأولى',
+          ctx.pick([o(senior, '1'), o(food, '2'), o(teacher, '3'), o(health, '4')]).value === '3');
+    check('form: ولا ملاذ بأوّل خيار حين تغيب استمارة المعلّم',
+          ctx.pick([o(senior, '1'), o(food, '2')]) === null);
+    check('form: الاستمارات تُسرد في السجلّ', /الاستمارات في البوّابة: /.test(SRC));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

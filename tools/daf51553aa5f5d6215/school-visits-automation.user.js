@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.2
+// @version      16.3
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -3819,6 +3819,22 @@
             return (el.value || '').trim() === sup.date;
         }
 
+        // استمارة المعلّم: «… لمعلم مجال/ مادة» — لا «لمعلم أول …» (١٥ بنداً) ولا استمارات
+        // الخدمات (التغذية، الصحة المدرسية). اسم الاستمارة يحمل «مادة» و«مجال» في الحالتين،
+        // فالاستبعاد هو الفيصل.
+        function supIsTeacherForm(text) {
+            const t = normAr(text);
+            if (!(t.includes('مجال') || t.includes(normAr('مادة')))) return false;
+            if (/معلم\s*اول/.test(t)) return false;
+            if (/تغذي|صحه|خدمات/.test(t)) return false;
+            return true;
+        }
+        // لا ملاذ بأوّل خيار: إن لم تُعرف استمارة المعلّم فلا اختيار
+        function supPickTeacherForm(opts) {
+            const ok = (opts || []).filter(o => supIsTeacherForm(o.text));
+            return ok.find(o => normAr(o.text).includes('معلم')) || ok[0] || null;
+        }
+
         async function supStage1() {
             slog('المرحلة ١: رأس الزيارة', 'warn');
 
@@ -3848,23 +3864,24 @@
 
             // (٤) الاستمارة — شرطُ ظهور بنود التقييم
             const forms = findAnywhere(FORMS_DDL);
-            const isTeacherForm = o => o && (normAr(o.text).includes(normAr('مجال')) || normAr(o.text).includes(normAr('مادة')));
             const curForm = forms && forms.selectedIndex >= 0 ? forms.options[forms.selectedIndex] : null;
             const realOpts = forms ? Array.from(forms.options || [])
                 .filter(o => o.value && o.value !== '0' && o.value !== '-1' && o.text.trim()) : [];
-            // استمارةٌ مختارةٌ مسبقاً (اختارتها البوّابة عند اختيار المعلّم يدويّاً) ليست بالضرورة
-            // استمارة المعلّم — سجلّ 2026-10-07 حمل استمارةً من ١٥ بنداً
-            const wrongForm = forms && forms.value && forms.value !== '-1' && forms.value !== '0'
-                && !isTeacherForm(curForm) && realOpts.some(isTeacherForm);
-            if (wrongForm) slog('الاستمارة المختارة «' + (curForm.text || '').trim() + '» ليست استمارة المعلّم — أستبدلها', 'warn');
-            if (forms && (!forms.value || forms.value === '-1' || forms.value === '0' || wrongForm)) {
-                const opts = realOpts;
-                const opt = opts.find(o => normAr(o.text).includes(normAr('مجال')))
-                         || opts.find(o => normAr(o.text).includes(normAr('مادة')))
-                         || opts[0];
+            if (realOpts.length)
+                slog('الاستمارات في البوّابة: ' + realOpts.map(o => o.text.trim()).join(' | '), 'info');
+            // البوّابة قد تختار استمارةً من تلقاء نفسها — سجلّ 2026-10-07: «لمعلم أول مادة/ مجال»
+            // (١٥ بنداً)، واسمها يحوي «مادة» و«مجال» فقبلها الفحص القديم. فالحكم بـsupIsTeacherForm.
+            const curOk = curForm && forms.value && forms.value !== '-1' && forms.value !== '0'
+                && supIsTeacherForm(curForm.text);
+            if (forms && !curOk) {
+                if (curForm && forms.value && forms.value !== '-1' && forms.value !== '0')
+                    slog('الاستمارة المختارة «' + (curForm.text || '').trim() + '» ليست استمارة المعلّم — أستبدلها', 'warn');
+                const opt = supPickTeacherForm(realOpts);
                 if (!opt) {
-                    slog('قائمة الاستمارات فارغة — لم يُثبَّت المعلّم', 'error');
-                    sstat('اختر المعلّم والاستمارة يدوياً');
+                    sstat('لم أجد استمارة المعلّم — اخترها يدوياً');
+                    slog(realOpts.length
+                        ? 'لا استمارة «لمعلم مجال/مادة» بين الخيارات أعلاه — اخترها بيدك ثمّ اضغط «تعبئة النموذج»'
+                        : 'قائمة الاستمارات فارغة — لم يُثبَّت المعلّم', 'error');
                     return;
                 }
                 forms.value = opt.value;
