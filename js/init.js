@@ -244,6 +244,7 @@
                 try { if (typeof schoolTimeOverlapInit === 'function') schoolTimeOverlapInit(); } catch (e) { console.warn('schoolTimeOverlapInit', e); }
                 try { if (typeof svfClassroomInit === 'function') svfClassroomInit(); }
                 catch (e) { console.error('Classroom Error', e); }
+                try { if (typeof svfTermPlanInit === 'function') svfTermPlanInit(); } catch (e) { console.warn('svfTermPlanInit', e); }
 
                 // بطاقة التقرير الشهري: تظهر للمشرف الذي ربط قاعدته وحده — التقرير
                 // يُبنى من خطة السير وأسماء معلّميه، فلا معنى لها قبل الربط.
