@@ -150,7 +150,10 @@ const J = JSON.stringify;
           && (school.match(/getElementById\('schoolGoingTo'\)\.value = report\.goingTo/g) || []).length === 2);
     check('wiring: المعاينة تعرض الأسطر بعد القائمة المرقَّمة وتهرب النصّ',
           /objectivesHtml \+= '<\/ol>';[\s\S]{0,400}SchoolRoute\.routeLines\(report\.cameFrom, report\.goingTo\)[\s\S]{0,300}schoolRouteEsc/.test(school));
-    check('wiring: المعاينة من النموذج تحمل الحقلين', /cameFrom: \(document\.getElementById\('schoolCameFrom'\)[\s\S]{0,200}classroomVisits: schoolClassroomVisits/.test(init));
+    // المعاينة (وزرّا Word/PDF في شريط النموذج) تبني تقريرها بـcollectSchoolFormReport في school.js
+    check('wiring: المعاينة من النموذج تحمل الحقلين',
+          /collectSchoolFormReport\(\)/.test(init)
+          && /function collectSchoolFormReport\(\)[\s\S]{0,900}cameFrom: \(document\.getElementById\('schoolCameFrom'\)[\s\S]{0,200}classroomVisits: schoolClassroomVisits/.test(school));
     check('wiring: «نسخ الأهداف» تنسخ خطّ السير بعد المرقَّمة', /SchoolRoute\.routeLines\([^)]*schoolCameFrom[\s\S]{0,160}checked\.concat\(route\)/.test(init));
     check('wiring: التصدير المفرد يُلحق الأسطر بالأهداف ويعرضها', /objectives: objectives\.concat\(routeLines\)/.test(exp) && exp.includes('خطّ السير'));
     // الأهداف تُرقَّم تسلسليّاً ١، ٢، … كترقيم رأي الزائر — في الموقعين والسكربت الثلاثة معاً
