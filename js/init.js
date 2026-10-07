@@ -442,27 +442,10 @@
                 const prevRepBtn = document.getElementById('previewReportBtn');
                 if (prevRepBtn) {
                     prevRepBtn.addEventListener('click', () => {
-                        const reportForm = document.getElementById('reportForm');
-                        if(!reportForm) return;
-                        
-                        const formData = new FormData(reportForm);
-                        const objectives = [];
-                        reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
-                        
-                        const tempReport = {
-                            id: document.getElementById('reportId')?.value || '',
-                            schoolName: formData.get('schoolName') || '',
-                            visitDate: formData.get('visitDate') || '',
-                            visitType: document.getElementById('visitTypeSelect')?.value || '',
-                            objectives: objectives,
-                            cameFrom: (document.getElementById('schoolCameFrom')?.value || '').trim(),
-                            goingTo: (document.getElementById('schoolGoingTo')?.value || '').trim(),
-                            classroomVisits: schoolClassroomVisits || [],
-                            visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
-                            recommendations: document.getElementById('recommendations')?.value || ''
-                        };
-                        
-                        if(!tempReport.visitType) { 
+                        const tempReport = collectSchoolFormReport();
+                        if(!tempReport) return;
+
+                        if(!tempReport.visitType) {
                             showToast('اختر نوع الزيارة أولاً', 'error'); 
                             return; 
                         }

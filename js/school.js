@@ -1212,8 +1212,42 @@
                 </div>`;
         }
 
-        function exportSchoolWord() {
-            const report = lastSchoolPreviewReport;
+        // التقرير كما هو في النموذج الآن (محفوظاً أو لا) — للمعاينة وللحفظ من شريط النموذج
+        function collectSchoolFormReport() {
+            const reportForm = document.getElementById('reportForm');
+            if (!reportForm) return null;
+            const formData = new FormData(reportForm);
+            const objectives = [];
+            reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
+            return {
+                id: document.getElementById('reportId')?.value || '',
+                schoolName: formData.get('schoolName') || '',
+                visitDate: formData.get('visitDate') || '',
+                visitType: document.getElementById('visitTypeSelect')?.value || '',
+                objectives: objectives,
+                cameFrom: (document.getElementById('schoolCameFrom')?.value || '').trim(),
+                goingTo: (document.getElementById('schoolGoingTo')?.value || '').trim(),
+                classroomVisits: schoolClassroomVisits || [],
+                visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
+                recommendations: document.getElementById('recommendations')?.value || ''
+            };
+        }
+
+        // زرّا Word وPDF في شريط النموذج: يحفظان ما في النموذج بلا مرورٍ بالمعاينة.
+        // PDF يحتاج صفحةً مرسومةً للطباعة، فيعرض المعاينة (fromForm: الرجوع لا يمسّ النموذج) ثمّ يطبع.
+        function schoolFormExport(kind) {
+            const report = collectSchoolFormReport();
+            if (!report) return;
+            if (!report.visitType) { showToast('اختر نوع الزيارة أولاً', 'error'); return; }
+            if (kind === 'word') { exportSchoolWord(report); return; }
+            generateSchoolPreview(report, true);
+            document.getElementById('schoolFormView')?.classList.add('hidden');
+            document.getElementById('reportPreviewContainer')?.classList.remove('hidden');
+            exportSchoolPdf();
+        }
+
+        function exportSchoolWord(fromReport) {
+            const report = fromReport || lastSchoolPreviewReport;
             if (!report) { showToast('افتح معاينة التقرير أولاً', 'error'); return; }
             if (typeof htmlDocx === 'undefined') { showToast('تعذّر تحميل مكتبة Word — تحقّق من الاتصال بالإنترنت', 'error'); return; }
             const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير زيارة مدرسية</title></head><body dir="rtl">${schoolReportDocHTML(report)}</body></html>`;
