@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.3', /@version\s+16\.3/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.4', /@version\s+16\.4/.test(SRC));
 }
 
 /* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──
@@ -446,6 +446,37 @@ function load(els) {
     check('form: ولا ملاذ بأوّل خيار حين تغيب استمارة المعلّم',
           ctx.pick([o(senior, '1'), o(food, '2')]) === null);
     check('form: الاستمارات تُسرد في السجلّ', /الاستمارات في البوّابة: /.test(SRC));
+}
+
+/* ── ١٢) v16.4: «خطأ في قاعدة البيانات عند محاولة الحفظ» — نصٌّ أطول من حدّ الخانة ── */
+{
+    const code = between('function normAr(', 'let sup = null;') + '\n'
+               + between('// ─── حدّ طول الخانة (v16.4) ───', 'async function supStage2()');
+    const ctx = { sanitizeForPortal: v => v };
+    vm.createContext(ctx);
+    vm.runInContext(code + '\nthis.lim = supFieldLimit; this.len = supPortalLength; this.chk = supCheckLength;', ctx);
+    const box = (label, maxLength) => ({ maxLength: maxLength == null ? -1 : maxLength,
+        closest: () => ({ textContent: label }) });
+
+    check('len: الحدّ من maxlength', ctx.lim(box('أيّ شيء', 500)) === 500);
+    check('len: أو من «أقصى عدد» في التسمية', ctx.lim(box('جوانب الإجادة في الأداء* أقصى عدد للحروف 1000')) === 1000);
+    check('len: بالأرقام العربيّة أيضاً', ctx.lim(box('الدعم المقدم* أقصى عدد للحروف ٥٠٠')) === 500);
+    check('len: بلا حدٍّ معروف ← 0 (لا منع)', ctx.lim(box('الملاحظات')) === 0);
+    check('len: السطر الجديد يُحسب حرفين', ctx.len('أ\nب') === 4);
+
+    const tooLong = [];
+    check('len: النصّ داخل الحدّ يمرّ', ctx.chk(box('x', 10), 'قصير', 'التوصيات', tooLong) === true && tooLong.length === 0);
+    check('len: الزائد يُرفض ويُسجَّل بطوله وحدّه',
+          ctx.chk(box('x', 10), 'نصٌّ أطول من عشرة أحرف', 'جوانب الإجادة', tooLong) === false
+          && tooLong[0].label === 'جوانب الإجادة' && tooLong[0].limit === 10 && tooLong[0].len > 10);
+    check('len: بلا حدٍّ معروف لا يُرفض', ctx.chk(box('الملاحظات'), 'x'.repeat(5000), 'الملاحظات', []) === true);
+
+    check('len: الفحص قبل الكتابة في الخانات النصّيّة',
+          /if \(!supCheckLength\(target, t\.val, t\.name, tooLong\)\) return;\s*\n\s*setVal\(target, t\.val\)/.test(SRC));
+    check('len: وفي أوصاف البنود', /supCheckLength\(box, note, 'وصف البند ' \+ n, tooLong\)\) \{\s*\n\s*setVal\(box, note\)/.test(SRC));
+    check('len: والزائد يوقف الحفظ قبل supSave',
+          /if \(tooLong\.length\) \{[\s\S]{0,600}return;\s*\n\s*\}/.test(SRC)
+          && SRC.indexOf('if (tooLong.length) {') < SRC.lastIndexOf('await supSave(written);'));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.3
+// @version      16.4
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -3245,9 +3245,35 @@
             return out;
         }
 
+        // ─── حدّ طول الخانة (v16.4) ───
+        // البوّابة: «خطأ في قاعدة البيانات عند محاولة الحفظ» (2026-10-07) — تسمية كلّ خانةٍ
+        // نصّيّة تحمل «أقصى عدد …»، والكتابة الآليّة بـvalue تتجاوز maxlength فيرفض الخادم.
+        // لا يُقصّ النصّ صامتاً (سجلٌّ رسميّ): يُقال أيّ خانةٍ تجاوزت وبكم، ولا يُحفظ.
+        function supFieldLimit(el) {
+            if (!el) return 0;
+            const ml = Number(el.maxLength);
+            if (ml > 0 && ml < 100000) return ml;
+            const tr = el.closest && el.closest('tr');
+            const lbl = normAr((tr && tr.textContent) || '')
+                .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660));
+            const m = lbl.match(/اقصي عدد[^0-9]{0,40}([0-9]+)/);
+            return m ? Number(m[1]) : 0;
+        }
+        // الخادم يتلقّى السطر الجديد حرفين (CRLF)، فيُحسب كذلك
+        function supPortalLength(v) {
+            return String(sanitizeForPortal(v) || '').replace(/\r?\n/g, '\r\n').length;
+        }
+        function supCheckLength(el, v, label, tooLong) {
+            const limit = supFieldLimit(el);
+            const len = supPortalLength(v);
+            if (limit && len > limit) { tooLong.push({ label, len, limit }); return false; }
+            return true;
+        }
+
         async function supStage2() {
             slog('المرحلة ٢: التقييم', 'warn');
             const written = [];
+            const tooLong = [];
 
             // زيارةٌ من الطابور بلغت التقييم: من هنا قد تُحفظ، فتُعلَّم حتّى يتأكّد
             // حفظها (queueAdvance يمسح العلامة) أو يُسأل عنها قبل إعادة تعبئتها.
@@ -3334,7 +3360,7 @@
                 const note = notes[n] || notes[String(n)];
                 const tr = sel.closest && sel.closest('tr');
                 const box = tr && (tr.querySelector('textarea') || tr.querySelector('input[type="text"]'));
-                if (note && box) {
+                if (note && box && supCheckLength(box, note, 'وصف البند ' + n, tooLong)) {
                     setVal(box, note);
                     written.push({ label: 'وصف ' + n, el: box, expected: box.value });
                 }
@@ -3383,9 +3409,11 @@
                 });
                 if (!target) { unplaced.push(t.name); return; }
                 used.add(target);
+                if (!supCheckLength(target, t.val, t.name, tooLong)) return;
                 setVal(target, t.val);
                 written.push({ label: t.name, el: target, expected: target.value });
-                slog('عُبّئ حقل «' + t.name + '»', 'success');
+                slog('عُبّئ حقل «' + t.name + '»' + (supFieldLimit(target)
+                     ? ' (' + supPortalLength(t.val) + ' من ' + supFieldLimit(target) + ' حرفاً)' : ''), 'success');
             });
             if (unplaced.length)
                 slog('لم أجد حقلاً مطابقاً لـ: ' + unplaced.join('، ') + ' — اكتبها بيدك', 'warn');
@@ -3400,6 +3428,14 @@
             });
             if (blanks) slog('كُتب «' + EMPTY_TEXT + '» في ' + blanks + ' خانةٍ فارغة', 'info');
 
+            if (tooLong.length) {
+                sstat('نصٌّ أطول ممّا تقبله البوّابة — لم أحفظ');
+                tooLong.forEach(x => slog('«' + x.label + '»: ' + x.len + ' حرفاً والحدّ ' + x.limit
+                                          + ' — زائدٌ ' + (x.len - x.limit), 'error'));
+                slog('اختصر هذا النصّ في موقعك ثمّ صدِّر من جديد — البوّابة ترفض الحفظ كاملاً'
+                     + ' («خطأ في قاعدة البيانات») ولا أقصّ نصّاً رسميّاً بنفسي', 'error');
+                return;
+            }
             if (miss.length > 6) {
                 sstat('تعذّر التعرّف على أغلب البنود — لم أحفظ');
                 slog('شغّل التشخيص وأرسل السجل', 'error');
