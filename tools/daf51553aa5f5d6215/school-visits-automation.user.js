@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      15.9
+// @version      16.0
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -3325,14 +3325,18 @@
             supDismissNotice();
 
             // أسماء الحقول كما هي في البوّابة (جدول FieldsTable)
-            // «التوصيات» في الموقع هي «الدعم المقدم» في البوّابة — حقلٌ واحدٌ باسمين
-            const TEXTS = [
-                { name: 'جوانب الإجادة',   keys: ['اجاده', 'اجاد', 'تميز'],           val: sup.excellence },
-                { name: 'تحتاج إلى تطوير', keys: ['تحتاج', 'تطوير'],                  val: sup.development },
-                { name: 'الدعم المقدم',    keys: ['دعم', 'مساند', 'توصي', 'مقترح'],   val: sup.recommendations || sup.support },
-                { name: 'الملاحظات',       keys: ['ملاحظات'],                          val: sup.notesGeneral }
-            ];
+            // منذ v16.0 بطلب المشرف: التوصيات تُكتب في خانة «التوصيات»، و«الدعم المقدم»
+            // يُكتب فيه «لا يوجد» — كانت التوصيات تذهب إلى «الدعم المقدم».
+            // «التوصيات» قبل «الدعم» في المطابقة، ومفتاح «توصي» لم يعد من مفاتيح الدعم،
+            // فلا تقع التوصيات في خانة الدعم لأنّها أسبق في الصفحة.
             const EMPTY_TEXT = SVF_EMPTY;   // البوّابة لا تقبل خانةً بيضاء
+            const TEXTS = [
+                { name: 'جوانب الإجادة',   keys: ['اجاده', 'اجاد', 'تميز'],   val: sup.excellence },
+                { name: 'تحتاج إلى تطوير', keys: ['تحتاج', 'تطوير'],          val: sup.development },
+                { name: 'التوصيات',        keys: ['توصي', 'مقترح'],           val: sup.recommendations },
+                { name: 'الدعم المقدم',    keys: ['دعم', 'مساند'],            val: EMPTY_TEXT },
+                { name: 'الملاحظات',       keys: ['ملاحظات'],                  val: sup.notesGeneral }
+            ];
             const boxes = findAllAnywhere('textarea[id*="txtFieldValue"], input[id*="txtFieldValue"]');
             slog('حقول نصّيّة موجودة: ' + boxes.length, 'info');
 
@@ -3679,6 +3683,49 @@
             } else { setVal(el, val); slog('عُبّئ ' + label, 'success'); }
         }
 
+        // ─── حارس التاريخ (v16.0) ───
+        // المشرف: «لا يسجّل التاريخ في البوّابة». التاريخ يُكتب بعد اختيار المعلّم مباشرةً،
+        // ثمّ تتوالى إعادات تحميلٍ (الاستمارة، بيانات المعلّم، المادّة، «إضافة») —
+        // وخانة منتقي التاريخ في ASP.NET إن كانت ReadOnly يُهمل الخادمُ ما كُتب فيها
+        // فتعود فارغةً بعد أوّل postback. فيُعاد التحقّق بعد كلّ خطوةٍ ويُكتب من جديد،
+        // ومعه الحقول المخفيّة لمنتقي التاريخ نفسه، ويُطبع وصف الخانة مرّةً في السجلّ.
+        let supDateDescribed = false;
+        function supEnsureDate(step) {
+            if (!sup.date) return true;
+            const el = findAnywhere(STAGE1_FIELDS['التاريخ']);
+            if (!el) { slog('التاريخ: الخانة غير موجودة (' + step + ')', 'warn'); return false; }
+            if (!supDateDescribed) {
+                supDateDescribed = true;
+                const attrs = ['readonly', 'disabled', 'onchange', 'onblur', 'onkeyup', 'maxlength']
+                    .filter(a => el.hasAttribute(a))
+                    .map(a => a + (el.getAttribute(a) ? '=' + String(el.getAttribute(a)).slice(0, 60) : ''));
+                slog('📅 خانة التاريخ id=' + el.id + ' | القيمة الحاليّة «' + (el.value || '') + '»'
+                     + (attrs.length ? ' | ' + attrs.join(' ') : ''), 'info');
+            }
+            const before = (el.value || '').trim();
+            if (before === sup.date) return true;
+            if (el.hasAttribute('readonly')) el.removeAttribute('readonly');
+            el.value = sup.date;
+            ['input', 'keyup', 'change', 'blur'].forEach(t => el.dispatchEvent(new Event(t, { bubbles: true })));
+            // منتقي التاريخ قد يحمل قيمته في حقلٍ مخفيٍّ بجانب الخانة — يُكتب فيه ما كان فارغاً أو تاريخاً
+            const base = el.id.replace(/_?dateTextBox$/, '');
+            let hidden = 0;
+            if (base && base !== el.id) {
+                for (const d of docs()) {
+                    let list = [];
+                    try { list = Array.from(d.querySelectorAll('input[type="hidden"][id^="' + base + '"]')); } catch (e) {}
+                    list.forEach(h => {
+                        if (/ClientState/i.test(h.id)) return;
+                        const v = (h.value || '').trim();
+                        if (!v || /^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}/.test(v)) { h.value = sup.date; hidden++; }
+                    });
+                }
+            }
+            slog('📅 التاريخ ' + (before ? 'تغيّر إلى «' + before + '» فأُعيد' : 'كان فارغاً فكُتب')
+                 + ' (' + step + ')' + (hidden ? ' + ' + hidden + ' حقل مخفيّ' : ''), before ? 'warn' : 'info');
+            return (el.value || '').trim() === sup.date;
+        }
+
         async function supStage1() {
             slog('المرحلة ١: رأس الزيارة', 'warn');
 
@@ -3704,6 +3751,7 @@
             // (٣) تاريخ الزيارة
             supPut(STAGE1_FIELDS['التاريخ'], sup.date, 'التاريخ');
             await wait(400);
+            supEnsureDate('بعد كتابته');
 
             // (٤) الاستمارة — شرطُ ظهور بنود التقييم
             const forms = findAnywhere(FORMS_DDL);
@@ -3723,16 +3771,24 @@
                 slog('اختيرت الاستمارة: ' + opt.text.trim(), 'success');
                 await wait(2500);
             }
+            supEnsureDate('بعد الاستمارة');
 
             // (٥) فتح بيانات المعلّم ثمّ عنوان الدرس والحصّة
             await supOpenTeacherData();
+            supEnsureDate('بعد بيانات المعلّم');
             supPut(STAGE1_FIELDS['عنوان الدرس'], sup.lessonTitle, 'عنوان الدرس');
             supPut(STAGE1_FIELDS['الحصة'],       sup.period,      'الحصة');
             // قائمة المادّة تمتلئ بعد فتح بيانات المعلّم (postback): قراءتها فور
             // الفتح تجدها فارغةً — «الخيارات (0)» في سجلّ 2026-09-26 — فتُنتظر
             await supWaitOptions(STAGE1_FIELDS['المادة'], 'المادة');
             supPut(STAGE1_FIELDS['المادة'],      sup.subject,     'المادة');
-            await wait(400);
+            await wait(1500);   // اختيار المادّة قد يُطلق postback يمسح التاريخ
+            if (!supEnsureDate('قبل «إضافة»')) {
+                sstat('التاريخ لم يثبت — اكتبه بيدك ثمّ اضغط «إضافة»');
+                slog('خانة التاريخ لا تقبل الكتابة الآليّة. اختر التاريخ من التقويم في البوّابة'
+                     + ' ثمّ اضغط «تعبئة النموذج»، وأرسل «نسخ السجل»', 'error');
+                return;
+            }
 
             // (٦) تحقّقٌ قبل «إضافة»: البوّابة ترفض بلا عنوان درس
             const lt = findAnywhere(STAGE1_FIELDS['عنوان الدرس']);

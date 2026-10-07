@@ -288,7 +288,65 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 15.9', /@version\s+15\.9/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.0', /@version\s+16\.0/.test(SRC));
+}
+
+/* ── ٨) v16.0: حارس التاريخ، والتوصيات في خانتها و«لا يوجد» في الدعم المقدم ── */
+{
+    const code = between('let supDateDescribed = false;', 'async function supStage1()');
+    const logs = [];
+    const mk = (value, attrs) => {
+        const a = Object.assign({}, attrs || {});
+        return {
+            id: 'ctl00_x_visitDataPicker_dateTextBox', value, events: [],
+            hasAttribute: n => n in a, getAttribute: n => a[n], removeAttribute: n => { delete a[n]; },
+            dispatchEvent(e) { this.events.push(e.type); }, _attrs: a
+        };
+    };
+    const hidden = { id: 'ctl00_x_visitDataPicker_hfDate', value: '' };
+    const state = { box: null };
+    const ctx = {
+        sup: { date: '07/10/2026' },
+        STAGE1_FIELDS: { 'التاريخ': ['visitDataPicker_dateTextBox'] },
+        findAnywhere: () => state.box,
+        docs: () => [{ querySelectorAll: () => [hidden] }],
+        slog: (m, t) => logs.push([t, m]),
+        Event: function (t) { this.type = t; }
+    };
+    vm.createContext(ctx);
+    vm.runInContext(code + '\nthis.supEnsureDate = supEnsureDate;', ctx);
+
+    state.box = mk('', { readonly: 'readonly' });
+    const ok1 = ctx.supEnsureDate('بعد كتابته');
+    check('date: الخانة الفارغة تُكتب وتُفكّ readonly', ok1 && state.box.value === '07/10/2026' && !('readonly' in state.box._attrs));
+    check('date: تُطلق change وblur', state.box.events.includes('change') && state.box.events.includes('blur'));
+    check('date: والحقل المخفيّ لمنتقي التاريخ يُكتب', hidden.value === '07/10/2026');
+    check('date: ووصف الخانة يُطبع في السجلّ', logs.some(([, m]) => /خانة التاريخ id=/.test(m) && /readonly/.test(m)));
+
+    state.box = mk('01/01/2026');   // postback أعاد قيمةً أخرى
+    logs.length = 0;
+    check('date: القيمة التي غيّرها postback تُعاد', ctx.supEnsureDate('بعد الاستمارة') && state.box.value === '07/10/2026'
+          && logs.some(([t, m]) => t === 'warn' && /تغيّر إلى/.test(m)));
+
+    state.box = mk('07/10/2026');
+    logs.length = 0;
+    check('date: الصحيحة لا تُمسّ ولا تُسجَّل', ctx.supEnsureDate('قبل «إضافة»') && state.box.events.length === 0 && logs.length === 0);
+
+    state.box = null;
+    check('date: غياب الخانة يُرجع false', ctx.supEnsureDate('x') === false);
+
+    check('date: يُستدعى بعد الكتابة والاستمارة وبيانات المعلّم وقبل «إضافة»',
+          ['بعد كتابته', 'بعد الاستمارة', 'بعد بيانات المعلّم', 'قبل «إضافة»']
+            .every(s => SRC.includes("supEnsureDate('" + s + "')")));
+    check('date: وإن لم يثبت قبل «إضافة» يتوقّف ولا يضغط',
+          /if \(!supEnsureDate\('قبل «إضافة»'\)\) \{[\s\S]{0,300}return;\s*\n\s*\}/.test(SRC));
+
+    const texts = between('const TEXTS = [', '];');
+    const row = n => (texts.match(new RegExp("\\{ name: '" + n + "'[^\\n]*")) || [''])[0];
+    check('texts: التوصيات في خانة «التوصيات»', /val: sup\.recommendations/.test(row('التوصيات')));
+    check('texts: «الدعم المقدم» = لا يوجد', /val: EMPTY_TEXT/.test(row('الدعم المقدم')) && !/recommendations/.test(row('الدعم المقدم')));
+    check('texts: «توصي» ليس من مفاتيح الدعم', !/'توصي'/.test(row('الدعم المقدم')));
+    check('texts: التوصيات تُطابَق قبل الدعم', texts.indexOf("name: 'التوصيات'") < texts.indexOf("name: 'الدعم المقدم'"));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
