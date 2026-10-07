@@ -1124,7 +1124,8 @@
             `;
             const repContent = document.getElementById('reportContent');
             if(repContent) repContent.innerHTML = content;
-            
+            lastSchoolPreviewReport = report;
+
             const btnBack = document.getElementById('backToFormBtn');
             if(btnBack) {
                 btnBack.onclick = () => {
@@ -1163,6 +1164,81 @@
                     }
                 };
             }
+        }
+
+        // ── حفظ المعاينة Word / PDF ──
+        // المعاينة مبنيّةٌ بأصناف Tailwind، وWord لا يقرؤها — فلـWord نسخةٌ بأنماطٍ مضمَّنة
+        // من التقرير نفسه، والنصوص مهروبة لأنّ رأي الزائر والتوصيات نصٌّ حرّ.
+        let lastSchoolPreviewReport = null;
+
+        function schoolReportFileName(report) {
+            const typeName = (schoolVisitTypesData && schoolVisitTypesData[report.visitType]) ? schoolVisitTypesData[report.visitType].name : 'زيارة مدرسية';
+            return [typeName, report.schoolName, report.visitDate].filter(Boolean).join(' - ')
+                .replace(/[\\/:*?"<>|]/g, '-');
+        }
+
+        function schoolReportDocHTML(report) {
+            const esc = schoolRouteEsc;
+            // فقرةٌ لكلّ سطر: Word يمدّ السطر المنتهي بـ<br> على عرض الصفحة كلّه
+            const multi = s => String(s).split('\n').map(l => `<p style="margin:0 0 3pt 0;">${esc(l) || '&nbsp;'}</p>`).join('');
+            const typeName = (schoolVisitTypesData && schoolVisitTypesData[report.visitType]) ? schoolVisitTypesData[report.visitType].name : 'زيارة مدرسية';
+            const objectives = Array.isArray(report.objectives) ? report.objectives : [];
+            const routeLines = (typeof SchoolRoute !== 'undefined') ? SchoolRoute.routeLines(report.cameFrom, report.goingTo) : [];
+            const visitor = (report.supervisor || svfSupervisorName() || '').trim();
+            const F = "font-family:Arial,'Traditional Arabic',sans-serif;";
+            const H = `${F} font-size:14pt; font-weight:bold; margin:14pt 0 6pt 0;`;
+            const BOX = `${F} font-size:12pt; border:0.75pt solid #999; padding:6pt; text-align:right;`;
+            const objList = objectives.length
+                ? objectives.map((o, i) => `<p style="margin:0 0 3pt 0;">${i + 1}- ${esc(o.replace(/^[\d٠-٩]+\s*[-–]\s*/, ''))}</p>`).join('')
+                : '<p style="margin:0;">لا توجد أهداف محددة.</p>';
+            const route = routeLines.map(l => `<p style="margin:3pt 0 0 0;">${esc(l)}</p>`).join('');
+            return `
+                <div dir="rtl" style="${F}">
+                    <p style="${F} text-align:center; font-size:18pt; font-weight:bold; margin:0;">تقرير زيارة مدرسية</p>
+                    <p style="${F} text-align:center; font-size:13pt; margin:2pt 0 12pt 0;">${esc(typeName)}</p>
+                    <table dir="rtl" style="width:100%; border-collapse:collapse; ${F} font-size:12pt;">
+                        <tr>
+                            <td style="width:60%; background-color:#F2F2F2; padding:4pt 6pt;"><b>المدرسة:</b> ${esc(report.schoolName || '-')}</td>
+                            <td style="width:40%; background-color:#F2F2F2; padding:4pt 6pt;"><b>التاريخ:</b> ${esc(report.visitDate || '-')}</td>
+                        </tr>
+                    </table>
+                    <p style="${H}">أولاً: أهداف الزيارة</p>
+                    <div style="${BOX}">${objList}${route}</div>
+                    <p style="${H}">ثانياً: رأي الزائر</p>
+                    <div style="${BOX}">${report.visitorOpinion ? multi(report.visitorOpinion) : 'لا يوجد رأي للزائر.'}</div>
+                    <p style="${H}">ثالثاً: التوصيات والملاحظات</p>
+                    <div style="${BOX}">${report.recommendations ? multi(report.recommendations) : 'لا توجد توصيات.'}</div>
+                    ${visitor ? `<p style="${F} font-size:12pt; font-weight:bold; margin-top:24pt;">اسم الزائر: ${esc(visitor)}</p>` : ''}
+                </div>`;
+        }
+
+        function exportSchoolWord() {
+            const report = lastSchoolPreviewReport;
+            if (!report) { showToast('افتح معاينة التقرير أولاً', 'error'); return; }
+            if (typeof htmlDocx === 'undefined') { showToast('تعذّر تحميل مكتبة Word — تحقّق من الاتصال بالإنترنت', 'error'); return; }
+            const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير زيارة مدرسية</title></head><body dir="rtl">${schoolReportDocHTML(report)}</body></html>`;
+            const blob = htmlDocx.asBlob(html, { orientation: 'portrait', margins: { top: 720, bottom: 720, left: 720, right: 720 } });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = schoolReportFileName(report) + '.docx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showToast('تم حفظ التقرير بصيغة Word');
+        }
+
+        // PDF عبر نافذة الطباعة («حفظ كـPDF»)؛ عنوان الصفحة يصير اسم الملف المقترح
+        function exportSchoolPdf() {
+            const report = lastSchoolPreviewReport;
+            if (!report) { showToast('افتح معاينة التقرير أولاً', 'error'); return; }
+            const oldTitle = document.title;
+            document.title = schoolReportFileName(report);
+            const restore = () => { document.title = oldTitle; window.removeEventListener('afterprint', restore); };
+            window.addEventListener('afterprint', restore);
+            showToast('اختر «حفظ كـPDF» في نافذة الطباعة', 'info');
+            setTimeout(() => window.print(), 300);
         }
 
         function deleteSchoolReport(key) {

@@ -721,6 +721,8 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
             <div id="reportContent" class="prose max-w-none font-sans"></div>
             <div class="flex justify-center pt-8 mt-8 border-t border-slate-100 no-print gap-3">
                 <button id="backToFormBtn" class="px-6 py-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg font-medium">رجوع للتعديل</button>
+                <button type="button" onclick="exportSchoolWord()" class="px-6 py-2 text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg font-medium">حفظ Word</button>
+                <button type="button" onclick="exportSchoolPdf()" class="px-6 py-2 text-white bg-rose-600 hover:bg-rose-700 rounded-lg font-medium">حفظ PDF</button>
                 <button onclick="window.print()" class="px-6 py-2 text-white bg-slate-800 hover:bg-slate-900 rounded-lg font-medium">طباعة</button>
             </div>
         </div>
