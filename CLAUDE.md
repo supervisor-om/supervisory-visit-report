@@ -778,6 +778,13 @@
 والزرّان نفساهما في **شريط النموذج السفليّ** (`schoolFormExport`) — يقرآن النموذج بـ`collectSchoolFormReport`
 (وهي نفسها ما تبني به «معاينة» تقريرها)، فلا يلزم حفظٌ ولا معاينةٌ قبلهما؛ وPDF منه يعرض المعاينة ثمّ يطبع.
 
+**تداخل أوقات الزيارات المدرسيّة (منذ 2026-10-07):** طلب المشرف: زيارتان بالتاريخ نفسه يتقاطع وقتاهما
+(07:00–10:00 و07:00–12:00) ← تنبيه. `schoolTimeOverlaps(cur, others)` دالّةٌ نقيّة في `js/school.js` — التقاطع
+`[أ١، ن١) ∩ [أ٢، ن٢)` فالمتتاليتان (تنتهي 10:00 وتبدأ 10:00) لا تتداخلان، والتقرير نفسه والمحذوف وما بلا أوقاتٍ
+(تقارير ما قبل حفظ الأوقات) مستبعدة. والانصراف قبل الوصول تنبيهٌ ثانٍ. يظهر في لوحة `#schoolTimeOverlap` تحت
+الوقتين مع كلّ تغييرٍ في التاريخ أو الوقتين وعند فتح النموذج، وعند «حفظ التقرير» نافذة `confirm` — **تنبيهٌ لا منع**:
+قد يكون مقصوداً. اختباره `node tests/school-overlap.test.js`.
+
 ## رفع دفعةٍ من الأرشيف (منذ v14.3)
 
 في تبويب الأرشيف: مربّع اختيارٍ على كلّ بطاقة، وشريطٌ فيه «تحديد الكل» (المعروض بعد
@@ -916,7 +923,7 @@
    و`node tests/identity.test.js` و`node tests/cloud.test.js` و`node tests/monthly.test.js`
    و`node tests/term-board.test.js`
    و`node tests/recs.test.js` و`node tests/classroom.test.js` و`node tests/objectives.test.js` و`node tests/route.test.js`
-   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js`.
+   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js`.
    ملف المحاكاة نفسه لم يُرفع بعد.
 3. **مطابقة الدرجة لها ملاذٌ أخيرٌ بالموضع** (`opts[Number(v)]` في تعبئة البنود) — تخمينٌ
    يخالف قاعدة «لا تخمين لسلّم التقييم». يُراجَع حين يُطبع سلّم البوّابة الحقيقيّ من التشخيص.

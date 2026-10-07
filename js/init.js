@@ -241,6 +241,7 @@
 
                 // المواقف الصفّيّة: القوائم من قاعدة المعلمين وزرّ التقرير الإشرافيّ
                 try { if (typeof schoolRouteInit === 'function') schoolRouteInit(); } catch (e) { console.warn('schoolRouteInit', e); }
+                try { if (typeof schoolTimeOverlapInit === 'function') schoolTimeOverlapInit(); } catch (e) { console.warn('schoolTimeOverlapInit', e); }
                 try { if (typeof svfClassroomInit === 'function') svfClassroomInit(); }
                 catch (e) { console.error('Classroom Error', e); }
 

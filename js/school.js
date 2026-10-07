@@ -940,6 +940,83 @@
             });
         }
 
+        // ─── تداخل أوقات الزيارات المدرسيّة (منذ 2026-10-07) ───
+        // زيارتان في اليوم نفسه يتقاطع وقتاهما (مثلاً 07:00–10:00 و07:00–12:00) خطأٌ في الإدخال
+        // غالباً، والبوّابة تأخذ الوقتين كما هما. التنبيه لا يمنع: قد يكون مقصوداً.
+        function schoolTimeMin(t) {
+            const m = /^(\d{1,2}):(\d{2})/.exec(String(t || '').trim());
+            return m ? (+m[1]) * 60 + (+m[2]) : null;
+        }
+
+        // دالّةٌ نقيّة: الزيارات الأخرى في التاريخ نفسه التي يتقاطع وقتها مع cur.
+        // التقاطع [أ١، ن١) ∩ [أ٢، ن٢): زيارةٌ تنتهي 10:00 وأخرى تبدأ 10:00 لا تتداخلان.
+        // ما لا وقت له (تقارير ما قبل حفظ الأوقات) لا يُحكم عليه.
+        function schoolTimeOverlaps(cur, others) {
+            const a1 = schoolTimeMin(cur && cur.arrivalTime), d1 = schoolTimeMin(cur && cur.departureTime);
+            if (!cur || !cur.visitDate || a1 == null || d1 == null || d1 <= a1) return [];
+            return (others || []).filter(r => {
+                if (!r || r.deleted || r.visitDate !== cur.visitDate) return false;
+                if (cur.id && r.id === cur.id) return false;
+                const a2 = schoolTimeMin(r.arrivalTime), d2 = schoolTimeMin(r.departureTime);
+                if (a2 == null || d2 == null || d2 <= a2) return false;
+                return a1 < d2 && a2 < d1;
+            }).sort((x, y) => String(x.arrivalTime).localeCompare(String(y.arrivalTime)));
+        }
+
+        function schoolSavedReports() {
+            const out = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key || !(key.startsWith('supervision_v6_school_report_') || key.startsWith('school_report_'))) continue;
+                let r; try { r = JSON.parse(localStorage.getItem(key)); } catch (e) { continue; }
+                if (r && typeof r === 'object') out.push(Object.assign({ id: key }, r));
+            }
+            return out;
+        }
+
+        function schoolFormTimes() {
+            return {
+                id: document.getElementById('reportId')?.value || '',
+                visitDate: (document.getElementById('schoolVisitDate')?.value || '').trim(),
+                arrivalTime: document.getElementById('schoolArrivalTime')?.value || '',
+                departureTime: document.getElementById('schoolDepartureTime')?.value || ''
+            };
+        }
+
+        // نصّ التنبيه — واحدٌ للوحة تحت الحقلين ولنافذة التأكيد عند الحفظ
+        function schoolTimeIssues() {
+            const cur = schoolFormTimes();
+            const issues = [];
+            const a = schoolTimeMin(cur.arrivalTime), d = schoolTimeMin(cur.departureTime);
+            if (a != null && d != null && d <= a)
+                issues.push('وقت الانصراف (' + cur.departureTime + ') ليس بعد وقت الوصول (' + cur.arrivalTime + ').');
+            schoolTimeOverlaps(cur, schoolSavedReports()).forEach(r => {
+                issues.push('يتداخل مع زيارة «' + (r.schoolName || 'بلا اسم') + '» في التاريخ نفسه من '
+                            + r.arrivalTime + ' إلى ' + r.departureTime + '.');
+            });
+            return issues;
+        }
+
+        function renderSchoolTimeOverlap() {
+            const box = document.getElementById('schoolTimeOverlap');
+            if (!box) return;
+            const issues = schoolTimeIssues();
+            box.classList.toggle('hidden', !issues.length);
+            box.innerHTML = issues.length
+                ? '<p class="font-bold mb-1">⚠️ تنبيه في الوقت</p>'
+                  + issues.map(t => '<p>' + schoolRouteEsc(t) + '</p>').join('')
+                : '';
+        }
+
+        function schoolTimeOverlapInit() {
+            ['schoolVisitDate', 'schoolArrivalTime', 'schoolDepartureTime'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('input', renderSchoolTimeOverlap);
+                el.addEventListener('change', renderSchoolTimeOverlap);
+            });
+        }
+
         function saveSchoolReport(e) {
             e.preventDefault();
             const reportForm = document.getElementById('reportForm');
@@ -960,6 +1037,14 @@
             if (!visitType) { 
                 showToast('يرجى اختيار نوع الزيارة', 'error'); 
                 return; 
+            }
+            // تداخل الوقت مع زيارةٍ أخرى في اليوم نفسه، أو انصرافٌ قبل الوصول: تنبيهٌ يُتجاوز
+            const timeIssues = schoolTimeIssues();
+            if (timeIssues.length && !confirm('تنبيه في وقت الزيارة:\n\n' + timeIssues.join('\n')
+                                              + '\n\nهل تحفظ التقرير على أيّ حال؟')) {
+                renderSchoolTimeOverlap();
+                document.getElementById('schoolArrivalTime')?.focus();
+                return;
             }
             
             const reportData = {
@@ -1421,5 +1506,6 @@
             document.getElementById('schoolFormView')?.classList.remove('hidden');
             document.getElementById('reportPreviewContainer')?.classList.add('hidden');
             renderSchoolRoute();
+            renderSchoolTimeOverlap();
         }
 
