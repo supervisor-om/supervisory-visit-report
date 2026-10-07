@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.1', /@version\s+16\.1/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.2', /@version\s+16\.2/.test(SRC));
 }
 
 /* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──
@@ -394,6 +394,36 @@ function load(els) {
     check('texts: «الدعم المقدم» = لا يوجد', /val: EMPTY_TEXT/.test(row('الدعم المقدم')) && !/recommendations/.test(row('الدعم المقدم')));
     check('texts: «توصي» ليس من مفاتيح الدعم', !/'توصي'/.test(row('الدعم المقدم')));
     check('texts: التوصيات تُطابَق قبل الدعم', texts.indexOf("name: 'التوصيات'") < texts.indexOf("name: 'الدعم المقدم'"));
+}
+
+/* ── ١٠) v16.2: سجلّ 2026-10-07 — بنودٌ ظهرت قبل الرأس، واستمارةٌ من ١٥ بنداً ── */
+{
+    const stageCode = between('function supStage() {', 'async function supFill()');
+    const f = { items: true, date: '', lesson: '' };
+    const ctx = {
+        STAGE1_FIELDS: { 'التاريخ': ['d'], 'عنوان الدرس': ['l'] }, STAGE2_FIELDS: {}, FORMS_DDL: ['f'],
+        ratingCandidates: () => ['r'],
+        findAnywhere: n => n[0] === 'rptrFormItems_ctl01_ddlItemEvals' ? (f.items ? {} : null)
+                        : n[0] === 'd' ? { value: f.date } : n[0] === 'l' ? { value: f.lesson } : null
+    };
+    vm.createContext(ctx);
+    vm.runInContext(stageCode + '\nthis.supStage = supStage;', ctx);
+    check('stage: بنودٌ بلا تاريخ ← المرحلة ١ لا ٢', ctx.supStage() === 1);
+    f.date = '07/10/2026';
+    check('stage: بنودٌ بتاريخٍ بلا عنوان درس ← المرحلة ١', ctx.supStage() === 1);
+    f.lesson = 'دفع الجلة';
+    check('stage: بنودٌ والرأس مكتمل ← المرحلة ٢', ctx.supStage() === 2);
+
+    check('form: عددُ بنودٍ يخالف التقرير يوقف الحفظ',
+          /if \(evals\.length !== \(sup\.ratings \|\| \[\]\)\.length\) \{[\s\S]{0,700}return;\s*\n\s*\}/.test(SRC));
+    check('form: والفحص قبل تعبئة الدرجات',
+          SRC.indexOf('if (evals.length !== (sup.ratings || []).length)') < SRC.indexOf('(sup.ratings || []).forEach((score, i)'));
+    check('form: الاستمارة المختارة مسبقاً تُستبدل إن لم تكن استمارة المعلّم',
+          /const wrongForm = [\s\S]{0,200}!isTeacherForm\(curForm\)/.test(SRC) && /\|\| wrongForm\)\) \{/.test(SRC));
+    check('teacher: المعلّم المختار يدويّاً لا يُعاد البحث عنه',
+          /المعلّم مختارٌ أصلاً/.test(SRC) && SRC.indexOf('المعلّم مختارٌ أصلاً') < SRC.indexOf('const terms = searchTerms(sup.teacher);'));
+    check('texts: الخانات بلا تكرار، والفارغ في التقرير يُقال',
+          /\.filter\(\(b, i, a\) => a\.indexOf\(b\) === i\)/.test(SRC) && /فارغٌ في التقرير/.test(SRC));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

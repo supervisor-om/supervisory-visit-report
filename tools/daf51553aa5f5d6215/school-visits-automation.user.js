@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.1
+// @version      16.2
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -2463,7 +2463,15 @@
         // البوّابة معالجٌ على مرحلتين: رأس الزيارة ثمّ التقييم. ولكلٍّ
         // حقولها، فمحاولةُ تعبئة حقول مرحلةٍ في الأخرى تبلغ عن فقدٍ كاذب.
         function supStage() {
-            if (findAnywhere(['rptrFormItems_ctl01_ddlItemEvals'])) return 2;
+            // البنود قد تظهر قبل اكتمال الرأس: اختيار المعلّم يدويّاً جعل البوّابة تحمّل استمارةً
+            // (سجلّ 2026-10-07)، فقفز السكربت إلى التقييم بلا تاريخٍ ولا عنوان درس.
+            // فالتقييم لا يبدأ إلّا والتاريخ وعنوان الدرس مكتوبان.
+            if (findAnywhere(['rptrFormItems_ctl01_ddlItemEvals'])) {
+                const dt = findAnywhere(STAGE1_FIELDS['التاريخ']);
+                const lt = findAnywhere(STAGE1_FIELDS['عنوان الدرس']);
+                if ((dt && !(dt.value || '').trim()) || (lt && !(lt.value || '').trim())) return 1;
+                return 2;
+            }
             if (findAnywhere(STAGE1_FIELDS['التاريخ']) || findAnywhere(FORMS_DDL)) return 1;
             for (const names of Object.values(STAGE2_FIELDS)) if (findAnywhere(names)) return 2;
             if (findAnywhere(ratingCandidates(1))) return 2;
@@ -3287,6 +3295,18 @@
                 supDiag();
                 return;
             }
+            // استمارة المعلّم ثلاثة عشر بنداً. غيرها (سجلّ 2026-10-07: ١٥ بنداً أوّلها «يعد خطة
+            // إجرائية وإشرافية» — استمارة تقييم مشرف) ليست هي: تعبئة ١٣ منها وحفظها سجلٌّ خاطئ.
+            if (evals.length !== (sup.ratings || []).length) {
+                const formsDdl = findAnywhere(FORMS_DDL);
+                const formName = formsDdl && formsDdl.selectedIndex >= 0
+                    ? (formsDdl.options[formsDdl.selectedIndex].text || '').trim() : '؟';
+                sstat('الاستمارة المختارة ليست استمارة المعلّم — لم أحفظ');
+                slog('في البوّابة ' + evals.length + ' بنداً وفي التقرير ' + (sup.ratings || []).length
+                     + ' — الاستمارة المختارة «' + formName + '»', 'error');
+                slog('اختر «استمارة زيارة إشرافية لمعلم مجال/مادة» من قائمة الاستمارة ثمّ اضغط «تعبئة النموذج»', 'error');
+                return;
+            }
 
             (sup.ratings || []).forEach((score, i) => {
                 const n   = i + 1;
@@ -3340,8 +3360,15 @@
                 { name: 'الدعم المقدم',    keys: ['دعم', 'مساند'],            val: EMPTY_TEXT },
                 { name: 'الملاحظات',       keys: ['ملاحظات'],                  val: sup.notesGeneral }
             ];
-            const boxes = findAllAnywhere('textarea[id*="txtFieldValue"], input[id*="txtFieldValue"]');
-            slog('حقول نصّيّة موجودة: ' + boxes.length, 'info');
+            // المستندات قد تُعيد العنصر نفسه مرّتين (سجلّ: «8» لأربع خانات) — بلا تكرار
+            const boxes = findAllAnywhere('textarea[id*="txtFieldValue"], input[id*="txtFieldValue"]')
+                .filter((b, i, a) => a.indexOf(b) === i);
+            const rowLabel = b => {
+                const tr = b.closest && b.closest('tr');
+                return ((tr && tr.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+            };
+            slog('حقول نصّيّة موجودة: ' + boxes.length + ' — ' + boxes.map(rowLabel).join(' | '), 'info');
+            TEXTS.forEach(t => { if (!t.val && t.name !== 'الملاحظات') slog('«' + t.name + '» فارغٌ في التقرير — لا نصّ يُكتب', 'warn'); });
 
             const used = new Set();
             const unplaced = [];
@@ -3662,6 +3689,15 @@
         async function supPickTeacher() {
             if (!sup || !sup.teacher) return false;
             const want = normName(sup.teacher);
+            // اختاره المشرف بيده قبل «تعبئة النموذج»: لا يُعاد البحث (البحث يمسح الاختيار)
+            // إن كان المختار هو نفسه — بالاسم كاملاً أو بأوّل اسمين
+            const picked = findAnywhere(['EmployeeAdministrativeScaleSearchCtrl1_lblEmployeeName']);
+            const pickedName = normName((picked && picked.textContent) || '');
+            const w2 = want.split(' ').slice(0, 2).join(' ');
+            if (pickedName && (pickedName.includes(want) || (w2.includes(' ') && (pickedName === w2 || pickedName.startsWith(w2 + ' '))))) {
+                slog('المعلّم مختارٌ أصلاً: ' + picked.textContent.trim(), 'success');
+                return true;
+            }
             const terms = searchTerms(sup.teacher);
             for (let i = 0; i < terms.length; i++) {
                 if (!await supRunSearch(terms[i])) return false;
@@ -3812,9 +3848,17 @@
 
             // (٤) الاستمارة — شرطُ ظهور بنود التقييم
             const forms = findAnywhere(FORMS_DDL);
-            if (forms && !forms.value) {
-                const opts = Array.from(forms.options || [])
-                    .filter(o => o.value && o.value !== '0' && o.value !== '-1' && o.text.trim());
+            const isTeacherForm = o => o && (normAr(o.text).includes(normAr('مجال')) || normAr(o.text).includes(normAr('مادة')));
+            const curForm = forms && forms.selectedIndex >= 0 ? forms.options[forms.selectedIndex] : null;
+            const realOpts = forms ? Array.from(forms.options || [])
+                .filter(o => o.value && o.value !== '0' && o.value !== '-1' && o.text.trim()) : [];
+            // استمارةٌ مختارةٌ مسبقاً (اختارتها البوّابة عند اختيار المعلّم يدويّاً) ليست بالضرورة
+            // استمارة المعلّم — سجلّ 2026-10-07 حمل استمارةً من ١٥ بنداً
+            const wrongForm = forms && forms.value && forms.value !== '-1' && forms.value !== '0'
+                && !isTeacherForm(curForm) && realOpts.some(isTeacherForm);
+            if (wrongForm) slog('الاستمارة المختارة «' + (curForm.text || '').trim() + '» ليست استمارة المعلّم — أستبدلها', 'warn');
+            if (forms && (!forms.value || forms.value === '-1' || forms.value === '0' || wrongForm)) {
+                const opts = realOpts;
                 const opt = opts.find(o => normAr(o.text).includes(normAr('مجال')))
                          || opts.find(o => normAr(o.text).includes(normAr('مادة')))
                          || opts[0];

@@ -992,7 +992,7 @@ pending.push((function testQueueGate() {
 
     // التوصيل: البحث يُعاد بالصيغ، والمطابقة بـ normName لا normAr
     check('search: supPickTeacher يمرّ على الصيغ واحدةً بعد أخرى',
-          /async function supPickTeacher\(\)[\s\S]{0,700}searchTerms\(sup\.teacher\)[\s\S]{0,400}for \(let i[\s\S]{0,300}supRunSearch\(terms\[i\]\)[\s\S]{0,200}supAwaitTeacherRow\(want/.test(src),
+          /async function supPickTeacher\(\)[\s\S]{0,1500}searchTerms\(sup\.teacher\)[\s\S]{0,400}for \(let i[\s\S]{0,300}supRunSearch\(terms\[i\]\)[\s\S]{0,200}supAwaitTeacherRow\(want/.test(src),
           'الترتيب غير موصول');
     check('search: اختيار الصفّ يطابق الاسم كاملاً لا الصيغة المختصرة',
           /async function supAwaitTeacherRow\(want, ms\)[\s\S]{0,1800}txt\.includes\(want\)/.test(src),
