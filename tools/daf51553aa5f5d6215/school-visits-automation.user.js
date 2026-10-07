@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.4
+// @version      16.5
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -1623,13 +1623,16 @@
                 'input[type="submit"][value*="حفظ"]', 'input[type="button"][value*="حفظ"]',
                 'input[type="image"][alt*="حفظ"]',    'input[type="image"][title*="حفظ"]'
             ];
+            // عناصر لوحتَي السكربت ليست من البوّابة: زرّ «الحفظ التلقائي» فيه «حفظ» (انظر supOwnUi)
+            const own = el => { try { return !!(el.closest && el.closest('#svfs-panel, #svf-panel-v7, [id^="svfs-"], [id^="svf-"]')); } catch (e) { return false; } };
             for (const sel of sels) {
-                try { const el = d.querySelector(sel); if (el) return el; } catch (e) {}
+                try { const el = Array.from(d.querySelectorAll(sel)).find(x => !own(x)); if (el) return el; } catch (e) {}
             }
 
             const texty = Array.from(d.querySelectorAll(
                 'input[type="submit"], input[type="button"], input[type="image"], button, a, span[onclick]'));
             return texty.find(el => {
+                if (own(el)) return false;
                 const t = (el.textContent || '').trim();
                 const v = el.value || '', ttl = el.title || '', alt = el.alt || '';
                 return t === 'حفظ' || v === 'حفظ' || ttl === 'حفظ' || alt === 'حفظ'
@@ -2649,8 +2652,18 @@
         // بحثٌ موسَّع: البوّابة تسمّي زرّ الحفظ بأسماء شتّى (Save/Update)، وقد
         // يكون صورةً بلا نصٍّ إلّا في alt أو title. الضيق منها ترك السكربت
         // يقول «لم أجد زر الحفظ» ويطلب الحفظ اليدويّ (سجلّ 2026-09-26).
+        // عناصر لوحتَي السكربت ليست من البوّابة. سجلّ 2026-10-07 (v16.4): البحث بالنصّ وجد زرّ
+        // اللوحة «الحفظ التلقائي: مُشغّل» (فيه «حفظ») في المستند الرئيسيّ قبل زرّ البوّابة في الإطار،
+        // فضغطه — فلم يُحفظ شيء، ونُقر «الحفظ التلقائي» لحظةَ الحفظ (لغز v15.8/15.9 نفسه).
+        function supOwnUi(el) {
+            try { return !!(el && el.closest && el.closest('#svfs-panel, #svf-panel-v7, [id^="svfs-"], [id^="svf-"]')); }
+            catch (e) { return false; }
+        }
+
         function supFindSave() {
             const sels = [
+                // زرّ الحفظ الحقيقيّ في نموذج التقييم: btnAdd بـ onclick="SaveClicked()" (من السجلّ نفسه)
+                '[onclick*="SaveClicked"]',
                 '[id$="ImgSave"]', '[id*="btnSave"]', '[id*="ImgUpdate"]', '[id*="btnUpdate"]',
                 'input[type="submit"][value*="حفظ"]', 'input[type="button"][value*="حفظ"]',
                 'input[type="image"][alt*="حفظ"]', 'input[type="image"][title*="حفظ"]',
@@ -2658,14 +2671,16 @@
             ];
             for (const d of docs()) {
                 for (const sel of sels) {
-                    let el = null;
-                    try { el = d.querySelector(sel); } catch (e) {}
+                    let list = [];
+                    try { list = Array.from(d.querySelectorAll(sel)); } catch (e) {}
+                    const el = list.find(x => !supOwnUi(x));
                     if (el) return el;
                 }
-                // وأخيراً بالنصّ الظاهر: زرٌّ مكتوبٌ عليه «حفظ» مهما كان معرّفه
+                // وأخيراً بالنصّ الظاهر: زرٌّ مكتوبٌ عليه «حفظ» مهما كان معرّفه — من البوّابة لا من اللوحة
                 let els = [];
                 try { els = Array.from(d.querySelectorAll('input, button, a')); } catch (e) { continue; }
                 const hit = els.find(el => {
+                    if (supOwnUi(el)) return false;
                     const t = normAr((el.value || el.alt || el.title || el.textContent || '').trim());
                     return t && t.length <= 20 && t.includes(normAr('حفظ'));
                 });

@@ -43,7 +43,7 @@ function doc(els) {
             if (btag && btag !== '*' && e.tagName.toLowerCase() !== btag.toLowerCase()) return false;
             return e[battr] != null && String(e[battr]) !== '';
         }
-        const m = /^(\w+|\*)?(?:\[type="([^"]+)"\])?(?:\[id([$*^]?)="([^"]+)"\])?(?:\[(alt|title|value)\*="([^"]+)"\])?$/.exec(sel);
+        const m = /^(\w+|\*)?(?:\[type="([^"]+)"\])?(?:\[id([$*^]?)="([^"]+)"\])?(?:\[(alt|title|value|onclick)\*="([^"]+)"\])?$/.exec(sel);
         if (!m) return false;
         const [, tag, type, idOp, idVal, attr, attrVal] = m;
         if (tag && tag !== '*' && e.tagName.toLowerCase() !== tag.toLowerCase()) return false;
@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.4', /@version\s+16\.4/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.5', /@version\s+16\.5/.test(SRC));
 }
 
 /* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──
@@ -477,6 +477,25 @@ function load(els) {
     check('len: والزائد يوقف الحفظ قبل supSave',
           /if \(tooLong\.length\) \{[\s\S]{0,600}return;\s*\n\s*\}/.test(SRC)
           && SRC.indexOf('if (tooLong.length) {') < SRC.lastIndexOf('await supSave(written);'));
+}
+
+/* ── ١٣) v16.5: البحث بالنصّ ضغط زرّ اللوحة «الحفظ التلقائي» بدل حفظ البوّابة (سجلّ 2026-10-07) ── */
+{
+    // زرّ اللوحة في المستند الرئيسيّ: نصّه فيه «حفظ»، و closest يجده داخل #svfs-panel
+    const panelBtn = el('BUTTON', { id: 'svfs-autosave', textContent: 'الحفظ التلقائي: مُشغّل' });
+    panelBtn.closest = sel => (/svfs/.test(sel) ? { id: 'svfs-panel' } : null);
+    const portalSave = el('INPUT', { id: 'ctl00_applicationPageContentPlaceHolder_btnAdd', type: 'image',
+                                     onclick: 'SaveClicked(); return false;' });
+
+    let r = load([panelBtn, portalSave]);
+    check('save: زرّ البوّابة (SaveClicked) لا زرّ اللوحة', r.ctx.supFindSave() === portalSave,
+          'التقط ' + (r.ctx.supFindSave() || {}).id);
+    r = load([panelBtn]);
+    check('save: وزرّ اللوحة وحده لا يُعدّ زرّ حفظ', r.ctx.supFindSave() === null,
+          'التقط ' + (r.ctx.supFindSave() || {}).id);
+    check('save: SaveClicked أوّل المحدّدات',
+          /function supFindSave\(\) \{\s*\n\s*const sels = \[\s*\n\s*\/\/[^\n]*\n\s*'\[onclick\*="SaveClicked"\]'/.test(SRC));
+    check('save: ووحدة الزيارات المدرسيّة تستثني اللوحة أيضاً', /if \(own\(el\)\) return false;/.test(SRC));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
