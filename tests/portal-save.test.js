@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.6', /@version\s+16\.6/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.7', /@version\s+16\.7/.test(SRC));
 }
 
 /* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──

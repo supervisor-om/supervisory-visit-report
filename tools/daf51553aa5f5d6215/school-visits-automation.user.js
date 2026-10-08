@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.6
+// @version      16.7
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -760,6 +760,7 @@
             #svf-btn-clear-v7 { background:#292524; color:#a8a29e; font-size:11px; }
             #svf-btn-switch-v7 { background:#1e3a5f; color:#93c5fd; font-size:11px; }
             #svf-btn-diag-v7 { background:#4c1d95; color:#ddd6fe; font-size:11px; }
+            #svf-btn-scan-v7 { background:#134e4a; color:#99f6e4; font-size:11px; }
             #svf-btn-save-v7 { background:#0c4a6e; color:#bae6fd; font-size:11.5px; }
             #svf-data-box-v7 { background:#1c1408; border:1px solid #78350f; border-radius:8px; padding:10px; margin-bottom:10px; font-size:11px; }
             #svf-data-box-v7 .d-row { display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #292524; }
@@ -920,6 +921,7 @@
                     <button class="svf-btn-v7" id="svf-btn-save-v7">${autoSaveOn() ? '💾 الحفظ التلقائي: مُشغَّل' : '✋ الحفظ التلقائي: مُطفأ'}</button>
                     <button class="svf-btn-v7" id="svf-btn-copy-v7">📋 نسخ السجل</button>
                     <button class="svf-btn-v7" id="svf-btn-diag-v7">🔎 تشخيص الصفحة</button>
+                    <button class="svf-btn-v7" id="svf-btn-scan-v7">🏫 مسح مدارس البوابة</button>
                     <button class="svf-btn-v7" id="svf-btn-clear-v7">🗑 مسح السجل</button>
                 </div>
             `;
@@ -967,6 +969,7 @@
             });
 
             $('#svf-btn-diag-v7')?.addEventListener('click', dumpPageElements);
+            $('#svf-btn-scan-v7')?.addEventListener('click', () => runSchoolScan(false));
             // الشريط كلّه يطوي ويبسط — إلّا إن كانت الضغطة نهايةَ سحب
             $('#svf-header-v7')?.addEventListener('click', () => {
                 if (panel.dataset.dragged === '1') { panel.dataset.dragged = ''; return; }
@@ -1102,6 +1105,59 @@
             return out;
         }
 
+        // ═══ دليل مدارس البوّابة الموحّد (v16.7) ═══
+        // شكوى المشرفين: مدارس — خاصّةً الخاصّة — لا يجدها السكربت. اسمها في قاعدة المعلّمين
+        // غير اسمها في البوّابة بكلماتٍ كاملة، وهي تحت نظام تعليمٍ لا يُعرف إلّا بالتجريب، وما
+        // يتعلّمه كلّ مشرفٍ يبقى على جهازه. الدليل ملفٌّ واحدٌ على الموقع (school-map.json) يبنيه
+        // scripts/build_school_map.py من مسحٍ للبوّابة («🏫 مسح مدارس البوابة»): لكلّ مدرسةٍ اسمها
+        // الحرفيّ ونظامها، ومعها أسماءٌ بديلة للمختلف. يُجلب للجميع كلّ ٦ ساعات كـ selectors.json.
+        const SCHOOL_MAP_URL = 'https://supervisor-mct.com/school-map.json';
+        const SCHOOL_MAP_TTL = 6 * 60 * 60 * 1000;
+        let schoolMap = null;
+
+        function schoolMapApply(j) {
+            if (!j || !Array.isArray(j.schools)) return false;
+            schoolMap = j;
+            return true;
+        }
+        function loadSchoolMap() {
+            try { const raw = GM_getValue('svf_school_map', ''); if (raw) schoolMapApply(JSON.parse(raw)); } catch (e) {}
+            const age = Date.now() - Number(GM_getValue('svf_school_map_ts', 0) || 0);
+            if (age < SCHOOL_MAP_TTL || typeof GM_xmlhttpRequest !== 'function') return;
+            GM_xmlhttpRequest({
+                method: 'GET', url: SCHOOL_MAP_URL + '?t=' + Date.now(), timeout: 8000,
+                onload: r => {
+                    if (r.status !== 200) return;          // لا دليل بعد: يبقى البحث القديم
+                    try {
+                        const j = JSON.parse(r.responseText);
+                        if (schoolMapApply(j)) {
+                            GM_setValue('svf_school_map', r.responseText);
+                            GM_setValue('svf_school_map_ts', Date.now());
+                        }
+                    } catch (e) {}
+                }
+            });
+        }
+
+        // اسم الموقع ← {portal, system} من الدليل، أو null فيبقى البحث القديم.
+        // (١) اسمٌ بديلٌ مثبَّت، (٢) مطابقةٌ بقواعد matchSchool نفسها في مدارس **كلّ** الأنظمة —
+        // فوحيدةٌ تُعرف ونظامها معها، ومتعدّدةٌ لا يُختار منها.
+        function schoolDirLookup(siteName, map) {
+            const m = map || schoolMap;
+            if (!m || !Array.isArray(m.schools) || !siteName) return null;
+            // المفتاح بحروفٍ صغيرة: أسماء إنجليزيّة في القاعدة («Al Sahwa Schools»)
+            const alias = (m.aliases || {})[normEdu(siteName).toLowerCase()];
+            const pool = m.schools.filter(s => s && s.portal);
+            if (alias) {
+                const hit = pool.filter(s => normEdu(s.portal) === normEdu(alias));
+                if (hit.length === 1) return { portal: hit[0].portal, system: hit[0].system || '', via: 'alias' };
+            }
+            const dd = { options: pool.map((s, i) => ({ value: String(i + 1), text: s.portal, _s: s })) };
+            const r = matchSchool(dd, siteName);
+            if (r.option) return { portal: r.option._s.portal, system: r.option._s.system || '', via: 'match' };
+            return null;
+        }
+
         // ─── حالة البحث تبقى في الجلسة ───
         // تغيير النظام قد يُعيد تحميل الصفحة كاملةً فيموت السكربت في منتصف الحلقة؛
         // الحالة المحفوظة تُكمل من حيث توقّف ولا تُكرّر نظاماً جُرِّب.
@@ -1141,10 +1197,21 @@
                 return { found: false, error: 'قائمة المدارس غير موجودة' };
             }
 
-            const schoolName = data.school || '';
+            let schoolName = data.school || '';
             if (!schoolName) {
                 log('⚠ لم يوجد اسم مدرسة في البيانات', 'warn');
                 return { found: false, error: 'اسم المدرسة غير موجود في البيانات' };
+            }
+
+            // الدليل الموحّد أوّلاً: الاسم الحرفيّ في البوّابة ونظامه — ثمّ المسار القديم نفسه
+            // (ومنه استئناف البحث بعد إعادة تحميل الصفحة)، لكن باسمٍ مطابقٍ ونظامٍ يُجرَّب أوّلاً
+            const dir = schoolDirLookup(schoolName);
+            if (dir) {
+                if (normEdu(dir.portal) !== normEdu(schoolName))
+                    log('📒 من دليل المدارس: «' + schoolName + '» ← «' + dir.portal + '»', 'info');
+                if (dir.system) log('📒 نظامها في البوّابة: ' + dir.system, 'info');
+                schoolName = dir.portal;
+                data = Object.assign({}, data, { eduSystem: dir.system || data.eduSystem });
             }
 
             // (١) النظام الحالي
@@ -1208,6 +1275,74 @@
             list.slice(0, 6).forEach(t => log('   • ' + t, 'error'));
             log('👉 اكتب اسم المدرسة في موقعك كما يظهر في البوّابة، أو اخترها بنفسك', 'warn');
             return { found: false, error: 'اسم المدرسة يطابق أكثر من مدرسة' };
+        }
+
+        // ═══ مسح مدارس البوّابة (v16.7) ═══
+        // يمرّ على كلّ أنظمة التعليم ويجمع أسماء المدارس الحرفيّة تحت كلٍّ منها، ثمّ يُنزّل
+        // school-scan.json ليُبنى منه الدليل الموحّد. لا يكتب في البوّابة شيئاً سوى تبديل قائمة
+        // النظام. تغيير النظام قد يُعيد الصفحة كاملةً، فالحالة في الجلسة تُحفظ قبل كلّ تبديل
+        // ويُستأنف المسح عند التحميل (والطيّار الآليّ لا يُقلع ما دام مسحٌ جارياً).
+        const SCAN_KEY = 'svf_school_scan';
+        function scanState() { try { return JSON.parse(sessionStorage.getItem(SCAN_KEY) || 'null'); } catch (e) { return null; } }
+        function scanSave(s) { try { sessionStorage.setItem(SCAN_KEY, JSON.stringify(s)); } catch (e) {} }
+        function scanClear() { try { sessionStorage.removeItem(SCAN_KEY); } catch (e) {} }
+
+        function schoolOptionTexts(dd) {
+            return Array.from((dd && dd.options) || [])
+                .filter(o => o.value && o.value !== '0' && o.value !== '-1' && !/اختر/.test(o.text) && o.text.trim().length >= 3)
+                .map(o => o.text.trim());
+        }
+
+        async function runSchoolScan(resume) {
+            const eduDD = findEduSystemDropdown();
+            if (!eduDD) {
+                log('❌ لم أجد قائمة نظام التعليم — افتح صفحة الزيارات المدرسيّة (القائمة لا نموذج الإضافة)', 'error');
+                scanClear();
+                return;
+            }
+            let s = resume ? scanState() : null;
+            if (!s) {
+                const systems = Array.from(eduDD.options)
+                    .filter(o => o.value && o.value !== '-1' && o.text.trim() && !/اختر|الكل/.test(o.text))
+                    .map(o => o.text.trim());
+                s = { systems, i: 0, result: {}, started: Date.now() };
+                log('🏫 مسح مدارس البوّابة: ' + systems.length + ' أنظمة تعليم — لا تغلق الصفحة', 'warn');
+                scanSave(s);
+            } else {
+                log('🔄 استئناف مسح المدارس من النظام ' + (s.i + 1) + ' من ' + s.systems.length, 'info');
+            }
+
+            while (s.i < s.systems.length) {
+                const sys = s.systems[s.i];
+                const cur = getCurrentEduSystem();
+                if (!cur || normEdu(cur.text) !== normEdu(sys)) {
+                    scanSave(s);                                   // قبل التبديل: قد تُعاد الصفحة
+                    const before = optionsSig(findSchoolDropdown());
+                    if (!switchEduSystem(sys)) { s.i++; scanSave(s); continue; }
+                    await waitSchoolListChange(before, 12000);
+                }
+                const names = schoolOptionTexts(findSchoolDropdown());
+                s.result[sys] = names;
+                log('   ' + sys + ': ' + names.length + ' مدرسة', 'info');
+                s.i++;
+                scanSave(s);
+            }
+
+            const schools = [];
+            Object.keys(s.result).forEach(sys => s.result[sys].forEach(n => schools.push({ portal: n, system: sys })));
+            const out = JSON.stringify({ version: 1, scannedAt: new Date().toISOString(), systems: s.result, schools }, null, 1);
+            scanClear();
+            try { GM_setValue('svf_school_scan_result', out); } catch (e) {}
+            log('✅ اكتمل المسح: ' + schools.length + ' مدرسة في ' + Object.keys(s.result).length + ' أنظمة', 'success');
+            try {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([out], { type: 'application/json' }));
+                a.download = 'school-scan.json';
+                document.body.appendChild(a); a.click(); a.remove();
+                log('💾 نُزّل الملفّ school-scan.json — أرسله لبناء دليل المدارس', 'success');
+            } catch (e) {
+                log('تعذّر التنزيل — انسخ السجلّ وأرسله', 'warn');
+            }
         }
 
         // كلماتٌ عامّةٌ لا تميّز مدرسةً عن أخرى
@@ -2133,6 +2268,13 @@
         window.addEventListener('load', () => {
             setTimeout(() => {
                 buildPanel(visitData);
+                loadSchoolMap();
+
+                // مسحٌ للمدارس قطعته إعادةُ تحميل الصفحة: يُستأنف، ولا يُقلع الطيّار الآليّ فوقه
+                if (scanState()) {
+                    setTimeout(() => runSchoolScan(true), 2500);
+                    return;
+                }
 
                 if (visitData) {
                     log('✅ تم استيراد البيانات', 'success');
