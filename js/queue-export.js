@@ -31,7 +31,27 @@
 
     // «سبق رفعها» لا تعني «حُفظت»: تأكيد الحفظ يقع في نطاق البوّابة
     window.svfIsQueued = key => readSet(QUEUED_KEY).has(key);
-    window.svfIsSent   = (teacher, date) => readSet(SENT_KEY).has(teacher + '|' + date);
+    // المطابقة بعد التسوية لا حرفيّاً (2026-10-08: حفظها السكربت ولم يظهر الوسم): السكربت يكتب
+    // الاسم مقصوصاً والأرشيف يقرأ ما حُفظ كما هو، والتاريخ قد يُكتب «8/10» أو «08/10» أو «2026-10-08».
+    function sentKey(teacher, date) {
+        const name = window.SupervisorIdentity && SupervisorIdentity.normName
+            ? SupervisorIdentity.normName(teacher)
+            : String(teacher || '').replace(/\s+/g, ' ').trim();
+        const d = String(date || '').trim();
+        let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(d);
+        const parts = m ? [m[3], m[2], m[1]] : ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(d)) ? [m[1], m[2], m[3]] : null);
+        const day = parts ? (+parts[0]) + '/' + (+parts[1]) + '/' + parts[2] : d;
+        return name + '|' + day;
+    }
+    window.svfSentKey = sentKey;
+    window.svfIsSent   = (teacher, date) => {
+        const want = sentKey(teacher, date);
+        for (const k of readSet(SENT_KEY)) {
+            const i = k.lastIndexOf('|');
+            if (i > 0 && sentKey(k.slice(0, i), k.slice(i + 1)) === want) return true;
+        }
+        return false;
+    };
     window.svfMarkSent = list => addToSet(SENT_KEY, list.map(v => v.teacher + '|' + v.date));
 
     /* ─── تحويل تقريرٍ محفوظٍ إلى صيغة البوّابة ─── */
@@ -200,7 +220,20 @@
     const schoolSelected = new Set();
     window.svfSchoolSelected = schoolSelected;
     window.svfSchoolIsQueued = key => readSet(SCHOOL_QUEUED_KEY).has(key);
-    window.svfSchoolIsSent   = (school, date) => readSet(SCHOOL_SENT_KEY).has(school + '|' + date);
+    // والمدرسة كالمعلّم: تسويةٌ عربيّة للاسم وللتاريخ قبل المقارنة
+    const schoolKey = (school, date) => {
+        const n = window.SupervisorIdentity && SupervisorIdentity.normalize
+            ? SupervisorIdentity.normalize(school) : String(school || '').replace(/\s+/g, ' ').trim();
+        return n + '|' + sentKey('', date).slice(1);
+    };
+    window.svfSchoolIsSent   = (school, date) => {
+        const want = schoolKey(school, date);
+        for (const k of readSet(SCHOOL_SENT_KEY)) {
+            const i = k.lastIndexOf('|');
+            if (i > 0 && schoolKey(k.slice(0, i), k.slice(i + 1)) === want) return true;
+        }
+        return false;
+    };
     window.svfSchoolMarkSent = list => addToSet(SCHOOL_SENT_KEY, list.map(v => v.school + '|' + v.date));
 
     // نوع الزيارة في البوّابة: ١ إشرافية، ٢ استطلاعية، ٣ أخرى

@@ -89,8 +89,24 @@
         const sort = (a, b) => String(a.visitDate).localeCompare(String(b.visitDate));
         state.schoolReports = school.sort(sort);
         state.supReports = sup.sort(sort);
-        state.sentSchool = new Set(readJSON('svf_sent_school_visits', []) || []);
-        state.sentSup = new Set(readJSON('svf_sent_visits', []) || []);
+        // المطابقة بعد التسوية كما في الأرشيف (queue-export.js): الاسم يُكتب مقصوصاً في البوّابة
+        // ومسافةٌ أو همزةٌ أو «8/10» مقابل «08/10» كانت تُظهر الزيارة «(مرفق)» وهي محفوظة
+        const ID = window.SupervisorIdentity;
+        const day = d => {
+            const s = String(d || '').trim();
+            let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+            if (m) return (+m[3]) + '/' + (+m[2]) + '/' + m[1];
+            m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+            return m ? (+m[1]) + '/' + (+m[2]) + '/' + m[3] : s;
+        };
+        const tolerant = (list, norm) => {
+            const key = k => { const i = String(k).lastIndexOf('|'); return i < 0 ? norm(k) : norm(k.slice(0, i)) + '|' + day(k.slice(i + 1)); };
+            const keys = new Set((list || []).map(key));
+            return { has: k => keys.has(key(k)), size: keys.size };
+        };
+        const plain = v => String(v || '').replace(/\s+/g, ' ').trim();
+        state.sentSchool = tolerant(readJSON('svf_sent_school_visits', []), ID && ID.normalize ? ID.normalize : plain);
+        state.sentSup = tolerant(readJSON('svf_sent_visits', []), ID && ID.normName ? ID.normName : plain);
     }
 
     // ───────────────────────────── الخطة المعتمدة (قراءة)
