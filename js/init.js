@@ -291,6 +291,7 @@
                             schoolPrincipal = { name: '', gender: 'f' };
                             objectiveNotes = {};
                             objectiveEdits = {};
+                            schoolOpinionGen = null;   // تقريرٌ جديد: لا رأي زائرٍ مولَّدٍ سابق
                             prevRecommendationsStatus = [];
                             document.getElementById('prevRecsPanel')?.classList.add('hidden');
                             renderSchoolClassroomVisits();

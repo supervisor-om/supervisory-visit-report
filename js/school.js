@@ -668,7 +668,7 @@
                 const cb = item.querySelector('input[name="objectives"]');
                 if (cb && cb.checked) {
                     const noteInput = item.querySelector('.objective-note');
-                    result.push({ text: cb.value, note: noteInput ? noteInput.value.trim() : '' });
+                    result.push({ text: cb.value, note: noteInput ? noteInput.value.trim() : '', index: item.dataset.index });
                 }
             });
             return result;
@@ -703,6 +703,86 @@
             return out.endsWith('.') ? out : out + '.';
         }
 
+        // ─── ما كتبه المشرف في رأي الزائر أولى من إعادة التوليد (منذ 2026-10-08) ───
+        // رأي الزائر بنودٌ مرقّمة، لكلٍّ منها مصدرٌ (هدفٌ، أو التوصيات السابقة، أو المواقف الصفّيّة).
+        // تُحفظ خريطة آخر ناتج (schoolOpinionGen = [{key, body}] بترتيب البنود) مع التقرير، وعند
+        // إعادة التوليد: البند الذي لم يُمسّ يُستبدل بالجديد، والمعدَّل يبقى بنصّ المشرف، وما أضافه
+        // المشرف يبقى آخراً، والمعدَّل لهدفٍ أُلغي تحديده يبقى أيضاً — الأولويّة لما كتبه.
+        let schoolOpinionGen = null;
+
+        const opinionNumRe = /^(\s*)[\d٠-٩]+(\s*[-–]\s*)/;
+        const opinionBody = b => String(b || '').replace(opinionNumRe, '').trim();
+
+        // النصّ ← بنود: كلّ سطرٍ يبدأ برقمٍ يفتح بنداً، وما بعده من أسطرٍ تابعٌ له.
+        // ما قبل أوّل بندٍ مرقّم (إن وُجد) بندٌ بلا رقم.
+        function splitOpinionBlocks(text) {
+            const out = [];
+            String(text || '').split('\n').forEach(line => {
+                if (opinionNumRe.test(line) || !out.length) out.push({ numbered: opinionNumRe.test(line), lines: [line] });
+                else out[out.length - 1].lines.push(line);
+            });
+            return out.map(b => ({ numbered: b.numbered, text: b.lines.join('\n').replace(/\s+$/, '') }))
+                      .filter(b => b.text.trim());
+        }
+
+        function renumberOpinion(blocks) {
+            let n = 1;
+            return blocks.map(b => b.numbered ? b.text.replace(opinionNumRe, (m, sp, dash) => sp + (n++) + dash) : b.text)
+                         .join('\n');
+        }
+
+        // دالّةٌ نقيّة: current ما في الخانة الآن، prev خريطة آخر ناتج، fresh [{key, text}] التوليد الجديد.
+        // تعيد { text, map, kept } — map خريطة الناتج الجديد لتُحفظ، kept عدد ما أُبقي من نصّ المشرف.
+        function mergeVisitorOpinion(current, prev, fresh) {
+            const freshMap = fresh.map(f => ({ key: f.key, body: opinionBody(f.text) }));
+            const cur = splitOpinionBlocks(current);
+            if (!cur.length) return { text: fresh.map(f => f.text).join('\n'), map: freshMap, kept: 0 };
+
+            // تقريرٌ قديمٌ بلا خريطة: كلّ ما في الخانة يبقى، ويُضاف من الجديد ما ليس فيه
+            if (!Array.isArray(prev) || !prev.length) {
+                const have = new Set(cur.map(b => opinionBody(b.text)));
+                const add = fresh.filter(f => !have.has(opinionBody(f.text)));
+                const blocks = cur.concat(add.map(f => ({ numbered: true, text: f.text })));
+                const map = cur.map(() => ({ key: null, body: null })).concat(add.map(f => ({ key: f.key, body: opinionBody(f.text) })));
+                return { text: renumberOpinion(blocks), map, kept: cur.length };
+            }
+
+            // (١) لم يُمسّ: نصّه كما وُلّد. (٢) معدَّل: في موضع بندٍ مولَّدٍ لم يُطالَب به. (٣) وإلّا فمن المشرف.
+            const claimed = new Array(prev.length).fill(false);
+            const cls = cur.map(b => {
+                const body = opinionBody(b.text);
+                const i = prev.findIndex((p, k) => !claimed[k] && p.key && p.body === body);
+                if (i !== -1) { claimed[i] = true; return { b, kind: 'gen', key: prev[i].key }; }
+                return { b, kind: null };
+            });
+            cls.forEach((c, pos) => {
+                if (c.kind) return;
+                const p = prev[pos];
+                if (p && p.key && !claimed[pos]) { claimed[pos] = true; c.kind = 'edited'; c.key = p.key; }
+                else c.kind = 'user';
+            });
+
+            const editedBy = {};
+            cls.forEach(c => { if (c.kind === 'edited') editedBy[c.key] = c; });
+            const freshKeys = new Set(fresh.map(f => f.key));
+            const blocks = [], map = [];
+            let kept = 0;
+            // ما كتبه المشرف قبل أوّل بندٍ مرقّم يبقى في رأسه
+            cls.filter(c => !c.b.numbered).forEach(c => { blocks.push(c.b); map.push({ key: null, body: null }); kept++; });
+            fresh.forEach(f => {
+                const e = editedBy[f.key];
+                if (e) { blocks.push(e.b); map.push({ key: f.key, body: opinionBody(f.text) }); kept++; }
+                else { blocks.push({ numbered: true, text: f.text }); map.push({ key: f.key, body: opinionBody(f.text) }); }
+            });
+            cls.forEach(c => {
+                if (!c.b.numbered) return;
+                if (c.kind === 'user' || (c.kind === 'edited' && !freshKeys.has(c.key))) {
+                    blocks.push(c.b); map.push({ key: null, body: null }); kept++;
+                }
+            });
+            return { text: renumberOpinion(blocks), map, kept };
+        }
+
         function generateSchoolSmartVisitorOpinion() {
             const reportForm = document.getElementById('reportForm');
             if (!reportForm) return;
@@ -716,12 +796,16 @@
             let opinionText = "";
             let counter = 1;
             let classroomVisitsHandled = false;
+            // مصدر كلّ بندٍ بترتيبه — لإبقاء ما عدّله المشرف عند إعادة التوليد (mergeVisitorOpinion).
+            // المفتاح موضع الهدف في قائمة نوعه: ثابتٌ وإن تغيّرت صيغته بمفتاح الجنس أو بتعديل نصّه
+            const keys = [];
 
             const ratedPrevRecs = prevRecommendationsStatus.filter(r => r.status);
             const prevDate = document.getElementById('prevRecsDate')?.textContent || '-';
             const hasClassroomVisits = Array.isArray(schoolClassroomVisits) && schoolClassroomVisits.length > 0;
 
-            checkedItems.forEach(({ text: obj, note }) => {
+            checkedItems.forEach(({ text: obj, note, index }) => {
+                keys.push('obj:' + (index != null ? index : obj));
                 let text = obj.trim().replace(/^[\d٠-٩]+\s*[-–]\s*/, '');
                 text = convertObjectiveToPast(text);
 
@@ -779,14 +863,20 @@
 
             // إضافة المواقف الصفية كبند مستقل فقط إذا لم يُعالَج ضمن هدف "موقف صفي"
             if (!classroomVisitsHandled && hasClassroomVisits) {
+                keys.push('cv');
                 opinionText += counter + "- تم حضور مواقف صفية وإجراء المداولة الإشرافية، وذلك على النحو الآتي:\n";
                 schoolClassroomVisits.forEach(cv => { opinionText += classroomVisitLine(cv); });
             }
 
             const visOp = document.getElementById('visitorOpinion');
             if(visOp) {
-                visOp.value = wrapNumbersInOpinion(opinionText.trim());
-                showToast('تم توليد رأي الزائر بنجاح');
+                const generated = wrapNumbersInOpinion(opinionText.trim());
+                const blocks = splitOpinionBlocks(generated).filter(b => b.numbered);
+                const fresh = blocks.map((b, i) => ({ key: keys[i] || ('pos:' + i), text: b.text }));
+                const r = mergeVisitorOpinion(visOp.value, schoolOpinionGen, fresh);
+                visOp.value = r.text;
+                schoolOpinionGen = r.map;
+                showToast(r.kept ? 'تم توليد رأي الزائر — وأُبقي ما كتبته بيدك (' + r.kept + ')' : 'تم توليد رأي الزائر بنجاح');
             }
         }
 
@@ -1061,6 +1151,8 @@
                 genderMode: getGenderMode(),
                 objectiveNotes: collectObjectiveNotes(),
                 objectiveEdits: collectObjectiveEdits(),
+                // خريطة آخر رأي زائرٍ مولَّد: بها يبقى ما كتبه المشرف إذا ولّد من جديد بعد فتح التقرير
+                opinionGen: Array.isArray(schoolOpinionGen) ? schoolOpinionGen : null,
                 // خطّ سير اليوم: حقلان مستقلّان لا هدفان (انظر js/route.js)
                 cameFrom: (document.getElementById('schoolCameFrom')?.value || '').trim(),
                 goingTo: (document.getElementById('schoolGoingTo')?.value || '').trim(),
@@ -1114,6 +1206,7 @@
                 // وتعديلات نصوص أهدافه — قبل الرسم، فنصّ الهدف يُبنى عليها
                 objectiveEdits = (report.objectiveEdits && typeof report.objectiveEdits === 'object')
                     ? Object.assign({}, report.objectiveEdits) : {};
+                schoolOpinionGen = Array.isArray(report.opinionGen) ? report.opinionGen : null;
                 renderSchoolClassroomVisits();
                 applyRosterToForm();
                 updateRosterVisibility(report.visitType);
@@ -1236,6 +1329,7 @@
                             ? report.principal : { name: '', gender: 'f' };
                         objectiveEdits = (report.objectiveEdits && typeof report.objectiveEdits === 'object')
                             ? Object.assign({}, report.objectiveEdits) : {};
+                        schoolOpinionGen = Array.isArray(report.opinionGen) ? report.opinionGen : null;
                         renderSchoolClassroomVisits();
                         applyRosterToForm();
                         updateRosterVisibility(report.visitType);
