@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.7
+// @version      16.8
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -3092,10 +3092,23 @@
                 btn.click();
 
                 const deadline = Date.now() + 25000;
+                let loopErrors = 0;
                 while (Date.now() < deadline) {
                     await new Promise(r => setTimeout(r, 1000));
-                    const msgs = supFreshMessages(baseline);
-                    const c = classifyPortalMessages(msgs);
+                    // سجلّ 2026-10-08 (v16.6): بعد «ضغط زر الحفظ» لم يُكتب شيءٌ قطّ — لا نجاح ولا رفض ولا
+                    // «لم تتأكّد» بعد ٢٥ ثانية: خطأٌ داخليّ أوقف الانتظار صامتاً. يُكتب الآن ويستمرّ الانتظار.
+                    let msgs, c;
+                    try {
+                        msgs = supFreshMessages(baseline);
+                        c = classifyPortalMessages(msgs);
+                    } catch (err) {
+                        if (loopErrors++ < 3) slog('⚠️ خطأ أثناء قراءة نتيجة الحفظ: ' + (err && err.message || err), 'warn');
+                        continue;
+                    }
+                    if (msgs && msgs.length && loopErrors < 99) {
+                        slog('📨 رسائل البوّابة بعد الحفظ: ' + msgs.join(' | ').slice(0, 300), 'info');
+                        loopErrors = 99;   // تُطبع مرّةً واحدة
+                    }
                     if (c.ok.length && !c.fail.length) {
                         sstat('✅ حُفظت الزيارة في البوّابة');
                         slog('📨 البوّابة: ' + c.ok.join(' | '), 'success');

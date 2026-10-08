@@ -288,7 +288,10 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.7', /@version\s+16\.7/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.8', /@version\s+16\.8/.test(SRC));
+    check('save: خطأٌ أثناء انتظار النتيجة يُكتب ولا يوقف الانتظار',
+          /\} catch \(err\) \{\s*\n\s*if \(loopErrors\+\+ < 3\) slog\('⚠️ خطأ أثناء قراءة نتيجة الحفظ/.test(SRC));
+    check('save: ورسائل البوّابة بعد الحفظ تُطبع', /رسائل البوّابة بعد الحفظ/.test(SRC));
 }
 
 /* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──
