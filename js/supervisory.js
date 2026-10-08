@@ -370,6 +370,65 @@
             showToast('تم تصدير ملف Word');
         }
 
+        // ─── النصوص المولَّدة تتبع الجنس (منذ 2026-10-08) ───
+        // كان تبديل «ذكر/أنثى» يعيد صياغة أوصاف البنود وحدها، ونصوص الإجادة والتطوير والتوصيات
+        // المولَّدة قبله تبقى بالصيغة القديمة — فخرج تقرير مريم (2026-10-07) أوصافُه «تتابع المعلمة»
+        // وتوصياته «نوصي المعلم … استخدم … بادر». فتُحفظ البنود التي اختارها التوليد، وعند تبديل
+        // الجنس تُعاد كتابة النصوص الثلاثة **ما دامت كما وُلّدت** — ما عدّله المشرف بيده لا يُمسّ.
+        let supLastGenerated = null;     // { strengths:[id], developments:[id], recs:[id], texts:{…} }
+
+        function supBuildGeneratedTexts(g) {
+            const gMode = getSupervisoryGender();
+            const item = id => evaluationItems.find(i => i.id === id) || { standard: '' };
+            const note = id => document.querySelector(`#notes-${id}`)?.textContent || '';
+            const strengths = g.strengths.map(id => `• ${item(id).standard}: ${note(id)}`).join('\n');
+            const developments = g.developments.map(id => `• ${item(id).standard}: ${note(id)}`).join('\n');
+            let recs = applyGenderFilter("نوصي [المعلم/المعلمة] بالآتي:\n", gMode);
+            g.recs.forEach(id => {
+                if (instructionalRecommendations[id])
+                    recs += `• ${item(id).standard}: ${applyGenderFilter(instructionalRecommendations[id], gMode)}\n`;
+            });
+            return { strengths, developments, recs: recs + "\nوالله ولي التوفيق." };
+        }
+
+        const SUP_GENERATED_FIELDS = { strengths: '#strengthsContent', developments: '#developmentContent', recs: '#recommendationsContent' };
+
+        function supWriteGeneratedTexts() {
+            if (!supLastGenerated) return;
+            const t = supBuildGeneratedTexts(supLastGenerated);
+            Object.keys(SUP_GENERATED_FIELDS).forEach(k => {
+                const f = document.querySelector(SUP_GENERATED_FIELDS[k]);
+                if (f) f.value = t[k];
+            });
+            supLastGenerated.texts = t;
+        }
+
+        // بعد تبديل الجنس: كلّ خانةٍ ما زالت كما وُلّدت تُعاد بالصيغة الجديدة، والمعدَّل يُترك
+        function supRegenderGenerated() {
+            const g = supLastGenerated;
+            if (!g || !g.texts) return 0;
+            const t = supBuildGeneratedTexts(g);
+            let n = 0;
+            Object.keys(SUP_GENERATED_FIELDS).forEach(k => {
+                const f = document.querySelector(SUP_GENERATED_FIELDS[k]);
+                if (f && f.value === g.texts[k]) { f.value = t[k]; g.texts[k] = t[k]; n++; }
+            });
+            return n;
+        }
+
+        function supWarnGenderMismatch() {
+            try {
+                if (!window.SupervisorIdentity || !SupervisorIdentity.getIdentity()) return;
+                const name = document.querySelector('#teacherName')?.value || '';
+                const t = (SupervisorIdentity.findTeacher(name) || {}).teacher;
+                if (!t || (t.gender !== 'm' && t.gender !== 'f')) return;
+                const chosen = getSupervisoryGender() === 1 ? 'f' : 'm';
+                if (t.gender !== chosen)
+                    showToast('تنبيه: ' + t.name + ' في القاعدة ' + (t.gender === 'f' ? 'معلّمة' : 'معلّم')
+                              + ' والمختار «' + (chosen === 'f' ? 'أنثى' : 'ذكر') + '» — بدّله إن لزم، فتُعاد الصياغة', 'error');
+            } catch (e) {}
+        }
+
         function generateReport() {
             let itemsByScore = { 1: [], 2: [], 3: [], 4: [], 5: [] }; 
             
@@ -389,20 +448,16 @@
                 }
             });
             
-            document.querySelector('#strengthsContent').value = strengths.map(s => `• ${s.standard}: ${s.notes}`).join('\n'); 
-            document.querySelector('#developmentContent').value = developments.map(d => `• ${d.standard}: ${d.notes}`).join('\n'); 
-            
-            const gMode = getSupervisoryGender();
-            let recommendationsText = applyGenderFilter("نوصي [المعلم/المعلمة] بالآتي:\n", gMode);
-            recommendationsList.forEach(rec => {
-                if (instructionalRecommendations[rec.id]) {
-                    const recText = applyGenderFilter(instructionalRecommendations[rec.id], gMode);
-                    recommendationsText += `• ${rec.standard}: ${recText}\n`;
-                }
-            });
+            // الجنس في القاعدة يخالف المختار: تنبيهٌ قبل أن يُكتب التقرير بصيغةٍ خاطئة
+            supWarnGenderMismatch();
 
-            document.querySelector('#recommendationsContent').value = recommendationsText + "\nوالله ولي التوفيق.";
-            document.querySelector('#reportSection').classList.remove('hidden'); 
+            supLastGenerated = {
+                strengths: strengths.map(s => s.id),
+                developments: developments.map(d => d.id),
+                recs: recommendationsList.map(r => r.id)
+            };
+            supWriteGeneratedTexts();
+            document.querySelector('#reportSection').classList.remove('hidden');
             document.querySelector('#reportSection').scrollIntoView({ behavior: 'smooth' }); 
             showToast('تم توليد التقرير بنجاح');
         }
@@ -477,6 +532,7 @@
                  .forEach(input => input.value = '');
             document.querySelector('#visitDate').value = new Date().toISOString().split('T')[0];
             setEditingKey(null);
+            supLastGenerated = null;   // تقريرٌ جديد: لا نصوص مولَّدة تتبع الجنس
 
             evaluationItems.forEach(item => { 
                 updateScore(item.id, 3, true); 
@@ -486,6 +542,7 @@
             document.querySelector('#reportSection').classList.add('hidden'); 
             // التصفير يمسح الحقول كلّها، واسم الزائر يُعاد من الهويّة
             try { if (typeof svfFillVisitor === 'function') svfFillVisitor(); } catch (e) {}
+            try { if (typeof svfTeacherBriefRender === 'function') svfTeacherBriefRender(); } catch (e) {}
             showToast('تم إعادة تعيين النموذج');
         }
 
@@ -606,6 +663,7 @@
                     // performReset صفّر المفتاح — يُعاد ضبطه هنا ليُحدَّث التقرير
                     // نفسه عند الحفظ بدل إنشاء نسخةٍ ثانية
                     setEditingKey(reportKey, data);
+                    try { if (typeof svfTeacherBriefRender === 'function') svfTeacherBriefRender(); } catch (e) {}
                     toggleSupervisoryView('form-view');
                     showToast('تم تحميل التقرير');
                 }

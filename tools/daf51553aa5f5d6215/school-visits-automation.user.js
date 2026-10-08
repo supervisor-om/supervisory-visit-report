@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.5
+// @version      16.6
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -100,7 +100,61 @@
         catch (e) { return 0; }
         return merged.length - cur.length;
     }
+    // ═══ أسماء المعلّمين كما في البوّابة (v16.6) ═══
+    // الموقع «مريم مصطفى موسى» والبوّابة «مريم مصطفى محمد السيد» ورقمها الوظيفيّ 32315171.
+    // حين يُثبَّت اختيار المعلّم يُحفظ اسمه ورقمه في البوّابة بمفتاح اسمه في الموقع، فالزيارة
+    // التالية تُبحث باسم البوّابة وتُطابَق بالرقم — بلا تخمينٍ بأوّل اسمين. ويُضخّ إلى الموقع
+    // (svf_portal_names) فتعرض «جودة البيانات» الأسماء المختلفة.
+    const PORTAL_NAMES_KEY = 'svf_portal_names';
+    function svfNameKey(v) {
+        return String(v || '').replace(/[ـً-ْ]/g, '')
+            .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+            .split(/\s+/).filter(w => w && w !== 'بن' && w !== 'بنت').join(' ');
+    }
+    function svfPortalNames() {
+        try { const o = JSON.parse(GM_getValue(PORTAL_NAMES_KEY, '{}')); return o && typeof o === 'object' ? o : {}; }
+        catch (e) { return {}; }
+    }
+    function svfPortalNameFor(siteName) {
+        const k = svfNameKey(siteName);
+        return k ? (svfPortalNames()[k] || null) : null;
+    }
+    function svfRecordPortalName(siteName, info) {
+        const k = svfNameKey(siteName);
+        if (!k || !info || !info.portal) return false;
+        const all = svfPortalNames();
+        const prev = all[k] || {};
+        if (prev.portal === info.portal && prev.emp === info.emp && prev.school === info.school) return false;
+        all[k] = { site: String(siteName).trim(), portal: info.portal, emp: info.emp || '', school: info.school || '', at: Date.now() };
+        // سقفٌ يمنع التضخّم: الأقدم يسقط
+        const keys = Object.keys(all).sort((a, b) => (all[b].at || 0) - (all[a].at || 0)).slice(0, 1500);
+        const out = {}; keys.forEach(x => { out[x] = all[x]; });
+        try { GM_setValue(PORTAL_NAMES_KEY, JSON.stringify(out)); } catch (e) { return false; }
+        return true;
+    }
+    // DisplayInfo('الاسم','الوظيفة','المدرسة','الرقم الوظيفيّ',…) ← {portal, job, school, emp}
+    function svfParseDisplayInfo(onclick) {
+        const m = /DisplayInfo\(([^)]*)\)/.exec(String(onclick || ''));
+        if (!m) return null;
+        const args = (m[1].match(/'((?:[^'\\]|\\.)*)'/g) || []).map(a => a.slice(1, -1).trim());
+        if (!args[0]) return null;
+        return { portal: args[0], job: args[1] || '', school: args[2] || '', emp: /^\d{4,}$/.test(args[3] || '') ? args[3] : '' };
+    }
+    // يُستدعى في نطاق الموقع: يدمج سجلّ الأسماء فيه (الأحدث يغلب) ويعيد عدد الجديد/المحدَّث
+    function svfMergePortalNames() {
+        const src = svfPortalNames();
+        let cur = {};
+        try { cur = JSON.parse(localStorage.getItem(PORTAL_NAMES_KEY) || '{}') || {}; } catch (e) { cur = {}; }
+        let n = 0;
+        Object.keys(src).forEach(k => {
+            if (!cur[k] || (src[k].at || 0) > (cur[k].at || 0)) { cur[k] = src[k]; n++; }
+        });
+        if (n) { try { localStorage.setItem(PORTAL_NAMES_KEY, JSON.stringify(cur)); } catch (e) { return 0; } }
+        return n;
+    }
+
     function svfSyncSaved() {
+        try { svfMergePortalNames(); } catch (e) {}
         return svfMergeInto(SITE_SENT_KEY, svfSavedList())
              + svfMergeInto(SITE_SENT_SCHOOL_KEY, svfSavedSchoolList());
     }
@@ -3597,15 +3651,21 @@
                 return oc.indexOf('DisplayInfo') !== -1;
             });
 
+            // اسمه ورقمه في البوّابة يُحفظان عند التثبيت — للزيارة التالية ولـ«جودة البيانات»
+            const remember = el => {
+                const info = svfParseDisplayInfo(el.getAttribute('onclick'));
+                if (info && sup && sup.teacher && svfRecordPortalName(sup.teacher, info))
+                    slog('حُفظ اسمه في البوّابة «' + info.portal + '»' + (info.emp ? ' ورقمه ' + info.emp : '') + ' للمرّات القادمة', 'info');
+            };
             for (const el of holders) {
                 slog('نقر عنصر DisplayInfo لاختيار المعلّم', 'info');
                 try { el.click(); } catch (e) { continue; }
-                if (await supRowConfirmed(before)) { slog('تُبِّت اختيار المعلّم', 'success'); return true; }
+                if (await supRowConfirmed(before)) { slog('تُبِّت اختيار المعلّم', 'success'); remember(el); return true; }
 
                 // وإن لم يستجب النقر، استدعِ الدالة من بيئة الإطار مباشرةً
                 const oc = el.getAttribute('onclick');
                 try { d.defaultView.eval(oc); } catch (e) {}
-                if (await supRowConfirmed(before)) { slog('تُبِّت اختيار المعلّم (استدعاء مباشر)', 'success'); return true; }
+                if (await supRowConfirmed(before)) { slog('تُبِّت اختيار المعلّم (استدعاء مباشر)', 'success'); remember(el); return true; }
             }
 
             // احتياطٌ أخير: أحداث فأرةٍ على الصفّ وخلاياه وأحفاده
@@ -3680,7 +3740,9 @@
                 }
 
                 // لم يُطابَق الاسم كاملاً: بالرقم الوظيفيّ، أو بأوّل اسمين في صفٍّ وحيد
-                const alt = supAltTeacherRow(want, sup && sup.fileNumber);
+                // الرقم من التقرير، وإلّا ممّا حُفظ من البوّابة في زيارةٍ سابقة
+                const known = svfPortalNameFor(sup && sup.teacher);
+                const alt = supAltTeacherRow(want, (sup && sup.fileNumber) || (known && known.emp));
                 if (alt) {
                     slog(alt.why + ': «' + alt.name + '» (في الموقع «' + (sup.teacher || '') + '»)', 'warn');
                     if (await supSelectRow(alt.doc, alt.tr)) return true;
@@ -3745,11 +3807,19 @@
             const picked = findAnywhere(['EmployeeAdministrativeScaleSearchCtrl1_lblEmployeeName']);
             const pickedName = normName((picked && picked.textContent) || '');
             const w2 = want.split(' ').slice(0, 2).join(' ');
-            if (pickedName && (pickedName.includes(want) || (w2.includes(' ') && (pickedName === w2 || pickedName.startsWith(w2 + ' '))))) {
+            const known = svfPortalNameFor(sup.teacher);
+            const knownName = known ? normName(known.portal) : '';
+            if (pickedName && (pickedName.includes(want) || (knownName && pickedName.includes(knownName))
+                || (w2.includes(' ') && (pickedName === w2 || pickedName.startsWith(w2 + ' '))))) {
                 slog('المعلّم مختارٌ أصلاً: ' + picked.textContent.trim(), 'success');
                 return true;
             }
+            // اسمه في البوّابة معروفٌ من زيارةٍ سابقة: يُبحث به أوّلاً
             const terms = searchTerms(sup.teacher);
+            if (knownName) {
+                slog('اسمه في البوّابة من زيارةٍ سابقة: «' + known.portal + '»' + (known.emp ? ' — رقمه ' + known.emp : ''), 'info');
+                terms.unshift(knownName);
+            }
             for (let i = 0; i < terms.length; i++) {
                 if (!await supRunSearch(terms[i])) return false;
                 if (await supAwaitTeacherRow(want, i === 0 ? 12000 : 7000)) return true;

@@ -138,6 +138,8 @@
                             parseInt(document.querySelector('#score-' + item.id).textContent),
                             true
                         ));
+                        // ونصوص الإجادة والتطوير والتوصيات المولَّدة تُعاد بالصيغة الجديدة (ما لم تُعدَّل)
+                        try { if (typeof supRegenderGenerated === 'function') supRegenderGenerated(); } catch (e) {}
                     });
                 });
 
@@ -245,6 +247,7 @@
                 try { if (typeof svfClassroomInit === 'function') svfClassroomInit(); }
                 catch (e) { console.error('Classroom Error', e); }
                 try { if (typeof svfTermPlanInit === 'function') svfTermPlanInit(); } catch (e) { console.warn('svfTermPlanInit', e); }
+                try { if (typeof svfTeacherBriefInit === 'function') svfTeacherBriefInit(); } catch (e) { console.warn('svfTeacherBriefInit', e); }
 
                 // بطاقة التقرير الشهري: تظهر للمشرف الذي ربط قاعدته وحده — التقرير
                 // يُبنى من خطة السير وأسماء معلّميه، فلا معنى لها قبل الربط.

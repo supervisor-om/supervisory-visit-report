@@ -285,7 +285,9 @@
                         ${p.schools.length ? schoolRows.join('') : '<p class="text-sm text-slate-400 italic p-2">لا زيارات بعد.</p>'}
                     </div>
                 </div>
-            </div>`;
+            </div>
+
+            ${typeof svfDataQualityCard === 'function' ? svfDataQualityCard() : ''}`;
 
             box.querySelectorAll('.term-tab').forEach(b =>
                 b.addEventListener('click', () => renderTermBoard(b.dataset.term)));

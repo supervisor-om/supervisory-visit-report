@@ -661,6 +661,29 @@
   وزرّ «معلم/معلمة» للإشرافيّة (افتراضه معلّم).
 - اختباره `node tests/term-plan.test.js` — على الخطة الحقيقيّة، ومنه: الثاني عشر في 7/10 ← «دفع الجلة بطريقة الزحف».
 
+## الاستفادة من قاعدة المعلّمين — ثلاث إضافات (2026-10-08)
+
+**١) أسماء البوّابة تُتعلَّم، و«جودة البيانات»** — السكربت v16.6: عند تثبيت اختيار المعلّم يقرأ
+`DisplayInfo('الاسم','الوظيفة','المدرسة','الرقم الوظيفيّ',…)` (`svfParseDisplayInfo`) ويحفظه في `GM` تحت
+`svf_portal_names` بمفتاح **اسمه في الموقع** (`svfNameKey`: تسويةٌ و«بن» تسقط). الزيارة التالية تبحث باسم البوّابة
+أوّلاً (`terms.unshift(knownName)`) وتُطابق بالرقم المحفوظ إن خلا التقرير من رقم الملف. ويُضخّ السجلّ إلى `localStorage`
+الموقع مع «المحفوظ» (`svfMergePortalNames` في `svfSyncSaved`، الأحدث يغلب). **الرقم الوظيفيّ لا يُكتب في «رقم الملف»**
+— لا يُعرف أنّهما واحد. بطاقة **«جودة بيانات معلّميك»** (`js/data-quality.js`) أسفل «إشرافي هذا الفصل»: الاسم المخالف
+للبوّابة، وبلا رقم ملف، وبلا جنس، وبلا صفوف، ومدارس بلا مدير — قراءةٌ فقط، والتعديل في موقع بيانات المعلّمين.
+اختبارهما `tests/portal-names.test.js` و`tests/data-quality.test.js`.
+
+**٢) ملخّص ما قبل الزيارة** (`js/teacher-brief.js`): `#supTeacherBrief` تحت اسم المعلّم في النموذج الإشرافيّ — آخر
+زيارةٍ (تاريخها، رقمها، متوسّطها وتقديره، منذ كم يوماً)، وأضعف بنودها (**أعلى** الدرجات ≥3: السلّم مقلوب)، وتوصياتها
+(بلا «نوصي…» و«والله…»)، وصفوفه ونصابه من القاعدة، ودرس اليوم من الخطة. يتحدّث مع الاسم/التاريخ/الصفّ/الجنس، وبعد
+`performReset` و`loadPermanentReport`؛ والتقرير المفتوح للتعديل لا يُعدّ سابقاً، وما بعد تاريخ الزيارة لا يُعدّ.
+**`` لا يعمل مع العربيّة في JS** — كشفه الاختبار. اختباره `tests/teacher-brief.test.js`.
+
+**٣) النصوص المولَّدة تتبع الجنس** (`js/supervisory.js`): تبديل «ذكر/أنثى» كان يعيد الأوصاف وحدها، فخرج تقرير مريم
+بأوصافٍ مؤنّثة وتوصياتٍ مذكّرة. `generateReport` يحفظ البنود المختارة في `supLastGenerated`، و`supRegenderGenerated`
+(من مستمع التبديل في `init.js`) يعيد كتابة الإجادة والتطوير والتوصيات **ما دامت كما وُلّدت** — المعدَّل يدوياً لا يُمسّ؛
+و`performReset` يمحوه. و`supWarnGenderMismatch` ينبّه عند التوليد إن خالف المختارُ جنسَ القاعدة.
+اختباره `tests/gender-regen.test.js`.
+
 ## خطّ سير اليوم: «قادم من» و«متجه إلى» (`js/route.js` — منذ 2026-09-21)
 
 من كان له أكثر من زيارةٍ مدرسيّةٍ في اليوم يكتب في **آخر خانة الأهداف** بالبوّابة سطراً
@@ -958,7 +981,7 @@
    و`node tests/identity.test.js` و`node tests/cloud.test.js` و`node tests/monthly.test.js`
    و`node tests/term-board.test.js`
    و`node tests/recs.test.js` و`node tests/classroom.test.js` و`node tests/objectives.test.js` و`node tests/route.test.js`
-   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js`.
+   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js`.
    ملف المحاكاة نفسه لم يُرفع بعد.
 3. **مطابقة الدرجة لها ملاذٌ أخيرٌ بالموضع** (`opts[Number(v)]` في تعبئة البنود) — تخمينٌ
    يخالف قاعدة «لا تخمين لسلّم التقييم». يُراجَع حين يُطبع سلّم البوّابة الحقيقيّ من التشخيص.

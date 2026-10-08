@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.5', /@version\s+16\.5/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 16.6', /@version\s+16\.6/.test(SRC));
 }
 
 /* ── ٩) v16.1: المعلّم باسمٍ مختلفٍ في البوّابة (لقطة 2026-10-07) ──
@@ -335,7 +335,7 @@ function load(els) {
     check('teacher: البحث يجرّب «مريم مصطفى» قبل الاسم الأوّل وحده',
           terms.indexOf(ctx.normName('مريم مصطفى')) > -1 && terms.indexOf(ctx.normName('مريم مصطفى')) < terms.indexOf('مريم'));
     check('teacher: البديل يُستدعى بعد فشل المطابقة الكاملة في الانتظار',
-          /supSelectRow\(d, tr\)\) return true;[\s\S]{0,200}const alt = supAltTeacherRow\(want, sup && sup\.fileNumber\)/.test(SRC));
+          /supSelectRow\(d, tr\)\) return true;[\s\S]{0,400}const alt = supAltTeacherRow\(want, \(sup && sup\.fileNumber\) \|\| \(known && known\.emp\)\)/.test(SRC));
 }
 
 /* ── ٨) v16.0: حارس التاريخ، والتوصيات في خانتها و«لا يوجد» في الدعم المقدم ── */
