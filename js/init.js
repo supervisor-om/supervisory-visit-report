@@ -292,6 +292,7 @@
                             objectiveNotes = {};
                             objectiveEdits = {};
                             schoolOpinionGen = null;   // تقريرٌ جديد: لا رأي زائرٍ مولَّدٍ سابق
+                            staffModeManual = false;   // ونوع الكادر يُستنتج من جديد
                             prevRecommendationsStatus = [];
                             document.getElementById('prevRecsPanel')?.classList.add('hidden');
                             renderSchoolClassroomVisits();
@@ -439,11 +440,16 @@
                 }
 
                 document.querySelectorAll('input[name="genderMode"]').forEach(input => {
-                    input.addEventListener('change', () => {
+                    input.addEventListener('change', (e) => {
+                        // نقرة المشرف (لا تبديل الاستنتاج الآليّ) تثبّت اختياره
+                        if (e.isTrusted) staffModeManual = true;
                         const visitType = document.getElementById('visitTypeSelect')?.value;
                         if (visitType) renderSchoolObjectives(visitType);
                     });
                 });
+                // نوع الكادر يُستنتج من المدرسة: يُعاد مع كلّ تغييرٍ في اسمها
+                ['change', 'blur'].forEach(ev => document.getElementById('schoolName')
+                    ?.addEventListener(ev, () => { try { applyAutoStaffMode(); } catch (e) {} }));
 
                 const repFormSubmit = document.getElementById('reportForm');
                 if (repFormSubmit) repFormSubmit.addEventListener('submit', saveSchoolReport);

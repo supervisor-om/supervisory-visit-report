@@ -72,6 +72,68 @@
             });
         }
 
+        // ─── نوع الكادر التعليميّ يُستنتج (منذ 2026-10-10) ───
+        // المشرف: «أريده بطريقةٍ ذكيّة، ولا داعي له ولديّ قاعدة بيانات المعلّمين». المفتاح:
+        // 0 ذكور-جماعة · 1 ذكر-مفرد · 2 إناث-جماعة · 3 أنثى-مفرد (بترتيب [معلمي/معلم/معلمات/معلمة]).
+        // المصدر: طاقم المدرسة المكتوب في النموذج، وإلّا معلّمو المدرسة في القاعدة. جنسٌ مجهولٌ
+        // لأحدهم ← لا استنتاج (يبقى الاختيار يدوياً). والمختلط مذكّرٌ جمعاً كما في العربيّة.
+        let staffModeManual = false;   // اختاره المشرف بيده — لا يُغيَّر آليّاً بعدها
+
+        function staffGenderMode(list) {
+            const t = (list || []).filter(x => x && String(x.name || '').trim());
+            if (!t.length || t.some(x => x.gender !== 'm' && x.gender !== 'f')) return null;
+            const allF = t.every(x => x.gender === 'f');
+            const mode = t.length === 1 ? (allF ? 3 : 1) : (allF ? 2 : 0);
+            const word = mode === 3 ? 'معلمة' : mode === 1 ? 'معلم'
+                       : allF ? (t.length === 2 ? 'معلمتان' : 'معلمات') : (t.length === 2 ? 'معلمان' : 'معلمون');
+            return { mode, count: t.length, word, names: t.map(x => String(x.name).trim()) };
+        }
+
+        function staffForSchool() {
+            const roster = Array.isArray(schoolTeachers) ? schoolTeachers.filter(t => t && t.name) : [];
+            if (roster.length) return { list: roster, source: 'طاقم المدرسة' };
+            try {
+                const school = (document.getElementById('schoolName')?.value || '').trim();
+                if (school && window.SupervisorIdentity && SupervisorIdentity.getIdentity()) {
+                    const list = SupervisorIdentity.teachersOfSchool(school);
+                    if (list.length) return { list, source: 'قاعدة المعلمين' };
+                }
+            } catch (e) {}
+            return { list: [], source: '' };
+        }
+
+        // بعد الرسم الجاري لا أثناءه — وبلا setTimeout (بيئة الاختبار) يُستدعى مباشرةً
+        function deferStaffMode() {
+            const run = () => { try { applyAutoStaffMode(); } catch (e) {} };
+            if (typeof setTimeout === 'function') setTimeout(run, 0); else run();
+        }
+
+        function applyAutoStaffMode() {
+            const info = document.getElementById('staffModeInfo');
+            const grid = document.getElementById('staffModeGrid');
+            if (!info || !grid) return;
+            const { list, source } = staffForSchool();
+            const s = staffGenderMode(list);
+            if (!s || staffModeManual) {
+                info.innerHTML = staffModeManual && s
+                    ? `اخترته بيدك. (في ${schoolRouteEsc(source)}: ${schoolRouteEsc(s.word)})`
+                    : 'لم أستنتجه — اكتب المدرسة أو طاقمها، أو اختره:';
+                grid.classList.remove('hidden');
+                return;
+            }
+            const radio = document.querySelector(`input[name="genderMode"][value="${s.mode}"]`);
+            if (radio && !radio.checked) {
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change', { bubbles: true }));   // يُعاد رسم الأهداف بالصيغة
+            }
+            const names = s.names.slice(0, 4).map(schoolRouteEsc).join('، ') + (s.names.length > 4 ? '…' : '');
+            info.innerHTML = `الكادر: <span class="font-bold">${s.count > 2 ? s.count + ' ' : ''}${schoolRouteEsc(s.word)}</span>
+                <span class="text-slate-500">(${names}) — من ${schoolRouteEsc(source)}</span>
+                <button type="button" id="staffModeChange" class="underline text-blue-700 mr-1">تغيير</button>`;
+            grid.classList.add('hidden');
+            document.getElementById('staffModeChange')?.addEventListener('click', () => grid.classList.remove('hidden'));
+        }
+
         function getGenderMode() {
             return parseInt(document.querySelector('input[name="genderMode"]:checked')?.value || '0');
         }
@@ -125,6 +187,8 @@
                     if (n > hits) { hits = n; mode = m; }
                 }
             }
+            // تقريرٌ محفوظ: مفتاحه كما حُفظ، ولا يغيّره الاستنتاج الآليّ بعد فتحه
+            if (mode !== null) staffModeManual = true;
             if (mode !== null && mode !== getGenderMode()) {
                 const radio = document.querySelector(`input[name="genderMode"][value="${mode}"]`);
                 if (radio) { radio.checked = true; renderSchoolObjectives(report.visitType); }
@@ -167,6 +231,8 @@
             const typeData = schoolVisitTypesData[typeKey];
             if (typeData && Array.isArray(typeData.objectives)) {
                 if (genderSelector) genderSelector.classList.remove('hidden');
+                // بعد الرسم لا أثناءه: الاستنتاج قد يبدّل المفتاح فيُعاد الرسم
+                deferStaffMode();
                 const mode = getGenderMode();
                 typeData.objectives.forEach((obj, index) => {
                     if(!obj) return;
@@ -427,6 +493,8 @@
 
         function renderSchoolTeachers() {
             const list = document.getElementById('schoolTeachersList');
+            // الطاقم تغيّر ← نوع الكادر يُعاد استنتاجه
+            deferStaffMode();
             if (!list) return;
             list.innerHTML = '';
             if (!Array.isArray(schoolTeachers) || !schoolTeachers.length) {
