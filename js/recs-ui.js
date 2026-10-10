@@ -10,6 +10,9 @@
     const R = window.SchoolRecs;
     const el = id => document.getElementById(id);
     const EQ_KEY = 'svf_recs_equipment';     // أدواتٌ أضافها المشرف إلى القائمة
+    const BANK_KEY = 'svf_recs_bank';        // بنك توصيات المشرف: [{text, audience}]
+    const COUNT_KEY = 'svf_recs_free_counts'; // كم مرّةً أُدرجت كلّ توصيةٍ حرّة — للاقتراح بحفظها
+    let recsGen = { gen: [], off: [] };   // آخر توليدٍ وما حذفه المشرف منه — بهما يبقى ما كتبه بيده (R.mergeRecs)
 
     let list = [];        // التوصيات المضافة لهذه الزيارة
     let draft = { category: 'equipment', items: {}, options: [], deadline: '', who: '', text: '' };
@@ -19,6 +22,17 @@
     const equipmentList = () => [...R.EQUIPMENT, ...(readJSON(EQ_KEY, []) || [])];
 
     const roster = () => (typeof schoolTeachers !== 'undefined' && Array.isArray(schoolTeachers)) ? schoolTeachers : [];
+    // جهة المعلّمين من الطاقم المكتوب أو من قاعدة المعلّمين (كنوع الكادر في school.js)
+    function teacherAudience() {
+        try {
+            if (typeof staffForSchool === 'function' && typeof staffGenderMode === 'function') {
+                const m = staffGenderMode(staffForSchool().list);
+                if (m) return ['المعلمين', 'المعلم', 'المعلمات', 'المعلمة'][m.mode];
+            }
+        } catch (e) {}
+        return R.audienceFromRoster(roster());
+    }
+    const opinionText = () => (el('visitorOpinion') && el('visitorOpinion').value) || '';
     const classroom = () => (typeof schoolClassroomVisits !== 'undefined' && Array.isArray(schoolClassroomVisits)) ? schoolClassroomVisits : [];
     const prevRecs = () => (typeof prevRecommendationsStatus !== 'undefined' && Array.isArray(prevRecommendationsStatus)) ? prevRecommendationsStatus : [];
 
@@ -52,9 +66,11 @@
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="text-xs font-bold text-slate-500">نوصي:</span>
-              <select id="rbAudience" class="text-xs border border-slate-200 rounded-lg px-2 py-1.5">
-                ${R.AUDIENCES.map(a => `<option ${a === audience() ? 'selected' : ''}>${esc(a)}</option>`).join('')}
-              </select>
+              ${R.categoryOf(draft.category).id === 'free'
+                ? `<select id="rbAudience" class="text-xs border border-slate-200 rounded-lg px-2 py-1.5">
+                    ${R.AUDIENCES.map(a => `<option ${a === (draft.audience || 'إدارة المدرسة') ? 'selected' : ''}>${esc(a)}</option>`).join('')}
+                  </select>`
+                : `<span class="text-xs text-slate-600">${esc(R.audienceOf(draftRec()))}</span>`}
               <button type="button" id="rbAdd" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-1.5 rounded-lg mr-auto">
                 <i class="fa-solid fa-plus ml-1"></i>أضف التوصية</button>
             </div>
@@ -74,12 +90,12 @@
             render();
         }));
         host.querySelectorAll('.rb-dl').forEach(b => b.addEventListener('click', () => { draft.deadline = b.dataset.dl; render(); }));
+        if (el('rbAudience')) el('rbAudience').addEventListener('change', e => { draft.audience = e.target.value; renderPreview(); });
         el('rbAdd').addEventListener('click', addDraft);
         el('rbInsert').addEventListener('click', insertIntoField);
         el('rbClear').addEventListener('click', () => { list = []; renderList(); renderPreview(); });
     }
 
-    const audience = () => (el('rbAudience') && el('rbAudience').value) || 'إدارة المدرسة';
 
     function renderPanel() {
         const cat = R.categoryOf(draft.category), p = el('rbPanel');
@@ -135,7 +151,7 @@
             const who = cat.needsWho ? `
                 <select id="rbWho" class="text-xs border border-slate-200 rounded-lg px-2 py-1 mb-2">
                   ${['المعلمة', 'المعلم', 'المعلمين', 'المعلمات'].map(w =>
-                    `<option ${w === (draft.who || R.audienceFromRoster(roster())) ? 'selected' : ''}>${esc(w)}</option>`).join('')}
+                    `<option ${w === (draft.who || teacherAudience()) ? 'selected' : ''}>${esc(w)}</option>`).join('')}
                 </select>` : '';
             p.innerHTML = `<div class="bg-white border border-slate-200 rounded-lg p-3">${who}
                 <div class="flex flex-wrap gap-2">${cat.options.map(o =>
@@ -146,13 +162,18 @@
                 draft.options = [...p.querySelectorAll('.rb-op')].filter(x => x.checked).map(x => x.value);
                 renderPreview();
             }));
-            if (el('rbWho')) el('rbWho').addEventListener('change', e => { draft.who = e.target.value; renderPreview(); });
+            if (el('rbWho')) el('rbWho').addEventListener('change', e => { draft.who = e.target.value; render(); });
             return;
         }
 
-        p.innerHTML = `<input id="rbFree" type="text" value="${esc(draft.text)}" placeholder="اكتب نصّ التوصية…"
-                        class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2">`;
+        p.innerHTML = `<div class="flex gap-2"><input id="rbFree" type="text" value="${esc(draft.text)}" placeholder="اكتب نصّ التوصية…"
+                        class="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2">
+                        <button type="button" id="rbBankSave" class="text-xs border border-emerald-300 text-emerald-800 rounded-lg px-3"
+                                title="تظهر في «من بنكك» في كلّ زيارة">احفظ في بنكي</button></div>`;
         el('rbFree').addEventListener('input', e => { draft.text = e.target.value; renderPreview(); });
+        el('rbBankSave').addEventListener('click', () => {
+            if (bankAdd(draft.text, draft.audience)) { try { showToast('حُفظت في بنك توصياتك'); } catch (e) {} renderSuggest(); }
+        });
     }
 
     function draftRec() {
@@ -163,8 +184,8 @@
             rec.perList = draft.perList !== false; rec.extra = draft.extra !== false; rec.playground = !!draft.playground;
         } else if (cat.options) {
             rec.options = draft.options.slice();
-            if (cat.needsWho) rec.who = draft.who || R.audienceFromRoster(roster());
-        } else { rec.text = draft.text; rec.manual = true; }
+            if (cat.needsWho) rec.who = draft.who || teacherAudience();
+        } else { rec.text = draft.text; rec.manual = true; rec.audience = draft.audience || 'إدارة المدرسة'; }
         return rec;
     }
 
@@ -180,7 +201,7 @@
         box.innerHTML = `<div class="space-y-1">${list.map((r, i) =>
             `<div class="flex items-start gap-2 text-xs bg-white border border-slate-200 rounded-lg p-2">
                <span class="font-bold text-slate-400">${i + 1}</span>
-               <span class="flex-1 leading-6">${esc(R.recText(r))}</span>
+               <span class="flex-1 leading-6">${esc(R.recText(r))} <span class="text-slate-400">— ${esc(R.audienceOf(r))}</span></span>
                <button type="button" data-del="${i}" class="rb-del text-slate-400 hover:text-red-600"><i class="fa-solid fa-xmark"></i></button>
              </div>`).join('')}</div>`;
         box.querySelectorAll('.rb-del').forEach(b => b.addEventListener('click', () => { list.splice(+b.dataset.del, 1); renderList(); }));
@@ -190,8 +211,22 @@
         const box = el('rbSuggest'); if (!box) return;
         const s = R.suggest({ notedObjectives: notedObjectives(), roster: roster(), classroomVisits: classroom() });
         const carry = R.carryOver(prevRecs());
-        if (!s.length && !carry.length) { box.innerHTML = ''; return; }
+        const fromOp = R.suggestFromOpinion(opinionText(), teacherAudience())
+            .filter(x => !list.some(r => R.recText(r) === R.recText(x.rec)));
+        const bank = bankList();
+        const repeated = repeatedFree().filter(t => !bank.some(b => b.text === t));
+        if (!s.length && !carry.length && !fromOp.length && !bank.length && !repeated.length) { box.innerHTML = ''; return; }
         box.innerHTML = `<div class="text-xs space-y-2">
+            ${fromOp.length ? `<div class="flex flex-wrap items-center gap-2"><span class="font-bold text-indigo-700">من رأي الزائر:</span>
+              ${fromOp.map((x, i) => `<button type="button" data-op="${i}" class="rb-op-sug bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-full px-3 py-1"
+                  title="${esc(x.why)}">${esc(R.recText(x.rec).slice(0, 60))} — ${esc(R.audienceOf(x.rec))}</button>`).join('')}</div>` : ''}
+            ${bank.length ? `<div class="flex flex-wrap items-center gap-2"><span class="font-bold text-emerald-700">من بنكك:</span>
+              ${bank.map((b, i) => `<span class="inline-flex items-center bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full">
+                  <button type="button" data-bank="${i}" class="rb-bank px-3 py-1">${esc(b.text.slice(0, 50))}</button>
+                  <button type="button" data-bankdel="${i}" class="rb-bankdel pl-2 text-emerald-500 hover:text-red-600" title="احذفها من البنك">×</button></span>`).join('')}</div>` : ''}
+            ${repeated.length ? `<div class="flex flex-wrap items-center gap-2"><span class="font-bold text-slate-500">تكرّرت عندك:</span>
+              ${repeated.map((t, i) => `<button type="button" data-rep="${i}" class="rb-rep border border-dashed border-emerald-300 text-emerald-800 rounded-full px-3 py-1"
+                  title="أدرجتها أكثر من مرّة — احفظها في بنكك">💾 ${esc(t.slice(0, 40))}</button>`).join('')}</div>` : ''}
             ${s.length ? `<div class="flex flex-wrap items-center gap-2"><span class="font-bold text-slate-500">اقتراحات:</span>
               ${s.map((x, i) => `<button type="button" data-sug="${i}" class="rb-sug bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-3 py-1"
                   title="${esc(x.why)}">${esc(R.categoryOf(x.category).label)}${x.text ? ' — ' + esc(x.text.slice(0, 30)) : ''}</button>`).join('')}</div>` : ''}
@@ -205,31 +240,79 @@
             else { draft = { category: x.category, items: {}, options: [], deadline: draft.deadline, who: x.who || '', text: '' }; render(); }
         }));
         box.querySelectorAll('.rb-carry').forEach(b => b.addEventListener('click', () => { list.push(carry[+b.dataset.carry]); renderList(); }));
+        box.querySelectorAll('.rb-op-sug').forEach(b => b.addEventListener('click', () => {
+            const rr = Object.assign({}, fromOp[+b.dataset.op].rec); list.push(rr); unsuppress(rr); renderList(); renderSuggest();
+        }));
+        box.querySelectorAll('.rb-bank').forEach(b => b.addEventListener('click', () => {
+            const x = bank[+b.dataset.bank];
+            list.push({ category: 'free', manual: true, text: x.text, audience: x.audience || 'إدارة المدرسة' }); renderList();
+        }));
+        box.querySelectorAll('.rb-bankdel').forEach(b => b.addEventListener('click', () => { bankRemove(+b.dataset.bankdel); renderSuggest(); }));
+        box.querySelectorAll('.rb-rep').forEach(b => b.addEventListener('click', () => {
+            if (bankAdd(repeated[+b.dataset.rep], 'إدارة المدرسة')) { try { showToast('حُفظت في بنك توصياتك'); } catch (e) {} }
+            renderSuggest();
+        }));
         if (el('rbCarryAll')) el('rbCarryAll').addEventListener('click', () => { carry.forEach(c => list.push(c)); renderList(); });
     }
 
     function addDraft() {
         const rec = draftRec();
         if (!R.recText(rec)) { try { showToast('اختر ما توصي به أوّلاً', 'error'); } catch (e) {} return; }
-        list.push(rec);
+        list.push(rec); unsuppress(rec);
         draft = { category: draft.category, items: {}, options: [], deadline: '', who: draft.who, text: '' };
         render();
     }
 
-    // النصّ المولَّد يُعرف بمقدّمته وخاتمته — فما كتبه المشرف بيده لا يُطمس بلا إذن
-    const looksGenerated = t => /^نوصي .* بالآتي:/.test(String(t).trim()) && String(t).trim().endsWith(R.CLOSING);
-
-    function insertIntoField() {
-        const field = el('recommendations');
-        if (!field) return;
-        if (!list.length) { try { showToast('لا توصيات في القائمة', 'error'); } catch (e) {} return; }
-        const text = R.buildText(list, { audience: audience() });
-        const cur = (field.value || '').trim();
-        if (cur && !looksGenerated(cur) && !confirm('حقل التوصيات فيه نصٌّ مكتوبٌ بيدك. أستبدله بالمولَّد؟')) return;
-        field.value = text;
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-        try { showToast('أُدرجت ' + list.length + ' توصية'); } catch (e) {}
+    // ── البنك والتكرار ──
+    function bankList() { const b = readJSON(BANK_KEY, []); return Array.isArray(b) ? b.filter(x => x && x.text) : []; }
+    function bankAdd(text, audience) {
+        const t = String(text || '').trim();
+        if (!t) return false;
+        const b = bankList();
+        if (b.some(x => x.text === t)) return false;
+        b.push({ text: t, audience: audience || 'إدارة المدرسة' });
+        try { localStorage.setItem(BANK_KEY, JSON.stringify(b)); } catch (e) { return false; }
+        return true;
     }
+    function bankRemove(i) {
+        const b = bankList(); b.splice(i, 1);
+        try { localStorage.setItem(BANK_KEY, JSON.stringify(b)); } catch (e) {}
+    }
+    function countFree(recs) {
+        const c = readJSON(COUNT_KEY, {}) || {};
+        recs.filter(r => r.category === 'free' && r.manual && String(r.text || '').trim())
+            .forEach(r => { const t = String(r.text).trim(); c[t] = (c[t] || 0) + 1; });
+        try { localStorage.setItem(COUNT_KEY, JSON.stringify(c)); } catch (e) {}
+    }
+    const repeatedFree = () => Object.entries(readJSON(COUNT_KEY, {}) || {}).filter(([, n]) => n >= 2).map(([t]) => t).slice(0, 6);
+
+    // ── التوليد: القائمة + ما يُضاف من خارجها، يُدمج مع ما في الحقل (R.mergeRecs) ──
+    // «إدراج» و«توليد التوصيات» يمرّان هنا معاً: كان الثاني يستبدل الحقل كلّه، ويُفرغه بلا ملاحظات.
+    function generate(extra) {
+        const field = el('recommendations');
+        if (!field) return null;
+        const all = list.concat(extra || []);
+        if (!all.length && !field.value.trim()) {
+            try { showToast('لا توصيات — أضف من المنشئ أو اكتب ملاحظاتٍ على الأهداف', 'info'); } catch (e) {}
+            return null;
+        }
+        const groups = R.groupRecs(all, 'إدارة المدرسة');
+        const r = R.mergeRecs(field.value, recsGen, groups);
+        field.value = r.text;
+        recsGen = r.state;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        countFree(all);
+        try {
+            showToast('أُدرجت ' + r.gen.length + ' توصية' + (r.kept ? ' — وأُبقي ما كتبته بيدك (' + r.kept + ')' : ''));
+        } catch (e) {}
+        renderSuggest();
+        return r;
+    }
+    function insertIntoField() {
+        if (!list.length && !el('recommendations').value.trim()) { try { showToast('لا توصيات في القائمة', 'error'); } catch (e) {} return; }
+        generate([]);
+    }
+    window.svfRecsGenerate = generate;
 
     // ── ما يحفظه التقرير ويستعيده ──
     window.getSchoolRecs = () => list.map(r => Object.assign({}, r, {
@@ -237,11 +320,24 @@
         due: R.dueDate(r, (el('schoolVisitDate') && el('schoolVisitDate').value) || '')
     }));
     window.setSchoolRecs = arr => { list = Array.isArray(arr) ? arr.slice() : []; renderList(); };
+    window.getSchoolRecsGen = () => ({ gen: recsGen.gen.slice(), off: recsGen.off.slice() });
+    window.setSchoolRecsGen = v => {
+        recsGen = Array.isArray(v) ? { gen: v.slice(), off: [] }
+                : (v && typeof v === 'object') ? { gen: (v.gen || []).slice(), off: (v.off || []).slice() } : { gen: [], off: [] };
+    };
+    // ما يضيفه المشرف إلى القائمة صراحةً يُرفع عنه «المحذوف» — وإلّا لم يظهر وقد طلبه
+    function unsuppress(rec) {
+        const t = R.recText(rec).replace(/\.$/, '');
+        recsGen.off = recsGen.off.filter(b => b.replace(/\.$/, '') !== t);
+    }
     window.initRecsBuilder = function () {
         if (!el('recsBuilder') || !R) return;
-        draft.who = R.audienceFromRoster(roster());
+        draft.who = '';   // تُشتقّ عند الحاجة من المدرسة (teacherAudience) — لا تُثبَّت قبل كتابتها
         render();
         // الاقتراحات تتبع ما يتغيّر في النموذج: الأهداف والطاقم والزيارات الصفّية
         document.addEventListener('svf-school-changed', renderSuggest);
+        // واقتراحات رأي الزائر تتبع ما يُكتب فيه
+        let t = null;
+        if (el('visitorOpinion')) el('visitorOpinion').addEventListener('input', () => { clearTimeout(t); t = setTimeout(renderSuggest, 400); });
     };
 })();

@@ -133,12 +133,81 @@
 
     // ── النصّ النهائي: مقدّمةٌ وبنودٌ وخاتمة ──
     const CLOSING = 'والله الموفق.';
+    // ── جهة كلّ توصية: من يُنفّذها (منذ 2026-10-10) ──
+    // كانت المقدّمة واحدةً للتوصيات كلّها («نوصي إدارة المدرسة» حتّى قبل تحضير المعلّم). الآن:
+    // الأدوات والملاعب والجدول والنشاط والأدلة ← الإدارة (هي من تغيّر جدول المعلّمة — مثال المشرف)،
+    // والسجلات والتحضير ← المعلّم نفسه (rec.who)، والحرّة ← ما اختاره المشرف لها.
+    const ADMIN = 'إدارة المدرسة';
+    function audienceOf(rec, fallback) {
+        if (rec && clean(rec.audience)) return clean(rec.audience);
+        if (rec && rec.category === 'records') return clean(rec.who) || 'المعلمين';
+        if (rec && rec.category === 'free') return clean(fallback) || ADMIN;
+        return ADMIN;
+    }
+
+    // بنودٌ مجمَّعةٌ بجهاتها بترتيب أوّل ظهور: [{audience, items:[نصّ]}]
+    function groupRecs(list, fallback) {
+        const groups = [];
+        (list || []).forEach(r => {
+            const t = recText(r);
+            if (!t) return;
+            const a = audienceOf(r, fallback);
+            let g = groups.find(x => x.audience === a);
+            if (!g) groups.push(g = { audience: a, items: [] });
+            if (!g.items.includes(dot(t))) g.items.push(dot(t));
+        });
+        return groups;
+    }
+
+    function textFromGroups(groups, extraLines) {
+        const lines = [];
+        (groups || []).filter(g => g.items.length).forEach((g, i) => {
+            lines.push(`${i ? 'ونوصي' : 'نوصي'} ${g.audience} بالآتي:`);
+            g.items.forEach(t => lines.push('- ' + t));
+        });
+        (extraLines || []).forEach(l => lines.push(l));
+        return lines.length ? lines.concat(CLOSING).join('\n') : '';
+    }
+
     function buildText(list, opts) {
         const o = opts || {};
-        const items = (list || []).map(recText).filter(Boolean);
-        if (!items.length) return '';
-        const intro = `نوصي ${o.audience || 'إدارة المدرسة'} بالآتي:`;
-        return [intro, ...items.map(t => '- ' + dot(t)), CLOSING].join('\n');
+        return textFromGroups(groupRecs(list, o.audience));
+    }
+
+    // ── ما كتبه المشرف في حقل التوصيات يبقى عند إعادة التوليد (منذ 2026-10-10) ──
+    // كان «توليد التوصيات» يستبدل الحقل كلّه (ويُفرغه إن لم تكن ملاحظات). الآن:
+    //   • بندٌ مولَّدٌ لم يُمسّ ← يُعاد من التوليد الجديد (أو يُحذف إن لم يعد فيه)
+    //   • بندٌ مولَّدٌ حذفه المشرف أو عدّله ← لا يعود بنصّه القديم
+    //   • كلّ سطرٍ آخر (ومنه المعدَّل) ← يبقى كما كتبه، قبل الخاتمة
+    // prevState: { gen: نصوص بنود آخر توليد, off: ما حذفه المشرف أو عدّله من المولَّد } — يُحفظ مع التقرير.
+    // (مصفوفةٌ وحدها = gen بلا off، للتوافق.) و«off» يتراكم: المحذوف لا يعود في التوليد الثالث ولا بعده
+    // — كشفه الاختبار: كان يُذكر جيلاً واحداً ثمّ يعود.
+    const STRUCT = /^و?نوصي .+ بالآتي:$/;
+    const itemBody = l => clean(String(l).replace(/^[-–•]\s*/, ''));
+    function mergeRecs(current, prevState, freshGroups) {
+        const st = Array.isArray(prevState) ? { gen: prevState, off: [] } : (prevState || {});
+        const prev = new Set((st.gen || []).map(itemBody));
+        const offPrev = (st.off || []).map(itemBody);
+        const lines = String(current || '').split('\n').map(l => l.replace(/\s+$/, '')).filter(l => l.trim());
+        const curBodies = new Set();
+        const user = [];
+        lines.forEach(l => {
+            const t = l.trim();
+            if (STRUCT.test(t) || t === CLOSING) return;
+            const b = itemBody(t);
+            curBodies.add(b);
+            if (!prev.has(b)) user.push(t);
+        });
+        // ما ولّدناه آخر مرّةٍ ولم يعد في الحقل: حذفه المشرف أو عدّله — لا يُعاد
+        const suppressed = new Set(offPrev.concat([...prev].filter(b => !curBodies.has(b))));
+        const groups = (freshGroups || []).map(g => ({
+            audience: g.audience,
+            items: g.items.filter(t => !suppressed.has(itemBody(t)) && !user.some(u => itemBody(u) === itemBody(t)))
+        }));
+        const gen = [];
+        groups.forEach(g => g.items.forEach(t => gen.push(itemBody(t))));
+        const off = [...suppressed];
+        return { text: textFromGroups(groups, user), gen, off, state: { gen, off }, kept: user.length };
     }
 
     // تاريخ الاستحقاق للمتابعة — المدد بلا أيّامٍ محدّدة لا تاريخ لها
@@ -185,6 +254,50 @@
         return out.filter(s => { const k = s.category + (s.text || ''); if (seen.has(k)) return false; seen.add(k); return true; });
     }
 
+    // ── الاقتراح من نصّ رأي الزائر (منذ 2026-10-10) ──
+    // ما يكتبه المشرف في رأي الزائر («لم يفعل سجل الزي»، «لا يتوفر تحضير للعاشر»، «تأخر في المنهاج»)
+    // يقترح توصيته جاهزةً بضغطة — الصيغ من نموذج المشرف نفسه. كلّ اقتراحٍ توصيةٌ كاملة (rec) لا قالب.
+    // التسوية تُسقط التشكيل والهمزات، فـ«يفعّل/يفعل» و«تأخّر/تأخر» واحد.
+    const norm = s => clean(s).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    const OPINION_RULES = [
+        { re: /لم (ي|ت)?فعل سجل|عدم تفعيل سجل|السجلات? (غير مكتمل|ناقص)|لم تكتمل السجلات/,
+          rec: w => ({ category: 'records', who: w, options: ['follow'] }), why: 'سجلٌّ غير مفعَّل أو ناقص' },
+        { re: /لا يتوفر تحضير|لا يوجد تحضير|عدم وجود تحضير|تحضير (لدرسين|واحد|لدرس) فقط|التحضير (غير مكتمل|ناقص)/,
+          rec: w => ({ category: 'records', who: w, options: ['nour'] }), why: 'تحضيرٌ ناقص' },
+        { re: /تاخر في المنهاج|تاخرا في المنهاج|لم (ي|ت)?قم بتدريس|متاخر عن الخطه/,
+          rec: w => ({ category: 'records', who: w, options: ['plan'] }), why: 'تأخّرٌ في المنهاج' },
+        { re: /الادوات (غير متوفره|غير كافيه|ناقصه|تالفه|قليله)|نقص (في )?الادوات|عدم توفر الادوات/,
+          rec: () => ({ category: 'equipment', items: [], perList: true, extra: false }), why: 'نقصٌ في الأدوات' },
+        { re: /(الملعب|التخطيط) (غير مخطط|غير واضح|يحتاج)|يحتاج (الملعب )?(الي|إلى|الى) تخطيط/,
+          rec: () => ({ category: 'playground', options: ['repaint'] }), why: 'الملعب يحتاج تخطيطاً' },
+        { re: /الهتاف (ضعيف|منخفض|غير واضح)|الانصراف (غير منظم|يحتاج)|يحتاج (الطابور|الانصراف) (الي|إلى|الى) تنظيم/,
+          rec: () => ({ category: 'free', manual: true, audience: ADMIN,
+                        text: 'العمل على تحسين تنظيم الطابور المدرسي ورفع مستوى الهتاف وتنظيم الانصراف' }), why: 'الطابور يحتاج تنظيماً' },
+        { re: /عدم (التزام|الالتزام) .*بالزي|(لا|غير) (يلتزم|ملتزمين|ملتزم) .*بالزي|بدون الزي الرياضي/,
+          rec: w => ({ category: 'free', manual: true, audience: w,
+                       text: 'متابعة التزام الطلبة بالزي الرياضي وتوثيقه في سجل الزي' }), why: 'عدم الالتزام بالزي' },
+        { re: /لم (يتم|تتم) تنفيذ التوصيات|التوصيات .*لم (تنفذ|ينفذ)/,
+          rec: () => ({ category: 'free', manual: true, audience: ADMIN,
+                        text: 'التأكيد على تنفيذ التوصيات السابقة' }), why: 'توصياتٌ سابقةٌ لم تُنفَّذ' }
+    ];
+    function suggestFromOpinion(opinion, teacherWord) {
+        const t = norm(opinion);
+        if (!t) return [];
+        const w = clean(teacherWord) || 'المعلمين';
+        const out = [];
+        OPINION_RULES.forEach(rule => {
+            if (rule.re.test(t)) out.push({ rec: rule.rec(w), why: rule.why });
+        });
+        // قاعدتان قد تقترحان البند نفسه (السجلات والتحضير): يُضمّان في توصيةٍ واحدة
+        const rec = out.filter(x => x.rec.category === 'records');
+        if (rec.length > 1) {
+            const opts = [...new Set(rec.flatMap(x => x.rec.options))];
+            const merged = { rec: { category: 'records', who: w, options: opts }, why: rec.map(x => x.why).join('، ') };
+            return [merged].concat(out.filter(x => x.rec.category !== 'records'));
+        }
+        return out;
+    }
+
     // جهة الخطاب من طاقم المدرسة: معلّمةٌ واحدة ← «المعلمة»، ومعلّمتان ← «المعلمات»
     function audienceFromRoster(roster) {
         const r = (roster || []).filter(t => t && t.name);
@@ -196,7 +309,7 @@
 
     const api = { EQUIPMENT, AUDIENCES, DEADLINES, CATEGORIES, CLOSING,
                   buildText, recText, dueDate, carryOver, suggest, audienceFromRoster,
-                  categoryOf, deadlineOf };
+                  categoryOf, deadlineOf, audienceOf, groupRecs, textFromGroups, mergeRecs, suggestFromOpinion };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.SchoolRecs = api;
 })(typeof window !== 'undefined' ? window : globalThis);

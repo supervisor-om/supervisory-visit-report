@@ -618,6 +618,27 @@
   وتُبنى منها متابعة الزيارة التالية.
 - **ما كُتب باليد لا يُطمس**: الإدراج في الحقل يستأذن إن لم يكن النصّ مولَّداً (`looksGenerated`).
 
+**تطوير التوصيات (منذ 2026-10-10):**
+- **الجهة لكلّ توصية** (`audienceOf`): الأدوات والملاعب **والجدول** والنشاط والأدلة ← الإدارة (هي من تغيّر جدول
+  المعلّمة — مثال المشرف الحرفيّ في `recs.test.js` باقٍ)، والسجلات ← `who`، والحرّة ← ما اختير لها. النصّ مجموعات
+  «نوصي … / ونوصي …» بخاتمةٍ واحدة (`groupRecs`/`textFromGroups`). جهة المعلّمين من `staffForSchool` كنوع الكادر.
+- **ما كتبه المشرف يبقى** (`mergeRecs(current, {gen, off}, groups)`): المولَّد الذي لم يُمسّ يُعاد، والمحذوف أو المعدَّل
+  من المولَّد يدخل `off` **ويتراكم** (كان يُذكر جيلاً واحداً — كشفه الاختبار)، وكلّ سطرٍ آخر يبقى قبل الخاتمة.
+  الزرّان («إدراج» و«توليد التوصيات» القديم الذي كان يُفرغ الحقل) يمرّان بـ`svfRecsGenerate`. والإضافة الصريحة
+  إلى القائمة ترفع البند من `off`. الحالة `recsGen` تُحفظ مع التقرير.
+- **من رأي الزائر** (`suggestFromOpinion`): قواعد على نصّ الرأي بصيغ المشرف («لم يفعل سجل»، «لا يتوفر تحضير»، «تأخر في
+  المنهاج»، «الهتاف ضعيف»…) بعد تسوية التشكيل والهمزات؛ السجلّ والتحضير والمنهاج في توصيةٍ واحدة. «سجلاته مكتملة»
+  لا تقترح شيئاً. وتُعاد الاقتراحات مع الكتابة في رأي الزائر.
+- **بنكك:** «احفظ في بنكي» للحرّة (`svf_recs_bank`)، و«تكرّرت عندك» لما أُدرج مرّتين (`svf_recs_free_counts`).
+- **لوحة «توصيات تنتظر المتابعة»** (`js/recs-board.js`، `#recsBoard` أعلى سجلّ التقارير المدرسيّة): توصيات **آخر
+  زيارةٍ لكلّ مدرسة** — تجاوزت موعدها / تحين خلال أسبوع / عند الزيارة القادمة (والتقارير القديمة بلا بنيةٍ من سطور
+  «- »)، و«زيارة متابعة» تفتح تقريراً باسم المدرسة وتُحمّل توصياتها السابقة. وتقييمها في الزيارة التالية صار يُحفظ
+  (`prevRecsReview`).
+- **«الملاحظات العامة» في الزيارة الإشرافيّة** (`#generalNotesContent`، وعبارات بضغطة بصيغة الجنس) ← `notesGeneral` في
+  المسارات الثلاثة (`export.js`، `queue-export.js`، السكربت v16.9) ← خانة «الملاحظات» في البوّابة (كانت «لا يوجد»).
+  وصار عنوان خانة التوصيات «التوصيات» (تذهب إلى خانتها منذ v16.0).
+- اختبارها `node tests/recs-v2.test.js`.
+
 ## المواقف الصفّيّة وقاعدة المعلمين (`js/classroom.js` — منذ 2026-09-17)
 
 يعمل بالربط وحده كالإكمال التلقائيّ؛ وبلا ربطٍ تبقى الحقول تُكتب باليد كما كانت، والزرّ
@@ -1034,7 +1055,7 @@
    و`node tests/identity.test.js` و`node tests/cloud.test.js` و`node tests/monthly.test.js`
    و`node tests/term-board.test.js`
    و`node tests/recs.test.js` و`node tests/classroom.test.js` و`node tests/objectives.test.js` و`node tests/route.test.js`
-   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js`.
+   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js` و`node tests/recs-v2.test.js`.
    ملف المحاكاة نفسه لم يُرفع بعد.
 3. **مطابقة الدرجة لها ملاذٌ أخيرٌ بالموضع** (`opts[Number(v)]` في تعبئة البنود) — تخمينٌ
    يخالف قاعدة «لا تخمين لسلّم التقييم». يُراجَع حين يُطبع سلّم البوّابة الحقيقيّ من التشخيص.

@@ -672,3 +672,35 @@
             }
         }
 
+
+        // ─── الملاحظات العامة: عباراتٌ جاهزة بضغطة (منذ 2026-10-10) ───
+        // تُضاف سطراً في #generalNotesContent ولا تستبدل ما كُتب، وصيغتها تتبع جنس المعلّم.
+        const SUP_NOTE_CHIPS = [
+            'تعاون إدارة المدرسة وتسهيل مهمة الزيارة.',
+            'تمت مناقشة نتائج الزيارة مع [المعلم/المعلمة] والاتفاق على خطة التحسين.',
+            'تم الاطلاع على ملف [المعلم/المعلمة] وسجلاته.',
+            '[المعلم/المعلمة] [متعاون/متعاونة] [ويتقبّل/وتتقبّل] التوجيهات.',
+            'يُقترح حضور [المعلم/المعلمة] ورشةً تدريبيّة في أساليب التقويم.',
+            'يُقترح تبادل الزيارات مع زميلٍ متميّز في المدرسة.'
+        ];
+        function supNoteChip(text) {
+            return applyGenderFilter(String(text), getSupervisoryGender());
+        }
+        function renderGeneralNotesChips() {
+            const box = document.getElementById('generalNotesChips');
+            const field = document.getElementById('generalNotesContent');
+            if (!box || !field) return;
+            box.innerHTML = SUP_NOTE_CHIPS.map((t, i) =>
+                `<button type="button" data-chip="${i}" class="text-[11px] bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 border border-slate-200 px-2 py-1 rounded-full">${svfEscapeHtml(supNoteChip(t))}</button>`).join('');
+            box.querySelectorAll('button[data-chip]').forEach(b => b.addEventListener('click', () => {
+                const line = supNoteChip(SUP_NOTE_CHIPS[+b.dataset.chip]);
+                if (field.value.includes(line)) return;
+                field.value = (field.value.trim() ? field.value.trim() + '\n' : '') + line;
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            }));
+        }
+        function supNotesChipsInit() {
+            renderGeneralNotesChips();
+            document.querySelectorAll('input[name="supervisoryTeacherGender"]').forEach(r =>
+                r.addEventListener('change', renderGeneralNotesChips));
+        }

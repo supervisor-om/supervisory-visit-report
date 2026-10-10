@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🏫 أتمتة الزيارات المدرسية — v7.0
 // @namespace    supervisor-om
-// @version      16.8
+// @version      16.9
 // @description  تصدير بيانات الزيارة المدرسية من موقع المشرف وتعبئة استمارة الوزارة تلقائياً — مع نظام تتبع مرئي وتحويل ثنائي اللغة عند الحاجة
 // @author       Abu Al-Muather
 // @homepageURL  https://supervisor-mct.com/
@@ -495,7 +495,9 @@
                 notes,
                 excellence,
                 development,
-                recommendations
+                recommendations,
+                // الملاحظات العامة (منذ v16.9) ← خانة «الملاحظات» في البوّابة — كانت «لا يوجد» دائماً
+                notesGeneral: $('#generalNotesContent')?.value?.trim() || ''
             };
 
             const json = JSON.stringify(data);

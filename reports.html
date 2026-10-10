@@ -418,10 +418,19 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                                 </div>
                                 <div class="report-box">
                                     <div class="flex justify-between items-center mb-2">
-                                        <h3 class="font-bold text-slate-700">الدعم المقدم / التوصيات</h3>
+                                        <h3 class="font-bold text-slate-700">التوصيات</h3>
                                         <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="recommendationsContent">نسخ</button>
                                     </div>
                                     <textarea id="recommendationsContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[100px] focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                </div>
+                                <!-- الملاحظات العامة (منذ 2026-10-10): تُرفع إلى خانة «الملاحظات» في البوّابة — كانت «لا يوجد» دائماً -->
+                                <div class="report-box">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h3 class="font-bold text-slate-700">الملاحظات العامة <span class="text-xs font-normal text-slate-400">(اختياريّ — تُرفع إلى «الملاحظات» في البوّابة)</span></h3>
+                                        <button type="button" class="copy-btn text-xs bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-700 px-3 py-1 rounded transition-colors" data-target="generalNotesContent">نسخ</button>
+                                    </div>
+                                    <div id="generalNotesChips" class="flex flex-wrap gap-1.5 mb-2"></div>
+                                    <textarea id="generalNotesContent" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-sm min-h-[80px] focus:ring-blue-500 focus:border-blue-500" placeholder="مثلاً: تعاون إدارة المدرسة، أو ورشةٌ تدريبيّةٌ مقترحة…"></textarea>
                                 </div>
                             </div>
                         </section>
@@ -534,6 +543,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                     </button>
                 </div>
             </header>
+            <div id="recsBoard" class="hidden"></div>
             <div class="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4">
                 <div class="flex items-center gap-2 flex-wrap">
                     <button type="button" id="selectAllSchoolReportsBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg transition-colors">تحديد الكل</button>
@@ -784,6 +794,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
     <script src="js/school.js"></script>
     <script src="js/recs.js"></script>
     <script src="js/recs-ui.js"></script>
+    <script src="js/recs-board.js"></script>
     <script src="js/identity.js"></script>
     <script src="js/cloud.js"></script>
     <script src="js/autofill.js"></script>

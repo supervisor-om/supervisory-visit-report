@@ -102,7 +102,8 @@
             notes:           notes,
             excellence:      f('strengthsContent', 'excellence'),
             development:     f('developmentContent', 'development'),
-            recommendations: f('recommendationsContent', 'recommendations')
+            recommendations: f('recommendationsContent', 'recommendations'),
+            notesGeneral:    f('generalNotesContent', 'notesGeneral')
         };
     }
 

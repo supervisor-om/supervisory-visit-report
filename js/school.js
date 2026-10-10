@@ -980,20 +980,27 @@
             const recEl = document.getElementById('recommendations');
             if (!recEl) return;
 
-            if (notedItems.length === 0) {
-                recEl.value = '';
-                showToast('لا توجد ملاحظات — لا توصيات مطلوبة', 'info');
+            // كان يستبدل الحقل كلّه، ويُفرغه إن لم تكن ملاحظات — فيضيع ما كتبه المشرف بيده.
+            // الآن بنود الملاحظات تُضاف إلى قائمة المنشئ وتُدمج مع الحقل (svfRecsGenerate):
+            // ما كتبه المشرف يبقى، والجهة لكلّ بند (التحضير والسجلات للمعلّمين، والباقي للإدارة).
+            const teachersAud = (() => {
+                try { const m = staffGenderMode(staffForSchool().list); if (m) return ['المعلمين', 'المعلم', 'المعلمات', 'المعلمة'][m.mode]; } catch (e) {}
+                return 'المعلمين';
+            })();
+            const extra = notedItems.map(({ text: objText }) => {
+                const t = buildActionableRecommendation(objText);
+                const forTeachers = /التحضير|سجلات|خطة المنهاج|نور/.test(objText);
+                return { category: 'free', manual: true, text: t, audience: forTeachers ? teachersAud : 'إدارة المدرسة' };
+            });
+            if (typeof window.svfRecsGenerate === 'function') {
+                if (!extra.length) showToast('لا ملاحظات على الأهداف — أُدرجت قائمة المنشئ وحدها', 'info');
+                window.svfRecsGenerate(extra);
                 return;
             }
-
-            let rec = 'نوصي إدارة المدرسة بالآتي:\n';
-            notedItems.forEach(({ text: objText }) => {
-                let recommendation = buildActionableRecommendation(objText);
-                if (!recommendation.endsWith('.')) recommendation += '.';
-                rec += `- ${recommendation}\n`;
-            });
-
-            recEl.value = rec.trim();
+            if (!extra.length) { showToast('لا توجد ملاحظات — لا توصيات مطلوبة', 'info'); return; }
+            // احتياطٌ بلا المنشئ: يُضاف ولا يُستبدل
+            const lines = extra.map(x => '- ' + (x.text.endsWith('.') ? x.text : x.text + '.'));
+            recEl.value = (recEl.value.trim() ? recEl.value.trim() + '\n' : 'نوصي إدارة المدرسة بالآتي:\n') + lines.join('\n');
             showToast('تم توليد التوصيات بنجاح');
         }
 
@@ -1232,7 +1239,15 @@
                 visitorOpinion: document.getElementById('visitorOpinion')?.value || '',
                 recommendations: document.getElementById('recommendations')?.value || '',
                 // بنية التوصيات بجانب نصّها: منها تُعرف مواعيد الاستحقاق والمتابعة
-                recs: (typeof getSchoolRecs === 'function' ? getSchoolRecs() : [])
+                recs: (typeof getSchoolRecs === 'function' ? getSchoolRecs() : []),
+                // نصوص بنود آخر توليد: بها يبقى ما كتبه المشرف إذا ولّد من جديد بعد فتح التقرير
+                recsGen: (typeof getSchoolRecsGen === 'function' ? getSchoolRecsGen() : []),
+                // تقييم توصيات الزيارة السابقة (نُفّذت/جزئياً/لم تُنفّذ) — كان يُعرض ولا يُحفظ،
+                // ومنه تعرف لوحة «توصيات تنتظر المتابعة» ما أُغلق
+                prevRecsReview: (Array.isArray(prevRecommendationsStatus) && prevRecommendationsStatus.some(r => r.status))
+                    ? { date: document.getElementById('prevRecsDate')?.textContent || '',
+                        items: prevRecommendationsStatus.filter(r => r.status).map(r => ({ text: r.text, status: r.status })) }
+                    : null
             };
             
             try {
@@ -1260,6 +1275,7 @@
                 if(document.getElementById('schoolGoingTo')) document.getElementById('schoolGoingTo').value = report.goingTo || '';
                 if(document.getElementById('recommendations')) document.getElementById('recommendations').value = report.recommendations || '';
                 if (typeof setSchoolRecs === 'function') setSchoolRecs(report.recs || []);
+                if (typeof setSchoolRecsGen === 'function') setSchoolRecsGen(report.recsGen || []);
                 if(report.arrivalTime && document.getElementById('schoolArrivalTime')) document.getElementById('schoolArrivalTime').value = report.arrivalTime;
                 if(report.departureTime && document.getElementById('schoolDepartureTime')) document.getElementById('schoolDepartureTime').value = report.departureTime;
 
@@ -1573,6 +1589,7 @@
             document.getElementById('schoolFormView')?.classList.add('hidden');
             document.getElementById('reportPreviewContainer')?.classList.add('hidden');
             renderSchoolReportsList();
+            try { if (typeof renderRecsBoard === 'function') renderRecsBoard(); } catch (e) {}
         }
         
         // ─── خطّ سير اليوم: «قادم من» و«متجه إلى» أسفل الأهداف (الصياغة في js/route.js) ───

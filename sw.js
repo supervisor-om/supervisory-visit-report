@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v27';
+const VERSION = 'v28';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -31,6 +31,7 @@ const ASSETS = [
     './js/cloud.js',
     './js/recs.js',
     './js/recs-ui.js',
+    './js/recs-board.js',
     './js/classroom.js',
     './js/term-plan-data.js',
     './js/term-plan.js',

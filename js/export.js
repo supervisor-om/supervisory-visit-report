@@ -229,7 +229,9 @@
                 notes:           notes,
                 excellence:      strengths,
                 development:     needsDev,
-                recommendations: recs
+                recommendations: recs,
+                // تُكتب في خانة «الملاحظات» بالبوّابة (السكربت: TEXTS ← sup.notesGeneral)
+                notesGeneral:    q('#generalNotesContent')
             };
 
             // ما ترفضه البوّابة يُكشف هنا لا بعد فتحها: الطابور يتحقّق منذ v14.3
