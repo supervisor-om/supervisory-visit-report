@@ -596,7 +596,8 @@ const between = (a, b) => {
     check('سكربت: بطاقة البيانات تُحدَّث عند الانتقال', /refreshDataBox\(\);[\s\S]{0,200}▶ الزيارة/.test(src), 'لا تُحدَّث');
 
     // ── تصنيف رسائل البوّابة بعد الحفظ ──
-    const cls = between('        const SAVE_FAIL_RE', '        async function waitForSaveOutcome');
+    // التصنيف صار مشتركاً بين الوحدتين (v17.0) — قبل svfSyncSaved
+    const cls = between('    const SAVE_FAIL_RE', '    function svfSyncSaved()');
     const cctx = {};
     vm.runInNewContext(cls + '\nout = classifyPortalMessages;', cctx);
     const C = cctx.out;
@@ -612,7 +613,8 @@ const between = (a, b) => {
           /c\.ok\.length && !c\.fail\.length/.test(src), 'منطق الجمع');
 
     // ── السجلّ الحقيقيّ: «123» ظهر بعد الحفظ ثمّ أُعيدت الصفحة ──
-    const saveCode = between('        const SAVE_FAIL_RE', '        async function waitForSaveOutcome');
+    const saveCode = between('    const SAVE_FAIL_RE', '    function svfSyncSaved()')
+        + between('        // ═══ الحفظ عبر إعادة تحميل الصفحة ═══', '        async function waitForSaveOutcome');
     function saveEnv(o) {
         const ss = Object.assign({}, o.ss);
         const logs = [], calls = [];

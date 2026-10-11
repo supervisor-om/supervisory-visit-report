@@ -156,7 +156,7 @@ function load(els) {
 /* ── ٥) رسائل البوّابة: «123» ليست رفضاً ── */
 {
     // الدالّتان الحقيقيّتان: تصنيف الرسائل من الوحدة المدرسيّة، والترشيح الإشرافيّ
-    const cls = between('        const SAVE_FAIL_RE', '        // ═══ الحفظ عبر إعادة تحميل الصفحة ═══');
+    const cls = between('    const SAVE_FAIL_RE', '    function svfSyncSaved()');
     const fresh = between('        function supFreshMessages(baseline)', '        function supPortalErrors()');
     let msgs = [];
     const ctx = { console, supPortalErrors: () => msgs };
@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 16.9', /@version\s+16\.9/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 17.0', /@version\s+17\.0/.test(SRC));
     check('save: خطأٌ أثناء انتظار النتيجة يُكتب ولا يوقف الانتظار',
           /\} catch \(err\) \{\s*\n\s*if \(loopErrors\+\+ < 3\) slog\('⚠️ خطأ أثناء قراءة نتيجة الحفظ/.test(SRC));
     check('save: ورسائل البوّابة بعد الحفظ تُطبع', /رسائل البوّابة بعد الحفظ/.test(SRC));
@@ -499,6 +499,26 @@ function load(els) {
     check('save: SaveClicked أوّل المحدّدات',
           /function supFindSave\(\) \{\s*\n\s*const sels = \[\s*\n\s*\/\/[^\n]*\n\s*'\[onclick\*="SaveClicked"\]'/.test(SRC));
     check('save: ووحدة الزيارات المدرسيّة تستثني اللوحة أيضاً', /if \(own\(el\)\) return false;/.test(SRC));
+}
+
+/* ── ١٤) v17.0: «classifyPortalMessages is not defined» (سجلّ 2026-10-11) ──
+   كانت دالّة التصنيف داخل وحدة الزيارات المدرسيّة، ووحدة الإشرافيّة تستدعيها فلا تراها — فتُحفظ الزيارة
+   ولا يُعرف ذلك. والاختبارات كانت تقصّ الدالّة وتضعها في البيئة بنفسها فلم تكشفه. هنا الفحص عامّ:
+   لا تستدعي الوحدة الإشرافيّة دالّةً معرَّفةً في الوحدة المدرسيّة وحدها. */
+{
+    const schoolStart = SRC.indexOf("if (location.hostname.includes('moe.gov.om') && !/supervisionvisits/i.test(location.pathname)) {");
+    const supStart = SRC.indexOf("if ((location.hostname.includes('moe.gov.om') || /sim-moe/i.test(location.pathname))");
+    const shared = SRC.slice(0, schoolStart);
+    const school = SRC.slice(schoolStart, supStart);
+    const sup = SRC.slice(supStart);
+    const defs = code => new Set([...code.matchAll(/function\s+([A-Za-z_$][\w$]*)\s*\(/g)].map(m => m[1])
+        .concat([...code.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/g)].map(m => m[1])));
+    const inShared = defs(shared), inSchool = defs(school), inSup = defs(sup);
+    const onlySchool = [...inSchool].filter(n => !inShared.has(n) && !inSup.has(n));
+    const esc = n => n.replace(/[$]/g, '\\$');
+    const leaked = onlySchool.filter(n => new RegExp('(^|[^\\w$.])' + esc(n) + '\\s*\\(').test(sup));
+    check('scope: الوحدة الإشرافيّة لا تستدعي دالّةً من الوحدة المدرسيّة وحدها', leaked.length === 0, leaked.join('، '));
+    check('scope: classifyPortalMessages في المستوى المشترك', inShared.has('classifyPortalMessages') && !inSchool.has('classifyPortalMessages'));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
