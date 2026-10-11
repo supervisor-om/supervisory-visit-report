@@ -297,6 +297,11 @@
             return null;
         }
         const groups = R.groupRecs(all, 'إدارة المدرسة');
+        // مدرسة الصفوف ١–٤ (school.js): «التلاميذ» لا «الطلبة» في البنود
+        try {
+            if (typeof schoolLowerGrade === 'function' && schoolLowerGrade() && typeof svfPupilText === 'function')
+                groups.forEach(g => { g.items = g.items.map(svfPupilText); });
+        } catch (e) {}
         const r = R.mergeRecs(field.value, recsGen, groups);
         field.value = r.text;
         recsGen = r.state;

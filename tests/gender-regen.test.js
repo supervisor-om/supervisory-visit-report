@@ -25,6 +25,7 @@ const notes = { 1: '[يخطط المعلم/تخطط المعلمة] لدروسه
 const state = { g: 0 };
 const ctx = {
     getSupervisoryGender: () => state.g,
+    supLowerGrade: () => state.lower === true, svfPupilText: s => s.replace(/الطلبة/g, 'التلاميذ'),
     applyGenderFilter: (t, m) => t.replace(/\[([^\]]+)\]/g, (x, o) => { const p = o.split('/'); return p[m] !== undefined ? p[m] : p[0]; }),
     evaluationItems: [{ id: 1, standard: 'التخطيط' }, { id: 10, standard: 'التقويم' }],
     instructionalRecommendations: { '10': '[استخدم/استخدمي] قوائم الملاحظة.' },

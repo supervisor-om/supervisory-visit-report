@@ -851,6 +851,26 @@
             return { text: renumberOpinion(blocks), map, kept };
         }
 
+        // ─── مدرسةٌ للصفوف ١–٤؟ (منذ 2026-10-11) — فتُكتب «التلاميذ» لا «الطلبة» ───
+        // بالترتيب: صفوف المواقف الصفّيّة في هذه الزيارة إن وُجدت، ثمّ صفوف معلّمي المدرسة في القاعدة،
+        // ثمّ نطاق الصفوف في اسمها («(1-4)»). لا يُحكم بالتلاميذ إلّا إن كانت **كلّها** من ١ إلى ٤.
+        function schoolLowerGrade() {
+            if (typeof svfIsLowerGrade !== 'function') return false;
+            const cvs = (Array.isArray(schoolClassroomVisits) ? schoolClassroomVisits : []).map(c => c && c.grade).filter(Boolean);
+            if (cvs.length) return cvs.every(svfIsLowerGrade);
+            const nums = text => (String(text || '').replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660)).match(/\d{1,2}/g) || []).map(Number);
+            try {
+                const school = (document.getElementById('schoolName')?.value || '').trim();
+                if (school && window.SupervisorIdentity && SupervisorIdentity.getIdentity()) {
+                    const g = SupervisorIdentity.teachersOfSchool(school).flatMap(t => nums(t.grades));
+                    if (g.length) return g.every(n => n >= 1 && n <= 4);
+                }
+                const range = school.match(/\((\s*[\d٠-٩]{1,2}\s*[-–]\s*[\d٠-٩]{1,2}\s*)\)/);
+                if (range) { const g = nums(range[1]); return g.length === 2 && g[0] >= 1 && g[1] <= 4; }
+            } catch (e) {}
+            return false;
+        }
+
         function generateSchoolSmartVisitorOpinion() {
             const reportForm = document.getElementById('reportForm');
             if (!reportForm) return;
@@ -938,7 +958,8 @@
 
             const visOp = document.getElementById('visitorOpinion');
             if(visOp) {
-                const generated = wrapNumbersInOpinion(opinionText.trim());
+                let generated = wrapNumbersInOpinion(opinionText.trim());
+                if (schoolLowerGrade()) generated = svfPupilText(generated);   // الصفوف ١–٤: «التلاميذ»
                 const blocks = splitOpinionBlocks(generated).filter(b => b.numbered);
                 const fresh = blocks.map((b, i) => ({ key: keys[i] || ('pos:' + i), text: b.text }));
                 const r = mergeVisitorOpinion(visOp.value, schoolOpinionGen, fresh);

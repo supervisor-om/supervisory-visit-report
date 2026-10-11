@@ -166,6 +166,12 @@
             showToast('بدأنا من زيارة ' + (prev.date || 'سابقة') + ' — عدّل ما تغيّر');
         }
 
+        // صفّ الزيارة الإشرافيّة من ١ إلى ٤؟ (حقل «الصف»)
+        function supLowerGrade() {
+            try { return typeof svfIsLowerGrade === 'function' && svfIsLowerGrade(document.querySelector('#class')?.value); }
+            catch (e) { return false; }
+        }
+
         function generateDescriptionText(itemId, rating, customEvidences = null) {
             const content = evidenceBasedContent[itemId];
             if (!content) return "";
@@ -205,7 +211,9 @@
                 text = `مستوى ${rating}، ويتضح ذلك من خلال ${joinedEvidencesText}.`;
             }
 
-            return applyGenderFilter(text, getSupervisoryGender());
+            // الصفوف ١–٤: «التلاميذ» لا «الطلبة» (utils.js)
+            const out = applyGenderFilter(text, getSupervisoryGender());
+            return supLowerGrade() ? svfPupilText(out) : out;
         }
 
         function getRandomEvidences(arr, count) {
@@ -390,6 +398,7 @@
                 if (instructionalRecommendations[id])
                     recs += `• ${item(id).standard}: ${applyGenderFilter(instructionalRecommendations[id], gMode)}\n`;
             });
+            if (supLowerGrade()) recs = svfPupilText(recs);
             return { strengths, developments, recs: recs + "\nوالله ولي التوفيق." };
         }
 
@@ -432,7 +441,13 @@
         }
 
         function generateReport() {
-            let itemsByScore = { 1: [], 2: [], 3: [], 4: [], 5: [] }; 
+            // الأوصاف قد تُولَّد قبل كتابة الصفّ (التصفير، أو الملء من موقفٍ صفّيّ بلا حدث change):
+            // للصفوف ١–٤ تُحوَّل ألفاظها الآن قبل أن تُبنى منها الإجادة والتطوير
+            if (supLowerGrade()) evaluationItems.forEach(item => {
+                const n = document.querySelector(`#notes-${item.id}`);
+                if (n) n.textContent = svfPupilText(n.textContent);
+            });
+            let itemsByScore = { 1: [], 2: [], 3: [], 4: [], 5: [] };
             
             evaluationItems.forEach(item => { 
                 const score = parseInt(document.querySelector(`#score-${item.id}`).textContent); 

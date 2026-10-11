@@ -143,6 +143,23 @@
                     });
                 });
 
+                // الصفّ يغيّر «الطلبة/التلاميذ» (الصفوف ١–٤): تُعاد الأوصاف والنصوص المولَّدة إن عبر الحدّ
+                (() => {
+                    const cls = document.getElementById('class');
+                    if (!cls) return;
+                    let lower = typeof svfIsLowerGrade === 'function' && svfIsLowerGrade(cls.value);
+                    const recheck = () => {
+                        const now = typeof svfIsLowerGrade === 'function' && svfIsLowerGrade(cls.value);
+                        if (now === lower) return;
+                        lower = now;
+                        evaluationItems.forEach(item => updateScore(item.id,
+                            parseInt(document.querySelector('#score-' + item.id).textContent), true));
+                        try { if (typeof supRegenderGenerated === 'function') supRegenderGenerated(); } catch (e) {}
+                    };
+                    cls.addEventListener('change', recheck);
+                    cls.addEventListener('blur', recheck);
+                })();
+
                 // ── تحديد زيارات الأرشيف ورفعها طابوراً إلى البوّابة ──
                 if (supSavedList) {
                     supSavedList.addEventListener('change', e => {
