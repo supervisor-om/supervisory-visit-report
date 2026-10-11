@@ -119,7 +119,7 @@ const check = (name, ok, detail) => {
     const ui = read('js/recs-ui.js'), school = read('js/school.js'), init = read('js/init.js');
     const html = read('reports.html'), sw = read('sw.js'), sup = read('js/supervisory.js');
     const exp = read('js/export.js'), q = read('js/queue-export.js');
-    const script = read('tools/daf51553aa5f5d6215/school-visits-automation.user.js');
+    const script = fs.readFileSync(require('./_script-src.js'), 'utf8');
     check('wiring: «إدراج» و«توليد» يمرّان بالدمج', /const r = R\.mergeRecs\(field\.value, recsGen, groups\);/.test(ui)
           && /window\.svfRecsGenerate\(extra\)/.test(school));
     check('wiring: الزرّ القديم لم يعد يُفرغ الحقل', !/recEl\.value = '';/.test(school));

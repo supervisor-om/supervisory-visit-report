@@ -8,7 +8,7 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const SRC = fs.readFileSync(path.join(ROOT, 'tools/daf51553aa5f5d6215/school-visits-automation.user.js'), 'utf8')
+const SRC = fs.readFileSync(require('./_script-src.js'), 'utf8')
     .replace(/\r\n/g, '\n');
 
 let failures = 0;
@@ -288,7 +288,7 @@ function load(els) {
           /لم يُعثر على زر الحفظ[\s\S]{0,160}supDumpButtons\(\)/.test(SRC));
     check('wiring: النافذة تُغلق بعد كلّ تبديل تبويب',
           (SRC.match(/await wait\(1500\);\s*\n\s*supDismissNotice\(\)/g) || []).length >= 2);
-    check('wiring: النسخة رُفعت إلى 17.0', /@version\s+17\.0/.test(SRC));
+    check('wiring: النسخة رُفعت إلى 17.1', /@version\s+17\.1/.test(SRC));
     check('save: خطأٌ أثناء انتظار النتيجة يُكتب ولا يوقف الانتظار',
           /\} catch \(err\) \{\s*\n\s*if \(loopErrors\+\+ < 3\) slog\('⚠️ خطأ أثناء قراءة نتيجة الحفظ/.test(SRC));
     check('save: ورسائل البوّابة بعد الحفظ تُطبع', /رسائل البوّابة بعد الحفظ/.test(SRC));

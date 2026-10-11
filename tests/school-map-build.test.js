@@ -6,7 +6,7 @@ const vm = require('vm');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
-const SRC = fs.readFileSync(path.join(ROOT, 'tools/daf51553aa5f5d6215/school-visits-automation.user.js'), 'utf8')
+const SRC = fs.readFileSync(require('./_script-src.js'), 'utf8')
     .replace(/\r\n/g, '\n');
 
 let failures = 0;
