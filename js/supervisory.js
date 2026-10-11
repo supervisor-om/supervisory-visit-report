@@ -194,10 +194,12 @@
             const joinedEvidencesText = joinEvidences(selectedEvidences);
             
             if (content.levels && content.levels[rating]) {
+                // جملة المستوى تنتهي بنقطة: تُنزع قبل «، ويتضح…» — كان الناتج «بصورة فعالة.، ويتضح» (2026-10-11)
+                const level = String(content.levels[rating]).replace(/\.\s*$/, '');
                 if (joinedEvidencesText) {
-                    text = `${content.levels[rating]}، ويتضح ذلك من خلال ${joinedEvidencesText}.`;
+                    text = `${level}، ويتضح ذلك من خلال ${joinedEvidencesText}.`;
                 } else {
-                    text = `${content.levels[rating]}.`;
+                    text = `${level}.`;
                 }
             } else {
                 text = `مستوى ${rating}، ويتضح ذلك من خلال ${joinedEvidencesText}.`;

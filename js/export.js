@@ -7,7 +7,8 @@
             // أعمدة (المجال/المعيار مدموجان رأسيّاً)، عمود «الإجادة» على البنود 1–7 و«التطوير» على 8–13،
             // وآخر صفٍّ «التوصيات» في الجدول نفسه.
             const FORM = officialFormItems;
-            const SPLIT_AT = 8;
+            // الاستمارة الجديدة (2026-10-11): «الإجادة» على البنود 1–5 و«التطوير» على 6–13
+            const SPLIT_AT = 6;
             const HEAD = "'Adobe Arabic','Traditional Arabic','Times New Roman',serif";
             const TITLE = "'Tajawal Black','Tajawal',Arial,sans-serif";
             const BODY = "Arial,'Helvetica Neue',sans-serif";
@@ -64,7 +65,7 @@
                     ${p(`المديرية العامة للتعليم بمحافظة مسقط${nbsp(32)}العام الدراسي: (${academicYear(data.date)}م)`, `font-family:${HEAD}; font-size:12pt; font-weight:bold;`)}
                     ${p(`${nbsp(14)}دائرة تطوير الأداء المدرسي`, `font-family:${HEAD}; font-size:12pt; font-weight:bold;`)}
                     ${p('&nbsp;', 'text-align:center; font-size:12pt;')}
-                    <p style="margin:0 0 6pt; mso-margin-top-alt:0pt; text-align:center; font-family:${TITLE}; font-size:14pt; font-weight:bold;">استمارة زيارة إشرافية لمعلم مجال/ مادة</p>
+                    <p style="margin:0 0 6pt; mso-margin-top-alt:0pt; text-align:center; font-family:${TITLE}; font-size:14pt; font-weight:bold;">استمارة زيارة إشرافية لمعلم مادة/ مجال</p>
 
                     <table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-bottom:8pt;">
                         ${infoRow('المدرسة: ' + data.school, 'اسم المعلم: ' + data.teacher)}
@@ -88,7 +89,9 @@
                         <tbody>
                             ${bodyRows}
                             <tr>
-                                <td colspan="6" style="${CELL} height:68px; vertical-align:top; padding:4pt 6pt;">
+                                <td colspan="6" style="${CELL} vertical-align:top; padding:4pt 6pt;">
+                                    ${p('الملاحظات: ' + (data.notes || ''), 'text-align:right; font-size:12pt;')}
+                                    ${p('الدعم المقدم: ' + (data.support || 'لا يوجد'), 'text-align:right; font-size:12pt;')}
                                     ${p('التوصيات:', "text-align:right; font-family:'Times New Roman',serif; font-size:14pt;")}
                                     ${p(data.recs, 'text-align:right; font-size:12pt;')}
                                 </td>
@@ -129,6 +132,8 @@
                 strengths: document.querySelector('#strengthsContent').value.replace(/\n/g, '<br>') || "",
                 needs: document.querySelector('#developmentContent').value.replace(/\n/g, '<br>') || "",
                 recs: document.querySelector('#recommendationsContent').value.replace(/\n/g, '<br>') || "",
+                // الاستمارة الجديدة: «الملاحظات» و«الدعم المقدم» صفّان قبل التوصيات
+                notes: (document.querySelector('#generalNotesContent')?.value || '').replace(/\n/g, '<br>'),
                 scores: scores
             };
         }
@@ -459,6 +464,7 @@
                     strengths: (fd.strengthsContent || '').replace(/\n/g, '<br>'),
                     needs: (fd.developmentContent || '').replace(/\n/g, '<br>'),
                     recs: (fd.recommendationsContent || '').replace(/\n/g, '<br>'),
+                    notes: (fd.generalNotesContent || '').replace(/\n/g, '<br>'),
                     scores
                 };
 

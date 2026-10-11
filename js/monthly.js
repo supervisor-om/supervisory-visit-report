@@ -277,6 +277,7 @@
             strengths: (fd.strengthsContent || '').replace(/\n/g, '<br>'),
             needs: (fd.developmentContent || '').replace(/\n/g, '<br>'),
             recs: (fd.recommendationsContent || '').replace(/\n/g, '<br>'),
+            notes: (fd.generalNotesContent || '').replace(/\n/g, '<br>'),
             scores
         };
         const html = `<!DOCTYPE html><html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'
