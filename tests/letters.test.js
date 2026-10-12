@@ -71,6 +71,22 @@ check('thanks: المفرد والمؤنّث', L.buildLetter('thanks', {}, { tea
     && L.buildLetter('thanks', {}, { teachers: [{ name: 'م', gender: 'f' }, { name: 'ن', gender: 'f' }] }).body[0].includes('بأسماء المعلمات المنفذات ل'));
 check('thanks: الحقول المشتركة تُؤخذ من خطاب التبادل', L.templateOf('thanks').fields.filter(f => f.from === 'exchange').map(f => f.id).join() === 'program,host,date');
 
+/* ── غياب عن برنامج تدريبي: نموذج المشرف (دارسيت) ── */
+const ab = L.buildLetter('absence', { teacher: 'فاطمة بنت عبدالله بن محمد البلوشية', fileNumber: '16209186', female: true,
+    date: '2026-10-05', ref: '2826388208' }, { schools: ['دارسيت (٥- ٨)'], femalePrincipal: true });
+check('absence: لمديرة المدرسة', ab.to === 'الفاضلة/ مديرة مدرسة دارسيت (٥- ٨)       المحترمة', ab.to);
+check('absence: النصّ', ab.body[0] === 'لكم منا خالص التحية والتقدير، وحول الموضوع المشار إليه أعلاه، نرفق لكم استمارة غياب المعلمة/ '
+    + 'فاطمة بنت عبدالله بن محمد البلوشية رقم الملف (١٦٢٠٩١٨٦) معلمة رياضة مدرسية، وذلك يوم الاثنين الموافق (٥/ ١٠/ ٢٠٢٦م)، '
+    + 'علمًا بأنه قد تم مخاطبة المدرسة بالفئة المستهدفة برقم قيد (٢٨٢٦٣٨٨٢٠٨)، عليه نرفق لكم استمارة غياب مستهدف عن برنامج تدريبي، '
+    + 'للتكرم بطباعة الاستمارة المرفقة وتسليمها للمعنية للإفادة ومن ثم الإفادة برأيكم في المكان المخصص لكم في الاستمارة، وإعادة إرسالها '
+    + 'في نفس الخطاب وليس بمراسلة جديدة إلى دائرة تطوير الأداء المدرسي قسم إشراف المهارات الفردية في موعد أقصاه (٣) أيام عمل من تاريخه.', ab.body[0]);
+check('absence: الخاتمة والموضوع', ab.closing.join() === 'وتفضلوا بقبول فائق الاحترام،،،'
+    && ab.subject === 'غياب المعلمة فاطمة بنت عبدالله بن محمد البلوشية عن برنامج تدريبي');
+const abM = L.buildLetter('absence', { teacher: 'سالم' }, { schools: ['الخوض'] }).body[0];
+check('absence: المذكّر', abM.includes('استمارة غياب المعلم/ سالم') && abM.includes('معلم رياضة مدرسية') && abM.includes('وتسليمها للمعني '));
+check('absence: الواجهة تملأ من القاعدة', /else if \(el\.dataset\.f === 'teacher'\) fillTeacher\(el\.value\);/.test(read('js/letters.js'))
+    && /if \(clean\(t\.school\)\) S\.schools = \[t\.school\];/.test(read('js/letters.js')));
+
 /* ── الملاحظات والمتابعة والورشة ── */
 const n = L.buildLetter('notes', { visitDate: '2026-10-08', items: '- تخطيط الملعب\n- توفير الأدوات' }, { schools: ['الخوض'] });
 check('notes: مدير المدرسة والبنود', n.to.startsWith('الفاضل/ مدير مدرسة الخوض') && n.body[1] === '١- تخطيط الملعب.' && n.body.length === 4);

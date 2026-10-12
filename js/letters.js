@@ -108,6 +108,19 @@
         saveState(); render(); toast('من زيارة ' + (r.data.visitDate || ''));
     }
 
+    // المعلّم من القاعدة ← رقم الملف والجنس، ومدرسته هي المخاطَبة (لا يُطمس رقمٌ كتبه المشرف لمعلّمٍ آخر: يُستبدل بمعلّمه)
+    function fillTeacher(name) {
+        const hit = ID() && ID().findTeacher ? ID().findTeacher(name) : null;
+        const t = hit && hit.teacher;
+        if (!t) return;
+        const f = fieldsOf(tpl());
+        f.teacher = t.name;
+        if (t.fileNumber) f.fileNumber = t.fileNumber;
+        if (t.gender === 'f' || t.gender === 'm') f.female = t.gender === 'f';
+        if (clean(t.school)) S.schools = [t.school];
+        saveState(); render();
+    }
+
     const toast = (m, k) => { if (typeof root.showToast === 'function') root.showToast(m, k); };
 
     // ── الرسم ──
@@ -119,7 +132,7 @@
             const btn = (f.fromLastVisit || f.fromOverdue) ? `<button type="button" id="lettersFillBtn" class="text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-2 py-1 font-bold mr-2">${f.fromOverdue ? 'من التوصيات المتأخّرة' : 'من آخر زيارة'}</button>` : '';
             return `<div><div class="flex items-center justify-between">${lab}${btn}</div><textarea id="${id}" data-f="${f.id}" rows="5" class="${cls}">${esc(v)}</textarea></div>`;
         }
-        return `<div>${lab}<input id="${id}" data-f="${f.id}" type="${f.type || 'text'}" value="${esc(v)}" ${f.list ? 'list="lettersSchools"' : ''} class="${cls}"></div>`;
+        return `<div>${lab}<input id="${id}" data-f="${f.id}" type="${f.type || 'text'}" value="${esc(v)}" ${f.list ? `list="${f.list === 'teachers' ? 'lettersTeachers' : 'lettersSchools'}"` : ''} class="${cls}"></div>`;
     }
 
     function render() {
@@ -133,6 +146,8 @@
             <i class="fa-solid ${x.icon}"></i>${esc(x.label)}</button>`).join('');
 
         box.querySelector('#lettersSchools').innerHTML = (ID() && ID().schoolNames ? ID().schoolNames() : []).map(s => `<option value="${esc(s)}">`).join('');
+        box.querySelector('#lettersTeachers').innerHTML = (t.fields.some(x => x.list === 'teachers') && ID() && ID().teacherNames ? ID().teacherNames() : [])
+            .map(s => `<option value="${esc(s)}">`).join('');
 
         // المخاطَبون
         const rec = box.querySelector('#lettersRecipients');
@@ -267,6 +282,7 @@
         box.addEventListener('change', e => {
             const el = e.target;
             if (el.dataset.f && el.type === 'checkbox') { fieldsOf(tpl())[el.dataset.f] = el.checked; saveState(); renderPreview(); }
+            else if (el.dataset.f === 'teacher') fillTeacher(el.value);
             else if (el.dataset.pick) { S.picked[el.dataset.pick] = el.checked; saveState(); renderPreview(); }
             else if (el.id === 'lettersFemale') { S.female = el.checked; saveState(); renderPreview(); }
             else if (el.id === 'lettersSchoolInput' && (ID() && ID().schoolNames ? ID().schoolNames() : []).some(s => norm(s) === norm(el.value))) { addSchool(el.value); el.value = ''; }
