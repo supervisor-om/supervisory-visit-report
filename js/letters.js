@@ -174,7 +174,10 @@
                     <span class="font-bold text-slate-700">${esc(x.name)}</span><span class="text-xs text-slate-400">${esc(x.school)}${x.fileNumber ? ' · ' + esc(x.fileNumber) : ''}</span></label>`).join('');
         }
 
-        box.querySelector('#lettersFields').innerHTML = t.fields.map(x => fieldHTML(t, x, f[x.id])).join('');
+        const on = p => Object.keys(p.values).every(k => clean(f[k]) === clean(p.values[k]));
+        box.querySelector('#lettersFields').innerHTML = (t.presets ? `<div class="flex flex-wrap gap-2">${t.presets.map((p, i) => `<button type="button" data-preset="${i}"
+                class="text-xs font-bold rounded-lg px-3 py-1.5 border ${on(p) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}">${esc(p.label)}</button>`).join('')}</div>` : '')
+            + t.fields.map(x => fieldHTML(t, x, f[x.id])).join('');
         box.querySelector('#lettersTitle').value = S.title;
         box.querySelector('#lettersSigner').value = S.signer;
         renderPreview();
@@ -255,6 +258,7 @@
                 S.tpl = x.tpl; S.schools = x.recipients || x.schools || []; S.female = !!x.female; S.picked = x.picked || {};
                 S.fields[x.tpl] = x.fields || {}; saveState(); render(); window.scrollTo(0, 0);
             }
+            else if (b.dataset.preset != null) { Object.assign(fieldsOf(tpl()), tpl().presets[+b.dataset.preset].values); saveState(); render(); }
             else if (b.id === 'lettersFillBtn') fillFromVisit();
             else if (b.id === 'lettersAddSchool') { const i = box.querySelector('#lettersSchoolInput'); addSchool(i.value); i.value = ''; }
             else if (b.id === 'lettersCopy') { copy(SvfLetters.letterText(letter()), 'نُسخ نصّ المراسلة'); logIt('نسخ'); }
