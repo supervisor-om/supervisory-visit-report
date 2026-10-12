@@ -23,6 +23,9 @@
     // السمة على <html> تُظهر الروابط والبطاقة؛ وبدونها تُخفى، و monthly.html تُقفل.
     const MONTHLY_OWNERS = ['asad'];
     const MONTHLY = 'data-svf-monthly';
+    // المراسلات كذلك (طلب أسعد 2026-10-12: «لا يظهر إلّا لأسعد»): بطاقتها وشاشتها لهؤلاء وحدهم
+    const LETTERS_OWNERS = ['asad'];
+    const LETTERS = 'data-svf-letters';
 
     function readSession() {
         try {
@@ -47,6 +50,11 @@
         try { applyMonthly(); } catch (e) {}
     }
 
+    function canLetters() {
+        const s = readSession();
+        return !!(s && LETTERS_OWNERS.indexOf(s.id) !== -1);
+    }
+
     function canMonthly() {
         const s = readSession();
         return !!(s && MONTHLY_OWNERS.indexOf(s.id) !== -1);
@@ -54,6 +62,8 @@
 
     // روابط التقرير الشهريّ وبطاقته لصاحبه وحده، وصفحته تُقفل لغيره
     function applyMonthly() {
+        if (canLetters()) document.documentElement.setAttribute(LETTERS, '');
+        else document.documentElement.removeAttribute(LETTERS);
         const ok = canMonthly();
         if (ok) document.documentElement.setAttribute(MONTHLY, '');
         else document.documentElement.removeAttribute(MONTHLY);
@@ -99,6 +109,9 @@
             @media print { #svfGate, #svfLogout { display: none !important; } }
             html:not([${MONTHLY}]) a[href*="monthly.html"],
             html:not([${MONTHLY}]) #monthlyCard { display: none !important; }
+            html:not([${LETTERS}]) #showLettersAppBtn,
+            html:not([${LETTERS}]) #lettersApp { display: none !important; }
+            @media (min-width: 768px) { html[${LETTERS}] #welcomeCards { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 72rem; } }
             html[data-svf-monthly-denied] body > *:not(#svfMonthlyDenied):not(#svfLogout):not(script):not(style) { display: none !important; }
             #svfMonthlyDenied { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
                 padding: 20px; background: #f7f8fa; font-family: 'Tajawal', system-ui, sans-serif; direction: rtl; }
@@ -207,6 +220,7 @@
     global.SupervisorGate = {
         session: readSession,
         canMonthly,
+        canLetters,
         isOpen: () => !!readSession(),
         logout: () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
     };

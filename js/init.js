@@ -13,7 +13,9 @@
 
                 // المراسلات (js/letters.js)
                 const showLetBtn = document.getElementById('showLettersAppBtn');
-                if(showLetBtn) showLetBtn.addEventListener('click', () => { showView(document.getElementById('lettersApp')); if (typeof svfLettersOpen === 'function') svfLettersOpen(); });
+                if(showLetBtn) showLetBtn.addEventListener('click', () => {
+                    if (!(window.SupervisorGate && SupervisorGate.canLetters && SupervisorGate.canLetters())) return;
+                    showView(document.getElementById('lettersApp')); if (typeof svfLettersOpen === 'function') svfLettersOpen(); });
                 
                 const backWelcomeBtn = document.getElementById('backToWelcomeFromSupervisory');
                 if(backWelcomeBtn) backWelcomeBtn.addEventListener('click', () => showView(document.getElementById('welcomeView')));

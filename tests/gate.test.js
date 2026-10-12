@@ -125,6 +125,15 @@ function env(store, opts) {
         check('monthly: صفحة التقارير لا تُقفل لغيره', !elsewhere.root.hasAttribute('data-svf-monthly-denied'));
         check('monthly: قاعدة الإخفاء تشمل الروابط والبطاقة',
               /html:not\(\[\$\{MONTHLY\}\]\) a\[href\*="monthly\.html"\]/.test(GATE) && /#monthlyCard \{ display: none !important; \}/.test(GATE));
+
+        // المراسلات لأسعد وحده (طلبه 2026-10-12)
+        check('letters: لأسعد السمة وcanLetters', asad.root.hasAttribute('data-svf-letters') && asad.ctx.SupervisorGate.canLetters() === true);
+        check('letters: لغيره لا', !other.root.hasAttribute('data-svf-letters') && other.ctx.SupervisorGate.canLetters() === false);
+        check('letters: بلا جلسة لا', !none.root.hasAttribute('data-svf-letters'));
+        check('letters: قاعدة الإخفاء تشمل البطاقة والشاشة',
+              /html:not\(\[\$\{LETTERS\}\]\) #showLettersAppBtn,\s*html:not\(\[\$\{LETTERS\}\]\) #lettersApp \{ display: none !important; \}/.test(GATE));
+        const INIT = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/init.js'), 'utf8');
+        check('letters: init لا يفتحها لغيره', /showLettersAppBtn[\s\S]{0,200}if \(!\(window\.SupervisorGate && SupervisorGate\.canLetters && SupervisorGate\.canLetters\(\)\)\) return;/.test(INIT));
     }
 
     /* ── ١) القفل والفتح ── */

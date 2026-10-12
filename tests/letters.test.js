@@ -89,7 +89,7 @@ const html = read('reports.html'), utils = read('js/utils.js'), init = read('js/
 check('wiring: البطاقة والشاشة', html.includes('id="showLettersAppBtn"') && html.includes('id="lettersApp"'));
 check('wiring: السكربتان قبل init.js', /letters-core\.js[\s\S]*letters\.js[\s\S]*init\.js/.test(html.slice(html.indexOf('js/teacher-brief.js'))));
 check('wiring: showView يُخفي المراسلات', utils.includes("getElementById('lettersApp')?.classList.add('hidden')"));
-check('wiring: init يفتحها', /showLettersAppBtn[\s\S]{0,200}svfLettersOpen\(\)/.test(init));
+check('wiring: init يفتحها', /showLettersAppBtn[\s\S]{0,400}svfLettersOpen\(\)/.test(init));
 check('wiring: عامل الخدمة', sw.includes("'./js/letters-core.js'") && sw.includes("'./js/letters.js'"));
 check('wiring: نظام المراسلات', ui.includes("'https://dms.moe.gov.om'") && /window\.open\(DMS_URL[\s\S]{0,40}\);\s*\n\s*copy\(/.test(ui));
 
