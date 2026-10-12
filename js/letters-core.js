@@ -61,6 +61,14 @@
         return to + '       ' + suf;
     }
 
+    // «بأسماء المعلمين المنفذين لـ» بعدد الكشف وجنسه
+    function executors(teachers) {
+        const t = (teachers || []).filter(x => x && clean(x.name));
+        const allF = t.length && t.every(x => x.gender === 'f');
+        if (t.length === 1) return allF ? 'باسم المعلمة المنفذة ل' : 'باسم المعلم المنفذ ل';
+        return allF ? 'بأسماء المعلمات المنفذات ل' : 'بأسماء المعلمين المنفذين ل';
+    }
+
     const OPENING = 'عطّر الله أوقاتكم بكل خير وسرور، وحول الموضوع المشار إليه أعلاه،';
 
     // ── القوالب: fields تصف النموذج، وbody(f, ctx) تبني فقرات المتن ──
@@ -133,6 +141,26 @@
                     + `يوم ${d.day || '……'} الموافق (${d.date || '……'})، ${clean(f.purpose)}، ${clean(f.finding)}`,
                     ...items.map((t, i) => `${arNum(i + 1)}. ${t.replace(/\.?$/, '.')}`)
                 ];
+            }
+        },
+        {
+            // نموذج المشرف (2026-10-12). الكشف من «مدارس الفئة المستهدفة»، والمخاطَب الدائرة؛ وما يُشارك خطابَ التبادل يُؤخذ منه (from)
+            id: 'thanks', label: 'طلب شهادات شكر', icon: 'fa-award', attach: true, rosterOnly: true,
+            subject: f => 'طلب شهادات شكر للمنفذين ل' + (clean(f.program) || 'برنامج تبادل الزيارات'),
+            to: f => withTitle(clean(f.toTitle) || 'الفاضل/ د.مدير دائرة تطوير الأداء المدرسي'),
+            greeting: 'السلام عليكم ورحمة الله وبركاته، وبعد',
+            closing: ['شاكرين لكم حسن تعاونكم', 'وتفضلوا بقبول وافر الاحترام والتقدير'],
+            fields: [
+                { id: 'toTitle', label: 'المخاطَب', value: 'الفاضل/ د.مدير دائرة تطوير الأداء المدرسي' },
+                { id: 'program', label: 'اسم البرنامج', value: 'برنامج تبادل الزيارات (المهرجان التعليمي الرياضي)', from: 'exchange' },
+                { id: 'host', label: 'مدرسة التنفيذ', list: 'schools', from: 'exchange' },
+                { id: 'date', label: 'تاريخ التنفيذ', type: 'date', from: 'exchange' }
+            ],
+            body: (f, c) => {
+                const d = arDate(f.date);
+                return [`طيب الله أوقاتكم بكل خير وسرور، وبالإشارة إلى الموضوع أعلاه، أرفق لكم كشفًا ${executors(c.teachers)}`
+                    + `${clean(f.program) || 'برنامج تبادل الزيارات'} المقرر تنفيذه في مدرسة ${schoolOf(f.host) || '……'} `
+                    + `وذلك يوم ${d.day || '……'} الموافق (${d.date || '……'})، وعليه أرجو التكرم باستلامها منكم في فترة تسبق اليوم المحدد للتنفيذ.`];
             }
         },
         {

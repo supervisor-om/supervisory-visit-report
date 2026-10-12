@@ -37,7 +37,12 @@
     const tpl = () => SvfLetters.templateOf(S.tpl);
     function fieldsOf(t) {
         const cur = S.fields[t.id] || (S.fields[t.id] = {});
-        t.fields.forEach(f => { if (!(f.id in cur)) cur[f.id] = f.value == null ? '' : f.value; });
+        t.fields.forEach(f => {
+            if (f.id in cur) return;
+            // ما يُشارك قالباً آخر (from) يُؤخذ منه أوّل مرّة: شهادات الشكر من خطاب التبادل
+            const src = f.from && S.fields[f.from] && S.fields[f.from][f.id];
+            cur[f.id] = clean(src) ? src : (f.value == null ? '' : f.value);
+        });
         return cur;
     }
 
@@ -137,8 +142,10 @@
             ${esc(s)}<button type="button" data-rm="${i}" class="text-slate-400 hover:text-red-600" aria-label="إزالة">&times;</button></span>`).join('')
             || '<span class="text-xs text-slate-400">بلا مدرسة: «الأفاضل/ مديرو المدارس المعنية»</span>';
         box.querySelector('#lettersFemale').checked = !!S.female;
-        box.querySelector('#lettersFemaleWrap').classList.toggle('hidden', S.schools.length !== 1);
-        box.querySelector('#lettersAddHint').textContent = t.oneSchool ? 'مدرسةٌ واحدة لهذا القالب' : 'مدرسةٌ واحدة ← «الفاضل/ مدير مدرسة…»، وأكثر ← «الأفاضل/ مديرو المدارس المعنية»';
+        box.querySelector('#lettersFemaleWrap').classList.toggle('hidden', S.schools.length !== 1 || !!t.rosterOnly);
+        box.querySelector('#lettersRecTitle').textContent = t.rosterOnly ? 'مدارس الفئة المستهدفة' : 'المخاطَبون';
+        box.querySelector('#lettersAddHint').textContent = t.rosterOnly ? 'للكشف المرفق وحده — المخاطَب في «بيانات المراسلة»'
+            : t.oneSchool ? 'مدرسةٌ واحدة لهذا القالب' : 'مدرسةٌ واحدة ← «الفاضل/ مدير مدرسة…»، وأكثر ← «الأفاضل/ مديرو المدارس المعنية»';
 
         // الكشف المرفق
         const att = box.querySelector('#lettersAttach');
