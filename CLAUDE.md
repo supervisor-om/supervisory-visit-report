@@ -130,6 +130,25 @@
   **كلّها** ١–٤ ← رأي الزائر وبنود التوصيات بـ«التلاميذ».
 - اختباره `node tests/pupil-words.test.js`.
 
+## المراسلات (`js/letters-core.js` + `js/letters.js` — منذ 2026-10-12)
+
+بطاقةٌ ثالثةٌ في الصفحة الرئيسيّة ← `#lettersApp` (و`showView` يُخفيها مع الشاشتين). طلب المشرف: قوالب لبناء المخاطبات
+الرسميّة، متّصلةٌ بنظام المراسلات `https://dms.moe.gov.om`.
+- **المحرّك نقيّ** (`SvfLetters`، يُصدَّر لـnode): `buildLetter(tpl, fields, ctx)` ← `{subject, to, greeting, body[], closing[],
+  signature[], teachers[], cc[]}`، و`letterText` للنسخ، و`letterHTML` للمعاينة وWord (كلّ سطرٍ فقرة، والنصوص مهروبة).
+- **خمسة قوالب:** تبادل الزيارات (بصياغة مثال المشرف: اليوم يُحسب من التاريخ، والأرقام عربيّة «(١١/ ٥/ ٢٠٢٦م)»، والوقت «٧:٣٠ ص»،
+  و«للمعلم المذكور/للمعلمة المذكورة/للمعلمين…» بعدد الكشف وجنسه، وفقرتا الزيّ والإلزام اختياريّتان)؛ **مدرسة مخالفة** (نموذج
+  المشرف حرفيّاً — مخاطَبه «مدير دائرة المؤسسات التعليمية الخاصة» لا المدرسة، وتحيّته «وبعد،،»، وخاتمته ثلاثة أسطر، و«نسخة لـ:»)؛
+  ملاحظات زيارة مدرسيّة؛ دعوة لورشة/اجتماع؛ متابعة توصيات متأخّرة.
+- **المخاطَب** من مدارس القاعدة: واحدة ← «الفاضل/ مدير مدرسة …» (ومربّع «المديرة أنثى» — جنس المدير ليس في القاعدة)، وأكثر أو
+  لا شيء ← «الأفاضل/ مديرو المدارس المعنية». **الكشف المرفق** = معلّمو المدارس المخاطَبة (`teachersOfSchool`)، ومن يُلغى تحديده يخرج.
+- **البنود سطرٌ لكلّ بند** (`listLines`): الترقيم والشرطة في أوّل السطر يُنزعان ويُعاد الترقيم؛ ورقمٌ بلا فاصلٍ بعده («35 دقيقة») نصٌّ.
+  «من آخر زيارة» يملأ البنود من توصيات آخر تقريرٍ مدرسيٍّ للمدرسة، و«من التوصيات المتأخّرة» من `svfRecsBoard`.
+- **نظام المراسلات:** «نسخ وفتح نظام المراسلات» يفتح الموقع **أوّلاً داخل الضغطة** (وإلّا حُجب) ثمّ ينسخ النصّ؛ والموضوع بزرٍّ
+  مستقلّ. **لا تعبئة آليّة هناك بعد** — تحتاج معرفة بنية صفحة الإنشاء في DMS (سجلّ تشخيصٍ من المشرف)، ثمّ وحدةٌ في السكربت.
+- المسوّدة `svf_letters_draft` (حقول كلّ قالبٍ على حدة)، والسجلّ `svf_letters_log` (آخر ٥٠، «فتح» يستعيد المراسلة). لا يُرفعان سحابيّاً.
+- اختباره `node tests/letters.test.js`.
+
 ## الزيارة الإشرافية: البدء من الزيارة السابقة ورقم الزيارة (2026-10-02)
 
 - **«🕘 الزيارة السابقة»** زرٌّ ثامنٌ بين القوالب: يملأ البنود الثلاثة عشر بدرجات آخر زيارةٍ
@@ -1108,7 +1127,7 @@
    و`node tests/identity.test.js` و`node tests/cloud.test.js` و`node tests/monthly.test.js`
    و`node tests/term-board.test.js`
    و`node tests/recs.test.js` و`node tests/classroom.test.js` و`node tests/objectives.test.js` و`node tests/route.test.js`
-   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js` و`node tests/recs-v2.test.js`.
+   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js` و`node tests/recs-v2.test.js` و`node tests/letters.test.js`.
    ملف المحاكاة نفسه لم يُرفع بعد.
 3. **مطابقة الدرجة لها ملاذٌ أخيرٌ بالموضع** (`opts[Number(v)]` في تعبئة البنود) — تخمينٌ
    يخالف قاعدة «لا تخمين لسلّم التقييم». يُراجَع حين يُطبع سلّم البوّابة الحقيقيّ من التشخيص.

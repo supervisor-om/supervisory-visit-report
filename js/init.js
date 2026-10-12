@@ -10,6 +10,10 @@
                 
                 const showSchBtn = document.getElementById('showSchoolAppBtn');
                 if(showSchBtn) showSchBtn.addEventListener('click', () => showView(document.getElementById('schoolVisitsApp')));
+
+                // المراسلات (js/letters.js)
+                const showLetBtn = document.getElementById('showLettersAppBtn');
+                if(showLetBtn) showLetBtn.addEventListener('click', () => { showView(document.getElementById('lettersApp')); if (typeof svfLettersOpen === 'function') svfLettersOpen(); });
                 
                 const backWelcomeBtn = document.getElementById('backToWelcomeFromSupervisory');
                 if(backWelcomeBtn) backWelcomeBtn.addEventListener('click', () => showView(document.getElementById('welcomeView')));

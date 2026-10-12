@@ -210,7 +210,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
             <p class="text-lg text-slate-600">منصة موحدة لإدارة الزيارات الإشرافية والمدرسية بكفاءة (نسخة محلية)</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl px-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl px-4">
             <div id="showSupervisoryAppBtn" class="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 cursor-pointer relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-2 h-full bg-blue-600 transition-all duration-300 group-hover:w-full group-hover:opacity-5"></div>
                 <div class="relative z-10 flex flex-col h-full">
@@ -234,6 +234,19 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                     <h2 class="text-2xl font-bold text-slate-800 mb-3 group-hover:text-green-700 transition-colors">الزيارات المدرسية</h2>
                     <p class="text-slate-500 leading-relaxed mb-6 flex-grow">توثيق الزيارات المدرسية وتحديد الأهداف والملاحظات.</p>
                     <span class="inline-flex items-center text-green-600 font-semibold group-hover:translate-x-[-5px] transition-transform">
+                        دخول النظام <i class="fa-solid fa-arrow-left mr-2"></i>
+                    </span>
+                </div>
+            </div>
+            <div id="showLettersAppBtn" class="group bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 cursor-pointer relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-2 h-full bg-indigo-600 transition-all duration-300 group-hover:w-full group-hover:opacity-5"></div>
+                <div class="relative z-10 flex flex-col h-full">
+                    <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-envelope-open-text text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-3 group-hover:text-indigo-700 transition-colors">المراسلات</h2>
+                    <p class="text-slate-500 leading-relaxed mb-6 flex-grow">قوالب جاهزة للمخاطبات الرسمية مع الكشف المرفق، ونقلها إلى نظام المراسلات.</p>
+                    <span class="inline-flex items-center text-indigo-600 font-semibold group-hover:translate-x-[-5px] transition-transform">
                         دخول النظام <i class="fa-solid fa-arrow-left mr-2"></i>
                     </span>
                 </div>
@@ -524,6 +537,67 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
         </div>
     </div>
 
+    <!-- PAGE 4: المراسلات (js/letters-core.js + js/letters.js) -->
+    <div id="lettersApp" class="hidden min-h-screen bg-slate-50">
+        <div class="container mx-auto max-w-6xl p-6 fade-in">
+            <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center">
+                    <span class="bg-indigo-100 text-indigo-600 p-2 rounded-lg ml-3"><i class="fa-solid fa-envelope-open-text"></i></span>
+                    المراسلات
+                </h1>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <a href="https://dms.moe.gov.om" target="_blank" rel="noopener" class="text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-medium rounded-lg text-sm px-4 py-2.5"><i class="fa-solid fa-arrow-up-right-from-square ml-2"></i>نظام المراسلات</a>
+                    <button id="backToWelcomeFromLetters" class="text-slate-600 bg-slate-100 hover:bg-slate-200 font-medium rounded-lg text-sm px-4 py-2.5"><i class="fa-solid fa-power-off ml-2"></i> خروج</button>
+                </div>
+            </header>
+            <div id="lettersTpls" class="flex flex-wrap gap-2 mb-6"></div>
+            <datalist id="lettersSchools"></datalist>
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div class="lg:col-span-2 space-y-4">
+                    <section id="lettersRecipients" class="bg-white rounded-2xl border border-slate-200 p-5">
+                        <h2 class="font-bold text-slate-800 mb-1">المخاطَبون</h2>
+                        <p id="lettersAddHint" class="text-[11px] text-slate-400 mb-3"></p>
+                        <div class="flex gap-2 mb-3">
+                            <input id="lettersSchoolInput" list="lettersSchools" placeholder="اسم المدرسة" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                            <button type="button" id="lettersAddSchool" class="bg-indigo-600 text-white rounded-lg px-3 text-sm font-bold">إضافة</button>
+                        </div>
+                        <div id="lettersSchoolChips" class="flex flex-wrap gap-2"></div>
+                        <label id="lettersFemaleWrap" class="hidden mt-3 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" id="lettersFemale"> المديرة أنثى («الفاضلة/ مديرة مدرسة…»)</label>
+                    </section>
+                    <section class="bg-white rounded-2xl border border-slate-200 p-5">
+                        <h2 class="font-bold text-slate-800 mb-3">بيانات المراسلة</h2>
+                        <div id="lettersFields" class="space-y-3"></div>
+                    </section>
+                    <section id="lettersAttach" class="bg-white rounded-2xl border border-slate-200 p-5">
+                        <h2 class="font-bold text-slate-800 mb-1">الكشف المرفق (الفئة المستهدفة)</h2>
+                        <p class="text-[11px] text-slate-400 mb-2">معلّمو المدارس المخاطَبة من قاعدة المعلمين — ألغِ تحديد من لا يشمله الكشف.</p>
+                        <div id="lettersRoster" class="max-h-64 overflow-auto"></div>
+                    </section>
+                    <section class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                        <h2 class="font-bold text-slate-800">التوقيع</h2>
+                        <input id="lettersTitle" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="الوظيفة">
+                        <input id="lettersSigner" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="الاسم">
+                    </section>
+                </div>
+                <div class="lg:col-span-3 space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap gap-2 items-center">
+                        <div class="text-sm text-slate-500 ml-auto min-w-0">الموضوع: <b id="lettersSubject" class="text-slate-800"></b></div>
+                        <button type="button" id="lettersCopySubject" class="text-xs bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-2 font-bold">نسخ الموضوع</button>
+                        <button type="button" id="lettersCopy" class="text-xs bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-2 font-bold"><i class="fa-regular fa-copy ml-1"></i>نسخ النص</button>
+                        <button type="button" id="lettersWord" class="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg px-3 py-2 font-bold"><i class="fa-solid fa-file-word ml-1"></i>حفظ Word</button>
+                        <button type="button" id="lettersDms" class="text-xs bg-indigo-600 text-white rounded-lg px-3 py-2 font-bold"><i class="fa-solid fa-paper-plane ml-1"></i>نسخ وفتح نظام المراسلات</button>
+                        <button type="button" id="lettersReset" class="text-xs text-slate-400 hover:text-red-600 px-2 py-2">مسح</button>
+                    </div>
+                    <div id="lettersPreview" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 md:p-12 text-slate-900" dir="rtl"></div>
+                    <section class="bg-white rounded-2xl border border-slate-200 p-5">
+                        <h2 class="font-bold text-slate-800 mb-2">سجلّ المراسلات</h2>
+                        <div id="lettersLog"></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- PAGE 3: School Visits App -->
     <div id="schoolVisitsApp" class="hidden min-h-screen bg-slate-50">
         <div id="schoolDashboardView" class="container mx-auto max-w-6xl p-6 fade-in">
@@ -804,6 +878,8 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
     <script src="js/term-plan-data.js"></script>
     <script src="js/term-plan.js"></script>
     <script src="js/teacher-brief.js"></script>
+    <script src="js/letters-core.js"></script>
+    <script src="js/letters.js"></script>
     <script src="js/init.js"></script>
     <script>
     if ('serviceWorker' in navigator) {

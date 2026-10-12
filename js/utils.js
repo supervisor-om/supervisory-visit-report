@@ -35,6 +35,7 @@
             document.getElementById('welcomeView')?.classList.add('hidden');
             document.getElementById('supervisoryVisitsApp')?.classList.add('hidden');
             document.getElementById('schoolVisitsApp')?.classList.add('hidden');
+            document.getElementById('lettersApp')?.classList.add('hidden');
             viewElement.classList.remove('hidden');
             window.scrollTo(0, 0);
         }
