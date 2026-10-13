@@ -198,6 +198,30 @@
             }
         },
         {
+            // نموذج المشرف (2026-10-13): لمدير المدرسة المستضيفة — المخاطَب منها، والبرنامج والتاريخ والوقت من خطاب التبادل
+            id: 'host', label: 'استضافة البرنامج (للمدرسة)', icon: 'fa-house-flag', attach: false, noRecipients: true,
+            subject: f => 'استضافة ' + (clean(f.program) || 'برنامج تبادل الزيارات'),
+            to: f => addressee([f.host], !!f.female),
+            greeting: 'السلام عليكم ورحمة الله وبركاته، وبعد،،',
+            closing: ['شاكرين لكم حسن تعاونكم معنا', 'وتفضلوا بقبول وافر الاحترام والتقدير،،،'],
+            fields: [
+                { id: 'host', label: 'المدرسة المستضيفة', list: 'schools', from: 'exchange' },
+                { id: 'female', label: 'المديرة أنثى («الفاضلة/ مديرة مدرسة…»)', type: 'check', value: false },
+                { id: 'program', label: 'اسم البرنامج', value: 'برنامج تبادل الزيارات (درس تطبيقي)', from: 'exchange' },
+                { id: 'date', label: 'التاريخ', type: 'date', from: 'exchange' },
+                { id: 'time', label: 'الوقت', type: 'time', value: '07:00', from: 'exchange' },
+                { id: 'release', label: 'فقرة تفريغ معلمي المادة لهذا اليوم', type: 'check', value: true }
+            ],
+            body: f => {
+                const d = arDate(f.date);
+                const p = [`عطر الله أوقاتكم بكل خير وسرور، وحول الموضوع المشار إليه أعلاه، وضمن خطة إشراف مادة الرياضة المدرسية بتعليمية مسقط `
+                    + `لتنفيذ ${clean(f.program) || 'برنامج تبادل الزيارات'} لمعلمي المادة، وبناءً على التنسيق المسبق مع الفاضل مشرف المادة على استضافة `
+                    + `مدرستكم للبرنامج في يوم ${d.day || '……'} الموافق (${d.date || '……'}) في تمام الساعة ${arTime(f.time) || '……'}.`];
+                if (f.release) p.push('كما يرجى التكرم بالإيعاز بتفريغ معلمي مادة الرياضة المدرسية لهذا اليوم.');
+                return p;
+            }
+        },
+        {
             // نموذج المشرف (2026-10-12). الكشف من «مدارس الفئة المستهدفة»، والمخاطَب الدائرة؛ وما يُشارك خطابَ التبادل يُؤخذ منه (from)
             id: 'thanks', label: 'طلب شهادات شكر', icon: 'fa-award', attach: true, rosterOnly: true,
             attachTitle: (f, c) => targetTitle(f.program, f.host, f.date, c.teachers),
