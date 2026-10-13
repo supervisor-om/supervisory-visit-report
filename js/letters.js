@@ -19,18 +19,12 @@
     const norm = s => (ID() && ID().normalize ? ID().normalize(s) : clean(s));
     const tKey = t => clean(t.name) + '|' + clean(t.school);
 
-    let S = null;   // الحالة: { tpl, fields: {tplId: {...}}, schools[], female, picked: {key: false}, title, signer }
-
-    function signerName() {
-        try { const i = ID() && ID().getIdentity(); if (i && !i.admin) return i.name; } catch (e) {}
-        try { const g = JSON.parse(localStorage.getItem('svf_gate')); if (g && g.name && !g.admin) return g.name; } catch (e) {}
-        return '';
-    }
+    let S = null;   // الحالة: { tpl, fields: {tplId: {...}}, schools[], female, picked: {key: false} }
 
     function loadState() {
         const d = readJSON(DRAFT_KEY, null);
-        S = Object.assign({ tpl: 'exchange', fields: {}, schools: [], female: false, picked: {}, title: 'مشرف مادة الرياضة المدرسية', signer: '' }, d || {});
-        if (!S.signer) S.signer = signerName();
+        S = Object.assign({ tpl: 'exchange', fields: {}, schools: [], female: false, picked: {} }, d || {});
+        delete S.title; delete S.signer;   // مسوّداتٌ قديمةٌ حملت التوقيع
     }
     const saveState = () => writeJSON(DRAFT_KEY, S);
 
@@ -61,7 +55,7 @@
     function letter() {
         const t = tpl();
         return SvfLetters.buildLetter(t.id, fieldsOf(t), {
-            schools: S.schools, teachers: t.attach ? roster() : [], femalePrincipal: S.female, signer: S.signer, title: S.title
+            schools: S.schools, teachers: t.attach ? roster() : [], femalePrincipal: S.female
         });
     }
 
@@ -178,8 +172,6 @@
         box.querySelector('#lettersFields').innerHTML = (t.presets ? `<div class="flex flex-wrap gap-2">${t.presets.map((p, i) => `<button type="button" data-preset="${i}"
                 class="text-xs font-bold rounded-lg px-3 py-1.5 border ${on(p) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}">${esc(p.label)}</button>`).join('')}</div>` : '')
             + t.fields.map(x => fieldHTML(t, x, f[x.id])).join('');
-        box.querySelector('#lettersTitle').value = S.title;
-        box.querySelector('#lettersSigner').value = S.signer;
         renderPreview();
         renderLog();
     }
@@ -301,8 +293,6 @@
         box.addEventListener('input', e => {
             const el = e.target;
             if (el.dataset.f) { fieldsOf(tpl())[el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value; saveState(); renderPreview(); }
-            else if (el.id === 'lettersTitle') { S.title = el.value; saveState(); renderPreview(); }
-            else if (el.id === 'lettersSigner') { S.signer = el.value; saveState(); renderPreview(); }
         });
         box.addEventListener('change', e => {
             const el = e.target;
@@ -320,7 +310,6 @@
 
     root.svfLettersOpen = function () {
         if (!S) loadState();
-        if (!S.signer) S.signer = signerName();
         bind();
         render();
     };

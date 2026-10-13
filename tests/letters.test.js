@@ -32,7 +32,7 @@ check('withTitle', L.withTitle('الفاضل/ مدير الدائرة').endsWith
 
 /* ── تبادل الزيارات: مثال المشرف ── */
 const ex = L.buildLetter('exchange', { date: '2026-05-11', host: 'مدرسة أحمد بن النعمان (٥-١٠)', time: '07:30' },
-    { schools: ['أ', 'ب'], teachers: [{ name: 'سالم', school: 'أ', fileNumber: '123' }, { name: 'خالد', school: 'ب' }], signer: 'أسعد' });
+    { schools: ['أ', 'ب'], teachers: [{ name: 'سالم', school: 'أ', fileNumber: '123' }, { name: 'خالد', school: 'ب' }]});
 const exT = L.letterText(ex);
 check('exchange: الموضوع', ex.subject === 'برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)');
 check('exchange: اليوم والتاريخ', exT.includes('يوم الاثنين الموافق (١١/ ٥/ ٢٠٢٦م)'));
@@ -46,7 +46,7 @@ check('exchange: بلا إلزامٍ ولا زيّ', !L.letterText(ex2).includes
 const v = L.buildLetter('violation', {
     school: 'غرس (1-12) الدولية', visitDate: '2026-10-08',
     items: '١. عدم تنفيذ الطابور المدرسي في يوم الزيارة\n2- عدم تعديل مسمى الوزارة في اللوحة الخارجية.\n35 دقيقة فاقد'
-}, { schools: ['يُتجاهل'], signer: 'أسعد' });
+}, { schools: ['يُتجاهل']});
 const vT = L.letterText(v);
 check('violation: المخاطَب الدائرة لا المدرسة', v.to === 'الفاضل/ مدير دائرة المؤسسات التعليمية الخاصة       المحترم', v.to);
 check('violation: التحيّة والافتتاح', v.greeting === 'السلام عليكم ورحمة الله وبركاته، وبعد،،'
@@ -119,6 +119,11 @@ const h = L.letterHTML(L.buildLetter('violation', { school: '<b>x</b>', items: '
 check('html: مهروب', !h.includes('<b>x</b>') && h.includes('&lt;b&gt;') && h.includes('a &amp; b'));
 check('html: الكشف جدول', L.letterHTML(ex).includes('<table') && L.letterHTML(ex).includes('١٢٣'));
 check('html: بلا <br>', !/<br/i.test(L.letterHTML(v)));
+
+/* ── بلا توقيع (طلب المشرف 2026-10-13) ── */
+check('no signature: النصّ ينتهي بالخاتمة ثمّ الكشف', !('signature' in ex) && !exT.includes('مشرف مادة الرياضة المدرسية')
+    && exT.includes('وتفضلوا بقبول فائق الاحترام والتقدير،،،\n\nكشف الفئة المستهدفة:'));
+check('no signature: ولا في HTML', !L.letterHTML(ex).includes('مشرف مادة الرياضة') && !L.letterHTML(v).includes('مشرف مادة الرياضة'));
 
 /* ── التوصيل ── */
 const html = read('reports.html'), utils = read('js/utils.js'), init = read('js/init.js'), sw = read('sw.js'), ui = read('js/letters.js');

@@ -257,11 +257,11 @@
     ];
     const templateOf = id => TEMPLATES.find(t => t.id === id) || TEMPLATES[0];
 
-    // الخطاب كاملاً: { subject, to, greeting, body[], closing, signature[], teachers[] }
+    // الخطاب كاملاً: { subject, to, greeting, body[], closing[], teachers[], cc[] } — بلا توقيع (طلب المشرف 2026-10-13: نظام المراسلات يُظهر المرسِل)
     function buildLetter(templateId, fields, ctx) {
         const t = templateOf(templateId);
         const f = Object.assign({}, ...t.fields.map(x => ({ [x.id]: x.value })), fields || {});
-        const c = Object.assign({ schools: [], teachers: [], femalePrincipal: false, signer: '', title: 'مشرف مادة الرياضة المدرسية' }, ctx || {});
+        const c = Object.assign({ schools: [], teachers: [], femalePrincipal: false }, ctx || {});
         return {
             template: t.id,
             subject: t.subject(f),
@@ -269,7 +269,6 @@
             greeting: t.greeting || 'السلام عليكم ورحمة الله وبركاته، وبعد:',
             body: t.body(f, c),
             closing: t.closing || ['وتفضلوا بقبول فائق الاحترام والتقدير،،،'],
-            signature: [clean(c.title), clean(c.signer)].filter(Boolean),
             teachers: t.attach ? (c.teachers || []).filter(x => x && clean(x.name)) : [],
             cc: t.cc ? t.cc(f) : []
         };
@@ -281,8 +280,6 @@
         L.body.forEach(p => lines.push(p));
         lines.push('');
         L.closing.forEach(s => lines.push(s));
-        lines.push('');
-        L.signature.forEach(s => lines.push(s));
         if (L.cc.length) { lines.push('', 'نسخة لـ:'); L.cc.forEach(s => lines.push('* ' + s)); }
         if (L.teachers.length) {
             lines.push('', 'كشف الفئة المستهدفة:');
@@ -304,7 +301,6 @@
             + p(L.greeting)
             + L.body.map(t => p(t)).join('')
             + L.closing.map(t => p(t, 'text-align:center;font-weight:bold;')).join('')
-            + L.signature.map(s => p(s, 'text-align:left;font-weight:bold;margin:0;')).join('')
             + (L.cc.length ? p('نسخة لـ:', 'font-weight:bold;margin-top:14pt;font-size:12pt;') + L.cc.map(t => p('• ' + t, 'margin:0;font-size:12pt;')).join('') : '');
         if (L.teachers.length) {
             const td = 'border:1px solid #000;padding:3pt 6pt;' + (paste ? '' : 'font-family:Arial;font-size:12pt;');
