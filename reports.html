@@ -295,6 +295,9 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                         <button class="nav-tab active flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-bold transition-all duration-200" data-view="form-view">
                             <i class="fa-solid fa-file-pen ml-2"></i>نموذج التقييم
                         </button>
+                        <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200 whitespace-nowrap" data-view="debrief-view">
+                            <i class="fa-solid fa-comments ml-2"></i>المداولة
+                        </button>
                         <button class="nav-tab flex-1 lg:flex-none py-2 px-6 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="dashboard-view">
                             <i class="fa-solid fa-chart-pie ml-2"></i>التحليل البياني
                         </button>
@@ -315,6 +318,8 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
             </header>
 
             <div id="form-view" class="fade-in space-y-6">
+                <!-- حالة المداولة الإشرافيّة (js/debrief.js): حقلٌ مخفيّ هنا فيُحفظ مع التقرير ويُستعاد ويُصفَّر معه -->
+                <textarea id="debriefData" class="hidden" aria-hidden="true" tabindex="-1"></textarea>
                 <div class="bg-gradient-to-r from-blue-700 to-blue-900 rounded-2xl p-8 text-white shadow-lg text-center relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-16 -mt-16"></div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-2 relative z-10">استمارة زيارة إشرافية إلكترونية</h1>
@@ -470,6 +475,21 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                         </section>
                     </div>
                 </main>
+            </div>
+
+            <!-- المداولة الإشرافيّة (js/debrief-core.js + js/debrief.js) -->
+            <div id="debrief-view" class="hidden fade-in space-y-4">
+                <style>
+                    #debriefBody.debrief-big .debrief-q span { font-size: 20px; line-height: 2.1rem; }
+                    #debriefBody.debrief-big h3 { font-size: 20px; }
+                    @media print { #debriefBody .sticky { display: none; } }
+                </style>
+                <div class="bg-gradient-to-l from-indigo-600 to-indigo-500 text-white rounded-2xl p-5">
+                    <h2 class="text-xl font-bold"><i class="fa-solid fa-comments ml-2"></i>المداولة الإشرافيّة</h2>
+                    <p class="text-sm opacity-90 mt-1 leading-6">دليل حوارٍ مع المعلّم يُبنى من هذه الزيارة: النمط الإشرافيّ يُقترح من مستوى الأداء، والأسئلة من أدلّة الحصة
+                        ومحور التطوير. اسأل أوّلاً واستمع، وعلّم السؤال بعد طرحه، واكتب ما يقوله المعلّم، ثمّ اتّفقا على خطوة.</p>
+                </div>
+                <div id="debriefBody" class="space-y-4"></div>
             </div>
 
             <div id="dashboard-view" class="hidden fade-in space-y-6">
@@ -890,6 +910,8 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
     <script src="js/term-plan-data.js"></script>
     <script src="js/term-plan.js"></script>
     <script src="js/teacher-brief.js"></script>
+    <script src="js/debrief-core.js"></script>
+    <script src="js/debrief.js"></script>
     <script src="js/letters-core.js"></script>
     <script src="js/letters.js"></script>
     <script src="js/init.js"></script>

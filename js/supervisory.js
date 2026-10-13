@@ -302,7 +302,7 @@
         }
 
         function toggleSupervisoryView(viewId) {
-            document.querySelectorAll('#form-view, #dashboard-view, #saved-reports-view, #stats-view, #term-view').forEach(view => {
+            document.querySelectorAll('#form-view, #debrief-view, #dashboard-view, #saved-reports-view, #stats-view, #term-view').forEach(view => {
                 view.classList.add('hidden');
             });
 
@@ -316,6 +316,9 @@
                     tab.classList.remove('text-slate-500');
                 }
             });
+
+            // المداولة تُبنى من النموذج لحظة فتحها (js/debrief.js)
+            if (viewId === 'debrief-view' && typeof svfDebriefOpen === 'function') { try { svfDebriefOpen(); } catch (e) { console.warn(e); } }
 
             if (viewId === 'saved-reports-view') {
                 renderSavedReports();

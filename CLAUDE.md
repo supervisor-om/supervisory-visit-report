@@ -130,6 +130,26 @@
   **كلّها** ١–٤ ← رأي الزائر وبنود التوصيات بـ«التلاميذ».
 - اختباره `node tests/pupil-words.test.js`.
 
+## المداولة الإشرافيّة (`js/debrief-core.js` + `js/debrief.js` — منذ 2026-10-13)
+
+تبويب «المداولة» في الزيارات الإشرافيّة (`#debrief-view`) — طلب المشرف: «تولد من زيارة المعلم وتستخدم الأساليب الحديثة … لتسهيل
+مناقشة المعلم في حصته». يقرأ **الزيارة المفتوحة في النموذج** (الدرجات `#score-N` والأوصاف `#notes-N` والمعلّم والدرس والصفّ والجنس،
+وتوصيات زيارته السابقة من `supPreviousVisits`) ويبني دليل حوار.
+- **النمط (غليكمان — الإشراف التطوّريّ) يُقترح من الدرجات** (`suggestStyle`؛ السلّم مقلوب): بند ٥، أو متوسّط ≥ ٣٫٦، أو ثلاثة ≥ ٤ ← توجيهيّ
+  إعلاميّ (أسلوبه المداولة العياديّة)؛ متوسّط ≤ ٢٫٢ بلا بند ≥ ٤ ← غير توجيهيّ/تأمّليّ (الحوار التأمّليّ)؛ وإلّا تعاونيّ (GROW).
+- **خمسة أساليب** يختار منها المشرف: GROW (الهدف/الواقع/الخيارات/الالتزام)، القبعات الست (زرقاء ← بيضاء ← حمراء ← صفراء ← سوداء ← خضراء
+  ← زرقاء)، الحوار التأمّليّ (كوستا وغارمستون)، المداولة العياديّة (أدلّة ← أثر ← بدائل ← اتّفاق)، و«ما نجح / أفضل لو» (٥ دقائق).
+- **محور التطوير بندان** (`pickFocus`: الأعلى درجةً، ثمّ من ٣) و**الإجادة بندان** (`pickStrengths`) — شرائح يبدّلها المشرف (حتّى ثلاثة).
+  **بنك لكلّ بندٍ من الثلاثة عشر** (`BANK`: سؤالا تأمّل، وثلاثة بدائل «إن احتاجها المعلّم»، وصيغة هدف) موائمٌ للرياضة المدرسيّة.
+  الأسئلة بصيغة المخاطَب والجنس (`{مذكّر|مؤنّث}` ← `g`)، وتمرّ بـ`svfPupilText` للصفوف ١–٤، وتذكر الدرس وتعرض «ما رصدتُه» من أوصاف البنود.
+- **أثناء الحوار:** مربّعٌ يُعلَّم بعد طرح السؤال، وخانة «ما قاله المعلّم» لكلّ مرحلة، و«الاتّفاق» (الهدف/الإجراء/المؤشّر/الموعد/الدعم) —
+  وصيغ الهدف تُنقر فتُكتب فيه — و«خطٌّ كبير». ثمّ «نسخ الملخّص» (`summaryLines`)، و«حفظ Word» (دليلٌ للطباعة بفراغات)، و«إدراج الاتّفاق
+  في التوصيات» (`agreementRec` سطراً في `#recommendationsContent`، بلا تكرار).
+- **الحالة في `#debriefData`** — `textarea` مخفيّة **داخل `#form-view`**: `savePermanentReport` يجمع كلّ حقول النموذج بمعرّفاتها فتُحفظ مع التقرير
+  (وتمرّ بالمزامنة)، و`loadPermanentReport` يُعيدها، و`performReset` يصفّرها. لا تذهب إلى البوّابة (الحمولة حقولٌ مسمّاة).
+- `toggleSupervisoryView('debrief-view')` يبنيها لحظة الفتح. `evaluationItems`/`currentEditingKey` تصريحاتٌ عامّة تُقرأ بـ`typeof` (لا `window.`).
+- اختباره `node tests/debrief.test.js`.
+
 ## المراسلات (`js/letters-core.js` + `js/letters.js` — منذ 2026-10-12)
 
 بطاقةٌ ثالثةٌ في الصفحة الرئيسيّة ← `#lettersApp` (و`showView` يُخفيها مع الشاشتين). طلب المشرف: قوالب لبناء المخاطبات
@@ -1166,7 +1186,7 @@
    و`node tests/identity.test.js` و`node tests/cloud.test.js` و`node tests/monthly.test.js`
    و`node tests/term-board.test.js`
    و`node tests/recs.test.js` و`node tests/classroom.test.js` و`node tests/objectives.test.js` و`node tests/route.test.js`
-   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js` و`node tests/recs-v2.test.js` و`node tests/letters.test.js`.
+   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js` و`node tests/recs-v2.test.js` و`node tests/letters.test.js` و`node tests/debrief.test.js`.
    ملف المحاكاة نفسه لم يُرفع بعد.
 3. **مطابقة الدرجة لها ملاذٌ أخيرٌ بالموضع** (`opts[Number(v)]` في تعبئة البنود) — تخمينٌ
    يخالف قاعدة «لا تخمين لسلّم التقييم». يُراجَع حين يُطبع سلّم البوّابة الحقيقيّ من التشخيص.
