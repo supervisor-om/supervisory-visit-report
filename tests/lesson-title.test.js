@@ -32,7 +32,7 @@ cases.forEach(([args, want, label]) => {
 check('wiring: يُكتب بالصيغة في خانة عنوان الدرس',
       /let title = svfLessonTitle\(sup\.lessonTitle, sup\.className, sup\.period\);[\s\S]{0,900}supPut\(STAGE1_FIELDS\['عنوان الدرس'\], title, 'عنوان الدرس'\);/.test(SRC));
 check('wiring: وإن تجاوز حدّ الخانة يُكتب العنوان وحده', /if \(max && title\.length > max\) \{[\s\S]{0,200}title = sup\.lessonTitle;/.test(SRC));
-check('wiring: في المستوى المشترك', SRC.indexOf('function svfLessonTitle') < SRC.indexOf("if (location.hostname.includes('moe.gov.om') && !/supervisionvisits/"));
+check('wiring: في المستوى المشترك', SRC.indexOf('function svfLessonTitle') < SRC.indexOf("if (location.hostname.includes('moe.gov.om') && !IS_DMS && !/supervisionvisits/"));
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);

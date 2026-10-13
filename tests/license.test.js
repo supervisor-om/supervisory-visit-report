@@ -62,10 +62,15 @@ check('wiring: وحدة الزيارات المدرسيّة لا تعمل بلا
 check('wiring: ووحدة الإشرافيّة كذلك (والمحاكاة مستثناة للاختبار)',
       /if \(!svfLicense\(\) && !\/sim-moe\/i\.test\(location\.pathname\)\) \{ svfLicenseNotice\(\); return; \}/.test(SRC));
 check('wiring: الفحص قبل أيّ عملٍ في الوحدتين', (() => {
-    const school = SRC.indexOf("if (location.hostname.includes('moe.gov.om') && !/supervisionvisits/i.test(location.pathname)) {");
+    const school = SRC.indexOf("if (location.hostname.includes('moe.gov.om') && !IS_DMS && !/supervisionvisits/i.test(location.pathname)) {");
     const sup = SRC.indexOf("&& /supervisionvisits/i.test(location.pathname)) {");
-    return SRC.indexOf('if (!svfLicense())', school) - school < 400 && SRC.indexOf('if (!svfLicense() &&', sup) - sup < 200;
+    return school > 0 && SRC.indexOf('if (!svfLicense())', school) - school < 400 && SRC.indexOf('if (!svfLicense() &&', sup) - sup < 200;
 })());
+// نظام المراسلات (v17.3): نطاقٌ فرعيّ يُستثنى من الوحدتين، ووحدته تفحص الترخيص قبل اللوحة
+check('dms: مستثنى من وحدتي البوّابة', /&& !IS_DMS && !\/supervisionvisits\/i/.test(SRC) && /\(location\.hostname\.includes\('moe\.gov\.om'\) && !IS_DMS\)/.test(SRC));
+check('dms: الترخيص قبل اللوحة، ولا ضغط «إرسال»', /if \(!svfLicense\(\)\) \{ svfLicenseNotice\(\); return; \}\s*\n\s*panel\(L\);/.test(SRC)
+    && !/إرسال['"]\)\.click|\.click\(\)[^\n]*إرسال/.test(SRC.slice(SRC.indexOf('if (IS_DMS) {'))));
+check('dms: @match', /\/\/ @match\s+https:\/\/dms\.moe\.gov\.om\/\*/.test(SRC));
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);

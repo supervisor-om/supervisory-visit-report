@@ -160,7 +160,8 @@ check('wiring: السكربتان قبل init.js', /letters-core\.js[\s\S]*lette
 check('wiring: showView يُخفي المراسلات', utils.includes("getElementById('lettersApp')?.classList.add('hidden')"));
 check('wiring: init يفتحها', /showLettersAppBtn[\s\S]{0,400}svfLettersOpen\(\)/.test(init));
 check('wiring: عامل الخدمة', sw.includes("'./js/letters-core.js'") && sw.includes("'./js/letters.js'"));
-check('wiring: نظام المراسلات — النسخ المنسَّق قبل الفتح', ui.includes("'https://dms.moe.gov.om'") && /copyLetter\([^\n]*\);\s*\n\s*window\.open\(DMS_URL/.test(ui));
+check('wiring: نظام المراسلات — النسخ المنسَّق قبل الفتح', ui.includes("'https://dms.moe.gov.om'") && /copyLetter\([^\n]*\);\s*\n\s*queueDms\(\);\s*\n\s*window\.open\(DMS_URL/.test(ui));
+check('wiring: الصادر للسكربت قبل الفتح', /writeJSON\('svf_dms_outbox'[\s\S]{0,200}letterHTML\(L, \{ paste: true \}\)[\s\S]{0,200}CustomEvent\('svf-dms-outbox'\)/.test(ui));
 check('wiring: «نسخ النص» منسَّق', /b\.id === 'lettersCopy'\) \{ copyLetter\(/.test(ui) && /letterHTML\(L, \{ paste: true \}\)/.test(ui));
 
 /* ── وضع اللصق في محرّر نظام المراسلات (2026-10-13: الكشف كان يُلصق أسطراً) ── */

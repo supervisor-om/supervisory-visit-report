@@ -296,6 +296,15 @@
         } else copy(text, 'نُسخ نصّاً بلا تنسيق — الكشف أسطرٌ لا جدول');
     }
 
+    // لسكربت تامبر مانكي (v17.3): المراسلة في الصادر ثمّ حدثٌ يلتقطه فينقلها إلى تخزينه، فتظهر لوحة «تعبئة المراسلة»
+    // في dms.moe.gov.om. بلا السكربت يبقى الصادر بلا أثر (يُكتب فوقه في المرّة التالية) والنسخ واللصق يكفيان.
+    function queueDms() {
+        const L = letter();
+        writeJSON('svf_dms_outbox', { at: Date.now(), subject: L.subject, to: L.to,
+            html: SvfLetters.letterHTML(L, { paste: true }), text: SvfLetters.letterText(L) });
+        try { document.dispatchEvent(new CustomEvent('svf-dms-outbox')); } catch (e) {}
+    }
+
     function copy(text, okMsg) {
         const done = () => toast(okMsg);
         if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
@@ -370,6 +379,7 @@
             else if (b.id === 'lettersDms') {
                 // النسخ أوّلاً (متزامن، والمستند ما زال مركَّزاً) ثمّ الفتح — كلاهما داخل ضغطة المستخدم
                 copyLetter('نُسخت المراسلة منسَّقة — الصقها في نظام المراسلات، والموضوع بزرّ «نسخ الموضوع»');
+                queueDms();
                 window.open(DMS_URL, '_blank', 'noopener');
                 logIt('نظام المراسلات');
             }
