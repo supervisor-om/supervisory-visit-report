@@ -141,9 +141,10 @@ check('html: بلا <br>', !/<br/i.test(L.letterHTML(v)));
     check('others: في الذاكرة وحدها — لا localStorage', !/localStorage|writeJSON|setItem/.test(fn) && /allTeachersCache = out/.test(fn));
     check('others: مُصدَّرة', /const api = \{\s*allTeachers,/.test(ID));
     check('others: الكشف = معلّمو المدارس + المُضافون', /function rosterFull\(\)[\s\S]{0,300}S\.extra/.test(UI) && /const roster = \(\) => rosterFull\(\)/.test(UI));
-    check('others: تُجلب عند التركيز على الخانة لا عند الفتح', /focusin[\s\S]{0,80}lettersExtraInput'\) loadAll\(\)/.test(UI));
-    check('others: لا تكرار في الكشف', /rosterFull\(\)\.some\(y => tKey\(y\) === tKey\(x\)\)/.test(UI));
-    check('others: الاسم الملتبس لا يُختار عنه', /byName\.length === 1 \? byName\[0\] : null/.test(UI));
+    check('others: بالمدرسة — كلّ معلّميها بلا تكرار', UI.includes('function addSchoolTeachers(v)') && UI.includes('if (have.has(tKey(x))) return;')
+        && H.includes('list="lettersOtherSchools"') && H.includes('إضافة معلّميها'));
+    check('others: مدارسي مستثناة من القائمة', UI.includes('if (!k || mine.has(k)) return;'));
+    check('others: تُجلب حين يظهر قسم الكشف، وتُزال المدرسة كاملة', UI.includes('if (!allState) loadAll();') && UI.includes('data-xschool'));
     check('others: الإضافة اليدويّة والسجلّ', H.includes('id="lettersManualAdd"') && H.includes('id="lettersExtraInput"') && /extra: \(S\.extra \|\| \[\]\)\.slice\(\)/.test(UI));
 }
 

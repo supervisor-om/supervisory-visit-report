@@ -58,23 +58,55 @@
     }
     const roster = () => rosterFull().filter(t => S.picked[tKey(t)] !== false);
 
-    let allList = null;   // معلّمو القاعدة كلّها بعد أوّل طلب
-    const optLabel = t => clean(t.name) + ' — ' + clean(t.school);
+    // ── مدارس المشرفين الآخرين (طلب المشرف 2026-10-13: «الإضافة باسم المدرسة») ──
+    // القاعدة كلّها تُجلب مرّةً حين يظهر قسم الكشف، وفي الذاكرة وحدها؛ المدرسة المختارة يُضاف كلّ معلّميها ويُلغى من لا يشمله.
+    let allList = null, allState = '';   // '' لم يُطلب · loading · ok · error
     async function loadAll() {
-        if (allList || !ID() || !ID().allTeachers) return;
-        allList = [];
-        try { allList = await ID().allTeachers(); }
-        catch (e) { allList = null; toast('تعذّر جلب معلّمي المشرفين الآخرين — تحقّق من الاتصال، أو أضف يدويّاً', 'error'); return; }
-        const dl = document.getElementById('lettersAllTeachers');
-        if (dl) dl.innerHTML = allList.map(t => `<option value="${esc(optLabel(t))}">${esc(t.supervisor ? 'المشرف: ' + t.supervisor : '')}</option>`).join('');
+        if (allState === 'loading' || allState === 'ok' || !ID() || !ID().allTeachers) return;
+        allState = 'loading'; paintOthers();
+        try { allList = await ID().allTeachers(); allState = 'ok'; }
+        catch (e) { allList = null; allState = 'error'; }
+        paintOthers();
     }
-    // من القائمة: «الاسم — المدرسة» تماماً، أو اسمٌ وحيدٌ في القاعدة
-    function findInAll(v) {
-        const list = allList || [];
-        const exact = list.find(t => optLabel(t) === v);
-        if (exact) return exact;
-        const byName = list.filter(t => clean(t.name) === v);
-        return byName.length === 1 ? byName[0] : null;
+    // المدارس في القاعدة كلّها عدا مدارسي (هي في خانة المدارس أعلاه)، مع مشرفها وعدد معلّميها
+    function otherSchools() {
+        const mine = new Set((ID() && ID().schoolNames ? ID().schoolNames() : []).map(norm));
+        const map = new Map();
+        (allList || []).forEach(t => {
+            const k = norm(t.school);
+            if (!k || mine.has(k)) return;
+            const e = map.get(k) || { school: clean(t.school), sups: new Set(), n: 0 };
+            e.n++; if (t.supervisor) e.sups.add(t.supervisor);
+            map.set(k, e);
+        });
+        return [...map.values()].sort((a, b) => a.school.localeCompare(b.school, 'ar'));
+    }
+    function paintOthers() {
+        const st = document.getElementById('lettersOthersState'), dl = document.getElementById('lettersOtherSchools');
+        if (!st || !dl) return;
+        if (allState === 'ok') {
+            const list = otherSchools();
+            dl.innerHTML = list.map(e => `<option value="${esc(e.school)}">${esc([...e.sups].join('، ') + ' · ' + e.n + ' معلّم')}</option>`).join('');
+            st.textContent = list.length + ' مدرسة لمشرفين آخرين — اكتب جزءاً من اسمها واختر';
+        } else st.textContent = allState === 'loading' ? 'جاري تحميل مدارس المشرفين الآخرين…'
+            : allState === 'error' ? 'تعذّر تحميل مدارس المشرفين الآخرين — تحقّق من الاتصال، أو أضف المعلّم يدويّاً' : '';
+    }
+    function addSchoolTeachers(v) {
+        const k = norm(v);
+        const list = (allList || []).filter(t => norm(t.school) === k);
+        if (!list.length) { toast(allState === 'ok' ? 'اختر المدرسة من القائمة المقترحة' : 'القائمة لم تُحمَّل بعد', 'error'); return false; }
+        S.extra = S.extra || [];
+        const have = new Set(rosterFull().map(tKey));
+        let n = 0;
+        list.forEach(t => {
+            const x = { name: clean(t.name), school: clean(t.school), fileNumber: clean(t.fileNumber),
+                gender: t.gender === 'f' ? 'f' : t.gender === 'm' ? 'm' : '', supervisor: clean(t.supervisor) };
+            if (have.has(tKey(x))) return;
+            have.add(tKey(x)); S.extra.push(x); delete S.picked[tKey(x)]; n++;
+        });
+        saveState(); render();
+        toast(n ? 'أُضيف ' + n + ' من معلّمي ' + clean(list[0].school) + ' — ألغِ تحديد من لا يشمله الكشف' : 'معلّمو هذه المدرسة في الكشف أصلاً');
+        return true;
     }
     function addExtra(t) {
         if (!t || !clean(t.name)) return false;
@@ -195,11 +227,18 @@
         att.classList.toggle('hidden', !t.attach);
         if (t.attach) {
             const all = rosterFull();
+            const row = x => `<div class="flex items-center gap-2 text-sm py-0.5"><label class="flex items-center gap-2 min-w-0 flex-1"><input type="checkbox" data-pick="${esc(tKey(x))}" ${S.picked[tKey(x)] !== false ? 'checked' : ''}>
+                    <span class="font-bold text-slate-700">${esc(x.name)}</span><span class="text-xs text-slate-400 truncate">${x.extra ? '' : esc(x.school)}${x.fileNumber ? (x.extra ? '' : ' · ') + esc(x.fileNumber) : ''}</span></label>
+                    ${x.extra ? `<button type="button" data-xrm="${esc(tKey(x))}" class="text-slate-400 hover:text-red-600 text-xs" aria-label="إزالة">&times;</button>` : ''}</div>`;
+            const mineRows = all.filter(x => !x.extra), groups = new Map();
+            all.filter(x => x.extra).forEach(x => { const k = norm(x.school); (groups.get(k) || groups.set(k, []).get(k)).push(x); });
             att.querySelector('#lettersRoster').innerHTML = !all.length
-                ? `<p class="text-xs text-slate-400">${linked ? 'أضف مدرسةً ليظهر معلّموها هنا، أو أضف معلّمين من الأسفل.' : 'اربط رمزك بقاعدة المعلمين، أو أضف المعلّمين يدويّاً من الأسفل.'}</p>`
-                : all.map(x => `<div class="flex items-center gap-2 text-sm py-0.5"><label class="flex items-center gap-2 min-w-0 flex-1"><input type="checkbox" data-pick="${esc(tKey(x))}" ${S.picked[tKey(x)] !== false ? 'checked' : ''}>
-                    <span class="font-bold text-slate-700">${esc(x.name)}</span><span class="text-xs text-slate-400 truncate">${esc(x.school)}${x.fileNumber ? ' · ' + esc(x.fileNumber) : ''}${x.extra ? ' · ' + (x.supervisor ? 'المشرف: ' + esc(x.supervisor) : 'مُضاف يدويّاً') : ''}</span></label>
-                    ${x.extra ? `<button type="button" data-xrm="${esc(tKey(x))}" class="text-slate-400 hover:text-red-600 text-xs" aria-label="إزالة">&times;</button>` : ''}</div>`).join('');
+                ? `<p class="text-xs text-slate-400">${linked ? 'اختر مدرسةً من مدارسك في «مدارس الفئة المستهدفة»، أو أضف مدرسةً لمشرفٍ آخر من الأسفل.' : 'اربط رمزك بقاعدة المعلمين، أو أضف المعلّمين يدويّاً من الأسفل.'}</p>`
+                : mineRows.map(row).join('')
+                + [...groups.entries()].map(([k, xs]) => `<div class="mt-2 pt-2 border-t border-dashed border-slate-200">
+                    <div class="flex items-center justify-between text-xs font-bold text-indigo-700 mb-1"><span>${esc(xs[0].school || 'مُضافون يدويّاً')}${xs[0].supervisor ? ' <span class="text-slate-400 font-normal">· المشرف: ' + esc(xs[0].supervisor) + '</span>' : ''}</span>
+                    <button type="button" data-xschool="${esc(k)}" class="text-slate-400 hover:text-red-600 font-normal">إزالة المدرسة</button></div>${xs.map(row).join('')}</div>`).join('');
+            if (!allState) loadAll(); else paintOthers();
         }
 
         const on = p => Object.keys(p.values).every(k => clean(f[k]) === clean(p.values[k]));
@@ -308,9 +347,13 @@
             else if (b.dataset.preset != null) { Object.assign(fieldsOf(tpl()), tpl().presets[+b.dataset.preset].values); saveState(); render(); }
             else if (b.dataset.xrm != null) { S.extra = (S.extra || []).filter(x => tKey(x) !== b.dataset.xrm); delete S.picked[b.dataset.xrm]; saveState(); render(); }
             else if (b.id === 'lettersExtraAdd') {
-                const i = box.querySelector('#lettersExtraInput'), hit = findInAll(clean(i.value));
-                if (!hit) { toast(allList ? 'اختر المعلّم من القائمة المقترحة، أو أضفه يدويّاً' : 'جاري تحميل القائمة — أعد المحاولة بعد لحظة', 'error'); loadAll(); return; }
-                if (addExtra(hit)) i.value = '';
+                const i = box.querySelector('#lettersExtraInput');
+                if (addSchoolTeachers(i.value)) i.value = '';
+            }
+            else if (b.dataset.xschool != null) {
+                const k = b.dataset.xschool;
+                (S.extra || []).filter(x => norm(x.school) === k).forEach(x => delete S.picked[tKey(x)]);
+                S.extra = (S.extra || []).filter(x => norm(x.school) !== k); saveState(); render();
             }
             else if (b.id === 'lettersManualToggle') box.querySelector('#lettersManualForm').classList.toggle('hidden');
             else if (b.id === 'lettersManualAdd') {
@@ -349,9 +392,9 @@
             else if (el.id === 'lettersFemale') { S.female = el.checked; saveState(); renderPreview(); }
             else if (el.id === 'lettersSchoolInput' && (ID() && ID().schoolNames ? ID().schoolNames() : []).some(s => norm(s) === norm(el.value))) { addSchool(el.value); el.value = ''; }
         });
-        box.addEventListener('focusin', e => { if (e.target.id === 'lettersExtraInput') loadAll(); });
         box.addEventListener('keydown', e => {
             if (e.key === 'Enter' && e.target.id === 'lettersSchoolInput') { e.preventDefault(); addSchool(e.target.value); e.target.value = ''; }
+            if (e.key === 'Enter' && e.target.id === 'lettersExtraInput') { e.preventDefault(); if (addSchoolTeachers(e.target.value)) e.target.value = ''; }
         });
         document.addEventListener('svf-teachers-changed', () => { if (!box.classList.contains('hidden')) render(); });
     }
