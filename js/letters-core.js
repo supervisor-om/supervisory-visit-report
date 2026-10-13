@@ -21,15 +21,34 @@
         return { day: DAYS[d.getUTCDay()], date: arNum(`${+m[3]}/ ${+m[2]}/ ${m[1]}`) + 'م' };
     }
 
-    // «07:30» ← «٧:٣٠ ص»
+    // «07:30» ← «(٧:٣٠) صباحاً» — صيغة المشرف (2026-10-13): «في تمام الساعة (٧:٠٠) صباحاً»
     function arTime(hhmm) {
         const m = /^(\d{1,2}):(\d{2})$/.exec(clean(hhmm));
         if (!m) return clean(hhmm);
         let h = +m[1];
-        const pm = h >= 12;
+        const part = h < 12 ? 'صباحاً' : h === 12 ? 'ظهراً' : 'مساءً';
         if (h > 12) h -= 12;
         if (h === 0) h = 12;
-        return arNum(`${h}:${m[2]}`) + (pm ? ' م' : ' ص');
+        return `(${arNum(`${h}:${m[2]}`)}) ${part}`;
+    }
+
+    // الأرقام بين الكلمات بين قوسين (طلب المشرف 2026-10-13): «35 دقيقة» ← «(35) دقيقة».
+    // ما كان داخل قوسين يبقى («(1-12)»، التاريخ، رقم الملف)، وترقيم البند في أوّل السطر «١. » لا يُمسّ؛
+    // والرقم المركّب كتلةٌ واحدة («12/5»، «7:30»، «5-8»).
+    function wrapNums(text) {
+        const s = String(text == null ? '' : text);
+        const lead = /^[\d٠-٩]+[.\-–]\s/.exec(s);
+        const head = lead ? lead[0] : '', rest = s.slice(head.length);
+        let out = '', depth = 0, buf = '';
+        const flush = () => { out += buf.replace(/[\d٠-٩]+(?:[\/:.\-–][\d٠-٩]+)*/g, m => `(${m})`); buf = ''; };
+        for (const ch of rest) {
+            if (ch === '(') { if (!depth) flush(); depth++; out += ch; }
+            else if (ch === ')' && depth) { depth--; out += ch; }
+            else if (depth) out += ch;
+            else buf += ch;
+        }
+        flush();
+        return head + out;
     }
 
     // المخاطَب: مدرسةٌ واحدة ← «الفاضل/ مدير مدرسة …»، وأكثر ← «الأفاضل/ مديرو المدارس المعنية»
@@ -90,7 +109,7 @@
                     `${OPENING} وضمن خطة إشراف مادة الرياضة المدرسية لتنفيذ ${clean(f.program) || 'برنامج تبادل الزيارات'}، `
                     + `نود إفادتكم بأنه سيتم تنفيذ البرنامج حسب الفئة المستهدفة بالكشف المرفق، وذلك يوم ${d.day || '……'} الموافق (${d.date || '……'}).`,
                     `التكرم بالإيعاز ${mentionedTeachers(c.teachers)} الحضور إلى مدرسة ${clean(f.host).replace(/^مدرسة\s+/, '') || '……'} `
-                    + `الساعة ${arTime(f.time) || '……'}` + (f.uniform ? '، والالتزام بالزي الرياضي.' : '.')
+                    + `في تمام الساعة ${arTime(f.time) || '……'}` + (f.uniform ? '، والالتزام بالزي الرياضي.' : '.')
                 ];
                 if (f.mandatory) p.push('كما نشير إلى إلزامية الحضور للفئة المستهدفة، ولن يُقبل التغيب إلا بعذرٍ مقبول، علماً بأنه سيتم '
                     + 'إرسال إفادات الغياب لمن تغيب بدون عذرٍ مقبول، وعليه نهيب بالجميع الالتزام.');
@@ -228,7 +247,7 @@
                 const venue = clean(f.venue);
                 return [
                     `${OPENING} يسرّنا دعوة الفئة المستهدفة بالكشف المرفق لحضور ${clean(f.topic) || 'ورشة تدريبية'}، `
-                    + `وذلك يوم ${d.day || '……'} الموافق (${d.date || '……'}) الساعة ${arTime(f.time) || '……'}`
+                    + `وذلك يوم ${d.day || '……'} الموافق (${d.date || '……'}) في تمام الساعة ${arTime(f.time) || '……'}`
                     + (venue ? ` في ${/^(مدرسة|قاعة|مركز|دائرة|مديرية)/.test(venue) ? venue : 'مدرسة ' + venue}.` : '.'),
                     `التكرم بالإيعاز ${mentionedTeachers(c.teachers)} الحضور في الموعد المحدد`
                     + (clean(f.bring) ? `، مع إحضار ${clean(f.bring)}.` : '.')
@@ -267,7 +286,7 @@
             subject: t.subject(f),
             to: t.to ? t.to(f) : addressee(c.schools, c.femalePrincipal),
             greeting: t.greeting || 'السلام عليكم ورحمة الله وبركاته، وبعد:',
-            body: t.body(f, c),
+            body: t.body(f, c).map(wrapNums),
             closing: t.closing || ['وتفضلوا بقبول فائق الاحترام والتقدير،،،'],
             teachers: t.attach ? (c.teachers || []).filter(x => x && clean(x.name)) : [],
             cc: t.cc ? t.cc(f) : []
@@ -314,7 +333,7 @@
         return h;
     }
 
-    const api = { TEMPLATES, templateOf, buildLetter, letterText, letterHTML, arDate, arTime, arNum, addressee, mentionedTeachers, withTitle };
+    const api = { TEMPLATES, templateOf, buildLetter, letterText, letterHTML, arDate, arTime, arNum, wrapNums, addressee, mentionedTeachers, withTitle };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfLetters = api;
 })(typeof window !== 'undefined' ? window : this);
