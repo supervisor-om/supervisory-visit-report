@@ -127,7 +127,14 @@ check('wiring: السكربتان قبل init.js', /letters-core\.js[\s\S]*lette
 check('wiring: showView يُخفي المراسلات', utils.includes("getElementById('lettersApp')?.classList.add('hidden')"));
 check('wiring: init يفتحها', /showLettersAppBtn[\s\S]{0,400}svfLettersOpen\(\)/.test(init));
 check('wiring: عامل الخدمة', sw.includes("'./js/letters-core.js'") && sw.includes("'./js/letters.js'"));
-check('wiring: نظام المراسلات', ui.includes("'https://dms.moe.gov.om'") && /window\.open\(DMS_URL[\s\S]{0,40}\);\s*\n\s*copy\(/.test(ui));
+check('wiring: نظام المراسلات — النسخ المنسَّق قبل الفتح', ui.includes("'https://dms.moe.gov.om'") && /copyLetter\([^\n]*\);\s*\n\s*window\.open\(DMS_URL/.test(ui));
+check('wiring: «نسخ النص» منسَّق', /b\.id === 'lettersCopy'\) \{ copyLetter\(/.test(ui) && /letterHTML\(L, \{ paste: true \}\)/.test(ui));
+
+/* ── وضع اللصق في محرّر نظام المراسلات (2026-10-13: الكشف كان يُلصق أسطراً) ── */
+const hp = L.letterHTML(ex, { paste: true }), hw = L.letterHTML(ex);
+check('paste: الكشف جدولٌ بحدود', /<table[^>]*border="1"/.test(hp) && (hp.match(/<tr>/g) || []).length === 3 && hp.includes('١٢٣'));
+check('paste: بلا سطر الموضوع ولا خطٍّ مفروض', !hp.includes('الموضوع:') && !/font-family|font-size/.test(hp));
+check('paste: Word كما كان (بالموضوع والخطّ)', hw.includes('الموضوع:') && /font-family:Arial/.test(hw));
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);

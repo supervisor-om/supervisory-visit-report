@@ -293,21 +293,23 @@
 
     // HTML الخطاب لـWord والمعاينة — كلّ سطرٍ فقرة (Word يمدّ السطر المنتهي بـ<br>)، والنصوص مهروبة
     const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    function letterHTML(L) {
-        const P = 'margin:0 0 8pt 0;line-height:1.6;font-family:Arial;font-size:14pt;text-align:justify;';
+    // paste: للّصق في محرّر نظام المراسلات — بلا سطر الموضوع (له خانته هناك) وبلا خطٍّ وحجم (يأخذ خطّ المحرّر)، والجدول بحدوده
+    function letterHTML(L, opts) {
+        const paste = !!(opts && opts.paste);
+        const P = paste ? 'margin:0 0 8pt 0;text-align:justify;' : 'margin:0 0 8pt 0;line-height:1.6;font-family:Arial;font-size:14pt;text-align:justify;';
         const p = (t, extra) => `<p dir="rtl" style="${P}${extra || ''}">${escH(t)}</p>`;
         // الفراغ قبل «المحترم» يُحفظ (HTML وWord يطويان المسافات المتتالية)
         let h = `<p dir="rtl" style="${P}font-weight:bold;">${escH(L.to).replace(/ {2,}/g, m => '&nbsp;'.repeat(m.length * 3))}</p>`
-            + p('الموضوع: ' + L.subject, 'font-weight:bold;text-align:center;text-decoration:underline;')
+            + (paste ? '' : p('الموضوع: ' + L.subject, 'font-weight:bold;text-align:center;text-decoration:underline;'))
             + p(L.greeting)
             + L.body.map(t => p(t)).join('')
             + L.closing.map(t => p(t, 'text-align:center;font-weight:bold;')).join('')
             + L.signature.map(s => p(s, 'text-align:left;font-weight:bold;margin:0;')).join('')
             + (L.cc.length ? p('نسخة لـ:', 'font-weight:bold;margin-top:14pt;font-size:12pt;') + L.cc.map(t => p('• ' + t, 'margin:0;font-size:12pt;')).join('') : '');
         if (L.teachers.length) {
-            const td = 'border:1px solid #000;padding:3pt 6pt;font-family:Arial;font-size:12pt;';
+            const td = 'border:1px solid #000;padding:3pt 6pt;' + (paste ? '' : 'font-family:Arial;font-size:12pt;');
             h += p('كشف الفئة المستهدفة', 'font-weight:bold;margin-top:14pt;')
-                + `<table dir="rtl" style="border-collapse:collapse;width:100%;"><tr>`
+                + `<table dir="rtl" border="1" cellpadding="4" style="border-collapse:collapse;width:100%;"><tr>`
                 + ['م', 'الاسم', 'المدرسة', 'رقم الملف'].map(x => `<th style="${td}background:#E7E6E6;">${x}</th>`).join('') + '</tr>'
                 + L.teachers.map((x, i) => `<tr><td style="${td}text-align:center;">${arNum(i + 1)}</td><td style="${td}">${escH(clean(x.name))}</td>`
                     + `<td style="${td}">${escH(clean(x.school))}</td><td style="${td}text-align:center;">${escH(arNum(clean(x.fileNumber)))}</td></tr>`).join('')

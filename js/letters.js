@@ -210,6 +210,27 @@
         renderLog();
     }
 
+    // الخطاب منسَّقاً (HTML ونصّاً معاً): محرّر نظام المراسلات يلصق الكشف جدولاً لا أسطراً.
+    // يُنسخ متزامناً داخل الضغطة (تحديد عنصرٍ ثمّ execCommand) قبل فتح التبويب — الحافظة غير المتزامنة تفشل حين يفقد المستند التركيز.
+    function copyLetter(okMsg) {
+        const L = letter(), html = SvfLetters.letterHTML(L, { paste: true }), text = SvfLetters.letterText(L);
+        const box = document.createElement('div');
+        box.setAttribute('dir', 'rtl'); box.contentEditable = 'true';
+        box.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;opacity:0;';
+        box.innerHTML = html;
+        document.body.appendChild(box);
+        const sel = window.getSelection(), r = document.createRange();
+        r.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(r);
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) {}
+        sel.removeAllRanges(); box.remove();
+        if (ok) { toast(okMsg); return; }
+        if (navigator.clipboard && root.ClipboardItem) {
+            navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })])
+                .then(() => toast(okMsg), () => copy(text, 'نُسخ نصّاً بلا تنسيق — الكشف أسطرٌ لا جدول'));
+        } else copy(text, 'نُسخ نصّاً بلا تنسيق — الكشف أسطرٌ لا جدول');
+    }
+
     function copy(text, okMsg) {
         const done = () => toast(okMsg);
         if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
@@ -261,13 +282,13 @@
             else if (b.dataset.preset != null) { Object.assign(fieldsOf(tpl()), tpl().presets[+b.dataset.preset].values); saveState(); render(); }
             else if (b.id === 'lettersFillBtn') fillFromVisit();
             else if (b.id === 'lettersAddSchool') { const i = box.querySelector('#lettersSchoolInput'); addSchool(i.value); i.value = ''; }
-            else if (b.id === 'lettersCopy') { copy(SvfLetters.letterText(letter()), 'نُسخ نصّ المراسلة'); logIt('نسخ'); }
+            else if (b.id === 'lettersCopy') { copyLetter('نُسخت المراسلة منسَّقةً (والكشف جدول)'); logIt('نسخ'); }
             else if (b.id === 'lettersCopySubject') copy(letter().subject, 'نُسخ الموضوع');
             else if (b.id === 'lettersWord') exportWord();
             else if (b.id === 'lettersDms') {
-                // الفتح أوّلاً داخل ضغطة المستخدم (وإلّا حجبه المتصفّح)، ثمّ النسخ
+                // النسخ أوّلاً (متزامن، والمستند ما زال مركَّزاً) ثمّ الفتح — كلاهما داخل ضغطة المستخدم
+                copyLetter('نُسخت المراسلة منسَّقة — الصقها في نظام المراسلات، والموضوع بزرّ «نسخ الموضوع»');
                 window.open(DMS_URL, '_blank', 'noopener');
-                copy(SvfLetters.letterText(letter()), 'نُسخ النصّ — الصقه في نظام المراسلات، والموضوع بزرّ «نسخ الموضوع»');
                 logIt('نظام المراسلات');
             }
             else if (b.id === 'lettersReset') {
