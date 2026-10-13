@@ -26,6 +26,9 @@
     // المراسلات كذلك (طلب أسعد 2026-10-12: «لا يظهر إلّا لأسعد»): بطاقتها وشاشتها لهؤلاء وحدهم
     const LETTERS_OWNERS = ['asad'];
     const LETTERS = 'data-svf-letters';
+    // المداولة الإشرافيّة كذلك (طلب أسعد 2026-10-13: «لي وحدي»): تبويبها وشاشتها لهؤلاء وحدهم
+    const DEBRIEF_OWNERS = ['asad'];
+    const DEBRIEF = 'data-svf-debrief';
 
     function readSession() {
         try {
@@ -55,6 +58,11 @@
         return !!(s && LETTERS_OWNERS.indexOf(s.id) !== -1);
     }
 
+    function canDebrief() {
+        const s = readSession();
+        return !!(s && DEBRIEF_OWNERS.indexOf(s.id) !== -1);
+    }
+
     function canMonthly() {
         const s = readSession();
         return !!(s && MONTHLY_OWNERS.indexOf(s.id) !== -1);
@@ -64,6 +72,8 @@
     function applyMonthly() {
         if (canLetters()) document.documentElement.setAttribute(LETTERS, '');
         else document.documentElement.removeAttribute(LETTERS);
+        if (canDebrief()) document.documentElement.setAttribute(DEBRIEF, '');
+        else document.documentElement.removeAttribute(DEBRIEF);
         const ok = canMonthly();
         if (ok) document.documentElement.setAttribute(MONTHLY, '');
         else document.documentElement.removeAttribute(MONTHLY);
@@ -111,6 +121,8 @@
             html:not([${MONTHLY}]) #monthlyCard { display: none !important; }
             html:not([${LETTERS}]) #showLettersAppBtn,
             html:not([${LETTERS}]) #lettersApp { display: none !important; }
+            html:not([${DEBRIEF}]) .nav-tab[data-view="debrief-view"],
+            html:not([${DEBRIEF}]) #debrief-view { display: none !important; }
             @media (min-width: 768px) { html[${LETTERS}] #welcomeCards { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 72rem; } }
             html[data-svf-monthly-denied] body > *:not(#svfMonthlyDenied):not(#svfLogout):not(script):not(style) { display: none !important; }
             #svfMonthlyDenied { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -221,6 +233,7 @@
         session: readSession,
         canMonthly,
         canLetters,
+        canDebrief,
         isOpen: () => !!readSession(),
         logout: () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
     };

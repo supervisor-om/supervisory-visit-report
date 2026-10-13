@@ -148,6 +148,9 @@
 - **الحالة في `#debriefData`** — `textarea` مخفيّة **داخل `#form-view`**: `savePermanentReport` يجمع كلّ حقول النموذج بمعرّفاتها فتُحفظ مع التقرير
   (وتمرّ بالمزامنة)، و`loadPermanentReport` يُعيدها، و`performReset` يصفّرها. لا تذهب إلى البوّابة (الحمولة حقولٌ مسمّاة).
 - `toggleSupervisoryView('debrief-view')` يبنيها لحظة الفتح. `evaluationItems`/`currentEditingKey` تصريحاتٌ عامّة تُقرأ بـ`typeof` (لا `window.`).
+- **لأسعد وحده (طلبه 2026-10-13)** كالمراسلات: `DEBRIEF_OWNERS = ['asad']` في `js/gate.js` ← سمة `data-svf-debrief`، وبدونها تُخفى
+  `.nav-tab[data-view="debrief-view"]` و`#debrief-view`، و`toggleSupervisoryView` يحوّل `debrief-view` إلى `form-view` لغيره. فحصه في القسم ٠ من
+  `tests/gate.test.js`. (حالة `#debriefData` تُحفظ في تقارير الجميع فارغةً — لا أثر.)
 - اختباره `node tests/debrief.test.js`.
 
 ## المراسلات (`js/letters-core.js` + `js/letters.js` — منذ 2026-10-12)

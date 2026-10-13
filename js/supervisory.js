@@ -302,6 +302,8 @@
         }
 
         function toggleSupervisoryView(viewId) {
+            // المداولة لأصحابها وحدهم (gate.js: DEBRIEF_OWNERS) — لغيرهم يبقى النموذج
+            if (viewId === 'debrief-view' && !(window.SupervisorGate && SupervisorGate.canDebrief && SupervisorGate.canDebrief())) viewId = 'form-view';
             document.querySelectorAll('#form-view, #debrief-view, #dashboard-view, #saved-reports-view, #stats-view, #term-view').forEach(view => {
                 view.classList.add('hidden');
             });
