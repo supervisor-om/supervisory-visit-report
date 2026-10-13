@@ -106,7 +106,14 @@
         {
             id: 'exchange', label: 'برنامج تبادل الزيارات', icon: 'fa-people-arrows', attach: true,
             attachTitle: (f, c) => targetTitle(f.program, f.host, f.date, c.teachers),
-            subject: f => clean(f.program) || 'برنامج تبادل الزيارات',
+            // صيغة المشرف (2026-10-13): «برنامج تبادل الزيارات (المهرجان التعليمي الرياضي) لمعلمي مادة الرياضة المدرسية
+            // بمدرسة احمد بن النعمان يوم الاثنين الموافق (11/5/2026)م» — «لمعلمات» إن كان الكشف كلّه معلمات
+            subject: (f, c) => {
+                const d = arDate(f.date), host = schoolOf(f.host), t = (c && c.teachers || []).filter(x => x && clean(x.name));
+                return (clean(f.program) || 'برنامج تبادل الزيارات')
+                    + ` ${t.length && t.every(x => x.gender === 'f') ? 'لمعلمات' : 'لمعلمي'} مادة الرياضة المدرسية`
+                    + (host ? ` بمدرسة ${host}` : '') + (d.day ? ` يوم ${d.day} الموافق (${d.date})` : '');
+            },
             fields: [
                 { id: 'program', label: 'اسم البرنامج', value: 'برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)' },
                 { id: 'date', label: 'تاريخ التنفيذ', type: 'date' },
@@ -321,7 +328,7 @@
         const c = Object.assign({ schools: [], teachers: [], femalePrincipal: false }, ctx || {});
         return {
             template: t.id,
-            subject: t.subject(f),
+            subject: t.subject(f, c),
             to: t.to ? t.to(f) : addressee(c.schools, c.femalePrincipal),
             greeting: t.greeting || 'السلام عليكم ورحمة الله وبركاته، وبعد:',
             body: t.body(f, c).map(wrapNums),

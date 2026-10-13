@@ -46,7 +46,10 @@ check('withTitle', L.withTitle('الفاضل/ مدير الدائرة').endsWith
 const ex = L.buildLetter('exchange', { date: '2026-05-11', host: 'مدرسة أحمد بن النعمان (٥-١٠)', time: '07:30' },
     { schools: ['أ', 'ب'], teachers: [{ name: 'سالم', school: 'أ', fileNumber: '123' }, { name: 'خالد', school: 'ب' }]});
 const exT = L.letterText(ex);
-check('exchange: الموضوع', ex.subject === 'برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)');
+check('exchange: الموضوع بصيغة المشرف', ex.subject === 'برنامج تبادل الزيارات (المهرجان الرياضي التعليمي) لمعلمي مادة الرياضة المدرسية '
+    + 'بمدرسة أحمد بن النعمان (٥-١٠) يوم الاثنين الموافق (١١/ ٥/ ٢٠٢٦م)', ex.subject);
+check('exchange: الموضوع — معلمات، وبلا مدرسة ولا تاريخ', L.buildLetter('exchange', { program: 'ب' }, { teachers: [{ name: 'م', gender: 'f' }] }).subject
+    === 'ب لمعلمات مادة الرياضة المدرسية');
 check('exchange: اليوم والتاريخ', exT.includes('يوم الاثنين الموافق (١١/ ٥/ ٢٠٢٦م)'));
 check('exchange: المستضيفة بلا «مدرسة» مكرّرة', exT.includes('الحضور إلى مدرسة أحمد بن النعمان (٥-١٠) في تمام الساعة (٧:٣٠) صباحاً، والالتزام بالزي الرياضي.'));
 check('exchange: الجمع والإلزام', exT.includes('للمعلمين المذكورين') && exT.includes('إفادات الغياب'));
