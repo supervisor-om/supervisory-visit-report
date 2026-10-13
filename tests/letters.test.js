@@ -150,7 +150,18 @@ check('html: بلا <br>', !/<br/i.test(L.letterHTML(v)));
 
 /* ── بلا توقيع (طلب المشرف 2026-10-13) ── */
 check('no signature: النصّ ينتهي بالخاتمة ثمّ الكشف', !('signature' in ex) && !exT.includes('مشرف مادة الرياضة المدرسية')
-    && exT.includes('وتفضلوا بقبول فائق الاحترام والتقدير،،،\n\nكشف الفئة المستهدفة:'));
+    && exT.includes('وتفضلوا بقبول فائق الاحترام والتقدير،،،\n\nالفئة المستهدفة من معلمي'));
+
+/* ── عنوان الكشف بصيغة المشرف (2026-10-13) ── */
+const tt = L.buildLetter('exchange', { program: 'برنامج تبادل الزيارات(الدروس التطبيقية)', host: 'حفص بن راشد', date: '2026-03-16' },
+    { teachers: [{ name: 'س', school: 'أ' }] });
+check('attachTitle: مثال المشرف', tt.attachTitle === 'الفئة المستهدفة من معلمي مادة الرياضة المدرسية لحضور برنامج تبادل الزيارات(الدروس التطبيقية) '
+    + 'بمدرسة حفص بن راشد يوم الاثنين (١٦/ ٣/ ٢٠٢٦م)', tt.attachTitle);
+check('attachTitle: في النصّ وHTML', L.letterText(tt).includes(tt.attachTitle + ':') && L.letterHTML(tt).includes(tt.attachTitle));
+check('attachTitle: معلمات، و«بقاعة»، وبلا تاريخ', L.buildLetter('workshop', { topic: 'ورشة التقويم', venue: 'قاعة المديرية' },
+    { teachers: [{ name: 'م', gender: 'f' }] }).attachTitle === 'الفئة المستهدفة من معلمات مادة الرياضة المدرسية لحضور ورشة التقويم بقاعة المديرية');
+check('attachTitle: شهادات الشكر من حقول التبادل', L.buildLetter('thanks', { program: 'ب', host: 'مدرسة ج', date: '2026-03-16' }, { teachers: [{ name: 'س' }] })
+    .attachTitle.endsWith('لحضور ب بمدرسة ج يوم الاثنين (١٦/ ٣/ ٢٠٢٦م)'));
 check('no signature: ولا في HTML', !L.letterHTML(ex).includes('مشرف مادة الرياضة') && !L.letterHTML(v).includes('مشرف مادة الرياضة'));
 
 /* ── التوصيل ── */

@@ -88,12 +88,24 @@
         return allF ? 'بأسماء المعلمات المنفذات ل' : 'بأسماء المعلمين المنفذين ل';
     }
 
+    // عنوان الكشف المرفق بصيغة المشرف (2026-10-13): «الفئة المستهدفة من معلمي مادة الرياضة المدرسية لحضور برنامج تبادل
+    // الزيارات(الدروس التطبيقية) بمدرسة حفص بن راشد يوم الاثنين(16/ 3/ 2026)م» — «معلمات» إن كان الكشف كلّه معلمات
+    function targetTitle(what, where, iso, teachers) {
+        const t = (teachers || []).filter(x => x && clean(x.name));
+        const who = t.length && t.every(x => x.gender === 'f') ? 'معلمات' : 'معلمي';
+        const d = arDate(iso), w = clean(where);
+        return `الفئة المستهدفة من ${who} مادة الرياضة المدرسية لحضور ${clean(what) || 'البرنامج'}`
+            + (w ? ' ' + (/^(مدرسة|قاعة|مركز|دائرة|مديرية)/.test(w) ? 'ب' + w : 'بمدرسة ' + w) : '')
+            + (d.day ? ` يوم ${d.day} (${d.date})` : '');
+    }
+
     const OPENING = 'عطّر الله أوقاتكم بكل خير وسرور، وحول الموضوع المشار إليه أعلاه،';
 
     // ── القوالب: fields تصف النموذج، وbody(f, ctx) تبني فقرات المتن ──
     const TEMPLATES = [
         {
             id: 'exchange', label: 'برنامج تبادل الزيارات', icon: 'fa-people-arrows', attach: true,
+            attachTitle: (f, c) => targetTitle(f.program, f.host, f.date, c.teachers),
             subject: f => clean(f.program) || 'برنامج تبادل الزيارات',
             fields: [
                 { id: 'program', label: 'اسم البرنامج', value: 'برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)' },
@@ -188,6 +200,7 @@
         {
             // نموذج المشرف (2026-10-12). الكشف من «مدارس الفئة المستهدفة»، والمخاطَب الدائرة؛ وما يُشارك خطابَ التبادل يُؤخذ منه (from)
             id: 'thanks', label: 'طلب شهادات شكر', icon: 'fa-award', attach: true, rosterOnly: true,
+            attachTitle: (f, c) => targetTitle(f.program, f.host, f.date, c.teachers),
             subject: f => 'طلب شهادات شكر للمنفذين ل' + (clean(f.program) || 'برنامج تبادل الزيارات'),
             to: f => withTitle(clean(f.toTitle) || 'الفاضل/ د.مدير دائرة تطوير الأداء المدرسي'),
             greeting: 'السلام عليكم ورحمة الله وبركاته، وبعد',
@@ -234,6 +247,7 @@
         },
         {
             id: 'workshop', label: 'دعوة لورشة / اجتماع', icon: 'fa-chalkboard', attach: true,
+            attachTitle: (f, c) => targetTitle(f.topic, f.venue, f.date, c.teachers),
             subject: f => 'دعوة لحضور ' + (clean(f.topic) || 'ورشة تدريبية'),
             fields: [
                 { id: 'topic', label: 'الورشة / الاجتماع', value: 'ورشة تدريبية بعنوان: ' },
@@ -289,6 +303,7 @@
             body: t.body(f, c).map(wrapNums),
             closing: t.closing || ['وتفضلوا بقبول فائق الاحترام والتقدير،،،'],
             teachers: t.attach ? (c.teachers || []).filter(x => x && clean(x.name)) : [],
+            attachTitle: t.attachTitle ? t.attachTitle(f, c) : 'كشف الفئة المستهدفة',
             cc: t.cc ? t.cc(f) : []
         };
     }
@@ -301,7 +316,7 @@
         L.closing.forEach(s => lines.push(s));
         if (L.cc.length) { lines.push('', 'نسخة لـ:'); L.cc.forEach(s => lines.push('* ' + s)); }
         if (L.teachers.length) {
-            lines.push('', 'كشف الفئة المستهدفة:');
+            lines.push('', L.attachTitle + ':');
             L.teachers.forEach((x, i) => lines.push(`${arNum(i + 1)}- ${clean(x.name)} — ${clean(x.school)}${x.fileNumber ? ' — ' + arNum(x.fileNumber) : ''}`));
         }
         return lines.join('\n');
@@ -323,7 +338,7 @@
             + (L.cc.length ? p('نسخة لـ:', 'font-weight:bold;margin-top:14pt;font-size:12pt;') + L.cc.map(t => p('• ' + t, 'margin:0;font-size:12pt;')).join('') : '');
         if (L.teachers.length) {
             const td = 'border:1px solid #000;padding:3pt 6pt;' + (paste ? '' : 'font-family:Arial;font-size:12pt;');
-            h += p('كشف الفئة المستهدفة', 'font-weight:bold;margin-top:14pt;')
+            h += p(L.attachTitle, 'font-weight:bold;margin-top:14pt;text-align:center;')
                 + `<table dir="rtl" border="1" cellpadding="4" style="border-collapse:collapse;width:100%;"><tr>`
                 + ['م', 'الاسم', 'المدرسة', 'رقم الملف'].map(x => `<th style="${td}background:#E7E6E6;">${x}</th>`).join('') + '</tr>'
                 + L.teachers.map((x, i) => `<tr><td style="${td}text-align:center;">${arNum(i + 1)}</td><td style="${td}">${escH(clean(x.name))}</td>`
