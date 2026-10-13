@@ -570,8 +570,24 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                     </section>
                     <section id="lettersAttach" class="bg-white rounded-2xl border border-slate-200 p-5">
                         <h2 class="font-bold text-slate-800 mb-1">الكشف المرفق (الفئة المستهدفة)</h2>
-                        <p class="text-[11px] text-slate-400 mb-2">معلّمو المدارس المخاطَبة من قاعدة المعلمين — ألغِ تحديد من لا يشمله الكشف.</p>
+                        <p class="text-[11px] text-slate-400 mb-2">معلّمو المدارس المختارة من قاعدة المعلمين، ومن تضيفه من مشرفين آخرين — ألغِ تحديد من لا يشمله الكشف.</p>
                         <div id="lettersRoster" class="max-h-64 overflow-auto"></div>
+                        <div class="mt-3 pt-3 border-t border-slate-100">
+                            <div class="text-xs font-bold text-slate-600 mb-1">إضافة معلّم من مشرفٍ آخر</div>
+                            <div class="flex gap-2">
+                                <input id="lettersExtraInput" list="lettersAllTeachers" placeholder="ابحث بالاسم — من قاعدة المعلمين كلّها" class="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                                <button type="button" id="lettersExtraAdd" class="bg-indigo-600 text-white rounded-lg px-3 text-sm font-bold">إضافة</button>
+                            </div>
+                            <datalist id="lettersAllTeachers"></datalist>
+                            <button type="button" id="lettersManualToggle" class="mt-2 text-[11px] text-indigo-700 font-bold">غير موجود في القاعدة؟ أضفه يدويّاً</button>
+                            <div id="lettersManualForm" class="hidden mt-2 grid grid-cols-2 gap-2">
+                                <input id="lmName" placeholder="الاسم" class="col-span-2 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                                <input id="lmSchool" list="lettersSchools" placeholder="المدرسة" class="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                                <input id="lmFile" placeholder="رقم الملف" class="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                                <select id="lmGender" class="border border-slate-200 rounded-lg px-3 py-2 text-sm"><option value="m">معلم</option><option value="f">معلمة</option></select>
+                                <button type="button" id="lettersManualAdd" class="bg-slate-700 text-white rounded-lg px-3 text-sm font-bold">إضافة للكشف</button>
+                            </div>
+                        </div>
                     </section>
                 </div>
                 <div class="lg:col-span-3 space-y-4">

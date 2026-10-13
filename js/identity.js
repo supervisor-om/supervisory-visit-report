@@ -519,7 +519,27 @@
         refresh(false).then(r => { if (r.reason || r.refreshed) renderAfter(r); });
     }
 
+    // معلّمو القاعدة كلّها (كلّ المشرفين) — للمراسلات: «إضافة معلّمين من مشرفين آخرين» إلى كشف برنامج.
+    // تُجلب عند الطلب وتبقى في الذاكرة وحدها (لا تُحفظ في المتصفّح كنسخة المشرف)، وبالحقول نفسها (pick) مع اسم المشرف.
+    // حين تُقفل قواعد القراءة (المرحلة ٢) يحتاج هذا إذناً للقراءة العامّة أو يفشل — والفشل يُعلَن ولا يكسر شيئاً.
+    let allTeachersCache = null;
+    async function allTeachers() {
+        if (allTeachersCache) return allTeachersCache;
+        const sdk = await api.loadSdk();
+        const snap = await sdk.getDocs(sdk.collection(sdk.db, 'teachers'));
+        const out = [];
+        snap.forEach(d => {
+            const r = d.data(), t = pick(r);
+            t.supervisor = String(r[SUP_FIELD] || '').trim();
+            if (t.name) out.push(t);
+        });
+        out.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+        allTeachersCache = out;
+        return out;
+    }
+
     const api = {
+        allTeachers,
         getIdentity, getTeachers, link, unlink, refresh, initCard, loadSdk, verifyCode, adopt,
         findTeacher, teachersOfSchool, principalOfSchool, schoolNames, teacherNames,
         normalize, normName, tidyGrades

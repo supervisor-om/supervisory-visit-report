@@ -132,6 +132,21 @@ check('html: مهروب', !h.includes('<b>x</b>') && h.includes('&lt;b&gt;') && 
 check('html: الكشف جدول', L.letterHTML(ex).includes('<table') && L.letterHTML(ex).includes('١٢٣'));
 check('html: بلا <br>', !/<br/i.test(L.letterHTML(v)));
 
+/* ── معلّمون من مشرفين آخرين في الكشف (2026-10-13) ── */
+{
+    const ID = read('js/identity.js'), UI = read('js/letters.js'), H = read('reports.html');
+    const fn = ID.slice(ID.indexOf('async function allTeachers()'), ID.indexOf('const api = {'));
+    check('others: allTeachers يجلب القاعدة كلّها بلا تصفية بالمشرف', /sdk\.getDocs\(sdk\.collection\(sdk\.db, 'teachers'\)\)/.test(fn) && !/where\(/.test(fn));
+    check('others: بالحقول نفسها (pick) ومعه اسم المشرف', /pick\(r\)/.test(fn) && /t\.supervisor = /.test(fn));
+    check('others: في الذاكرة وحدها — لا localStorage', !/localStorage|writeJSON|setItem/.test(fn) && /allTeachersCache = out/.test(fn));
+    check('others: مُصدَّرة', /const api = \{\s*allTeachers,/.test(ID));
+    check('others: الكشف = معلّمو المدارس + المُضافون', /function rosterFull\(\)[\s\S]{0,300}S\.extra/.test(UI) && /const roster = \(\) => rosterFull\(\)/.test(UI));
+    check('others: تُجلب عند التركيز على الخانة لا عند الفتح', /focusin[\s\S]{0,80}lettersExtraInput'\) loadAll\(\)/.test(UI));
+    check('others: لا تكرار في الكشف', /rosterFull\(\)\.some\(y => tKey\(y\) === tKey\(x\)\)/.test(UI));
+    check('others: الاسم الملتبس لا يُختار عنه', /byName\.length === 1 \? byName\[0\] : null/.test(UI));
+    check('others: الإضافة اليدويّة والسجلّ', H.includes('id="lettersManualAdd"') && H.includes('id="lettersExtraInput"') && /extra: \(S\.extra \|\| \[\]\)\.slice\(\)/.test(UI));
+}
+
 /* ── بلا توقيع (طلب المشرف 2026-10-13) ── */
 check('no signature: النصّ ينتهي بالخاتمة ثمّ الكشف', !('signature' in ex) && !exT.includes('مشرف مادة الرياضة المدرسية')
     && exT.includes('وتفضلوا بقبول فائق الاحترام والتقدير،،،\n\nكشف الفئة المستهدفة:'));
