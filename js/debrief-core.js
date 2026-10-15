@@ -99,6 +99,68 @@
               goal: 'تنفيذ مبادرةٍ أو نشاطٍ رياضيّ مدرسيّ واحدٍ على الأقلّ هذا الفصل' }
     };
 
+    // ── تصنيف المجال والمرحلة التعليمية للإضاءات التخصصية ──
+    const DOMAIN_LABELS = {
+        athletics: 'ألعاب القوى والمضمار',
+        gymnastics: 'جمباز وحركات أرضية',
+        games: 'ألعاب جماعية ومضرب',
+        fitness: 'لياقة بدنية وصحة',
+        general: 'رياضة مدرسية عامة'
+    };
+    const GRADE_LABELS = {
+        cycle1: 'الحلقة الأولى (1-4)',
+        cycle2: 'الحلقة الثانية (5-10)',
+        postBasic: 'ما بعد الأساسي (11-12)',
+        general: 'جميع المراحل'
+    };
+
+    function detectDomain(topic) {
+        const t = clean(topic).toLowerCase();
+        if (/وثب|جري|رمي|جلة|قرص|رمح|تتابع|حواجز|عدو|سرعة|مضمار|ألعاب قوى/.test(t)) return 'athletics';
+        if (/جمباز|دحرجة|وقوف على اليدين|عقلة|حصان|توازن|شقلبة|حركات أرضية/.test(t)) return 'gymnastics';
+        if (/قدم|سلة|طائرة|يد|ريشة|طاولة|مضرب|كرة|تمرير|تصويب|تنطيط|استقبال/.test(t)) return 'games';
+        if (/لياقة|تحمل|مرونة|قوة|قوام|صحة|نبض|إحماء|تغذية/.test(t)) return 'fitness';
+        return 'general';
+    }
+
+    function detectGradeLevel(cls) {
+        const s = clean(cls);
+        const m = s.match(/\d+/);
+        const n = m ? parseInt(m[0], 10) : 0;
+        if (n >= 1 && n <= 4) return 'cycle1';
+        if (n >= 5 && n <= 10) return 'cycle2';
+        if (n >= 11 && n <= 12) return 'postBasic';
+        if (/أول|ثان|ثالث|رابع/.test(s)) return 'cycle1';
+        if (/خامس|سادس|سابع|ثامن|تاسع|عاشر/.test(s)) return 'cycle2';
+        if (/حادي|ثاني عشر/.test(s)) return 'postBasic';
+        return 'general';
+    }
+
+    function domainOptions(standardId, domain, gradeLevel) {
+        const tips = [];
+        if (gradeLevel === 'cycle1') {
+            if (standardId === 1) tips.push('توظيف القصة الحركية والألعاب التمهيدية لتبسيط مهارة الدرس وتشويق الصغار');
+            if (standardId === 7) tips.push('تحديد محطات ومسارات واضحة بألوان وأقماع لضبط تحركات الصغار وتقليل التدافع');
+            if (standardId === 8) tips.push('التعلم باللعب والمحطات الحركية المصغرة لزيادة الدافعية والنشاط');
+        }
+        if (domain === 'athletics') {
+            if (standardId === 1) tips.push('التركيز على تكنيك الاقتراب والارتقاء والتوافق الحركي قبل قياس المسافة أو الزمن');
+            if (standardId === 5) tips.push('فحص مسارات الجري ومناطق السقوط (حفرة الوثب / المراتب) وتأكيد خطوط الأمان');
+            if (standardId === 9) tips.push('توفير أدوات بديلة خفيفة (كرات مطاطية/حبال/أقماع) لزيادة تكرارات المحاولات');
+        } else if (domain === 'games') {
+            if (standardId === 3) tips.push('تضمين مواقف لعب مصغرة (2 ضد 1 أو 3 ضد 2) لتعويد الطلبة على اتخاذ القرار السريع');
+            if (standardId === 4) tips.push('تأكيد الروح الرياضية وتقبل القرارات وتناوب الأدوار القيادية بين الفرق');
+            if (standardId === 8) tips.push('تطبيق التدريس التبادلي ببطاقة ملاحظة بسيطة يقيّم بها الزميل مهارة زميله');
+        } else if (domain === 'gymnastics') {
+            if (standardId === 1) tips.push('التدرج في مراحل الحركة من السكون إلى الحركة مع نموذج توضيحي بطيء ومحدد');
+            if (standardId === 5) tips.push('فحص المراتب والمساعدات اليدوية والمسافات الآمنة حول الأجهزة قبل بدء الأداء');
+        } else if (domain === 'fitness') {
+            if (standardId === 2) tips.push('تكييف شدة التمرين وعدد التكرارات وفق القدرات الفردية لكل طالب');
+            if (standardId === 10) tips.push('قياس نبض القلب وملاحظة علامات التعب لربط الجهد البدني بالوعي الصحي');
+        }
+        return tips;
+    }
+
     // ── النمط الإشرافيّ (غليكمان) من درجات هذه الزيارة ──
     const STYLES = {
         directive: { id: 'directive', label: 'توجيهيّ إعلاميّ', method: 'clinical',
@@ -134,8 +196,43 @@
     ];
     const methodOf = id => METHODS.find(m => m.id === id) || METHODS[0];
 
+    // ── مقارنة نمو المعلم وتطوره عبر الزيارات ──
+    function calcProgression(currentScores, prevVisits) {
+        const list = Array.isArray(prevVisits) ? prevVisits : [];
+        if (!list.length) return { hasPrev: false };
+        const prev = list[0];
+        const prevData = (prev && prev.data && prev.data.formData) ? prev.data.formData : {};
+        const prevScores = [];
+        for (let i = 1; i <= 13; i++) {
+            const sc = parseInt(prevData['score-' + i] || '', 10);
+            if (sc >= 1 && sc <= 5) prevScores.push(sc);
+        }
+        const currScores = (currentScores || []).filter(n => n >= 1 && n <= 5);
+        if (!currScores.length || !prevScores.length) return { hasPrev: false };
+
+        const currAvg = +(currScores.reduce((a, b) => a + b, 0) / currScores.length).toFixed(1);
+        const prevAvg = +(prevScores.reduce((a, b) => a + b, 0) / prevScores.length).toFixed(1);
+        const currStyle = suggestStyle(currScores);
+        const prevStyle = suggestStyle(prevScores);
+
+        const improved = currAvg < prevAvg;
+        const diff = +(prevAvg - currAvg).toFixed(1);
+
+        return {
+            hasPrev: true,
+            currAvg,
+            prevAvg,
+            diff,
+            improved,
+            styleShifted: currStyle.id !== prevStyle.id,
+            prevStyle,
+            currStyle,
+            prevDate: clean(prev.data.visitDate || prev.date || '')
+        };
+    }
+
     // ── بناء الدليل ──
-    // v = { teacher, female, topic, cls, items: [{id,title,standard,score,notes}], prevRecs: [] }
+    // v = { teacher, female, topic, cls, items: [{id,title,standard,score,notes}], prevRecs: [], prevDebrief: null }
     // opts = { method, focus: [ids], strengths: [ids] }
     function buildPlan(v, opts) {
         const F = !!v.female, o = opts || {};
@@ -147,13 +244,27 @@
         const strengths = (o.strengths && o.strengths.length ? o.strengths : pickStrengths(items)).map(byId).filter(Boolean);
         const topic = clean(v.topic), T = F ? 'المعلمة' : 'المعلم';
         const lesson = topic ? `درس «${topic}»` : 'الدرس';
+        const domain = detectDomain(v.topic);
+        const gradeLevel = detectGradeLevel(v.cls);
+        const domainAdvice = focus.flatMap(x => domainOptions(x.id, domain, gradeLevel));
+
         const q = (id, text, hint) => ({ id, text: g(text, F), hint: hint ? g(hint, F) : '' });
         const evidence = x => ({ id: 'ev' + x.id, text: `${x.standard}: ${LEVELS[x.score]}` + (clean(x.notes) ? ' — ' + clean(x.notes) : ''), evidence: true });
         const focusQs = (x, k) => (BANK[x.id] ? BANK[x.id].reflect : []).slice(0, k || 2).map((t, i) => q(`f${x.id}_${i}`, t));
         const strengthQ = x => q('s' + x.id, `لاحظتُ تميّزاً في «${x.standard}»، ما الذي {ساعدك|ساعدكِ} على ذلك؟ وكيف {تنقله|تنقلينه} إلى بقيّة حصصك؟`);
         const options = x => (BANK[x.id] ? BANK[x.id].options : []).map(t => ({ id: 'o' + x.id + t.length, text: t, option: true }));
+
         const prev = (v.prevRecs || []).map(clean).filter(Boolean).slice(0, 3);
-        const follow = prev.length ? [q('prev', 'في الزيارة السابقة اتّفقنا على: ' + prev.join('؛ ') + '. ما الذي {نفّذته|نفّذتِه} منها؟ وما أثره؟')] : [];
+        const prevAg = v.prevDebrief && v.prevDebrief.agree ? v.prevDebrief.agree : null;
+        const prevAgGoal = prevAg ? clean(prevAg.goal || prevAg.action) : '';
+        const follow = [];
+        if (prevAgGoal) {
+            follow.push(q('prev_agree', `في مداولة الزيارة السابقة اتّفقنا على: «${prevAgGoal}»${prevAg.date ? ' (موعد المتابعة: ' + clean(prevAg.date) + ')' : ''}. ما الذي {تحقّق|تحقّق} منها اليوم وما أثره؟`));
+        }
+        if (prev.length) {
+            follow.push(q('prev', 'في الزيارة السابقة اتّفقنا على: ' + prev.join('؛ ') + '. ما الذي {نفّذته|نفّذتِه} منها؟ وما أثره؟'));
+        }
+
         const opening = { id: 'open', title: 'الافتتاح وبناء الثقة', hint: 'دقيقتان: جوٌّ وُدّيّ، والهدف تطوير الممارسة لا الحكم عليها. ابدأ بسؤالٍ مفتوح قبل أيّ ملاحظة.',
             questions: [q('o1', `شكراً لاستقبالي في حصّتك. كيف {تصف|تصفين} ${lesson} بشكلٍ عام؟`)].concat(follow) };
         const agree = { id: 'agree', title: 'الاتّفاق والمتابعة', hint: 'هدفٌ واحدٌ أو اثنان، محدّدٌ قابلٌ للقياس، {يصوغه المعلم بنفسه|تصوغه المعلمة بنفسها} ما أمكن، مع موعد متابعة.',
@@ -168,7 +279,7 @@
             { id: 'R', title: 'R — الواقع', hint: 'الأدلّة من الحصة نفسها لا الانطباعات. اسأل أوّلاً، ثمّ اعرض ما رصدته.',
               questions: focus.flatMap(x => focusQs(x)).concat([q('r9', 'ما الذي ساعدك في الحصة؟ وما الذي أعاقك؟')]), evidence: focus.map(evidence) },
             { id: 'O', title: 'O — الخيارات', hint: 'اطلب بدائل {المعلم|المعلمة} أوّلاً؛ والمقترحات أدناه لمن يحتاجها فقط.',
-              questions: [q('o9', 'ما البدائل التي {تراها|ترينها}؟ وأيّها أنسب لطلبتك ولإمكانات المدرسة؟')], options: focus.flatMap(options) },
+              questions: [q('o9', 'ما البدائل التي {تراها|ترينها}؟ وأيّها أنسب لطلبتك ولإمكانات المدرسة؟')], options: focus.flatMap(options), domainAdvice },
             { id: 'W', title: 'W — الالتزام', hint: 'خطوةٌ وموعدٌ ومؤشّر.', questions: agree.questions, goals: agree.goals },
             { id: 'close', title: 'الختام والتعزيز', hint: 'أنهِ بما تميّز به، واطلب تلخيصاً من {المعلم|المعلمة}.',
               questions: strengths.map(strengthQ).concat([q('c9', 'لو {لخّصت|لخّصتِ} حوارنا في جملة، ماذا {تقول|تقولين}؟')]) }];
@@ -184,7 +295,7 @@
             { id: 'black', title: '⚫ القبعة السوداء — الصعوبات', hint: 'نقدٌ للممارسة لا للشخص، وفي بندٍ أو بندين.',
               questions: focus.flatMap(x => focusQs(x, 1)).concat([q('k9', 'ما الذي لم يسر كما {خطّطت|خطّطتِ}؟')]) },
             { id: 'green', title: '🟢 القبعة الخضراء — البدائل', hint: 'أفكارٌ جديدة أوّلاً من المعلم، ثمّ المقترحات.',
-              questions: [q('gr1', 'ما فكرةٌ جديدة {تجرّبها|تجرّبينها} في الحصة القادمة؟')], options: focus.flatMap(options) },
+              questions: [q('gr1', 'ما فكرةٌ جديدة {تجرّبها|تجرّبينها} في الحصة القادمة؟')], options: focus.flatMap(options), domainAdvice },
             { id: 'blue2', title: '🔵 القبعة الزرقاء — الخلاصة', hint: 'لخّصا معاً واتّفقا على الخطوة.', questions: agree.questions, goals: agree.goals }];
         else if (method.id === 'reflect') stages = [opening,
             { id: 'recall', title: 'استرجاع الأحداث', hint: 'يستحضر المعلم ما رآه من أداء الطلبة قبل أن تعرض ما رصدته.',
@@ -195,7 +306,7 @@
               questions: [q('in1', 'لماذا في رأيك حدث ذلك؟ ما العوامل التي أثّرت في تعلّم الطلبة؟')] },
             { id: 'learn', title: 'التعلّم والتطبيق', hint: 'ينتقل المعلم من التأمّل إلى خطوة.',
               questions: [q('ln1', 'ما الذي {تعلّمته|تعلّمتِه} من هذه الحصة عن طلبتك وعن تدريسك؟'), q('ln2', 'كيف {ستطبّق|ستطبّقين} ذلك في حصّتك القادمة؟')].concat(agree.questions),
-              options: focus.flatMap(options), goals: agree.goals },
+              options: focus.flatMap(options), goals: agree.goals, domainAdvice },
             { id: 'meta', title: 'التأمّل في الحوار', hint: '',
               questions: strengths.map(strengthQ).concat([q('mt1', 'كيف ساعدك هذا الحوار؟ وما الذي {تحتاجه|تحتاجينه} في الزيارة القادمة؟')]) }];
         else if (method.id === 'clinical') stages = [
@@ -205,14 +316,14 @@
             { id: 'impact', title: 'الأثر على تعلّم الطلبة', hint: 'اربط الملاحظة بنتيجتها على الطلبة لا بشخص المعلم.',
               questions: focus.flatMap(x => focusQs(x, 1)) },
             { id: 'options', title: 'البدائل المقترحة', hint: `قدّم بديلين أو ثلاثة، ودع ${T} {يختار|تختار} ما {يناسبه|يناسبها}.`,
-              questions: [q('op1', 'أيّ هذه البدائل {تراه|ترينه} أنسب لطلبتك؟ ولماذا؟')], options: focus.flatMap(options) },
+              questions: [q('op1', 'أيّ هذه البدائل {تراه|ترينه} أنسب لطلبتك؟ ولماذا؟')], options: focus.flatMap(options), domainAdvice },
             agree];
         else stages = [ // www
             { id: 'www', title: 'ما نجح', hint: 'إجادةٌ واحدة بدليلها.', questions: (strengths.length ? strengths.slice(0, 1).map(strengthQ) : [q('ww1', 'ما الذي نجح في حصّتك اليوم؟')]) },
             { id: 'ebi', title: 'سيكون أفضل لو…', hint: 'تطويرٌ واحد، وسؤالٌ يفتح التفكير.',
-              questions: focus.slice(0, 1).flatMap(x => focusQs(x, 1)), evidence: focus.slice(0, 1).map(evidence), options: focus.slice(0, 1).flatMap(options) },
+              questions: focus.slice(0, 1).flatMap(x => focusQs(x, 1)), evidence: focus.slice(0, 1).map(evidence), options: focus.slice(0, 1).flatMap(options), domainAdvice },
             Object.assign({}, agree, { questions: agree.questions.slice(0, 1) })];
-        return { style, method, focus, strengths, stages, teacherWord: T };
+        return { style, method, focus, strengths, stages, teacherWord: T, domain, domainLabel: DOMAIN_LABELS[domain], gradeLevel, gradeLabel: GRADE_LABELS[gradeLevel], domainAdvice };
     }
 
     // ── الملخّص: ما دار وما اتُّفق عليه (للنسخ والطباعة والتقرير) ──
@@ -230,6 +341,45 @@
         return out;
     }
 
+    // رسالة مشاركة عبر WhatsApp بصياغة مهنية مشجعة
+    function formatWhatsAppMessage(plan, st, v) {
+        const s = st || {}, a = s.agree || {};
+        const teacher = clean(v.teacher) || 'المعلم';
+        const isF = !!v.female;
+        const title = isF ? 'الأستاذة الفاضلة' : 'الأستاذ الفاضل';
+        const lessonInfo = [clean(v.topic) && `درس «${clean(v.topic)}»`, clean(v.cls) && `الصف: ${clean(v.cls)}`, clean(v.date)].filter(Boolean).join(' — ');
+
+        const lines = [
+            `السلام عليكم ورحمة الله وبركاته 🌿`,
+            `${title} / ${teacher} المحترم${isF ? 'ة' : ''}`,
+            `تحية طيبة وبعد،،`,
+            `سعدتُ بزيارتك اليوم` + (lessonInfo ? ` (${lessonInfo})` : '') + `، ومشاركتك الحوار في المداولة الإشرافية.`
+        ];
+
+        if (plan.strengths && plan.strengths.length) {
+            lines.push('');
+            lines.push('⭐ *أبرز جوانب الإجادة والتميز في الحصة:*');
+            plan.strengths.forEach(x => {
+                lines.push(`• *${x.standard}*: أداء متميز وممارسات صفية تشكر عليها.`);
+            });
+        }
+
+        const hasAgree = a.goal || a.action;
+        if (hasAgree) {
+            lines.push('');
+            lines.push('🤝 *خلاصة ما اتّفقنا عليه في المداولة الإشرافية للتطوير:*');
+            if (a.goal) lines.push(`🎯 *الهدف التطويري:* ${clean(a.goal)}`);
+            if (a.action) lines.push(`⚙️ *الإجراء التنفيذي:* ${clean(a.action)}`);
+            if (a.indicator) lines.push(`📊 *مؤشر التحقق:* ${clean(a.indicator)}`);
+            if (a.date) lines.push(`📅 *موعد المتابعة:* ${clean(a.date)}`);
+            if (a.support) lines.push(`🤝 *الدعم من المشرف:* ${clean(a.support)}`);
+        }
+
+        lines.push('');
+        lines.push('شاكراً لك حرصك وجهدك المخلص، ومتمنياً لك دوام التوفيق والتميز المهني دائمًا ✨');
+        return lines.join('\n');
+    }
+
     // سطر التوصية من الاتّفاق — يُدرج في «التوصيات» بطلب المشرف
     function agreementRec(st) {
         const a = (st && st.agree) || {};
@@ -238,7 +388,11 @@
         return '• (اتّفاق المداولة) ' + [goal, act].filter(Boolean).join('، من خلال ') + (clean(a.date) ? '، ويُتابَع في ' + clean(a.date) : '') + '.';
     }
 
-    const api = { BANK, METHODS, STYLES, LEVELS, g, suggestStyle, pickFocus, pickStrengths, methodOf, buildPlan, summaryLines, agreementRec };
+    const api = {
+        BANK, METHODS, STYLES, LEVELS, g, suggestStyle, pickFocus, pickStrengths,
+        methodOf, buildPlan, summaryLines, agreementRec,
+        detectDomain, detectGradeLevel, domainOptions, calcProgression, formatWhatsAppMessage
+    };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfDebrief = api;
 })(typeof window !== 'undefined' ? window : this);

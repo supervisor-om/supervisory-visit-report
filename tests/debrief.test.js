@@ -62,6 +62,16 @@ const sm = D.summaryLines(pg, st, { teacher: 'مريم', date: '2026-10-13' });
 check('summary', sm[0] === 'المداولة الإشرافيّة — مريم — 2026-10-13' && sm.includes('G — الهدف: رفع زمن الممارسة') && sm.includes('• الإجراء: بطاقة لكل مجموعة'));
 check('agreementRec', D.agreementRec(st) === '• (اتّفاق المداولة) قوائم رصد، من خلال بطاقة لكل مجموعة، ويُتابَع في الزيارة القادمة.' && D.agreementRec({}) === '');
 
+/* ── التطورات الجديدة: المجال والمرحلة ومتابعة الاتفاق السابق وWhatsApp ── */
+check('domain: كشف المجال الرياضي', D.detectDomain('الوثب العالي') === 'athletics' && D.detectDomain('كرة السلة') === 'games' && D.detectDomain('الدحرجة الأمامية') === 'gymnastics' && D.detectDomain('اللياقة القلبية') === 'fitness');
+check('grade: كشف المرحلة التعليمية', D.detectGradeLevel('3/2') === 'cycle1' && D.detectGradeLevel('8/1') === 'cycle2' && D.detectGradeLevel('11/3') === 'postBasic');
+const pDeb = D.buildPlan({ teacher: 'علي', topic: 'كرة اليد', prevDebrief: { agree: { goal: 'تنويع التشكيلات', date: 'الزيارة القادمة' } } });
+check('continuity: متابعة اتفاق المداولة السابقة', /مداولة الزيارة السابقة اتّفقنا على: «تنويع التشكيلات»/.test(JSON.stringify(pDeb.stages[0].questions)));
+const prog = D.calcProgression([1, 2, 2, 2], [{ data: { formData: { 'score-1': 4, 'score-2': 4, 'score-3': 4, 'score-4': 4 }, visitDate: '2026-09-15' } }]);
+check('progression: حساب التحسن وتغير النمط', prog.hasPrev && prog.improved && prog.styleShifted && prog.currStyle.id === 'nondirective' && prog.prevStyle.id === 'directive');
+const wa = D.formatWhatsAppMessage(pg, st, { teacher: 'مريم', topic: 'الوثب الطويل', cls: '8/2', female: true });
+check('whatsapp: الرسالة منسقة وفيها جوانب الإجادة والاتفاق', wa.includes('الأستاذة الفاضلة / مريم') && wa.includes('درس «الوثب الطويل»') && wa.includes('قوائم رصد') && wa.includes('بطاقة لكل مجموعة'));
+
 /* ── التوصيل ── */
 const H = read('reports.html'), S = read('js/supervisory.js'), UI = read('js/debrief.js'), SW = read('sw.js');
 const fv = H.indexOf('<div id="form-view"'), dv = H.indexOf('<div id="debrief-view"');
