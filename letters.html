@@ -1,0 +1,2653 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>قسم المراسلات المطور — منظومة الإشراف التربوي (الرياضة المدرسية - محافظة مسقط)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --primary-light: #eef2ff;
+    }
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #f4f6fb;
+      color: #1e293b;
+      overflow-x: hidden;
+    }
+    .official-paper {
+      font-family: 'Amiri', 'Cairo', serif;
+      line-height: 2;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08);
+    }
+    .pill-tab {
+      transition: all 0.2s ease;
+    }
+    .pill-tab.active {
+      background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+      transform: translateY(-1px);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printablePaper, #printablePaper * {
+        visibility: visible;
+      }
+      #printablePaper {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 100%;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 15mm !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- الشريط العلوي للهوية المعتمدة -->
+  <header class="bg-gradient-to-l from-indigo-900 via-indigo-800 to-slate-900 text-white shadow-lg sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/20 shadow-inner">
+          <svg class="w-6 h-6 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg md:text-xl font-bold tracking-tight">منظومة الإشراف التربوي — قسم المراسلات المطوّر</h1>
+            <span class="bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs px-2.5 py-0.5 rounded-full font-semibold">الإصدار الذكي المترابط</span>
+          </div>
+          <p class="text-xs text-indigo-200">الرياضة المدرسية — محافظة مسقط | إعداد وتصميم: أ. أسعد الخصيبي</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="bg-white/10 border border-white/15 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
+          <span class="text-indigo-200">المشرف التربوي:</span>
+          <input id="supervisorNameInput" type="text" value="أ. أسعد الخصيبي" class="bg-transparent border-b border-indigo-300/40 focus:border-white focus:outline-none text-white font-semibold w-36 text-xs" />
+        </div>
+        <button id="openCrsPortalBtn" type="button" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-lg transition shadow flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          <span>فتح نظام المراسلات الوزاري (CRS)</span>
+        </button>
+        <button id="openCodeExportModalBtn" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-3 py-2 rounded-lg border border-indigo-400/30 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+          </svg>
+          <span>دليل تضمين الكود بموقعك</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- شريط السلاسل الإدارية الذكية والتنبيهات -->
+  <section class="bg-white border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 flex-wrap text-xs">
+        <span class="font-bold text-indigo-900 flex items-center gap-1">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+          </svg>
+          السلاسل الإدارية المترابطة:
+        </span>
+        <button type="button" data-chain="exchange" class="chain-preset-btn bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-md font-medium transition">
+          1. سلسلة تبادل الزيارات: استضافة ← تعميم البرنامج ← شكر / غياب
+        </button>
+        <button type="button" data-chain="visit" class="chain-preset-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-md font-medium transition">
+          2. سلسلة المتابعة الفنية: ملاحظات زيارة ← توصيات متأخرة ← مدرسة مخالفة
+        </button>
+        <button type="button" data-chain="workshop" class="chain-preset-btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-md font-medium transition">
+          3. سلسلة الورش: دعوة ورشة ← غياب مستهدف / شهادات شكر
+        </button>
+      </div>
+      <div id="overdueAlertBanner" class="hidden items-center gap-2 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-semibold">
+        <span class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+        <span id="overdueAlertText">توجد مراسلات انتهت مهلة الإفادة المحددة لها!</span>
+        <button id="scrollToLogBtn" type="button" class="underline hover:text-rose-900 mr-1">عرض بالسجل</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- شريط تبويب القوالب الـ 12 (8 أساسية مطورة + 4 جديدة) -->
+  <section class="max-w-7xl mx-auto w-full px-4 pt-4">
+    <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200/80">
+      <div class="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-700">قوالب المراسلات الرسمية (12 قالباً):</span>
+          <span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-medium">8 قوالب أساسية مطورة + 4 قوالب إشرافية جديدة</span>
+        </div>
+        <div id="activeLinkBadge" class="hidden items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs px-2.5 py-1 rounded-lg">
+          <span class="font-bold">مرتبطة بمعاملة سابقة:</span>
+          <span id="activeLinkBadgeText" class="text-indigo-600"></span>
+          <button id="unlinkParentBtn" type="button" class="text-rose-600 hover:text-rose-800 font-bold mr-1" title="إلغاء الربط">×</button>
+        </div>
+      </div>
+      <div id="templateTabsContainer" class="flex flex-wrap gap-1.5">
+        <!-- يتم توليد أزرار القوالب الـ 12 ديناميكياً -->
+      </div>
+    </div>
+  </section>
+
+  <!-- المحتوى الرئيسي: عمودان (الأيمن للمدخلات، الأيسر للمعاينة الحية والأدوات والسجل) -->
+  <main class="max-w-7xl mx-auto w-full px-4 py-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+    <!-- العمود الأيمن: المدخلات وإدارة المخاطبين والفئة المستهدفة (5 أعمدة) -->
+    <div class="lg:col-span-5 space-y-4">
+
+      <!-- بطاقة 1: بيانات القيد والربط المرجعي (نظام المراسلات الوزاري CRS) -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">1</span>
+            بيانات القيد الوزاري والربط المرجعي (CRS)
+          </h2>
+          <span class="text-[11px] text-slate-400">متوافق مع dms.moe.gov.om</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label for="crsRefNumber" class="block font-semibold text-slate-700 mb-1">رقم القيد الصادر / الوارد (اختياري)</label>
+            <input id="crsRefNumber" type="text" placeholder="مثال: 2026/10452" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-600 focus:outline-none bg-slate-50/50" />
+          </div>
+          <div>
+            <label for="crsPriority" class="block font-semibold text-slate-700 mb-1">درجة الأهمية والسرية</label>
+            <select id="crsPriority" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-600 focus:outline-none bg-slate-50/50">
+              <option value="عادي">عادي</option>
+              <option value="عاجل">عاجل</option>
+              <option value="عاجل جداً">عاجل جداً</option>
+              <option value="سري">سري</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label for="linkedHistorySelect" class="block font-semibold text-slate-700 mb-1">ربط بمراسلة سابقة من السجل (يُدرج الإشارة آلياً في الديباجة)</label>
+            <select id="linkedHistorySelect" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-600 focus:outline-none bg-slate-50/50">
+              <option value="">— بدون ربط بمعاملة سابقة —</option>
+            </select>
+          </div>
+          <div id="parentRefDetailsBox" class="sm:col-span-2 hidden bg-indigo-50/70 border border-indigo-200/80 rounded-xl p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label for="parentRefNumInput" class="block text-[11px] font-semibold text-indigo-900 mb-0.5">رقم قيد المراسلة السابقة</label>
+              <input id="parentRefNumInput" type="text" placeholder="رقم القيد السابق" class="w-full rounded border border-indigo-300 px-2 py-1 text-xs bg-white" />
+            </div>
+            <div>
+              <label for="parentRefDateInput" class="block text-[11px] font-semibold text-indigo-900 mb-0.5">تاريخ المراسلة السابقة</label>
+              <input id="parentRefDateInput" type="date" class="w-full rounded border border-indigo-300 px-2 py-1 text-xs bg-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- بطاقة 2: إدارة المخاطَبين والفئة المستهدفة وقاعدة بيانات المدارس -->
+      <div id="recipientCardSection" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">2</span>
+            المخاطَبون والفئة المستهدفة (قاعدة المدارس والمعلمين)
+          </h2>
+          <span id="recipientFormulaBadge" class="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md font-semibold">تأنيث وتذكير تلقائي</span>
+        </div>
+
+        <!-- وضع المخاطب الإداري (يظهر في قوالب الدائرة أو عند التخصيص) -->
+        <div id="officialRecipientBox" class="mb-3 hidden">
+          <label for="officialRecipientSelect" class="block text-xs font-semibold text-slate-700 mb-1">المسمى الوظيفي للمخاطَب الإداري (البروتوكول الرسمي)</label>
+          <select id="officialRecipientSelect" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-indigo-600 focus:outline-none mb-2 bg-slate-50/50">
+            <option value="الفاضل / د. مدير دائرة تطوير الأداء المدرسي المحترم">الفاضل / د. مدير دائرة تطوير الأداء المدرسي المحترم</option>
+            <option value="الفاضل / مدير دائرة المؤسسات التعليمية الخاصة المحترم">الفاضل / مدير دائرة المؤسسات التعليمية الخاصة المحترم</option>
+            <option value="الفاضل / مدير دائرة الإشراف التربوي المحترم">الفاضل / مدير دائرة الإشراف التربوي المحترم</option>
+            <option value="الفاضل / رئيس قسم إشراف المهارات الفردية المحترم">الفاضل / رئيس قسم إشراف المهارات الفردية المحترم</option>
+            <option value="الفاضل / د. المدير العام للمديرية العامة للتربية والتعليم بمحافظة مسقط المحترم">الفاضل / د. المدير العام للمديرية العامة للتربية والتعليم بمحافظة مسقط المحترم</option>
+            <option value="custom">-- كتابة مسمى مخاطَب آخر يدوياً --</option>
+          </select>
+          <input id="officialRecipientCustom" type="text" placeholder="اكتب المسمى الوظيفي للمخاطَب..." class="hidden w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:border-indigo-600 focus:outline-none" />
+        </div>
+
+        <!-- اختيار وإضافة المدارس -->
+        <div id="schoolsRecipientBox" class="space-y-3 text-xs">
+          <div class="flex items-center justify-between gap-2">
+            <label for="schoolSearchInput" class="font-semibold text-slate-700">البحث في قاعدة بيانات المدارس (366 مدرسة بمحافظة مسقط) أو إضافة يدوية:</label>
+            <select id="genderOverrideSelect" class="rounded border border-slate-300 px-2 py-1 text-[11px] bg-slate-50" title="ضبط صيغة المخاطبة">
+              <option value="auto">صيغة تلقائية ذكية</option>
+              <option value="male_single">مذكر مفرد (مدير مدرسة)</option>
+              <option value="female_single">مؤنث مفرد (مديرة مدرسة)</option>
+              <option value="male_plural">جمع (مديرو المدارس المعنية)</option>
+              <option value="female_plural">جمع مؤنث (مديرات المدارس المعنية)</option>
+            </select>
+          </div>
+
+          <div class="flex gap-1.5">
+            <div class="relative flex-1">
+              <input id="schoolSearchInput" list="muscatSchoolsDatalist" type="text" placeholder="ابحث عن مدرسة أو اكتب اسمها..." class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-600 focus:outline-none" />
+              <datalist id="muscatSchoolsDatalist"></datalist>
+            </div>
+            <button id="addSchoolBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-lg transition shrink-0">
+              + إضافة مدرسة
+            </button>
+            <button id="addSchoolWithTeachersBtn" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg transition shrink-0" title="إضافة المدرسة مع إلحاق معلميها بالكشف المرفق">
+              + مع معلميها
+            </button>
+          </div>
+
+          <!-- فلتر سريع بولايات محافظة مسقط -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[11px] text-slate-500">تصفية سريعة:</span>
+            <button type="button" data-wilayat="all" class="wilayat-filter-btn bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[11px] font-semibold">الكل</button>
+            <button type="button" data-wilayat="السيب" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">السيب</button>
+            <button type="button" data-wilayat="بوشر" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">بوشر</button>
+            <button type="button" data-wilayat="مطرح" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">مطرح</button>
+            <button type="button" data-wilayat="العامرات" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">العامرات</button>
+            <button type="button" data-wilayat="قريات" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">قريات</button>
+          </div>
+
+          <!-- قائمة المدارس المضافة حالياً -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-semibold text-slate-600">المدارس المخاطَبة حالياً (<span id="selectedSchoolsCount">0</span>):</span>
+              <button id="clearSchoolsBtn" type="button" class="text-[11px] text-rose-600 hover:underline">مسح المدارس</button>
+            </div>
+            <div id="selectedSchoolsChips" class="flex flex-wrap gap-1.5 min-h-[34px] p-2 rounded-lg bg-slate-50 border border-dashed border-slate-300">
+              <span class="text-[11px] text-slate-400">لم يتم تحديد مدرسة (تُكتب تلقائياً: الأفاضل / مديرو المدارس المعنية المحترمون)</span>
+            </div>
+          </div>
+
+          <!-- إدارة الكشف المرفق (المعلمين المستهدفين) -->
+          <div class="pt-2 border-t border-slate-100">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-semibold text-slate-700">الكشف المرفق بالخطاب (المعلمون المستهدفون: <span id="attachedTeachersCount">0</span>)</span>
+              <div class="flex items-center gap-2">
+                <label class="inline-flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer">
+                  <input id="includeTeachersTableToggle" type="checkbox" checked class="rounded text-indigo-600" />
+                  <span>إدراج كجدول رسمي بالخطاب</span>
+                </label>
+                <button id="clearTeachersBtn" type="button" class="text-[11px] text-rose-600 hover:underline">إفراغ الكشف</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-12 gap-1.5 mb-2">
+              <input id="manualTeacherName" type="text" placeholder="اسم المعلم/المعلمة" class="col-span-5 rounded border border-slate-300 px-2 py-1.5 text-xs" />
+              <input id="manualTeacherFileNo" type="text" placeholder="رقم الملف" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-xs" />
+              <input id="manualTeacherSchool" type="text" placeholder="المدرسة" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-xs" />
+              <button id="addManualTeacherBtn" type="button" class="col-span-1 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded flex items-center justify-center">+</button>
+            </div>
+            <div id="attachedTeachersList" class="max-h-28 overflow-y-auto custom-scrollbar space-y-1 text-[11px]"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- بطاقة 3: حقول بيانات المراسلة المتغيرة حسب القالب المختار -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">3</span>
+            <span id="dynamicFieldsTitle">بيانات المراسلة</span>
+          </h2>
+          <button id="insertPhraseMenuBtn" type="button" class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md font-semibold transition">
+            + عبارات إدارية جاهزة
+          </button>
+        </div>
+
+        <!-- قائمة منسدلة للعبارات الرسمية السريعة -->
+        <div id="quickPhrasesPanel" class="hidden mb-3 p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs space-y-1.5">
+          <div class="font-bold text-indigo-900 text-[11px]">انقر لإدراج العبارة في حقل الملاحظات أو الفقرة الإضافية:</div>
+          <div class="flex flex-wrap gap-1">
+            <button type="button" data-phrase="ضرورة استكمال سجلات التحضير اليومي وفق الوثيقة المعتمدة." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">سجلات التحضير</button>
+            <button type="button" data-phrase="تفعيل الأنشطة الرياضية الداخلية والمسابقات البينية بين الفصول." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">الأنشطة الرياضية</button>
+            <button type="button" data-phrase="التأكد من توفر اشتراطات الأمن والسلامة في الملاعب والأدوات الرياضية." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">الأمن والسلامة</button>
+            <button type="button" data-phrase="تنويع استراتيجيات التدريس ومراعاة الفروق الفردية والمهارات الحركية للطلبة." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">استراتيجيات التدريس</button>
+            <button type="button" data-phrase="توظيف التقويم المستمر وأدواته المعتمدة في رصد أداء الطلبة عملياً ونظرياً." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">التقويم المستمر</button>
+          </div>
+        </div>
+
+        <!-- الحاوية الديناميكية لحقول القالب -->
+        <div id="templateFieldsContainer" class="space-y-3 text-xs"></div>
+      </div>
+
+      <!-- بطاقة 4: خيارات «نسخة إلى (للعلم والإحاطة)» والمرفقات -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
+        <div class="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">4</span>
+            نسخة إلى (CC) والمرفقات القياسية
+          </h2>
+        </div>
+
+        <div class="space-y-2.5 text-xs">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" value="مكتب د. المدير العام." class="cc-checkbox rounded text-indigo-600" />
+              <span>مكتب د. المدير العام</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" value="دائرة تطوير الأداء المدرسي." class="cc-checkbox rounded text-indigo-600" />
+              <span>دائرة تطوير الأداء المدرسي</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" value="قسم إشراف المهارات الفردية." class="cc-checkbox rounded text-indigo-600" />
+              <span>قسم إشراف المهارات الفردية</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" value="قسم إشراف الإدارة المدرسية." class="cc-checkbox rounded text-indigo-600" />
+              <span>قسم إشراف الإدارة المدرسية</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" value="دائرة المؤسسات التعليمية الخاصة." class="cc-checkbox rounded text-indigo-600" />
+              <span>دائرة المؤسسات التعليمية الخاصة</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" value="ملف المدرسة / وحدة الرياضة المدرسية." class="cc-checkbox rounded text-indigo-600" />
+              <span>ملف المدرسة / الوحدة</span>
+            </label>
+          </div>
+          <div>
+            <input id="customCcInput" type="text" placeholder="إضافة جهة أخرى في (نسخة لـ)..." class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs focus:border-indigo-600 focus:outline-none" />
+          </div>
+          <div>
+            <label for="attachmentsDescInput" class="block font-semibold text-slate-700 mb-1">بيان المرفقات أسفل الخطاب (اختياري)</label>
+            <input id="attachmentsDescInput" type="text" placeholder="مثال: كشف أسماء المعلمين المستهدفين / استمارة غياب مستهدف" class="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs focus:border-indigo-600 focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- العمود الأيسر: المعاينة التفاعلية الحية، شريط النقل لنظام المراسلات، وسجل المراسلات (7 أعمدة) -->
+    <div class="lg:col-span-7 space-y-4">
+
+      <!-- شريط أزرار الإجراءات والنقل السريع لنظام المراسلات الوزاري -->
+      <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200/90 space-y-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button id="copySubjectBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+              <span>نسخ الموضوع</span>
+            </button>
+            <button id="copyBodyBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+              <span>نسخ النص</span>
+            </button>
+            <button id="saveWordBtn" type="button" class="bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+              <span>حفظ Word</span>
+            </button>
+            <button id="printPdfBtn" type="button" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs px-3 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+              <span>طباعة / PDF</span>
+            </button>
+            <button id="copyAndOpenCrsBtn" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+              <span>نسخ وفتح نظام المراسلات</span>
+            </button>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="saveToLogBtn" type="button" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-3 py-2 rounded-lg transition">
+              + حفظ بالسجل
+            </button>
+            <button id="resetFormBtn" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs px-3 py-2 rounded-lg transition">
+              مسح
+            </button>
+          </div>
+        </div>
+
+        <!-- شريط النقل المقسّم السريع لنظام الوزارة (Quick-Paste Bar) -->
+        <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <span class="font-bold text-slate-600">النقل السريع المقسّم لنظام الوزارة (dms.moe.gov.om):</span>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button id="quickCopyRecipientBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">1. نسخ المخاطَب</button>
+            <button id="quickCopySubjectBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">2. نسخ الموضوع</button>
+            <button id="quickCopyCleanBodyBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">3. نسخ المتن فقط</button>
+            <button id="quickCopyTableBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">4. نسخ جدول المعلمين</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ورقة المعاينة الرسمية الحية (قابلة للتعديل اليدوي المباشر) -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <h3 class="text-xs font-bold text-slate-700">المعاينة الحية للخطاب الرسمي</h3>
+            <span id="manualEditStatusBadge" class="hidden text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-semibold">وضع التعديل اليدوي مفعّل</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer text-slate-600 font-semibold">
+              <input id="enableManualEditToggle" type="checkbox" class="rounded text-indigo-600" />
+              <span>تعديل نص المعاينة يدوياً</span>
+            </label>
+            <button id="restoreAutoPreviewBtn" type="button" class="hidden text-[11px] text-indigo-600 hover:underline font-semibold">إعادة التوليد التلقائي</button>
+          </div>
+        </div>
+
+        <!-- الورقة الرسمية -->
+        <div id="printablePaper" class="official-paper rounded-xl p-6 md:p-8 text-slate-900 relative">
+          <!-- ترويسة الخطاب المعتمدة -->
+          <div class="border-b-2 border-indigo-900/80 pb-4 mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div class="space-y-0.5">
+              <div class="text-sm font-bold text-indigo-950">سلطنة عُمان — وزارة التربية والتعليم</div>
+              <div class="text-xs font-bold text-slate-700">المديرية العامة للتربية والتعليم بمحافظة مسقط</div>
+              <div class="text-xs text-indigo-800 font-semibold">منظومة الإشراف التربوي — وحدة إشراف الرياضة المدرسية</div>
+            </div>
+            <div class="text-left text-xs space-y-0.5 font-sans">
+              <div><span class="font-bold text-slate-600">رقم القيد:</span> <span id="paperRefNum" class="font-semibold text-slate-900">........ / 2026</span></div>
+              <div><span class="font-bold text-slate-600">التاريخ:</span> <span id="paperDate" class="font-semibold text-slate-900"></span></div>
+              <div><span class="font-bold text-slate-600">الأهمية:</span> <span id="paperPriority" class="font-semibold text-indigo-800">عادي</span></div>
+            </div>
+          </div>
+
+          <!-- محتوى الخطاب القابل للنسخ والتعديل -->
+          <div id="letterEditableArea" contenteditable="false" class="space-y-3 text-base md:text-[17px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-300 rounded-lg p-1">
+            <!-- يتم توليد الخطاب هنا لحظياً -->
+          </div>
+        </div>
+
+        <!-- شريط الإجراء التالي المقترح في السلسلة الإدارية -->
+        <div id="nextChainSuggestionBar" class="mt-3 bg-indigo-50/90 border border-indigo-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="bg-indigo-600 text-white px-2 py-0.5 rounded font-bold text-[11px]">الخطوة التالية في السلسلة</span>
+            <span id="nextChainText" class="text-indigo-950 font-semibold">هل تود توليد مراسلة إلحاقية مرتبطة بهذه المعاملة؟</span>
+          </div>
+          <div id="nextChainButtons" class="flex flex-wrap gap-1.5"></div>
+        </div>
+      </div>
+
+      <!-- قسم سجل المراسلات المترابط (الأرشيف المحلي في المتصفح localStorage) -->
+      <div id="correspondenceLogSection" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span>سجل المراسلات المترابط والأرشيف المحلي</span>
+              <span id="logTotalCountBadge" class="bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+            </h3>
+            <p class="text-[11px] text-slate-500">يُحفظ تلقائياً في متصفحك (localStorage) مع متابعة المهل الزمنية والسلاسل الإدارية</p>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="exportLogCsvBtn" type="button" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition">
+              تصدير السجل (Excel/CSV)
+            </button>
+            <button id="clearAllLogBtn" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition">
+              مسح السجل
+            </button>
+          </div>
+        </div>
+
+        <!-- شريط البحث والتصفية داخل السجل -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-3 text-xs">
+          <input id="logSearchInput" type="text" placeholder="ابحث في السجل (اسم المدرسة، الموضوع، رقم القيد)..." class="sm:col-span-6 rounded-lg border border-slate-300 px-3 py-1.5 focus:border-indigo-600 focus:outline-none" />
+          <select id="logFilterTemplate" class="sm:col-span-3 rounded-lg border border-slate-300 px-2 py-1.5 bg-slate-50">
+            <option value="all">جميع القوالب</option>
+          </select>
+          <select id="logFilterStatus" class="sm:col-span-3 rounded-lg border border-slate-300 px-2 py-1.5 bg-slate-50">
+            <option value="all">جميع الحالات</option>
+            <option value="صادرة برقم قيد">صادرة برقم قيد</option>
+            <option value="بانتظار الإفادة">بانتظار الإفادة</option>
+            <option value="متأخرة (انتهت المهلة)">متأخرة (انتهت المهلة)</option>
+            <option value="مكتملة">مكتملة</option>
+            <option value="مُصعّدة للدائرة">مُصعّدة للدائرة</option>
+          </select>
+        </div>
+
+        <!-- قائمة عناصر السجل -->
+        <div id="correspondenceLogList" class="space-y-2.5 max-h-96 overflow-y-auto custom-scrollbar pr-1"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- نافذة منبثقة: دليل تضمين الكود في موقع supervisor-mct.com -->
+  <div id="codeExportModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-800 text-base">طريقة تحديث قسم المراسلات في موقعك (supervisor-mct.com)</h3>
+        <button id="closeCodeExportModalBtn" type="button" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+      <div class="text-xs text-slate-600 space-y-2 leading-relaxed">
+        <p>تم بناء هذا القسم ليعمل <strong>بشكل مستقل تماماً بلا خادم (Client-Side 100%)</strong> مع حفظ السجل في <code>localStorage</code> بنفس آلية موقعك الحالي <code>supervisor-mct.com/reports.html</code>.</p>
+        <ul class="list-disc list-inside space-y-1 text-slate-700">
+          <li><strong>الطريقة الأولى (صفحة مستقلة أو تبويب مباشر):</strong> يمكنك رفع هذا الملف مباشرة باسم <code>correspondence.html</code> أو ربطه بزر «المراسلات» في صفحة التقارير.</li>
+          <li><strong>الطريقة الثانية (دمج داخل reports.html):</strong> جميع دوال القوالب الـ 12، السلاسل الإدارية، وتصدير Word/PDF مضمّنة في كود جافاسكريبت معياري نظيف يمكنك نسخه بضغطة زر.</li>
+        </ul>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <button id="copyFullHtmlSourceBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
+          نسخ الكود المصدري الكامل للقسم
+        </button>
+        <button id="closeCodeExportModalBtn2" type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition">
+          إغلاق
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تأكيد مخصصة (بديل آمن عن confirm) -->
+  <div id="customConfirmModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl border border-slate-200 space-y-4">
+      <h4 id="confirmModalTitle" class="font-bold text-slate-800 text-sm">تأكيد الإجراء</h4>
+      <p id="confirmModalMessage" class="text-xs text-slate-600 leading-relaxed"></p>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button id="confirmModalYesBtn" type="button" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2 rounded-lg">نعم، تأكيد</button>
+        <button id="confirmModalNoBtn" type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- إشعار عائم (Toast) -->
+  <div id="toastContainer" class="fixed bottom-5 left-5 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-lg border border-slate-700 hidden items-center gap-2 transition-all">
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span id="toastMessage">تم النسخ بنجاح</span>
+  </div>
+
+  <script>
+    const MUSCAT_SCHOOLS_DB = [
+      { name: "مدرسة جابر بن زيد للتعليم الأساسي (10-12)", wilayat: "مطرح", gender: "male", teachers: [{ name: "سالم بن حمد الحارثي", fileNo: "145201" }, { name: "خالد بن سعيد المعولي", fileNo: "148932" }] },
+      { name: "مدرسة السيب العالمية", wilayat: "السيب", gender: "male", teachers: [{ name: "ماجد بن عبدالله السيابي", fileNo: "152310" }] },
+      { name: "مدرسة كعب بن زيد للتعليم الأساسي (5-10)", wilayat: "السيب", gender: "male", teachers: [{ name: "يوسف بن راشد الخصيبي", fileNo: "139840" }, { name: "أحمد بن ناصر البلوشي", fileNo: "160112" }] },
+      { name: "مدرسة الحسن بن هاشم للتعليم الأساسي (10-12)", wilayat: "السيب", gender: "male", teachers: [{ name: "فهد بن سليمان الرواحي", fileNo: "142910" }] },
+      { name: "مدرسة أصيلة بنت قيس البوسعيدية (5-10)", wilayat: "السيب", gender: "female", teachers: [{ name: "مريم بنت سعيد العامرية", fileNo: "174502" }, { name: "هدى بنت خلفان التوبية", fileNo: "178219" }] },
+      { name: "مدرسة عائشة بنت أبي بكر للتعليم الأساسي (5-10)", wilayat: "بوشر", gender: "female", teachers: [{ name: "فاطمة بنت علي الهنائية", fileNo: "169304" }] },
+      { name: "مدرسة المهنا بن جيفر للتعليم الأساسي (5-10)", wilayat: "بوشر", gender: "male", teachers: [{ name: "سلطان بن محمد الغافري", fileNo: "151029" }] },
+      { name: "مدرسة الخوير للتعليم الأساسي (5-9)", wilayat: "بوشر", gender: "male", teachers: [{ name: "بدر بن سيف الكندي", fileNo: "147823" }] },
+      { name: "مدرسة دوحة الأدب للتعليم الأساسي (10-12)", wilayat: "بوشر", gender: "female", teachers: [{ name: "عائشة بنت سالم الحبسية", fileNo: "165410" }] },
+      { name: "مدرسة الإشراق للتعليم الأساسي (1-4)", wilayat: "السيب", gender: "female", teachers: [{ name: "سارة بنت حمد النعمانية", fileNo: "181205" }, { name: "نورة بنت راشد الفارسية", fileNo: "183910" }] },
+      { name: "مدرسة الموالح الجنوبية للتعليم الأساسي (1-4)", wilayat: "السيب", gender: "female", teachers: [{ name: "شيخة بنت عبدالله الكلبانية", fileNo: "179004" }] },
+      { name: "مدرسة الوطية للتعليم الأساسي (5-10)", wilayat: "مطرح", gender: "male", teachers: [{ name: "حميد بن سعيد الوهيبي", fileNo: "155670" }] },
+      { name: "مدرسة حسان بن ثابت للتعليم الأساسي (10-12)", wilayat: "مطرح", gender: "male", teachers: [{ name: "راشد بن خميس البطاشي", fileNo: "149200" }] },
+      { name: "مدرسة الحارث بن خالد للتعليم الأساسي (5-10)", wilayat: "العامرات", gender: "male", teachers: [{ name: "وليد بن سالم المعشري", fileNo: "162301" }] },
+      { name: "مدرسة العامرات للتعليم الأساسي (10-12)", wilayat: "العامرات", gender: "female", teachers: [{ name: "انتصار بنت محمد الوهيبية", fileNo: "171890" }] },
+      { name: "مدرسة رابعة العدوية للتعليم الأساسي (10-12)", wilayat: "قريات", gender: "female", teachers: [{ name: "زينب بنت سعيد البلوشية", fileNo: "176420" }] },
+      { name: "مدرسة قريات للتعليم الأساسي (5-10)", wilayat: "قريات", gender: "male", teachers: [{ name: "محمد بن خلفان الغماري", fileNo: "158920" }] },
+      { name: "مدرسة تبارك الخاصة", wilayat: "السيب", gender: "male", teachers: [{ name: "محمود بن أحمد المصري", fileNo: "901245" }] },
+      { name: "مدرسة الموهبة الخاصة", wilayat: "بوشر", gender: "female", teachers: [{ name: "رنا بنت خالد الشامية", fileNo: "902318" }] }
+    ];
+
+    const LAST_VISIT_RECOMMENDATIONS = [
+      "استكمال خطط التحضير اليومي وفق الأهداف السلوكية المحددة بوثيقة الرياضة المدرسية.",
+      "تفعيل المسابقات الرياضية الداخلية وتوثيق سجلات الفرق المدرسية.",
+      "مراعاة اشتراطات الأمن والسلامة في الملاعب الخارجية قبل بدء الحصة العملية.",
+      "تنويع أساليب التقويم التكويني لرصد المهارات الحركية للطلبة بدقة."
+    ];
+
+    const OVERDUE_RECOMMENDATIONS = [
+      "استكمال سجل التقويم المستمر ورصد الدرجات العملية للطلبة في البوابة التعليمية.",
+      "معالجة نواقص الأدوات الرياضية الأساسية اللازمة لتنفيذ وحدات المنهاج الدراسي.",
+      "تنفيذ حصة تطبيقية تبادلية داخل المدرسة بحضور منسق المادة."
+    ];
+
+    const TEMPLATES = [
+      {
+        id: "exchange_program",
+        name: "1. برنامج تبادل الزيارات",
+        badge: "أساسي",
+        recipientMode: "schools",
+        defaultAttachments: "كشف أسماء المعلمين المستهدفين ببرنامج تبادل الزيارات",
+        nextChains: [
+          { targetId: "thanks_request", label: "توليد طلب شهادات شكر للمنفذين" },
+          { targetId: "training_absence", label: "رصد غياب معلم عن البرنامج" }
+        ]
+      },
+      {
+        id: "school_visit_notes",
+        name: "2. ملاحظات زيارة مدرسية",
+        badge: "أساسي",
+        recipientMode: "schools",
+        defaultAttachments: "تقرير الزيارة الإشرافية لمادة الرياضة المدرسية",
+        nextChains: [
+          { targetId: "overdue_recommendations", label: "تحويل إلى متابعة توصيات متأخرة" },
+          { targetId: "violating_school", label: "تصعيد كمدرسة مخالفة للدائرة" }
+        ]
+      },
+      {
+        id: "violating_school",
+        name: "3. مدرسة مخالفة (للدائرة)",
+        badge: "أساسي",
+        recipientMode: "official",
+        defaultOfficialRecipient: "الفاضل / مدير دائرة المؤسسات التعليمية الخاصة المحترم",
+        defaultCc: ["مكتب د. المدير العام.", "قسم إشراف الإدارة المدرسية."],
+        defaultAttachments: "نسخة من تقارير الزيارات الإشرافية والمخاطبات السابقة",
+        nextChains: []
+      },
+      {
+        id: "host_program",
+        name: "4. استضافة البرنامج (للمدرسة)",
+        badge: "أساسي",
+        recipientMode: "schools",
+        defaultAttachments: "خطة تنفيذ برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)",
+        nextChains: [
+          { targetId: "exchange_program", label: "توليد تعميم برنامج تبادل الزيارات للمدارس" },
+          { targetId: "thanks_request", label: "توليد طلب شهادات شكر للمدرسة المستضيفة" }
+        ]
+      },
+      {
+        id: "thanks_request",
+        name: "5. طلب شهادات شكر",
+        badge: "أساسي",
+        recipientMode: "official",
+        defaultOfficialRecipient: "الفاضل / د. مدير دائرة تطوير الأداء المدرسي المحترم",
+        defaultAttachments: "كشف أسماء المعلمين المنفذين لبرنامج تبادل الزيارات",
+        nextChains: []
+      },
+      {
+        id: "training_absence",
+        name: "6. غياب عن برنامج تدريبي",
+        badge: "أساسي",
+        recipientMode: "schools",
+        defaultAttachments: "استمارة غياب مستهدف عن برنامج تدريبي",
+        nextChains: [
+          { targetId: "violating_school", label: "رفع إفادة للدائرة بعدم الرد" }
+        ]
+      },
+      {
+        id: "overdue_recommendations",
+        name: "7. متابعة توصيات متأخرة",
+        badge: "أساسي",
+        recipientMode: "schools",
+        defaultAttachments: "نسخة من الملاحظات والتوصيات السابقة",
+        nextChains: [
+          { targetId: "violating_school", label: "تصعيد كمدرسة مخالفة للدائرة" }
+        ]
+      },
+      {
+        id: "workshop_invite",
+        name: "8. دعوة لورشة / اجتماع",
+        badge: "أساسي",
+        recipientMode: "schools",
+        defaultAttachments: "كشف المستهدفين ومحاور الورشة التدريبية",
+        nextChains: [
+          { targetId: "training_absence", label: "رصد غياب معلم عن الورشة" },
+          { targetId: "thanks_request", label: "طلب شهادات شكر للمنفذين" }
+        ]
+      },
+      {
+        id: "excellence_commendation",
+        name: "9. إشادة وتزكية بجهود متميزة",
+        badge: "جديد",
+        recipientMode: "schools",
+        defaultAttachments: "تقرير توثيقي بالمبادرة / الإنجاز الرياضي المدرسي",
+        nextChains: [
+          { targetId: "thanks_request", label: "رفع طلب شهادات شكر رسمية للدائرة" }
+        ]
+      },
+      {
+        id: "facilities_safety",
+        name: "10. جاهزية الملاعب والأمن والسلامة",
+        badge: "جديد",
+        recipientMode: "schools",
+        defaultAttachments: "كشف فحص المرافق والأدوات الرياضية المدرسية",
+        nextChains: [
+          { targetId: "overdue_recommendations", label: "متابعة استكمال نواقص الملاعب" },
+          { targetId: "violating_school", label: "رفع تقرير للدائرة بشأن المرافق" }
+        ]
+      },
+      {
+        id: "incoming_reply",
+        name: "11. إفادة فنية / رد على وارد",
+        badge: "جديد",
+        recipientMode: "official",
+        defaultOfficialRecipient: "الفاضل / د. مدير دائرة تطوير الأداء المدرسي المحترم",
+        defaultAttachments: "المشفوعات والتقارير الفنية المؤيدة للإفادة",
+        nextChains: []
+      },
+      {
+        id: "custom_official",
+        name: "12. مراسلة رسمية حرة (مخصصة)",
+        badge: "جديد",
+        recipientMode: "schools",
+        defaultAttachments: "",
+        nextChains: []
+      }
+    ];
+
+    const todayIso = new Date().toISOString().split('T')[0];
+
+    const state = {
+      activeTemplateId: "exchange_program",
+      supervisorName: "أ. أسعد الخصيبي",
+      crsRefNumber: "",
+      crsPriority: "عادي",
+      parentLink: null,
+      selectedSchools: [],
+      attachedTeachers: [],
+      includeTeachersTable: true,
+      genderOverride: "auto",
+      officialRecipient: "الفاضل / د. مدير دائرة تطوير الأداء المدرسي المحترم",
+      officialRecipientCustom: "",
+      ccList: [],
+      customCc: "",
+      attachmentsDesc: "كشف أسماء المعلمين المستهدفين ببرنامج تبادل الزيارات",
+      manualEditEnabled: false,
+      manualEditedHtml: "",
+      activeWilayatFilter: "all",
+      fields: {
+        ex_programName: "برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)",
+        ex_date: todayIso,
+        ex_hostSchool: "مدرسة كعب بن زيد للتعليم الأساسي (5-10)",
+        ex_time: "07:30",
+        ex_uniformCheck: true,
+        ex_mandatoryCheck: true,
+        vn_visitType: "الإشرافية",
+        vn_date: todayIso,
+        vn_notes: LAST_VISIT_RECOMMENDATIONS.join("\n"),
+        vn_duration: "خلال أسبوعين من تاريخه",
+        vn_deadlineDays: 14,
+        vs_presetType: "not_implemented",
+        vs_schoolName: "مدرسة تبارك الخاصة",
+        vs_visitDate: todayIso,
+        vs_opening: "طيب الله أوقاتكم بالمسرات،",
+        vs_purpose: "لمتابعة مدى التزام المدرسة بتلافي الملاحظات المرصودة",
+        vs_extraParagraph: "",
+        hp_hostSchool: "مدرسة أصيلة بنت قيس البوسعيدية (5-10)",
+        hp_isFemalePrincipal: true,
+        hp_programName: "برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)",
+        hp_date: todayIso,
+        hp_time: "07:30",
+        hp_releaseTeachers: true,
+        tr_programName: "برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)",
+        tr_schoolName: "مدرسة كعب بن زيد للتعليم الأساسي (5-10)",
+        tr_date: todayIso,
+        ta_teacherName: "سالم بن حمد الحارثي",
+        ta_fileNo: "145201",
+        ta_isFemale: false,
+        ta_date: todayIso,
+        ta_programName: "برنامج تدريبي (تطوير كفايات معلمي الرياضة المدرسية)",
+        ta_targetRefNum: "2026/9821",
+        ta_deadlineText: "3 أيام عمل من تاريخه",
+        ta_deadlineDays: 3,
+        or_prevDate: todayIso,
+        or_recommendations: OVERDUE_RECOMMENDATIONS.join("\n"),
+        or_deadlineText: "خلال أسبوع من تاريخه",
+        or_deadlineDays: 7,
+        wi_title: "توظيف التقويم المستمر في الرياضة المدرسية",
+        wi_date: todayIso,
+        wi_place: "مدرسة جابر بن زيد للتعليم الأساسي (10-12)",
+        wi_time: "08:00",
+        wi_bringItems: "يرجى إحضار سجل التحضير اليومي وسجل درجات التقويم المستمر.",
+        ec_targetType: "مدرسة ومعلموها",
+        ec_teacherName: "يوسف بن راشد الخصيبي",
+        ec_achievementTitle: "التنظيم المتميز لبطولة ألعاب القوى المدرسية وتفعيل الحصص العملية",
+        ec_date: todayIso,
+        fs_visitDate: todayIso,
+        fs_facilityStatus: "تحتاج بعض المرافق الرياضية بالمدرسة إلى صيانة عاجلة واستكمال نواقص الأدوات",
+        fs_itemsList: "صيانة أرضية الملعب الثلاثي ومعالجة التشققات.\nتثبيت قوائم مرمى كرة اليد والتأكد من سلامة الشباك.\nتوفير كرات سلة وطائرة وأقماع تدريبية كافية لعدد الفصول.",
+        fs_deadlineText: "خلال أسبوعين من تاريخه",
+        fs_deadlineDays: 14,
+        ir_incomingRefNum: "2026/7410",
+        ir_incomingDate: todayIso,
+        ir_incomingSubject: "الاستفسار عن أنصبة معلمي الرياضة المدرسية وتوزيع الفصول",
+        ir_responseBody: "نفيدكم بأنه تم الوقوف ميدانياً ومراجعة جدول الحصص والأنصبة المعتمدة بالمدرسة، وتبيّن انتظام توزيع الحصص وفق النصاب القانوني المعمول به دون وجود عجز حالي.",
+        co_subject: "التنسيق الفني بشأن مسابقات الرياضة المدرسية للفصل الدراسي الحالي",
+        co_opening: "طيب الله أوقاتكم بكل خير وسرور،",
+        co_body: "بالإشارة إلى الموضوع أعلاه، وفي إطار التنسيق المستمر بين وحدة إشراف الرياضة المدرسية وإدارات المدارس لتفعيل الأنشطة والمسابقات الرياضية المدرسية؛ نرجو التكرم بتسمية منسق الفرق الرياضية بالمدرسة وموافاتنا بالجدول الزمني للأنشطة الداخلية."
+      },
+      historyLog: []
+    };
+
+    const STORAGE_KEY = "supervisor_mct_correspondence_log_v2";
+
+    function getArabicDayName(dateStr) {
+      if (!dateStr) return "........";
+      const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+      const d = new Date(dateStr + "T00:00:00");
+      return isNaN(d.getTime()) ? "........" : days[d.getDay()];
+    }
+
+    function formatArabicDate(dateStr) {
+      if (!dateStr) return ".... / .... / 2026م";
+      const parts = dateStr.split("-");
+      if (parts.length !== 3) return dateStr;
+      return `${parts[2]} / ${parts[1]} / ${parts[0]}م`;
+    }
+
+    function formatArabicTime(timeStr) {
+      if (!timeStr) return "07:30 صباحاً";
+      const [hh, mm] = timeStr.split(":");
+      let h = parseInt(hh, 10);
+      const period = h >= 12 ? "مساءً" : "صباحاً";
+      if (h > 12) h -= 12;
+      if (h === 0) h = 12;
+      return `${h}:${mm} ${period}`;
+    }
+
+    function detectSchoolGender(schoolName) {
+      if (!schoolName) return "male";
+      const found = MUSCAT_SCHOOLS_DB.find(s => s.name === schoolName.trim());
+      if (found) return found.gender;
+      const femKeywords = ["بنات", "بنت", "عائشة", "أصيلة", "رابعة", "زينب", "فاطمة", "مريم", "آمنة", "خديجة", "أسماء", "حفصة", "صفية", "سمية", "دوحة الأدب", "الإشراق", "الموالح الجنوبية", "(1-4)"];
+      for (const kw of femKeywords) {
+        if (schoolName.includes(kw)) return "female";
+      }
+      return "male";
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toastContainer");
+      const text = document.getElementById("toastMessage");
+      text.textContent = msg;
+      toast.classList.remove("hidden");
+      toast.classList.add("flex");
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => {
+        toast.classList.add("hidden");
+        toast.classList.remove("flex");
+      }, 3200);
+    }
+
+    function copyTextSafe(text, labelMsg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(labelMsg || "تم النسخ إلى الحافظة بنجاح");
+        }).catch(() => fallbackCopy(text, labelMsg));
+      } else {
+        fallbackCopy(text, labelMsg);
+      }
+    }
+
+    function fallbackCopy(text, labelMsg) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast(labelMsg || "تم النسخ إلى الحافظة بنجاح");
+      } catch (e) {
+        showToast("تعذر النسخ التلقائي، يرجى تحديد النص ونسخه");
+      }
+      document.body.removeChild(ta);
+    }
+
+    function saveHistoryToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.historyLog));
+      } catch (e) {}
+    }
+
+    function loadHistoryFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.historyLog = parsed;
+            return;
+          }
+        }
+      } catch (e) {}
+
+      const pastDateOverdue = new Date(Date.now() - 16 * 86400000).toISOString().split("T")[0];
+      const recentDate = new Date(Date.now() - 2 * 86400000).toISOString().split("T")[0];
+      state.historyLog = [
+        {
+          id: "log_101",
+          templateId: "host_program",
+          templateName: "4. استضافة البرنامج (للمدرسة)",
+          subject: "استضافة برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)",
+          recipientSummary: "الفاضلة / مديرة مدرسة أصيلة بنت قيس البوسعيدية (5-10) المحترمة",
+          schools: [{ name: "مدرسة أصيلة بنت قيس البوسعيدية (5-10)", gender: "female", wilayat: "السيب" }],
+          refNum: "2026/10214",
+          createdAt: recentDate,
+          deadlineDate: null,
+          status: "صادرة برقم قيد",
+          actionLabel: "نسخ وحفظ",
+          savedFields: {
+            hp_hostSchool: "مدرسة أصيلة بنت قيس البوسعيدية (5-10)",
+            hp_programName: "برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)",
+            hp_date: todayIso,
+            hp_time: "07:30"
+          }
+        },
+        {
+          id: "log_102",
+          templateId: "school_visit_notes",
+          templateName: "2. ملاحظات زيارة مدرسية",
+          subject: "ملاحظات الزيارة الإشرافية لمادة الرياضة المدرسية",
+          recipientSummary: "الفاضل / مدير مدرسة تبارك الخاصة المحترم",
+          schools: [{ name: "مدرسة تبارك الخاصة", gender: "male", wilayat: "السيب" }],
+          refNum: "2026/9940",
+          createdAt: pastDateOverdue,
+          deadlineDate: new Date(Date.now() - 2 * 86400000).toISOString().split("T")[0],
+          status: "بانتظار الإفادة",
+          actionLabel: "نسخ",
+          savedFields: {
+            vn_visitType: "الإشرافية",
+            vn_date: pastDateOverdue,
+            vn_notes: LAST_VISIT_RECOMMENDATIONS.join("\n"),
+            vn_duration: "خلال أسبوعين من تاريخه"
+          }
+        }
+      ];
+    }
+
+    function getRecipientGrammar() {
+      const tpl = TEMPLATES.find(t => t.id === state.activeTemplateId);
+
+      if (tpl && tpl.recipientMode === "official") {
+        const line = state.officialRecipient === "custom"
+          ? (state.officialRecipientCustom.trim() || "الفاضل / مدير الدائرة المختصة المحترم")
+          : state.officialRecipient;
+        return {
+          recipientLine: line,
+          mode: "official",
+          addressPronoun: "كم",
+          schoolPossessive: "تحت إشرافكم",
+          thanksPhrase: "شاكرين لكم حسن تعاونكم"
+        };
+      }
+
+      if (state.activeTemplateId === "host_program" && state.selectedSchools.length === 0) {
+        const hName = state.fields.hp_hostSchool || "........";
+        const isFem = state.fields.hp_isFemalePrincipal;
+        return {
+          recipientLine: isFem
+            ? `الفاضلة / مديرة ${hName} المحترمة`
+            : `الفاضل / مدير ${hName} المحترم`,
+          mode: isFem ? "female_single" : "male_single",
+          addressPronoun: "كم",
+          schoolPossessive: "لمدرستكم الموقرة",
+          thanksPhrase: "شاكرين لكم حسن تعاونكم معنا"
+        };
+      }
+
+      let effectiveMode = state.genderOverride;
+      if (effectiveMode === "auto") {
+        if (state.selectedSchools.length === 0) {
+          effectiveMode = "male_plural";
+        } else if (state.selectedSchools.length === 1) {
+          effectiveMode = state.selectedSchools[0].gender === "female" ? "female_single" : "male_single";
+        } else {
+          const allFemale = state.selectedSchools.every(s => s.gender === "female");
+          effectiveMode = allFemale ? "female_plural" : "male_plural";
+        }
+      }
+
+      const singleSchoolName = state.selectedSchools.length === 1
+        ? state.selectedSchools[0].name
+        : (state.fields.vs_schoolName || "المدرسة المعنية");
+
+      if (effectiveMode === "female_single") {
+        return {
+          recipientLine: `الفاضلة / مديرة ${singleSchoolName} المحترمة`,
+          mode: "female_single",
+          addressPronoun: "كم",
+          schoolPossessive: "لمدرستكم الموقرة",
+          thanksPhrase: "شاكرين لكم حسن تعاونكم"
+        };
+      }
+      if (effectiveMode === "male_single") {
+        return {
+          recipientLine: `الفاضل / مدير ${singleSchoolName} المحترم`,
+          mode: "male_single",
+          addressPronoun: "كم",
+          schoolPossessive: "لمدرستكم الموقرة",
+          thanksPhrase: "شاكرين لكم حسن تعاونكم"
+        };
+      }
+      if (effectiveMode === "female_plural") {
+        return {
+          recipientLine: "الفاضلات / مديرات المدارس المعنية المحترمات",
+          mode: "female_plural",
+          addressPronoun: "كن",
+          schoolPossessive: "بمدارسكن الموقرة",
+          thanksPhrase: "شاكرين لكن حسن تعاونكن"
+        };
+      }
+      return {
+        recipientLine: "الأفاضل / مديرو المدارس المعنية المحترمون",
+        mode: "male_plural",
+        addressPronoun: "كم",
+        schoolPossessive: "بمدارسكم الموقرة",
+        thanksPhrase: "شاكرين لكم حسن تعاونكم"
+      };
+    }
+
+    function buildParentReferencePhrase() {
+      const refNum = (document.getElementById("parentRefNumInput")?.value || "").trim();
+      const refDate = (document.getElementById("parentRefDateInput")?.value || "").trim();
+      if (!state.parentLink && !refNum) return "";
+      const numText = refNum || state.parentLink?.refNum || "....";
+      const dateText = refDate ? formatArabicDate(refDate) : (state.parentLink?.date ? formatArabicDate(state.parentLink.date) : "");
+      return `وإشارةً إلى مخاطبتنا السابقة رقم القيد (${numText})${dateText ? ` بتاريخ ${dateText}` : ""}، `;
+    }
+
+    function generateLetterData() {
+      const f = state.fields;
+      const g = getRecipientGrammar();
+      const parentClause = buildParentReferencePhrase();
+      let subject = "";
+      let salutation = "السلام عليكم ورحمة الله وبركاته،،، وبعد:";
+      let bodyParagraphs = [];
+      let closing = "وتفضلوا بقبول فائق الاحترام والتقدير،،،";
+
+      switch (state.activeTemplateId) {
+        case "exchange_program": {
+          const prog = f.ex_programName || "برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)";
+          subject = `${prog} لمعلمي مادة الرياضة المدرسية`;
+          salutation = "السلام عليكم ورحمة الله وبركاته، وبعد:";
+          const dayName = getArabicDayName(f.ex_date);
+          const dateFormatted = formatArabicDate(f.ex_date);
+          const timeFormatted = formatArabicTime(f.ex_time);
+          const host = f.ex_hostSchool || "المدرسة المستضيفة";
+          const uniformPart = f.ex_uniformCheck ? "، والالتزام بالزي الرياضي" : "";
+          const p1 = `عطّر الله أوقاتكم بكل خير وسرور، وحول الموضوع المشار إليه أعلاه، ${parentClause}وضمن خطة إشراف مادة الرياضة المدرسية لتنفيذ ${prog}، نود إفادتكم بأنه سيتم تنفيذ البرنامج حسب الفئة المستهدفة بالكشف المرفق، وذلك يوم ${dayName} الموافق ${dateFormatted}. التكرم بالإيعاز للمعلمين المذكورين الحضور إلى ${host} في تمام الساعة ${timeFormatted}${uniformPart}.`;
+          bodyParagraphs.push(p1);
+          if (f.ex_mandatoryCheck) {
+            bodyParagraphs.push("كما نشير إلى إلزامية الحضور للفئة المستهدفة، ولن يُقبل التغيب إلا بعذر مقبول، علماً بأنه سيتم إرسال إفادات الغياب لمن تغيب بدون عذر مقبول، وعليه نهيب بالجميع الالتزام.");
+          }
+          break;
+        }
+
+        case "school_visit_notes": {
+          subject = `ملاحظات الزيارة ${f.vn_visitType || "الإشرافية"} لمادة الرياضة المدرسية`;
+          const dateFormatted = formatArabicDate(f.vn_date);
+          bodyParagraphs.push(`بالإشارة إلى الموضوع أعلاه، ${parentClause}وإلى الزيارة ${f.vn_visitType || "الإشرافية"} التي قام بها مشرف المادة ${g.schoolPossessive} بتاريخ ${dateFormatted}، نود إفادتكم بالملاحظات والتوصيات الآتية:`);
+          const lines = (f.vn_notes || "").split("\n").map(s => s.trim()).filter(Boolean);
+          if (lines.length > 0) {
+            bodyParagraphs.push({ type: "numbered_list", items: lines });
+          }
+          bodyParagraphs.push(`نأمل التكرم بالاطلاع والإيعاز لمن يلزم بالمتابعة والتنفيذ ${f.vn_duration || "خلال أسبوعين من تاريخه"}، ${g.thanksPhrase}.`);
+          break;
+        }
+
+        case "violating_school": {
+          const sName = f.vs_schoolName || (state.selectedSchools[0]?.name) || "........";
+          subject = `عدم التزام ${sName} بتنفيذ الملاحظات والتوصيات`;
+          if (f.vs_opening && f.vs_opening.trim()) {
+            bodyParagraphs.push(f.vs_opening.trim());
+          }
+          const dateFormatted = formatArabicDate(f.vs_visitDate);
+          bodyParagraphs.push(`بالإشارة إلى الموضوع أعلاه، ${parentClause}وإلى الزيارات الإشرافية المتعددة لـ ${sName} لمادة الرياضة المدرسية، والتي كان آخرها بتاريخ ${dateFormatted}؛ بهدف ${f.vs_purpose || "متابعة مدى التزام المدرسة بتلافي الملاحظات المرصودة"}.`);
+          if (f.vs_extraParagraph && f.vs_extraParagraph.trim()) {
+            bodyParagraphs.push(f.vs_extraParagraph.trim());
+          }
+          if (f.vs_presetType === "repeated_notes") {
+            bodyParagraphs.push("نود إفادتكم بأنه لوحظ تكرار رصد ذات الملاحظات الفنية والإدارية دون معالجة جذرية من قِبل إدارة المدرسة ومعلمي المادة، مما ينعكس سلباً على جودة الأداء التدريسي للرياضة المدرسية. وعليه نرفع لكم هذا التقرير لاتخاذ ما ترونه مناسباً.");
+          } else if (f.vs_presetType === "chronic_notes") {
+            bodyParagraphs.push("نود إفادتكم باستمرار الملاحظات المرصودة منذ أعوام دراسية متتالية دون استجابة فعلية لتوصيات الزيارات الإشرافية المتعاقبة، الأمر الذي يؤثر سلباً على سير العملية التعليمية بالمدرسة. وعليه نرفع لكم هذا التقرير لاتخاذ ما ترونه مناسباً.");
+          } else {
+            bodyParagraphs.push("نود إفادتكم بأنه لوحظ عدم التزام المدرسة بتنفيذ التوصيات الواردة في التقارير السابقة، الأمر الذي يؤثر سلباً على سير العملية التعليمية بالمدرسة. وعليه نرفع لكم هذا التقرير لاتخاذ ما ترونه مناسباً.");
+          }
+          break;
+        }
+
+        case "host_program": {
+          const prog = f.hp_programName || "برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)";
+          subject = `استضافة ${prog}`;
+          salutation = "السلام عليكم ورحمة الله وبركاته، وبعد:";
+          const dayName = getArabicDayName(f.hp_date);
+          const dateFormatted = formatArabicDate(f.hp_date);
+          const timeFormatted = formatArabicTime(f.hp_time);
+          let p = `عطّر الله أوقاتكم بكل خير وسرور، وحول الموضوع المشار إليه أعلاه، ${parentClause}وضمن خطة إشراف مادة الرياضة المدرسية لتنفيذ ${prog}، يرجى التكرم بالموافقة على استضافة مدرستكم الموقرة للبرنامج المذكور، وذلك يوم ${dayName} الموافق ${dateFormatted} في تمام الساعة ${timeFormatted}.`;
+          if (f.hp_releaseTeachers) {
+            p += " علماً بأنه تم تفريغ معلمي مادة الرياضة المدرسية بالمدرسة المذكورة لهذا اليوم.";
+          }
+          p += " شاكرين لكم حسن تعاونكم معنا.";
+          bodyParagraphs.push(p);
+          closing = "وتفضلوا بقبول وافر الاحترام والتقدير،،،";
+          break;
+        }
+
+        case "thanks_request": {
+          const prog = f.tr_programName || "برنامج تبادل الزيارات (المهرجان الرياضي التعليمي)";
+          const sName = f.tr_schoolName || (state.selectedSchools[0]?.name) || "........";
+          const isFemSchool = detectSchoolGender(sName) === "female";
+          const principalTitle = isFemSchool ? `الفاضلة / مديرة ${sName}` : `الفاضل / مدير ${sName}`;
+          subject = `طلب شهادات شكر للمنفذين لـ ${prog}`;
+          salutation = "السلام عليكم ورحمة الله وبركاته، وبعد:";
+          bodyParagraphs.push("طَيّبَ اللهُ أوقاتكُم بالخيْرِ والمَسَرّات،");
+          bodyParagraphs.push(`بالإشارة إلى الموضوع أعلاه، ${parentClause}وإلى تنفيذ وحدة إشراف مادة الرياضة المدرسية لـ ${prog} بـ ${sName} بتاريخ ${formatArabicDate(f.tr_date)}؛ نود إفادتكم بأنه تم تنفيذ البرنامج المذكور بنجاح وفق ما هو مخطط له، وعليه نرجو التكرم بتكريم ${principalTitle} والمعلمين المنفذين المرفقة أسماؤهم بالكشف، بشهادات شكر وتقدير نظير جهودهم المتميزة في إنجاح البرنامج.`);
+          closing = "وتفضلوا بقبول وافر الاحترام والتقدير،،،";
+          break;
+        }
+
+        case "training_absence": {
+          const isFem = f.ta_isFemale;
+          const roleWord = isFem ? "المعلمة" : "المعلم";
+          const jobWord = isFem ? "معلمة رياضة مدرسية" : "معلم رياضة مدرسية";
+          const returnWord = isFem ? "للمعلمة للإفادة" : "للمعلم للإفادة";
+          const tName = f.ta_teacherName || "........";
+          subject = `غياب ${roleWord} ${tName} عن ${f.ta_programName || "برنامج تدريبي"}`;
+          salutation = "السلام عليكم ورحمة الله وبركاته، وبعد لكم منا خالص التحية والتقدير،";
+          const dayName = getArabicDayName(f.ta_date);
+          const dateFormatted = formatArabicDate(f.ta_date);
+          const refText = f.ta_targetRefNum || state.parentLink?.refNum || "........";
+          bodyParagraphs.push(`وحول الموضوع المشار إليه أعلاه، ${parentClause}نرفق لكم استمارة غياب ${roleWord}/ ${tName} رقم الملف (${f.ta_fileNo || "......"}) ${jobWord}، وذلك يوم ${dayName} الموافق ${dateFormatted}، علماً بأنه قد تم مخاطبة المدرسة بالفئة المستهدفة برقم قيد (${refText})، عليه نرفق لكم استمارة غياب مستهدف عن برنامج تدريبي، للتكرم بطباعة الاستمارة المرفقة وتسليمها ${returnWord} ومن ثم الإفادة برأيكم في المكان المخصص لكم في الاستمارة، وإعادة إرسالها في نفس الخطاب وليس بمراسلة جديدة إلى دائرة تطوير الأداء المدرسي قسم إشراف المهارات الفردية في موعد أقصاه (${f.ta_deadlineText || "3 أيام عمل من تاريخه"}).`);
+          closing = "وتفضلوا بقبول فائق الاحترام،،،";
+          break;
+        }
+
+        case "overdue_recommendations": {
+          subject = "متابعة تنفيذ توصيات الزيارة السابقة لمادة الرياضة المدرسية";
+          const dateFormatted = formatArabicDate(f.or_prevDate);
+          bodyParagraphs.push(`بالإشارة إلى الموضوع أعلاه، ${parentClause}وإلى زيارتنا الإشرافية ${g.schoolPossessive} بتاريخ ${dateFormatted}؛ يرجى التكرم بمتابعة تنفيذ التوصيات التالية:`);
+          const lines = (f.or_recommendations || "").split("\n").map(s => s.trim()).filter(Boolean);
+          if (lines.length > 0) {
+            bodyParagraphs.push({ type: "numbered_list", items: lines });
+          }
+          bodyParagraphs.push(`نأمل التكرم بالمتابعة وإفادتنا بما تمّ ${f.or_deadlineText || "خلال أسبوع من تاريخه"}، ${g.thanksPhrase}.`);
+          break;
+        }
+
+        case "workshop_invite": {
+          const title = f.wi_title || "........";
+          subject = `دعوة لحضور ورشة تدريبية بعنوان: ${title}`;
+          const dayName = getArabicDayName(f.wi_date);
+          const dateFormatted = formatArabicDate(f.wi_date);
+          const timeFormatted = formatArabicTime(f.wi_time);
+          bodyParagraphs.push(`يسر وحدة إشراف مادة الرياضة المدرسية دعوة المستهدفين لحضور ورشة تدريبية بعنوان: (${title})، وذلك يوم ${dayName} الموافق ${dateFormatted} في تمام الساعة ${timeFormatted} بـ ${f.wi_place || "........"}.`);
+          if (f.wi_bringItems && f.wi_bringItems.trim()) {
+            bodyParagraphs.push(f.wi_bringItems.trim());
+          }
+          bodyParagraphs.push("يرجى الإيعاز للمستهدفين بالحضور في الموعد المحدد.");
+          break;
+        }
+
+        case "excellence_commendation": {
+          subject = `إشادة وتزكية بالجهود المتميزة في مادة الرياضة المدرسية`;
+          const dateFormatted = formatArabicDate(f.ec_date);
+          bodyParagraphs.push(`طيب الله أوقاتكم بكل خير وسرور، وبالإشارة إلى الموضوع أعلاه، وإلى المتابعة الإشرافية بتاريخ ${dateFormatted}؛ يسر وحدة إشراف مادة الرياضة المدرسية أن تتقدم بخالص الشكر والتقدير لإدارة المدرسة الموقرة ولأسرة مادة الرياضة المدرسية (${f.ec_teacherName || "معلمي المادة"}) نظير التميز الملموس في: (${f.ec_achievementTitle || "تفعيل الأنشطة والمبادرات الرياضية المدرسية"}).`);
+          bodyParagraphs.push("مثمّنين هذا العطاء التربوي المخلص الذي يرتقي بمستوى الطلبة ويعزز البيئة المدرسية الجاذبة، متمنين لكم دوام التوفيق والتميز.");
+          closing = "وتفضلوا بقبول وافر الاحترام والتقدير،،،";
+          break;
+        }
+
+        case "facilities_safety": {
+          subject = "متابعة جاهزية الملاعب والأدوات الرياضية واشتراطات الأمن والسلامة";
+          const dateFormatted = formatArabicDate(f.fs_visitDate);
+          bodyParagraphs.push(`بالإشارة إلى الموضوع أعلاه، ${parentClause}وإلى الزيارة الإشرافية الميدانية بتاريخ ${dateFormatted} لتفقد المرافق والأدوات الرياضية ${g.schoolPossessive}؛ نود إفادتكم بأن ${f.fs_facilityStatus || "بعض المرافق الرياضية تتطلب صيانة واستكمال نواقص"} وفق الآتي:`);
+          const lines = (f.fs_itemsList || "").split("\n").map(s => s.trim()).filter(Boolean);
+          if (lines.length > 0) {
+            bodyParagraphs.push({ type: "numbered_list", items: lines });
+          }
+          bodyParagraphs.push(`نرجو التكرم بالتنسيق مع جهات الاختصاص لمعالجة الملاحظات المذكورة ${f.fs_deadlineText || "خلال أسبوعين من تاريخه"} حفاظاً على أمن وسلامة الطلبة وجودة تنفيذ الحصص العملية، ${g.thanksPhrase}.`);
+          break;
+        }
+
+        case "incoming_reply": {
+          subject = `إفادة فنية بشأن: ${f.ir_incomingSubject || "المراسلة الواردة"}`;
+          bodyParagraphs.push(`بالإشارة إلى الموضوع أعلاه، وإلى مراسلتكم الواردة إلينا برقم قيد (${f.ir_incomingRefNum || "........"}) بتاريخ ${formatArabicDate(f.ir_incomingDate)} بشأن (${f.ir_incomingSubject || "........"})؛`);
+          bodyParagraphs.push(f.ir_responseBody || "نفيدكم بأنه تمت الدراسة والمتابعة اللازمة من قِبل وحدة إشراف الرياضة المدرسية.");
+          bodyParagraphs.push("وهذه إفادتنا للتكرم بالاطلاع واتخاذ ما ترونه مناسباً.");
+          break;
+        }
+
+        case "custom_official": {
+          subject = f.co_subject || "مراسلة رسمية — وحدة إشراف الرياضة المدرسية";
+          if (f.co_opening && f.co_opening.trim()) {
+            bodyParagraphs.push(f.co_opening.trim());
+          }
+          const lines = (f.co_body || "").split("\n").map(s => s.trim()).filter(Boolean);
+          lines.forEach(l => bodyParagraphs.push(l));
+          break;
+        }
+      }
+
+      const ccCombined = [...state.ccList];
+      if (state.customCc && state.customCc.trim()) {
+        ccCombined.push(state.customCc.trim());
+      }
+
+      return {
+        recipientLine: g.recipientLine,
+        salutation,
+        subject,
+        bodyParagraphs,
+        closing,
+        supervisorName: state.supervisorName || "أ. أسعد الخصيبي",
+        ccList: ccCombined,
+        attachmentsDesc: (state.attachmentsDesc || "").trim(),
+        selectedSchools: state.selectedSchools,
+        attachedTeachers: state.attachedTeachers,
+        includeTeachersTable: state.includeTeachersTable
+      };
+    }
+
+    function renderLetterPreview() {
+      document.getElementById("paperRefNum").textContent = state.crsRefNumber.trim() || "........ / 2026";
+      document.getElementById("paperDate").textContent = formatArabicDate(todayIso);
+      document.getElementById("paperPriority").textContent = state.crsPriority;
+
+      const area = document.getElementById("letterEditableArea");
+      if (state.manualEditEnabled && state.manualEditedHtml) {
+        return;
+      }
+
+      const data = generateLetterData();
+      let html = `
+        <div class="font-bold text-lg text-slate-900">${escapeHtml(data.recipientLine)}</div>
+        <div class="font-bold text-slate-800">${escapeHtml(data.salutation)}</div>
+        <div class="font-bold text-indigo-950 bg-indigo-50/70 border-r-4 border-indigo-700 pr-3 py-1.5 my-2 rounded-l">
+          الموضوع: ${escapeHtml(data.subject)}
+        </div>
+      `;
+
+      data.bodyParagraphs.forEach(p => {
+        if (typeof p === "string") {
+          html += `<p class="text-justify leading-loose text-slate-800">${escapeHtml(p)}</p>`;
+        } else if (p && p.type === "numbered_list") {
+          html += `<ol class="list-decimal list-inside space-y-1 bg-slate-50/80 p-3 rounded-lg border border-slate-200 text-slate-800 text-[15px]">`;
+          p.items.forEach(item => {
+            html += `<li class="leading-relaxed">${escapeHtml(item)}</li>`;
+          });
+          html += `</ol>`;
+        }
+      });
+
+      if (data.selectedSchools.length > 1) {
+        html += `
+          <div class="mt-3 pt-2 border-t border-slate-200 text-sm">
+            <div class="font-bold text-slate-800 mb-1">المدارس المعنية بالمخاطبة (${data.selectedSchools.length}):</div>
+            <div class="text-slate-700">${data.selectedSchools.map((s, i) => `${i + 1}. ${escapeHtml(s.name)}`).join(" — ")}</div>
+          </div>
+        `;
+      }
+
+      if (data.includeTeachersTable && data.attachedTeachers.length > 0) {
+        html += `
+          <div class="mt-4">
+            <div class="font-bold text-sm text-indigo-950 mb-1.5">الكشف المرفق بأسماء المعلمين المستهدفين (${data.attachedTeachers.length}):</div>
+            <table class="w-full border-collapse border border-slate-300 text-xs font-sans">
+              <thead>
+                <tr class="bg-slate-100 text-slate-800">
+                  <th class="border border-slate-300 px-2 py-1.5 text-right w-10">م</th>
+                  <th class="border border-slate-300 px-2 py-1.5 text-right">اسم المعلم / المعلمة</th>
+                  <th class="border border-slate-300 px-2 py-1.5 text-right w-28">رقم الملف</th>
+                  <th class="border border-slate-300 px-2 py-1.5 text-right">المدرسة</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.attachedTeachers.map((t, idx) => `
+                  <tr>
+                    <td class="border border-slate-300 px-2 py-1 text-center">${idx + 1}</td>
+                    <td class="border border-slate-300 px-2 py-1 font-semibold">${escapeHtml(t.name)}</td>
+                    <td class="border border-slate-300 px-2 py-1">${escapeHtml(t.fileNo || "-")}</td>
+                    <td class="border border-slate-300 px-2 py-1">${escapeHtml(t.school || "-")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="font-bold text-center text-slate-900 pt-3">${escapeHtml(data.closing)}</div>
+        <div class="flex flex-wrap items-end justify-between gap-4 pt-4 mt-2 border-t border-slate-100 text-sm">
+          <div class="space-y-1">
+            ${data.attachmentsDesc ? `<div class="text-xs text-slate-600"><span class="font-bold text-slate-800">المرفقات:</span> ${escapeHtml(data.attachmentsDesc)}</div>` : ""}
+            ${data.ccList.length > 0 ? `
+              <div class="text-xs text-slate-700 pt-1">
+                <div class="font-bold text-slate-900">نسخة لـ:</div>
+                <ul class="list-disc list-inside space-y-0.5">
+                  ${data.ccList.map(c => `<li>${escapeHtml(c)}</li>`).join("")}
+                </ul>
+              </div>
+            ` : ""}
+          </div>
+          <div class="text-left font-bold text-slate-800 space-y-0.5">
+            <div>${escapeHtml(data.supervisorName)}</div>
+            <div class="text-xs text-indigo-800">مشرف مادة الرياضة المدرسية — محافظة مسقط</div>
+          </div>
+        </div>
+      `;
+
+      area.innerHTML = html;
+      renderNextChainSuggestions();
+    }
+
+    function getPlainTextLetter(onlyBody = false) {
+      const data = generateLetterData();
+      let lines = [];
+      if (!onlyBody) {
+        lines.push(data.recipientLine);
+        lines.push(data.salutation);
+        lines.push(`الموضوع: ${data.subject}`);
+        lines.push("");
+      }
+      data.bodyParagraphs.forEach(p => {
+        if (typeof p === "string") {
+          lines.push(p);
+        } else if (p && p.type === "numbered_list") {
+          p.items.forEach((item, idx) => lines.push(`${idx + 1}- ${item}`));
+        }
+      });
+      if (data.selectedSchools.length > 1) {
+        lines.push("");
+        lines.push("المدارس المعنية:");
+        data.selectedSchools.forEach((s, idx) => lines.push(`${idx + 1}. ${s.name}`));
+      }
+      if (data.includeTeachersTable && data.attachedTeachers.length > 0) {
+        lines.push("");
+        lines.push("الكشف المرفق للمعلمين المستهدفين:");
+        data.attachedTeachers.forEach((t, idx) => {
+          lines.push(`${idx + 1}. ${t.name} | رقم الملف: ${t.fileNo || "-"} | المدرسة: ${t.school || "-"}`);
+        });
+      }
+      lines.push("");
+      lines.push(data.closing);
+      lines.push(`${data.supervisorName} — وحدة إشراف مادة الرياضة المدرسية`);
+      if (data.attachmentsDesc) {
+        lines.push(`المرفقات: ${data.attachmentsDesc}`);
+      }
+      if (data.ccList.length > 0) {
+        lines.push("نسخة لـ:");
+        data.ccList.forEach(c => lines.push(`- ${c}`));
+      }
+      return lines.join("\n");
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderTemplateTabs() {
+      const container = document.getElementById("templateTabsContainer");
+      container.innerHTML = TEMPLATES.map(t => {
+        const isActive = t.id === state.activeTemplateId;
+        const badgeClass = t.badge === "جديد"
+          ? (isActive ? "bg-amber-300 text-slate-950" : "bg-amber-100 text-amber-800")
+          : (isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600");
+        return `
+          <button type="button" data-template-id="${t.id}" class="template-tab-btn pill-tab px-3 py-1.5 rounded-xl text-xs font-bold border ${isActive ? "active border-indigo-700" : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"} flex items-center gap-1.5">
+            <span>${t.name}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded-full ${badgeClass}">${t.badge}</span>
+          </button>
+        `;
+      }).join("");
+
+      container.querySelectorAll(".template-tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          switchTemplate(btn.getAttribute("data-template-id"));
+        });
+      });
+
+      const filterSelect = document.getElementById("logFilterTemplate");
+      if (filterSelect && filterSelect.options.length <= 1) {
+        TEMPLATES.forEach(t => {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          opt.textContent = t.name;
+          filterSelect.appendChild(opt);
+        });
+      }
+    }
+
+    function switchTemplate(templateId, preserveRecipients = false) {
+      state.activeTemplateId = templateId;
+      state.manualEditEnabled = false;
+      state.manualEditedHtml = "";
+      document.getElementById("enableManualEditToggle").checked = false;
+      document.getElementById("letterEditableArea").setAttribute("contenteditable", "false");
+      document.getElementById("manualEditStatusBadge").classList.add("hidden");
+      document.getElementById("restoreAutoPreviewBtn").classList.add("hidden");
+
+      const tpl = TEMPLATES.find(t => t.id === templateId);
+      if (tpl) {
+        state.attachmentsDesc = tpl.defaultAttachments || "";
+        document.getElementById("attachmentsDescInput").value = state.attachmentsDesc;
+
+        if (tpl.defaultOfficialRecipient) {
+          state.officialRecipient = tpl.defaultOfficialRecipient;
+          document.getElementById("officialRecipientSelect").value = tpl.defaultOfficialRecipient;
+        }
+        if (!preserveRecipients) {
+          state.ccList = tpl.defaultCc ? [...tpl.defaultCc] : [];
+          document.querySelectorAll(".cc-checkbox").forEach(cb => {
+            cb.checked = state.ccList.includes(cb.value);
+          });
+        }
+
+        const offBox = document.getElementById("officialRecipientBox");
+        if (tpl.recipientMode === "official") {
+          offBox.classList.remove("hidden");
+        } else {
+          offBox.classList.add("hidden");
+        }
+      }
+
+      renderTemplateTabs();
+      renderDynamicFields();
+      renderLetterPreview();
+    }
+
+    function renderDynamicFields() {
+      const container = document.getElementById("templateFieldsContainer");
+      const f = state.fields;
+      const tpl = TEMPLATES.find(t => t.id === state.activeTemplateId);
+      document.getElementById("dynamicFieldsTitle").textContent = `بيانات المراسلة — ${tpl ? tpl.name : ""}`;
+
+      let html = "";
+      switch (state.activeTemplateId) {
+        case "exchange_program":
+          html = `
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">اسم البرنامج</label>
+              <input data-field="ex_programName" type="text" value="${escapeHtml(f.ex_programName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ التنفيذ</label>
+                <input data-field="ex_date" type="date" value="${escapeHtml(f.ex_date)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">وقت الحضور</label>
+                <input data-field="ex_time" type="time" value="${escapeHtml(f.ex_time)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">المدرسة المستضيفة</label>
+              <input data-field="ex_hostSchool" list="muscatSchoolsDatalist" type="text" value="${escapeHtml(f.ex_hostSchool)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div class="flex flex-wrap gap-4 pt-1">
+              <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
+                <input data-field="ex_uniformCheck" type="checkbox" ${f.ex_uniformCheck ? "checked" : ""} class="dyn-check rounded text-indigo-600" />
+                <span>الالتزام بالزي الرياضي</span>
+              </label>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
+                <input data-field="ex_mandatoryCheck" type="checkbox" ${f.ex_mandatoryCheck ? "checked" : ""} class="dyn-check rounded text-indigo-600" />
+                <span>فقرة إلزامية الحضور</span>
+              </label>
+            </div>
+          `;
+          break;
+
+        case "school_visit_notes":
+          html = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">نوع الزيارة</label>
+                <input data-field="vn_visitType" type="text" value="${escapeHtml(f.vn_visitType)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ الزيارة</label>
+                <input data-field="vn_date" type="date" value="${escapeHtml(f.vn_date)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="font-semibold text-slate-700">الملاحظات والتوصيات (سطر لكل بند)</label>
+                <button id="fillLastVisitBtn" type="button" class="text-[11px] bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded font-bold">«من آخر زيارة»</button>
+              </div>
+              <textarea data-field="vn_notes" rows="4" class="dyn-input w-full rounded-lg border border-slate-300 p-2.5 leading-relaxed">${escapeHtml(f.vn_notes)}</textarea>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">مدة التنفيذ النصية</label>
+                <input data-field="vn_duration" type="text" value="${escapeHtml(f.vn_duration)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">مهلة التنبيه بالسجل (بالأيام)</label>
+                <input data-field="vn_deadlineDays" type="number" min="1" max="90" value="${escapeHtml(f.vn_deadlineDays)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+          `;
+          break;
+
+        case "violating_school":
+          html = `
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">تصنيف المخالفة (أزرار الجاهزية السريعة)</label>
+              <div class="grid grid-cols-3 gap-1.5">
+                <button type="button" data-vs-preset="not_implemented" class="vs-preset-btn py-1.5 px-2 rounded-lg border text-[11px] font-bold ${f.vs_presetType === "not_implemented" ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 text-slate-700 border-slate-200"}">1. عدم تنفيذ التوصيات</button>
+                <button type="button" data-vs-preset="repeated_notes" class="vs-preset-btn py-1.5 px-2 rounded-lg border text-[11px] font-bold ${f.vs_presetType === "repeated_notes" ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 text-slate-700 border-slate-200"}">2. تكرار رصد الملاحظات</button>
+                <button type="button" data-vs-preset="chronic_notes" class="vs-preset-btn py-1.5 px-2 rounded-lg border text-[11px] font-bold ${f.vs_presetType === "chronic_notes" ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 text-slate-700 border-slate-200"}">3. ملاحظات منذ سنوات</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">المدرسة المخالفة</label>
+                <input data-field="vs_schoolName" list="muscatSchoolsDatalist" type="text" value="${escapeHtml(f.vs_schoolName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ آخر زيارة</label>
+                <input data-field="vs_visitDate" type="date" value="${escapeHtml(f.vs_visitDate)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">الافتتاحية (اختيارية)</label>
+              <input data-field="vs_opening" type="text" value="${escapeHtml(f.vs_opening)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">غرض الزيارة</label>
+              <input data-field="vs_purpose" type="text" value="${escapeHtml(f.vs_purpose)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">فقرة إضافية قبل الرصد (اختيارية)</label>
+              <textarea data-field="vs_extraParagraph" rows="2" placeholder="أضف تفاصيل التوصيات غير المنفذة..." class="dyn-input w-full rounded-lg border border-slate-300 p-2">${escapeHtml(f.vs_extraParagraph)}</textarea>
+            </div>
+          `;
+          break;
+
+        case "host_program":
+          html = `
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">المدرسة المستضيفة</label>
+              <input data-field="hp_hostSchool" list="muscatSchoolsDatalist" type="text" value="${escapeHtml(f.hp_hostSchool)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
+                <input data-field="hp_isFemalePrincipal" type="checkbox" ${f.hp_isFemalePrincipal ? "checked" : ""} class="dyn-check rounded text-indigo-600" />
+                <span>المديرة أنثى («الفاضلة / مديرة مدرسة... المحترمة»)</span>
+              </label>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">اسم البرنامج</label>
+              <input data-field="hp_programName" type="text" value="${escapeHtml(f.hp_programName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">التاريخ</label>
+                <input data-field="hp_date" type="date" value="${escapeHtml(f.hp_date)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">الوقت</label>
+                <input data-field="hp_time" type="time" value="${escapeHtml(f.hp_time)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
+                <input data-field="hp_releaseTeachers" type="checkbox" ${f.hp_releaseTeachers ? "checked" : ""} class="dyn-check rounded text-indigo-600" />
+                <span>فقرة تفريغ معلمي المادة لهذا اليوم</span>
+              </label>
+            </div>
+          `;
+          break;
+
+        case "thanks_request":
+          html = `
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">اسم البرنامج المنفّذ</label>
+              <input data-field="tr_programName" type="text" value="${escapeHtml(f.tr_programName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">مدرسة التنفيذ</label>
+                <input data-field="tr_schoolName" list="muscatSchoolsDatalist" type="text" value="${escapeHtml(f.tr_schoolName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ التنفيذ</label>
+                <input data-field="tr_date" type="date" value="${escapeHtml(f.tr_date)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+          `;
+          break;
+
+        case "training_absence":
+          html = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">اسم المعلم / المعلمة الغائب</label>
+                <input data-field="ta_teacherName" type="text" value="${escapeHtml(f.ta_teacherName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">رقم الملف الوظيفي</label>
+                <input data-field="ta_fileNo" type="text" value="${escapeHtml(f.ta_fileNo)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
+                <input data-field="ta_isFemale" type="checkbox" ${f.ta_isFemale ? "checked" : ""} class="dyn-check rounded text-indigo-600" />
+                <span>معلمة (ضبط الصياغة للمؤنث: «غياب المعلمة / معلمة رياضة مدرسية»)</span>
+              </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">يوم البرنامج</label>
+                <input data-field="ta_date" type="date" value="${escapeHtml(f.ta_date)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">رقم قيد مخاطبة الفئة المستهدفة</label>
+                <input data-field="ta_targetRefNum" type="text" value="${escapeHtml(f.ta_targetRefNum)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">اسم البرنامج التدريبي</label>
+              <input data-field="ta_programName" type="text" value="${escapeHtml(f.ta_programName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">مهلة الإفادة النصية</label>
+                <input data-field="ta_deadlineText" type="text" value="${escapeHtml(f.ta_deadlineText)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">منبه المهلة بالسجل (أيام)</label>
+                <input data-field="ta_deadlineDays" type="number" min="1" max="30" value="${escapeHtml(f.ta_deadlineDays)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+          `;
+          break;
+
+        case "overdue_recommendations":
+          html = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ الزيارة السابقة</label>
+                <input data-field="or_prevDate" type="date" value="${escapeHtml(f.or_prevDate)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">مهلة الإفادة</label>
+                <input data-field="or_deadlineText" type="text" value="${escapeHtml(f.or_deadlineText)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="font-semibold text-slate-700">التوصيات المطلوب متابعتها (سطر لكل بند)</label>
+                <button id="fillOverdueRecsBtn" type="button" class="text-[11px] bg-amber-100 hover:bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">«من التوصيات المتأخرة»</button>
+              </div>
+              <textarea data-field="or_recommendations" rows="4" class="dyn-input w-full rounded-lg border border-slate-300 p-2.5 leading-relaxed">${escapeHtml(f.or_recommendations)}</textarea>
+            </div>
+          `;
+          break;
+
+        case "workshop_invite":
+          html = `
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">عنوان الورشة / الاجتماع</label>
+              <input data-field="wi_title" type="text" value="${escapeHtml(f.wi_title)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">التاريخ</label>
+                <input data-field="wi_date" type="date" value="${escapeHtml(f.wi_date)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">الوقت</label>
+                <input data-field="wi_time" type="time" value="${escapeHtml(f.wi_time)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">مكان الانعقاد (المدرسة / القاعة)</label>
+              <input data-field="wi_place" list="muscatSchoolsDatalist" type="text" value="${escapeHtml(f.wi_place)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">ما يُحضّر / ملاحظات إضافية (اختياري)</label>
+              <textarea data-field="wi_bringItems" rows="2" class="dyn-input w-full rounded-lg border border-slate-300 p-2">${escapeHtml(f.wi_bringItems)}</textarea>
+            </div>
+          `;
+          break;
+
+        case "excellence_commendation":
+          html = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">اسم المعلم / الفريق المتميز</label>
+                <input data-field="ec_teacherName" type="text" value="${escapeHtml(f.ec_teacherName)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ الزيارة / الفعالية</label>
+                <input data-field="ec_date" type="date" value="${escapeHtml(f.ec_date)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">مجال التميز / المبادرة الرياضية المدرسية</label>
+              <textarea data-field="ec_achievementTitle" rows="3" class="dyn-input w-full rounded-lg border border-slate-300 p-2">${escapeHtml(f.ec_achievementTitle)}</textarea>
+            </div>
+          `;
+          break;
+
+        case "facilities_safety":
+          html = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ الزيارة الميدانية</label>
+                <input data-field="fs_visitDate" type="date" value="${escapeHtml(f.fs_visitDate)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">مهلة المعالجة</label>
+                <input data-field="fs_deadlineText" type="text" value="${escapeHtml(f.fs_deadlineText)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">التوصيف العام لحالة المرافق</label>
+              <input data-field="fs_facilityStatus" type="text" value="${escapeHtml(f.fs_facilityStatus)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">بنود الصيانة والنواقص وأدوات الأمن والسلامة (سطر لكل بند)</label>
+              <textarea data-field="fs_itemsList" rows="4" class="dyn-input w-full rounded-lg border border-slate-300 p-2">${escapeHtml(f.fs_itemsList)}</textarea>
+            </div>
+          `;
+          break;
+
+        case "incoming_reply":
+          html = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">رقم قيد المراسلة الواردة</label>
+                <input data-field="ir_incomingRefNum" type="text" value="${escapeHtml(f.ir_incomingRefNum)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">تاريخ المراسلة الواردة</label>
+                <input data-field="ir_incomingDate" type="date" value="${escapeHtml(f.ir_incomingDate)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">موضوع المراسلة الواردة</label>
+              <input data-field="ir_incomingSubject" type="text" value="${escapeHtml(f.ir_incomingSubject)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">نص الإفادة الفنية والرد الرسمي</label>
+              <textarea data-field="ir_responseBody" rows="4" class="dyn-input w-full rounded-lg border border-slate-300 p-2.5 leading-relaxed">${escapeHtml(f.ir_responseBody)}</textarea>
+            </div>
+          `;
+          break;
+
+        case "custom_official":
+          html = `
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">موضوع الخطاب الرسمي</label>
+              <input data-field="co_subject" type="text" value="${escapeHtml(f.co_subject)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">الديباجة الاستهلالية</label>
+              <input data-field="co_opening" type="text" value="${escapeHtml(f.co_opening)}" class="dyn-input w-full rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">متن الخطاب الرسمي (فقرة لكل سطر)</label>
+              <textarea data-field="co_body" rows="5" class="dyn-input w-full rounded-lg border border-slate-300 p-2.5 leading-relaxed">${escapeHtml(f.co_body)}</textarea>
+            </div>
+          `;
+          break;
+      }
+
+      container.innerHTML = html;
+
+      container.querySelectorAll(".dyn-input").forEach(inp => {
+        inp.addEventListener("input", () => {
+          const key = inp.getAttribute("data-field");
+          state.fields[key] = inp.value;
+          if (key === "hp_hostSchool") {
+            const autoFem = detectSchoolGender(inp.value) === "female";
+            state.fields.hp_isFemalePrincipal = autoFem;
+            const femCheck = container.querySelector('[data-field="hp_isFemalePrincipal"]');
+            if (femCheck) femCheck.checked = autoFem;
+          }
+          renderLetterPreview();
+        });
+      });
+
+      container.querySelectorAll(".dyn-check").forEach(chk => {
+        chk.addEventListener("change", () => {
+          const key = chk.getAttribute("data-field");
+          state.fields[key] = chk.checked;
+          renderLetterPreview();
+        });
+      });
+
+      container.querySelectorAll(".vs-preset-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.fields.vs_presetType = btn.getAttribute("data-vs-preset");
+          renderDynamicFields();
+          renderLetterPreview();
+        });
+      });
+
+      const fillLastBtn = document.getElementById("fillLastVisitBtn");
+      if (fillLastBtn) {
+        fillLastBtn.addEventListener("click", () => {
+          state.fields.vn_notes = LAST_VISIT_RECOMMENDATIONS.join("\n");
+          renderDynamicFields();
+          renderLetterPreview();
+          showToast("تم استدعاء الملاحظات والتوصيات من آخر زيارة");
+        });
+      }
+
+      const fillOverdueBtn = document.getElementById("fillOverdueRecsBtn");
+      if (fillOverdueBtn) {
+        fillOverdueBtn.addEventListener("click", () => {
+          state.fields.or_recommendations = OVERDUE_RECOMMENDATIONS.join("\n");
+          renderDynamicFields();
+          renderLetterPreview();
+          showToast("تم استدعاء التوصيات المتأخرة");
+        });
+      }
+    }
+
+    function populateSchoolsDatalist() {
+      const dl = document.getElementById("muscatSchoolsDatalist");
+      const filtered = state.activeWilayatFilter === "all"
+        ? MUSCAT_SCHOOLS_DB
+        : MUSCAT_SCHOOLS_DB.filter(s => s.wilayat === state.activeWilayatFilter);
+      dl.innerHTML = filtered.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.wilayat)} — ${s.gender === "female" ? "إدارة مؤنثة" : "إدارة مذكرة"}</option>`).join("");
+    }
+
+    function addSchoolByName(schoolName, withTeachers = false) {
+      const clean = (schoolName || "").trim();
+      if (!clean) {
+        showToast("يرجى كتابة أو اختيار اسم المدرسة أولاً");
+        return;
+      }
+      const dbEntry = MUSCAT_SCHOOLS_DB.find(s => s.name === clean);
+      const gender = dbEntry ? dbEntry.gender : detectSchoolGender(clean);
+      const wilayat = dbEntry ? dbEntry.wilayat : "مسقط";
+
+      if (!state.selectedSchools.some(s => s.name === clean)) {
+        state.selectedSchools.push({ name: clean, gender, wilayat });
+      }
+
+      state.fields.vs_schoolName = clean;
+      state.fields.hp_hostSchool = clean;
+      state.fields.hp_isFemalePrincipal = gender === "female";
+      state.fields.tr_schoolName = clean;
+
+      if (withTeachers) {
+        const teachersToAdd = dbEntry && dbEntry.teachers.length > 0
+          ? dbEntry.teachers
+          : [{ name: `معلم الرياضة المدرسية (${clean})`, fileNo: "150000" }];
+        teachersToAdd.forEach(t => {
+          if (!state.attachedTeachers.some(existing => existing.name === t.name && existing.school === clean)) {
+            state.attachedTeachers.push({ name: t.name, fileNo: t.fileNo, school: clean });
+          }
+        });
+      }
+
+      document.getElementById("schoolSearchInput").value = "";
+      renderSelectedSchoolsAndTeachers();
+      renderDynamicFields();
+      renderLetterPreview();
+    }
+
+    function renderSelectedSchoolsAndTeachers() {
+      document.getElementById("selectedSchoolsCount").textContent = state.selectedSchools.length;
+      const chipsBox = document.getElementById("selectedSchoolsChips");
+      if (state.selectedSchools.length === 0) {
+        chipsBox.innerHTML = `<span class="text-[11px] text-slate-400">لم يتم تحديد مدرسة (تُكتب تلقائياً: الأفاضل / مديرو المدارس المعنية المحترمون)</span>`;
+      } else {
+        chipsBox.innerHTML = state.selectedSchools.map((s, idx) => `
+          <span class="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-900 px-2.5 py-1 rounded-lg text-[11px] font-semibold">
+            <span>${escapeHtml(s.name)}</span>
+            <span class="text-[10px] px-1 rounded ${s.gender === "female" ? "bg-pink-100 text-pink-800" : "bg-blue-100 text-blue-800"}">${s.gender === "female" ? "مديرة" : "مدير"}</span>
+            <button type="button" data-remove-school="${idx}" class="remove-school-btn text-rose-600 hover:text-rose-800 font-bold">×</button>
+          </span>
+        `).join("");
+        chipsBox.querySelectorAll(".remove-school-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const i = parseInt(btn.getAttribute("data-remove-school"), 10);
+            state.selectedSchools.splice(i, 1);
+            renderSelectedSchoolsAndTeachers();
+            renderLetterPreview();
+          });
+        });
+      }
+
+      document.getElementById("attachedTeachersCount").textContent = state.attachedTeachers.length;
+      const tList = document.getElementById("attachedTeachersList");
+      if (state.attachedTeachers.length === 0) {
+        tList.innerHTML = `<div class="text-slate-400 text-[11px] py-1">لا يوجد معلمون مضافون في الكشف المرفق حالياً.</div>`;
+      } else {
+        tList.innerHTML = state.attachedTeachers.map((t, idx) => `
+          <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded px-2.5 py-1">
+            <div>
+              <span class="font-bold text-slate-800">${idx + 1}. ${escapeHtml(t.name)}</span>
+              <span class="text-slate-500 mx-1">| ملف: ${escapeHtml(t.fileNo || "-")}</span>
+              <span class="text-indigo-700">(${escapeHtml(t.school || "-")})</span>
+            </div>
+            <button type="button" data-remove-teacher="${idx}" class="remove-teacher-btn text-rose-600 hover:text-rose-800 font-bold px-1">×</button>
+          </div>
+        `).join("");
+        tList.querySelectorAll(".remove-teacher-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const i = parseInt(btn.getAttribute("data-remove-teacher"), 10);
+            state.attachedTeachers.splice(i, 1);
+            renderSelectedSchoolsAndTeachers();
+            renderLetterPreview();
+          });
+        });
+      }
+    }
+
+    function renderNextChainSuggestions() {
+      const tpl = TEMPLATES.find(t => t.id === state.activeTemplateId);
+      const bar = document.getElementById("nextChainSuggestionBar");
+      const btnsBox = document.getElementById("nextChainButtons");
+
+      if (!tpl || !tpl.nextChains || tpl.nextChains.length === 0) {
+        bar.classList.add("hidden");
+        return;
+      }
+      bar.classList.remove("hidden");
+      btnsBox.innerHTML = tpl.nextChains.map(nc => `
+        <button type="button" data-chain-target="${nc.targetId}" class="trigger-chain-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm flex items-center gap-1">
+          <span>${escapeHtml(nc.label)}</span>
+          <span>←</span>
+        </button>
+      `).join("");
+
+      btnsBox.querySelectorAll(".trigger-chain-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const targetId = btn.getAttribute("data-chain-target");
+          chainFromCurrentToTarget(targetId);
+        });
+      });
+    }
+
+    function chainFromCurrentToTarget(targetTemplateId, sourceLogItem = null) {
+      const currentData = generateLetterData();
+      const refNum = sourceLogItem
+        ? (sourceLogItem.refNum || "2026/10450")
+        : (state.crsRefNumber.trim() || "2026/10450");
+      const refDate = sourceLogItem ? sourceLogItem.createdAt : todayIso;
+      const sourceSubject = sourceLogItem ? sourceLogItem.subject : currentData.subject;
+
+      if (!sourceLogItem) {
+        saveCurrentToHistory("ربط سلسلة إدارية");
+      }
+
+      state.parentLink = {
+        refNum,
+        date: refDate,
+        subject: sourceSubject
+      };
+      document.getElementById("parentRefNumInput").value = refNum;
+      document.getElementById("parentRefDateInput").value = refDate;
+      document.getElementById("parentRefDetailsBox").classList.remove("hidden");
+      document.getElementById("activeLinkBadge").classList.remove("hidden");
+      document.getElementById("activeLinkBadge").classList.add("flex");
+      document.getElementById("activeLinkBadgeText").textContent = `قيد (${refNum}) — ${sourceSubject.slice(0, 35)}...`;
+
+      const f = state.fields;
+      if (sourceLogItem && sourceLogItem.savedFields) {
+        Object.assign(f, sourceLogItem.savedFields);
+      }
+      if (sourceLogItem && Array.isArray(sourceLogItem.schools) && sourceLogItem.schools.length > 0) {
+        state.selectedSchools = [...sourceLogItem.schools];
+      }
+
+      if (targetTemplateId === "exchange_program") {
+        f.ex_hostSchool = f.hp_hostSchool || f.ex_hostSchool;
+        f.ex_programName = f.hp_programName || f.ex_programName;
+        f.ex_date = f.hp_date || f.ex_date;
+        f.ex_time = f.hp_time || f.ex_time;
+      } else if (targetTemplateId === "thanks_request") {
+        f.tr_programName = f.ex_programName || f.hp_programName || f.wi_title || f.tr_programName;
+        f.tr_schoolName = f.ex_hostSchool || f.hp_hostSchool || f.wi_place || (state.selectedSchools[0]?.name) || f.tr_schoolName;
+        f.tr_date = f.ex_date || f.hp_date || f.wi_date || f.tr_date;
+      } else if (targetTemplateId === "training_absence") {
+        f.ta_targetRefNum = refNum;
+        f.ta_programName = f.ex_programName || f.wi_title || f.ta_programName;
+        f.ta_date = f.ex_date || f.wi_date || f.ta_date;
+        if (state.attachedTeachers.length > 0) {
+          f.ta_teacherName = state.attachedTeachers[0].name;
+          f.ta_fileNo = state.attachedTeachers[0].fileNo;
+        }
+      } else if (targetTemplateId === "overdue_recommendations") {
+        f.or_prevDate = f.vn_date || f.fs_visitDate || refDate;
+        f.or_recommendations = f.vn_notes || f.fs_itemsList || f.or_recommendations;
+      } else if (targetTemplateId === "violating_school") {
+        f.vs_schoolName = (state.selectedSchools[0]?.name) || f.vs_schoolName;
+        f.vs_visitDate = f.or_prevDate || f.vn_date || refDate;
+        const prevNotes = f.or_recommendations || f.vn_notes || "";
+        if (prevNotes) {
+          f.vs_extraParagraph = `حيث لم يتم تلافي الملاحظات الآتية رغم المخاطبات السابقة:\n${prevNotes}`;
+        }
+      }
+
+      switchTemplate(targetTemplateId, true);
+      renderSelectedSchoolsAndTeachers();
+      showToast("تم توليد المراسلة الإلحاقية ونقل البيانات ورقم القيد تلقائياً");
+    }
+
+    function saveCurrentToHistory(actionLabel = "حفظ") {
+      const data = generateLetterData();
+      const tpl = TEMPLATES.find(t => t.id === state.activeTemplateId);
+
+      let deadlineDate = null;
+      let status = state.crsRefNumber.trim() ? "صادرة برقم قيد" : "بانتظار الإفادة";
+      if (state.activeTemplateId === "school_visit_notes") {
+        const days = parseInt(state.fields.vn_deadlineDays, 10) || 14;
+        deadlineDate = new Date(Date.now() + days * 86400000).toISOString().split("T")[0];
+      } else if (state.activeTemplateId === "overdue_recommendations") {
+        const days = parseInt(state.fields.or_deadlineDays, 10) || 7;
+        deadlineDate = new Date(Date.now() + days * 86400000).toISOString().split("T")[0];
+      } else if (state.activeTemplateId === "training_absence") {
+        const days = parseInt(state.fields.ta_deadlineDays, 10) || 3;
+        deadlineDate = new Date(Date.now() + days * 86400000).toISOString().split("T")[0];
+      } else if (state.activeTemplateId === "violating_school") {
+        status = "مُصعّدة للدائرة";
+      }
+
+      const newEntry = {
+        id: "log_" + Date.now(),
+        templateId: state.activeTemplateId,
+        templateName: tpl ? tpl.name : "مراسلة رسمية",
+        subject: data.subject,
+        recipientSummary: data.recipientLine,
+        schools: [...state.selectedSchools],
+        teachers: [...state.attachedTeachers],
+        refNum: state.crsRefNumber.trim() || "",
+        createdAt: todayIso,
+        deadlineDate,
+        status,
+        actionLabel,
+        savedFields: JSON.parse(JSON.stringify(state.fields))
+      };
+
+      state.historyLog.unshift(newEntry);
+      saveHistoryToStorage();
+      renderHistoryLog();
+      populateLinkedHistoryDropdown();
+    }
+
+    function populateLinkedHistoryDropdown() {
+      const sel = document.getElementById("linkedHistorySelect");
+      const currentVal = sel.value;
+      sel.innerHTML = `<option value="">— بدون ربط بمعاملة سابقة —</option>` +
+        state.historyLog.map(item => `
+          <option value="${item.id}">
+            [${item.refNum || "بدون قيد"}] ${escapeHtml(item.subject)} (${item.createdAt})
+          </option>
+        `).join("");
+      sel.value = currentVal;
+    }
+
+    function renderHistoryLog() {
+      const listEl = document.getElementById("correspondenceLogList");
+      const searchQ = (document.getElementById("logSearchInput")?.value || "").trim().toLowerCase();
+      const filterTpl = document.getElementById("logFilterTemplate")?.value || "all";
+      const filterStatus = document.getElementById("logFilterStatus")?.value || "all";
+
+      let hasOverdue = false;
+
+      const enriched = state.historyLog.map(item => {
+        let computedStatus = item.status || "صادرة برقم قيد";
+        let daysRemaining = null;
+        if (item.deadlineDate && computedStatus !== "مكتملة" && computedStatus !== "مُصعّدة للدائرة") {
+          const diff = Math.ceil((new Date(item.deadlineDate + "T00:00:00") - new Date(todayIso + "T00:00:00")) / 86400000);
+          daysRemaining = diff;
+          if (diff < 0) {
+            computedStatus = "متأخرة (انتهت المهلة)";
+            hasOverdue = true;
+          }
+        }
+        return { ...item, computedStatus, daysRemaining };
+      });
+
+      const alertBanner = document.getElementById("overdueAlertBanner");
+      if (hasOverdue) {
+        alertBanner.classList.remove("hidden");
+        alertBanner.classList.add("flex");
+      } else {
+        alertBanner.classList.add("hidden");
+        alertBanner.classList.remove("flex");
+      }
+
+      const filtered = enriched.filter(item => {
+        if (filterTpl !== "all" && item.templateId !== filterTpl) return false;
+        if (filterStatus !== "all" && item.computedStatus !== filterStatus) return false;
+        if (searchQ) {
+          const hay = `${item.subject} ${item.recipientSummary} ${item.refNum} ${item.templateName}`.toLowerCase();
+          if (!hay.includes(searchQ)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById("logTotalCountBadge").textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="text-center py-6 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">لا توجد مراسلات مطابقة في السجل حالياً.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(item => {
+        const tpl = TEMPLATES.find(t => t.id === item.templateId);
+        const nextChains = tpl && tpl.nextChains ? tpl.nextChains : [];
+
+        let statusClass = "bg-indigo-50 text-indigo-700 border-indigo-200";
+        if (item.computedStatus === "متأخرة (انتهت المهلة)") statusClass = "bg-rose-100 text-rose-800 border-rose-300";
+        else if (item.computedStatus === "مكتملة") statusClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
+        else if (item.computedStatus === "مُصعّدة للدائرة") statusClass = "bg-amber-100 text-amber-900 border-amber-300";
+
+        const deadlineBadge = item.daysRemaining !== null
+          ? (item.daysRemaining < 0
+              ? `<span class="text-[11px] bg-rose-600 text-white px-2 py-0.5 rounded font-bold">متأخرة منذ ${Math.abs(item.daysRemaining)} يوم</span>`
+              : `<span class="text-[11px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded">متبقي ${item.daysRemaining} يوم للإفادة</span>`)
+          : "";
+
+        return `
+          <div class="p-3 rounded-xl border border-slate-200 hover:border-indigo-300 bg-slate-50/60 transition space-y-2">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="space-y-0.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-xs font-bold text-slate-900">${escapeHtml(item.subject)}</span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full border font-semibold ${statusClass}">${escapeHtml(item.computedStatus)}</span>
+                  ${deadlineBadge}
+                </div>
+                <div class="text-[11px] text-slate-600">
+                  <span>${escapeHtml(item.recipientSummary)}</span>
+                  <span class="mx-1">•</span>
+                  <span class="text-indigo-700 font-semibold">${escapeHtml(item.templateName)}</span>
+                  <span class="mx-1">•</span>
+                  <span>${escapeHtml(item.createdAt)} . ${escapeHtml(item.actionLabel || "نسخ")}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <input type="text" data-log-ref-input="${item.id}" value="${escapeHtml(item.refNum || "")}" placeholder="رقم القيد بالوزارة..." class="w-28 rounded border border-slate-300 px-2 py-1 text-[11px] bg-white focus:border-indigo-600 focus:outline-none" title="تدوين رقم القيد الصادر من نظام المراسلات" />
+                <select data-log-status-select="${item.id}" class="rounded border border-slate-300 px-1.5 py-1 text-[11px] bg-white">
+                  <option value="صادرة برقم قيد" ${item.status === "صادرة برقم قيد" ? "selected" : ""}>صادرة برقم قيد</option>
+                  <option value="بانتظار الإفادة" ${item.status === "بانتظار الإفادة" ? "selected" : ""}>بانتظار الإفادة</option>
+                  <option value="مكتملة" ${item.status === "مكتملة" ? "selected" : ""}>مكتملة</option>
+                  <option value="مُصعّدة للدائرة" ${item.status === "مُصعّدة للدائرة" ? "selected" : ""}>مُصعّدة للدائرة</option>
+                </select>
+                <button type="button" data-open-log="${item.id}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] px-2.5 py-1 rounded transition">فتح</button>
+                <button type="button" data-delete-log="${item.id}" class="text-rose-600 hover:bg-rose-50 font-bold text-xs px-2 py-1 rounded">×</button>
+              </div>
+            </div>
+
+            ${nextChains.length > 0 ? `
+              <div class="pt-1.5 border-t border-slate-200/80 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span class="text-slate-500 font-semibold">إجراء إلحاقي مرتبط:</span>
+                ${nextChains.map(nc => `
+                  <button type="button" data-log-chain-id="${item.id}" data-log-chain-target="${nc.targetId}" class="log-chain-btn bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-semibold transition">
+                    + ${escapeHtml(nc.label)}
+                  </button>
+                `).join("")}
+              </div>
+            ` : ""}
+          </div>
+        `;
+      }).join("");
+
+      listEl.querySelectorAll("[data-open-log]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-open-log");
+          const found = state.historyLog.find(x => x.id === id);
+          if (!found) return;
+          if (found.savedFields) Object.assign(state.fields, found.savedFields);
+          if (Array.isArray(found.schools)) state.selectedSchools = [...found.schools];
+          if (Array.isArray(found.teachers)) state.attachedTeachers = [...found.teachers];
+          state.crsRefNumber = found.refNum || "";
+          document.getElementById("crsRefNumber").value = state.crsRefNumber;
+          switchTemplate(found.templateId, true);
+          renderSelectedSchoolsAndTeachers();
+          showToast("تم فتح واسترجاع بيانات المراسلة من السجل");
+        });
+      });
+
+      listEl.querySelectorAll("[data-delete-log]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-delete-log");
+          state.historyLog = state.historyLog.filter(x => x.id !== id);
+          saveHistoryToStorage();
+          renderHistoryLog();
+          populateLinkedHistoryDropdown();
+          showToast("تم حذف المراسلة من السجل");
+        });
+      });
+
+      listEl.querySelectorAll("[data-log-ref-input]").forEach(inp => {
+        inp.addEventListener("change", () => {
+          const id = inp.getAttribute("data-log-ref-input");
+          const found = state.historyLog.find(x => x.id === id);
+          if (found) {
+            found.refNum = inp.value.trim();
+            saveHistoryToStorage();
+            populateLinkedHistoryDropdown();
+            showToast("تم تحديث رقم القيد الوزاري في السجل");
+          }
+        });
+      });
+
+      listEl.querySelectorAll("[data-log-status-select]").forEach(sel => {
+        sel.addEventListener("change", () => {
+          const id = sel.getAttribute("data-log-status-select");
+          const found = state.historyLog.find(x => x.id === id);
+          if (found) {
+            found.status = sel.value;
+            saveHistoryToStorage();
+            renderHistoryLog();
+          }
+        });
+      });
+
+      listEl.querySelectorAll(".log-chain-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const logId = btn.getAttribute("data-log-chain-id");
+          const targetId = btn.getAttribute("data-log-chain-target");
+          const found = state.historyLog.find(x => x.id === logId);
+          if (found) {
+            chainFromCurrentToTarget(targetId, found);
+          }
+        });
+      });
+    }
+
+    function exportLetterToWord() {
+      const data = generateLetterData();
+      const paperHtml = document.getElementById("letterEditableArea").innerHTML;
+      const wordDocContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:w="urn:schemas-microsoft-com:office:word"
+              xmlns="http://www.w3.org/TR/REC-html40" dir="rtl" lang="ar">
+        <head>
+          <meta charset="utf-8">
+          <title>${escapeHtml(data.subject)}</title>
+          <style>
+            @page { size: A4; margin: 2.5cm 2cm 2.5cm 2cm; }
+            body { font-family: 'Traditional Arabic', 'Sakkal Majalla', 'Arial', serif; font-size: 16pt; direction: rtl; text-align: right; line-height: 1.8; color: #000000; }
+            .header-table { width: 100%; border-bottom: 2px solid #1e1b4b; margin-bottom: 20px; padding-bottom: 10px; }
+            table { border-collapse: collapse; width: 100%; direction: rtl; font-size: 13pt; margin-top: 10px; }
+            th, td { border: 1px solid #333333; padding: 6px 10px; text-align: right; }
+            th { background-color: #eef2ff; font-weight: bold; }
+          </style>
+        </head>
+        <body dir="rtl">
+          <table class="header-table" style="border:none;">
+            <tr style="border:none;">
+              <td style="border:none; width:65%; font-weight:bold;">
+                سلطنة عُمان — وزارة التربية والتعليم<br/>
+                المديرية العامة للتربية والتعليم بمحافظة مسقط<br/>
+                منظومة الإشراف التربوي — الرياضة المدرسية
+              </td>
+              <td style="border:none; width:35%; text-align:left; font-size:12pt;">
+                رقم القيد: ${escapeHtml(state.crsRefNumber.trim() || "........ / 2026")}<br/>
+                التاريخ: ${escapeHtml(formatArabicDate(todayIso))}<br/>
+                الأهمية: ${escapeHtml(state.crsPriority)}
+              </td>
+            </tr>
+          </table>
+          <div>${paperHtml}</div>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob(["\ufeff", wordDocContent], { type: "application/msword;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${data.subject.replace(/[\\/:*?"<>|]/g, "_")}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      saveCurrentToHistory("حفظ Word");
+      showToast("تم تصدير وتنزيل ملف Word الرسمي بنجاح");
+    }
+
+    function exportLogToCsv() {
+      const headers = ["رقم القيد", "القالب", "الموضوع", "المخاطب", "التاريخ", "مهلة الإفادة", "الحالة"];
+      const rows = state.historyLog.map(item => [
+        `"${(item.refNum || "").replace(/"/g, '""')}"`,
+        `"${(item.templateName || "").replace(/"/g, '""')}"`,
+        `"${(item.subject || "").replace(/"/g, '""')}"`,
+        `"${(item.recipientSummary || "").replace(/"/g, '""')}"`,
+        `"${item.createdAt || ""}"`,
+        `"${item.deadlineDate || "-"}"`,
+        `"${item.status || ""}"`
+      ].join(","));
+      const csvContent = "\ufeff" + [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `سجل_المراسلات_الإشرافية_${todayIso}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("تم تصدير سجل المراسلات (Excel / CSV) بنجاح");
+    }
+
+    function initEvents() {
+      document.getElementById("supervisorNameInput").addEventListener("input", (e) => {
+        state.supervisorName = e.target.value;
+        renderLetterPreview();
+      });
+
+      document.getElementById("crsRefNumber").addEventListener("input", (e) => {
+        state.crsRefNumber = e.target.value;
+        renderLetterPreview();
+      });
+      document.getElementById("crsPriority").addEventListener("change", (e) => {
+        state.crsPriority = e.target.value;
+        renderLetterPreview();
+      });
+
+      document.getElementById("linkedHistorySelect").addEventListener("change", (e) => {
+        const id = e.target.value;
+        const box = document.getElementById("parentRefDetailsBox");
+        const badge = document.getElementById("activeLinkBadge");
+        if (!id) {
+          state.parentLink = null;
+          document.getElementById("parentRefNumInput").value = "";
+          document.getElementById("parentRefDateInput").value = "";
+          box.classList.add("hidden");
+          badge.classList.add("hidden");
+          badge.classList.remove("flex");
+          renderLetterPreview();
+          return;
+        }
+        const found = state.historyLog.find(x => x.id === id);
+        if (found) {
+          state.parentLink = { refNum: found.refNum || "2026/10450", date: found.createdAt, subject: found.subject };
+          document.getElementById("parentRefNumInput").value = state.parentLink.refNum;
+          document.getElementById("parentRefDateInput").value = state.parentLink.date;
+          box.classList.remove("hidden");
+          badge.classList.remove("hidden");
+          badge.classList.add("flex");
+          document.getElementById("activeLinkBadgeText").textContent = `قيد (${state.parentLink.refNum}) — ${found.subject.slice(0, 35)}...`;
+          renderLetterPreview();
+        }
+      });
+
+      document.getElementById("parentRefNumInput").addEventListener("input", renderLetterPreview);
+      document.getElementById("parentRefDateInput").addEventListener("input", renderLetterPreview);
+
+      document.getElementById("unlinkParentBtn").addEventListener("click", () => {
+        state.parentLink = null;
+        document.getElementById("linkedHistorySelect").value = "";
+        document.getElementById("parentRefNumInput").value = "";
+        document.getElementById("parentRefDateInput").value = "";
+        document.getElementById("parentRefDetailsBox").classList.add("hidden");
+        document.getElementById("activeLinkBadge").classList.add("hidden");
+        document.getElementById("activeLinkBadge").classList.remove("flex");
+        renderLetterPreview();
+      });
+
+      document.querySelectorAll(".chain-preset-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const chain = btn.getAttribute("data-chain");
+          if (chain === "exchange") switchTemplate("host_program");
+          else if (chain === "visit") switchTemplate("school_visit_notes");
+          else if (chain === "workshop") switchTemplate("workshop_invite");
+          showToast("تم فتح القالب الأول في السلسلة؛ يمكنك توليد المراسلات الإلحاقية من شريط السلسلة أسفل المعاينة");
+        });
+      });
+
+      document.getElementById("officialRecipientSelect").addEventListener("change", (e) => {
+        state.officialRecipient = e.target.value;
+        const customInp = document.getElementById("officialRecipientCustom");
+        if (e.target.value === "custom") customInp.classList.remove("hidden");
+        else customInp.classList.add("hidden");
+        renderLetterPreview();
+      });
+      document.getElementById("officialRecipientCustom").addEventListener("input", (e) => {
+        state.officialRecipientCustom = e.target.value;
+        renderLetterPreview();
+      });
+
+      document.getElementById("genderOverrideSelect").addEventListener("change", (e) => {
+        state.genderOverride = e.target.value;
+        renderLetterPreview();
+      });
+
+      document.getElementById("addSchoolBtn").addEventListener("click", () => {
+        addSchoolByName(document.getElementById("schoolSearchInput").value, false);
+      });
+      document.getElementById("addSchoolWithTeachersBtn").addEventListener("click", () => {
+        addSchoolByName(document.getElementById("schoolSearchInput").value, true);
+      });
+      document.getElementById("schoolSearchInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addSchoolByName(e.target.value, false);
+        }
+      });
+
+      document.querySelectorAll(".wilayat-filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.activeWilayatFilter = btn.getAttribute("data-wilayat");
+          document.querySelectorAll(".wilayat-filter-btn").forEach(b => {
+            b.className = "wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]";
+          });
+          btn.className = "wilayat-filter-btn bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[11px] font-semibold";
+          populateSchoolsDatalist();
+          showToast(`تم تصفية قائمة المدارس: ${state.activeWilayatFilter === "all" ? "جميع ولايات مسقط" : state.activeWilayatFilter}`);
+        });
+      });
+
+      document.getElementById("clearSchoolsBtn").addEventListener("click", () => {
+        state.selectedSchools = [];
+        renderSelectedSchoolsAndTeachers();
+        renderLetterPreview();
+      });
+
+      document.getElementById("includeTeachersTableToggle").addEventListener("change", (e) => {
+        state.includeTeachersTable = e.target.checked;
+        renderLetterPreview();
+      });
+      document.getElementById("clearTeachersBtn").addEventListener("click", () => {
+        state.attachedTeachers = [];
+        renderSelectedSchoolsAndTeachers();
+        renderLetterPreview();
+      });
+      document.getElementById("addManualTeacherBtn").addEventListener("click", () => {
+        const tName = document.getElementById("manualTeacherName").value.trim();
+        const tFile = document.getElementById("manualTeacherFileNo").value.trim();
+        const tSchool = document.getElementById("manualTeacherSchool").value.trim() || (state.selectedSchools[0]?.name || "");
+        if (!tName) {
+          showToast("يرجى إدخال اسم المعلم/المعلمة أولاً");
+          return;
+        }
+        state.attachedTeachers.push({ name: tName, fileNo: tFile, school: tSchool });
+        document.getElementById("manualTeacherName").value = "";
+        document.getElementById("manualTeacherFileNo").value = "";
+        document.getElementById("manualTeacherSchool").value = "";
+        renderSelectedSchoolsAndTeachers();
+        renderLetterPreview();
+      });
+
+      document.getElementById("insertPhraseMenuBtn").addEventListener("click", () => {
+        document.getElementById("quickPhrasesPanel").classList.toggle("hidden");
+      });
+      document.querySelectorAll(".quick-phrase-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+          const phrase = chip.getAttribute("data-phrase");
+          if (state.activeTemplateId === "school_visit_notes") {
+            state.fields.vn_notes = (state.fields.vn_notes ? state.fields.vn_notes + "\n" : "") + phrase;
+          } else if (state.activeTemplateId === "overdue_recommendations") {
+            state.fields.or_recommendations = (state.fields.or_recommendations ? state.fields.or_recommendations + "\n" : "") + phrase;
+          } else if (state.activeTemplateId === "violating_school") {
+            state.fields.vs_extraParagraph = (state.fields.vs_extraParagraph ? state.fields.vs_extraParagraph + "\n" : "") + phrase;
+          } else if (state.activeTemplateId === "facilities_safety") {
+            state.fields.fs_itemsList = (state.fields.fs_itemsList ? state.fields.fs_itemsList + "\n" : "") + phrase;
+          } else {
+            state.fields.co_body = (state.fields.co_body ? state.fields.co_body + "\n" : "") + phrase;
+          }
+          renderDynamicFields();
+          renderLetterPreview();
+          showToast("تم إدراج العبارة الرسمية في متن المراسلة");
+        });
+      });
+
+      document.querySelectorAll(".cc-checkbox").forEach(cb => {
+        cb.addEventListener("change", () => {
+          state.ccList = Array.from(document.querySelectorAll(".cc-checkbox:checked")).map(x => x.value);
+          renderLetterPreview();
+        });
+      });
+      document.getElementById("customCcInput").addEventListener("input", (e) => {
+        state.customCc = e.target.value;
+        renderLetterPreview();
+      });
+      document.getElementById("attachmentsDescInput").addEventListener("input", (e) => {
+        state.attachmentsDesc = e.target.value;
+        renderLetterPreview();
+      });
+
+      document.getElementById("enableManualEditToggle").addEventListener("change", (e) => {
+        state.manualEditEnabled = e.target.checked;
+        const area = document.getElementById("letterEditableArea");
+        const badge = document.getElementById("manualEditStatusBadge");
+        const restoreBtn = document.getElementById("restoreAutoPreviewBtn");
+        if (state.manualEditEnabled) {
+          area.setAttribute("contenteditable", "true");
+          area.focus();
+          badge.classList.remove("hidden");
+          restoreBtn.classList.remove("hidden");
+          showToast("يمكنك الآن النقر داخل ورقة المعاينة وتعديل أي نص مباشرة");
+        } else {
+          area.setAttribute("contenteditable", "false");
+          badge.classList.add("hidden");
+        }
+      });
+      document.getElementById("letterEditableArea").addEventListener("input", (e) => {
+        if (state.manualEditEnabled) {
+          state.manualEditedHtml = e.currentTarget.innerHTML;
+        }
+      });
+      document.getElementById("restoreAutoPreviewBtn").addEventListener("click", () => {
+        state.manualEditEnabled = false;
+        state.manualEditedHtml = "";
+        document.getElementById("enableManualEditToggle").checked = false;
+        document.getElementById("letterEditableArea").setAttribute("contenteditable", "false");
+        document.getElementById("manualEditStatusBadge").classList.add("hidden");
+        document.getElementById("restoreAutoPreviewBtn").classList.add("hidden");
+        renderLetterPreview();
+        showToast("تمت استعادة التوليد التلقائي للخطاب");
+      });
+
+      document.getElementById("copySubjectBtn").addEventListener("click", () => {
+        const data = generateLetterData();
+        copyTextSafe(data.subject, "تم نسخ موضوع المراسلة إلى الحافظة");
+      });
+      document.getElementById("copyBodyBtn").addEventListener("click", () => {
+        const text = state.manualEditEnabled
+          ? document.getElementById("letterEditableArea").innerText
+          : getPlainTextLetter(false);
+        copyTextSafe(text, "تم نسخ نص الخطاب الكامل إلى الحافظة");
+        saveCurrentToHistory("نسخ");
+      });
+      document.getElementById("saveWordBtn").addEventListener("click", exportLetterToWord);
+      document.getElementById("printPdfBtn").addEventListener("click", () => {
+        saveCurrentToHistory("طباعة / PDF");
+        window.print();
+      });
+
+      const crsUrl = "https://dms.moe.gov.om/crs/ar-om/crsmanager.aspx";
+      document.getElementById("openCrsPortalBtn").addEventListener("click", () => {
+        window.open(crsUrl, "_blank", "noopener");
+      });
+      document.getElementById("copyAndOpenCrsBtn").addEventListener("click", () => {
+        const text = state.manualEditEnabled
+          ? document.getElementById("letterEditableArea").innerText
+          : getPlainTextLetter(false);
+        copyTextSafe(text, "تم نسخ الخطاب وجارٍ فتح نظام المراسلات الوزاري");
+        saveCurrentToHistory("نسخ وفتح النظام");
+        window.open(crsUrl, "_blank", "noopener");
+      });
+
+      document.getElementById("quickCopyRecipientBtn").addEventListener("click", () => {
+        const data = generateLetterData();
+        copyTextSafe(data.recipientLine, "تم نسخ سطر المخاطَب");
+      });
+      document.getElementById("quickCopySubjectBtn").addEventListener("click", () => {
+        const data = generateLetterData();
+        copyTextSafe(data.subject, "تم نسخ عنوان الموضوع");
+      });
+      document.getElementById("quickCopyCleanBodyBtn").addEventListener("click", () => {
+        copyTextSafe(getPlainTextLetter(true), "تم نسخ متن الرسالة الصافي");
+      });
+      document.getElementById("quickCopyTableBtn").addEventListener("click", () => {
+        if (state.attachedTeachers.length === 0) {
+          showToast("لا يوجد معلمون في الكشف المرفق حالياً");
+          return;
+        }
+        const rows = state.attachedTeachers.map((t, i) => `${i + 1}\t${t.name}\t${t.fileNo || "-"}\t${t.school || "-"}`).join("\n");
+        copyTextSafe(`م\tاسم المعلم\tرقم الملف\tالمدرسة\n${rows}`, "تم نسخ جدول المعلمين بتنسيق جدولي جاهز للصق");
+      });
+
+      document.getElementById("saveToLogBtn").addEventListener("click", () => {
+        saveCurrentToHistory("حفظ يدوي");
+        showToast("تم حفظ المراسلة في السجل المحلي بنجاح");
+      });
+      document.getElementById("resetFormBtn").addEventListener("click", () => {
+        state.selectedSchools = [];
+        state.attachedTeachers = [];
+        state.crsRefNumber = "";
+        state.parentLink = null;
+        document.getElementById("crsRefNumber").value = "";
+        document.getElementById("linkedHistorySelect").value = "";
+        document.getElementById("parentRefDetailsBox").classList.add("hidden");
+        document.getElementById("activeLinkBadge").classList.add("hidden");
+        renderSelectedSchoolsAndTeachers();
+        renderDynamicFields();
+        renderLetterPreview();
+        showToast("تم تفريغ الحقول وإعادة الضبط");
+      });
+
+      document.getElementById("logSearchInput").addEventListener("input", renderHistoryLog);
+      document.getElementById("logFilterTemplate").addEventListener("change", renderHistoryLog);
+      document.getElementById("logFilterStatus").addEventListener("change", renderHistoryLog);
+      document.getElementById("exportLogCsvBtn").addEventListener("click", exportLogToCsv);
+      document.getElementById("scrollToLogBtn").addEventListener("click", () => {
+        document.getElementById("correspondenceLogSection").scrollIntoView({ behavior: "smooth" });
+      });
+
+      const confirmModal = document.getElementById("customConfirmModal");
+      document.getElementById("clearAllLogBtn").addEventListener("click", () => {
+        document.getElementById("confirmModalTitle").textContent = "تأكيد مسح سجل المراسلات";
+        document.getElementById("confirmModalMessage").textContent = "هل أنت متأكد من رغبتك في مسح جميع المراسلات المحفوظة في السجل المحلي؟";
+        confirmModal.classList.remove("hidden");
+        confirmModal.classList.add("flex");
+      });
+      document.getElementById("confirmModalNoBtn").addEventListener("click", () => {
+        confirmModal.classList.add("hidden");
+        confirmModal.classList.remove("flex");
+      });
+      document.getElementById("confirmModalYesBtn").addEventListener("click", () => {
+        state.historyLog = [];
+        saveHistoryToStorage();
+        renderHistoryLog();
+        populateLinkedHistoryDropdown();
+        confirmModal.classList.add("hidden");
+        confirmModal.classList.remove("flex");
+        showToast("تم مسح سجل المراسلات بالكامل");
+      });
+
+      const codeModal = document.getElementById("codeExportModal");
+      document.getElementById("openCodeExportModalBtn").addEventListener("click", () => {
+        codeModal.classList.remove("hidden");
+        codeModal.classList.add("flex");
+      });
+      const closeCodeModal = () => {
+        codeModal.classList.add("hidden");
+        codeModal.classList.remove("flex");
+      };
+      document.getElementById("closeCodeExportModalBtn").addEventListener("click", closeCodeModal);
+      document.getElementById("closeCodeExportModalBtn2").addEventListener("click", closeCodeModal);
+      document.getElementById("copyFullHtmlSourceBtn").addEventListener("click", () => {
+        const fullHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+        copyTextSafe(fullHtml, "تم نسخ الكود المصدري الكامل للقسم المطور");
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadHistoryFromStorage();
+      populateSchoolsDatalist();
+      renderTemplateTabs();
+      renderDynamicFields();
+      renderSelectedSchoolsAndTeachers();
+      populateLinkedHistoryDropdown();
+      renderLetterPreview();
+      renderHistoryLog();
+      initEvents();
+    });
+  </script>
+</body>
+</html>
