@@ -350,12 +350,11 @@
         const rep = el('report');
         if (rep) rep.hidden = true;
         const box = document.createElement('section');
-        box.className = 'bg-white border border-amber-200 rounded-2xl p-6 shadow-sm text-center space-y-3';
-        box.innerHTML = '<div class="text-amber-600 text-3xl"><i class="fa-solid fa-link-slash"></i></div>'
-            + '<h2 class="font-bold text-slate-800">التقرير الشهري يحتاج ربط قاعدة بيانات المعلمين</h2>'
+        box.className = 'bg-white border border-slate-200 rounded-2xl p-8 space-y-3 max-w-2xl';
+        box.innerHTML = '<h2 class="text-lg font-bold text-slate-900">اربط رمزك بقاعدة بيانات المعلمين أوّلاً</h2>'
             + '<p class="text-sm text-slate-600 leading-7">يُبنى التقرير من خطة السير ومن زياراتك لمعلّميك،'
-            + ' ويُكتب باسمك كما هو في القاعدة. اربط رمزك من نظام التقارير ثمّ عُد إلى هنا.</p>'
-            + '<a href="reports.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-5 py-2.5 text-sm">نظام التقارير</a>';
+            + ' ويُكتب باسمك كما هو في القاعدة. اربط رمزك من الصفحة الرئيسيّة لنظام التقارير ثمّ عُد إلى هنا.</p>'
+            + '<a href="reports.html" class="svf-btn svf-btn-primary">الربط من نظام التقارير</a>';
         document.querySelector('main')?.appendChild(box);
         el('who').textContent = 'غير مرتبط بقاعدة المعلمين';
     }

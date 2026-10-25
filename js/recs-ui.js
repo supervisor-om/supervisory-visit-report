@@ -120,8 +120,8 @@
                   }).join('')}
                 </div>
                 <div class="flex gap-2 mt-2">
-                  <input id="rbEqNew" type="text" placeholder="أضف أداة غير موجودة…" class="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5">
-                  <button type="button" id="rbEqAdd" class="text-xs border border-slate-200 rounded-lg px-3">إضافة</button>
+                  <input id="rbEqNew" type="text" placeholder="أضف أداة غير موجودة…" class="flex-1 min-w-0 text-xs border border-slate-200 rounded-lg px-2 py-1.5">
+                  <button type="button" id="rbEqAdd" class="svf-btn svf-btn-secondary svf-btn-sm">إضافة</button>
                 </div>
               </div>`;
             p.querySelectorAll('.rb-eq').forEach(c => c.addEventListener('change', () => {
@@ -226,7 +226,7 @@
                   <button type="button" data-bankdel="${i}" class="rb-bankdel pl-2 text-emerald-500 hover:text-red-600" title="احذفها من البنك">×</button></span>`).join('')}</div>` : ''}
             ${repeated.length ? `<div class="flex flex-wrap items-center gap-2"><span class="font-bold text-slate-500">تكرّرت عندك:</span>
               ${repeated.map((t, i) => `<button type="button" data-rep="${i}" class="rb-rep border border-dashed border-emerald-300 text-emerald-800 rounded-full px-3 py-1"
-                  title="أدرجتها أكثر من مرّة — احفظها في بنكك">💾 ${esc(t.slice(0, 40))}</button>`).join('')}</div>` : ''}
+                  title="أدرجتها أكثر من مرّة — احفظها في بنكك">${esc(t.slice(0, 40))}</button>`).join('')}</div>` : ''}
             ${s.length ? `<div class="flex flex-wrap items-center gap-2"><span class="font-bold text-slate-500">اقتراحات:</span>
               ${s.map((x, i) => `<button type="button" data-sug="${i}" class="rb-sug bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-3 py-1"
                   title="${esc(x.why)}">${esc(R.categoryOf(x.category).label)}${x.text ? ' — ' + esc(x.text.slice(0, 30)) : ''}</button>`).join('')}</div>` : ''}

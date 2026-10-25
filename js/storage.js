@@ -113,7 +113,7 @@
             
             const ctx = document.querySelector('#performanceChart').getContext('2d'); 
             const labels = evaluationItems.map(item => `${item.id}. ${item.standard}`); 
-            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']; 
+            const colors = (typeof SVF_SERIES !== 'undefined') ? SVF_SERIES : ['#0f4c81', '#246445', '#b98a32', '#bb463b', '#64748b']; 
             
             let chartConfig = { 
                 type: chartType, 
@@ -147,8 +147,8 @@
                 chartConfig.data.datasets = [{ 
                     label: `أداء ${visitDateSelect.value}`, 
                     data: data, 
-                    backgroundColor: 'rgba(59, 130, 246, 0.2)', 
-                    borderColor: '#3b82f6', 
+                    backgroundColor: 'rgba(15, 76, 129, 0.15)', 
+                    borderColor: '#0f4c81', 
                     pointBackgroundColor: '#fff' 
                 }]; 
             } else { 
@@ -160,7 +160,7 @@
                 chartConfig.data.datasets = [{ 
                     label: 'المتوسط العام', 
                     data: avgScores, 
-                    backgroundColor: '#3b82f6' 
+                    backgroundColor: '#0f4c81' 
                 }]; 
             } 
             

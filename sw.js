@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v32';
+const VERSION = 'v33';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -17,6 +17,7 @@ const ASSETS = [
     './reports.html',
     './monthly.html',
     './styles.css',
+    './js/svf-theme.js',
     './js/state.js',
     './js/templates.js',
     './js/utils.js',

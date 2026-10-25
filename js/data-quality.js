@@ -95,7 +95,7 @@
             section('بلا صفوف', 'الصفوف تُقترح عند إضافة الموقف الصفّيّ، ومنها عنوان الدرس من الخطة.', q.noGrades.map(teacherRow), 'fa-layer-group'),
             section('مدارس بلا اسم مدير', 'اسم المدير يُكتب في بند الالتقاء من رأي الزائر.',
                 q.noPrincipal.map(s => `<div class="py-1.5 text-sm font-bold text-slate-700">${esc(s)}</div>`), 'fa-school')
-        ].join('') : '<p class="text-sm text-emerald-700 font-bold">بيانات معلّميك مكتملة 👏</p>';
+        ].join('') : '<p class="text-sm text-emerald-700 font-bold">بيانات معلّميك مكتملة.</p>';
         return `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
                 <h4 class="font-bold text-slate-700 flex items-center gap-2">

@@ -2,18 +2,23 @@
      قشرة الموقع — مشتركةٌ بين كلّ صفحات supervisor-mct.com ونطاقاتها الفرعيّة
      (نظام التقارير، التقرير الشهري، خطة السير، بيانات المعلّمين واستمارتهم).
 
-     تحمل أربعة أشياء: شريط الهويّة وفيه التنقّل بين الأنظمة، ومشهد الطابور
-     خلفيّةً، والزجاج، والانتقال الفوريّ بين الصفحات (تحميلٌ مسبق + تلاشٍ).
-     وقسمٌ ثانٍ في آخر الملفّ بين <!-- svf-credit --> و<!-- /svf-credit -->: عبارة حقوق المصمّم،
-     وهي تذييلٌ يُنسخ قبل آخر </body> لا في أوّلها.
+     تحمل خمسة أشياء: رموز التصميم (الألوان والخطّ والأنصاف)، وشريط الهويّة وفيه
+     التنقّل بين الأنظمة، ومشهد الطابور خلفيّةً، والزجاج، ومكوّناتٍ مشتركة
+     (.svf-btn للأزرار و.svf-head لرأس الصفحة). وقسمٌ ثانٍ في آخر الملفّ بين
+     علامتَي svf-credit و/svf-credit: عبارة حقوق المصمّم، وهي تذييلٌ
+     يُنسخ قبل آخر </body> لا في أوّلها.
 
      المشهد هو مشهد البوّابة نفسه — السماء والشمس والأرض والصفوف —
      لكن بدرجاتِ ما بعد الشروق لا الفجر: نصوص هذه الصفحات داكنة، وهي
      استماراتٌ تُقرأ وتُطبع، فلو نُقل الفجر الداكن كما هو لانطمس النصّ.
-     وبهذا يظهر الزجاج فعلاً: لوحٌ شفّافٌ فوق مشهدٍ لا فوق بياضٍ مسطّح.
+     والحركة فيه بطيئةٌ جدّاً (الشمس والصفوف)؛ لا لمعان يمسح الصفحة.
+
+     الألوان: كحليّ المنظومة #0f4c81 للفعل، وذهبيّ الأيقونة #f0b44a للتركيز
+     ولفعلٍ واحدٍ مميّز هو «تصدير للوزارة» (.svf-btn-moe). وصفحات Tailwind في
+     هذا النطاق تُردّ عائلاتها الملوّنة إلى اللوحة نفسها عبر js/svf-theme.js.
 
      هذا الملفّ هو المصدر. عند تعديله يُنسخ كما هو إلى أوّل <body> في:
-       • supervisory-visit-report/reports.html · monthly.html
+       • supervisory-visit-report/reports.html · monthly.html · letters.html
        • plan-mct/index.html
        • teacher-data-collection/index.html · data.html
 
@@ -21,22 +26,28 @@
      ويختفي كلّه عند الطباعة.
 
      ملاحظة: قاعدة @view-transition ليست هنا بل في <head> كلّ صفحة. الصفحة المستقبِلة تقرؤها
-     قبل أوّل رسم، و<style> داخل body يصل بعده فلا يُفعَّل التلاشي (قِيس ذلك).
+     قبل أوّل رسم، ووسم style داخل body يصل بعده فلا يُفعَّل التلاشي (قِيس ذلك).
 
-     كلّ صفحةٍ تحدّد نفسها بسمةٍ على وسم body:  data-svf-page="reports|monthly|plan|data|form"
+     كلّ صفحةٍ تحدّد نفسها بسمةٍ على وسم body:  data-svf-page="reports|monthly|letters|plan|data|form"
      فيُعلَّم رابطها في الشريط. و«form» (استمارة المعلّمين) تُخفي التنقّل كلّه:
      هي صفحةٌ يفتحها المعلّم لا المشرف، فلا تُعرض عليه أدوات الإشراف.
      ========================================================================= -->
 <style>
 :root{
-  --svf-dark:#0a1410; --svf-ink:#f7f5ee; --svf-gold:#f0b44a;
-  --svf-day-1:#eaeef5; --svf-day-2:#f3ece6; --svf-day-3:#fae3d2; --svf-day-4:#f6d9c6;
-  --svf-sun:rgba(255,214,150,.5); --svf-sun-2:rgba(255,226,186,.22);
-  --svf-soil-1:#e9e2d9; --svf-soil-2:#ddd3c7;
-  --svf-rank:#b3a79d;
-  --svf-glass:rgba(255,255,255,.76);
-  --svf-glass-line:rgba(255,255,255,.85);
-  --svf-sheen:rgba(255,255,255,.35);
+  --svf-font:'IBM Plex Sans Arabic','Segoe UI',Tahoma,system-ui,sans-serif;
+  --svf-navy:#0f4c81; --svf-navy-d:#0c3e6a; --svf-navy-l:#eef4f9; --svf-navy-line:#b3cce4;
+  --svf-dark:#082742;            /* شريط الهويّة: كحليّ الأيقونة الداكن */
+  --svf-ink:#f7f5ee;             /* النصّ على الشريط */
+  --svf-gold:#f0b44a; --svf-gold-d:#e3a133;
+  --svf-text:#14202b; --svf-muted:#56657a; --svf-line:#d7dee7;
+  --svf-r-panel:16px; --svf-r-ctl:10px;
+  --svf-day-1:#e8edf4; --svf-day-2:#f1ece7; --svf-day-3:#f7e4d6; --svf-day-4:#f2dccb;
+  --svf-sun:rgba(255,214,150,.42); --svf-sun-2:rgba(255,226,186,.18);
+  --svf-soil-1:#e7e1d9; --svf-soil-2:#dcd3c8;
+  --svf-rank:#b6aca2;
+  --svf-glass:rgba(255,255,255,.82);
+  --svf-glass-line:rgba(255,255,255,.9);
+  --svf-sheen:rgba(255,255,255,.28);
 }
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.18s}
 html{background:var(--svf-day-1)}
@@ -57,12 +68,11 @@ body{background:transparent !important}
 .svf-ranks g{fill:var(--svf-rank)}
 .svf-ranks .far{opacity:.2}
 .svf-ranks .near{opacity:.28}
-.svf-sheen{inset:-25%;
-  background:linear-gradient(115deg,transparent 42%,var(--svf-sheen) 48%,rgba(255,255,255,.08) 53%,transparent 62%);
-  animation:svfSheen 22s ease-in-out infinite}
+/* ضوءٌ مائلٌ ثابت: كان يمسح الصفحة كلّ ٢٢ ثانية فوق الاستمارات */
+.svf-sheen{inset:-25%;transform:translateX(-12%);
+  background:linear-gradient(115deg,transparent 42%,var(--svf-sheen) 48%,rgba(255,255,255,.06) 53%,transparent 62%)}
 @keyframes svfRise{from{transform:translateY(5%) scale(.97)}to{transform:translateY(-8%) scale(1.03)}}
 @keyframes svfDrift{from{transform:translate3d(0,0,0) scale(1.01)}to{transform:translate3d(-2%,0,0) scale(1.04)}}
-@keyframes svfSheen{0%{transform:translateX(-38%)}55%{transform:translateX(38%)}100%{transform:translateX(-38%)}}
 
 /* ── الزجاج: أسطح الصفحات تصير ألواحاً فوق المشهد ── */
 .bg-white,.svf-glass{
@@ -78,23 +88,55 @@ body{background:transparent !important}
 
 /* ── شريط الهويّة ── */
 .svf-id{background:var(--svf-dark);color:var(--svf-ink);
-  font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;
-  display:flex;align-items:center;gap:14px;padding:10px 24px;
-  font-size:13px;line-height:1.45;direction:rtl;position:relative;z-index:1}
+  font-family:var(--svf-font);
+  display:flex;align-items:center;gap:14px;padding:10px 24px;min-height:52px;box-sizing:border-box;
+  font-size:13px;line-height:1.45;direction:rtl;position:relative;z-index:1;
+  box-shadow:inset 0 -1px 0 rgba(240,180,74,.35)}
 .svf-id b{font-weight:600;font-size:14.5px;letter-spacing:-.2px}
-.svf-id i{font-style:normal;opacity:.6}
+.svf-id i{font-style:normal;opacity:.62;padding-inline-start:14px;border-inline-start:1px solid rgba(247,245,238,.22)}
 .svf-nav{margin-inline-start:auto;display:flex;align-items:center;gap:2px}
-.svf-nav a{color:inherit;text-decoration:none;border-radius:999px;padding:5px 13px;white-space:nowrap;
+.svf-nav a{color:inherit;text-decoration:none;border-radius:8px;padding:6px 12px;white-space:nowrap;
   opacity:.78;transition:background-color .2s ease,opacity .2s ease}
 .svf-nav a:hover{opacity:1;background:rgba(247,245,238,.1)}
 .svf-nav a:active{background:rgba(247,245,238,.05)}
-.svf-nav a[aria-current]{opacity:1;background:rgba(247,245,238,.16);cursor:default}
-.svf-nav a:focus-visible{opacity:1;outline:2px solid var(--svf-gold);outline-offset:2px}
+.svf-nav a[aria-current]{opacity:1;background:rgba(247,245,238,.14);box-shadow:inset 0 -2px 0 var(--svf-gold);cursor:default}
+.svf-nav a:focus-visible,.svf-id button:focus-visible{opacity:1;outline:2px solid var(--svf-gold);outline-offset:2px}
 body[data-svf-page="form"] .svf-nav{display:none}
+/* زرّ الخروج يحقنه js/gate.js في آخر الشريط حين يجده */
+.svf-id #svfLogout{position:static;opacity:.78;background:transparent;border:1px solid rgba(247,245,238,.28);
+  color:inherit;border-radius:8px;padding:5px 12px;font:500 12.5px var(--svf-font);cursor:pointer;white-space:nowrap}
+.svf-id #svfLogout:hover{opacity:1;background:rgba(247,245,238,.08)}
+
+/* ── مكوّناتٌ مشتركة ── */
+.svf-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 24px;margin:0 0 22px}
+.svf-head h1{font:700 clamp(22px,2.3vw,28px)/1.3 var(--svf-font);color:var(--svf-text);margin:0;letter-spacing:-.3px}
+.svf-head p{margin:6px 0 0;color:var(--svf-muted);font-size:14px;line-height:1.7;max-width:64ch}
+.svf-head .svf-acts{display:flex;flex-wrap:wrap;gap:8px}
+
+.svf-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;
+  font:600 14px/1.25 var(--svf-font);padding:10px 18px;border-radius:var(--svf-r-ctl);
+  border:1px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+.svf-btn:focus-visible{outline:2px solid var(--svf-gold);outline-offset:2px}
+.svf-btn:disabled,.svf-btn[disabled]{opacity:.45;cursor:not-allowed}
+.svf-btn i{font-size:.95em;opacity:.9}
+.svf-btn-primary{background:var(--svf-navy);color:#fff}
+.svf-btn-primary:hover:not(:disabled){background:var(--svf-navy-d)}
+.svf-btn-secondary{background:#fff;color:var(--svf-navy);border-color:var(--svf-navy-line)}
+.svf-btn-secondary:hover:not(:disabled){background:var(--svf-navy-l);border-color:var(--svf-navy)}
+.svf-btn-ghost{background:transparent;color:var(--svf-muted)}
+.svf-btn-ghost:hover:not(:disabled){background:rgba(15,76,129,.07);color:var(--svf-text)}
+.svf-btn-danger{background:transparent;color:#9e352c}
+.svf-btn-danger:hover:not(:disabled){background:#fcf0ef}
+/* الفعل المميّز الوحيد: الجسر إلى بوّابة الوزارة */
+.svf-btn-moe{background:var(--svf-gold);color:var(--svf-dark)}
+.svf-btn-moe:hover:not(:disabled){background:var(--svf-gold-d)}
+.svf-btn-sm{padding:6px 12px;font-size:12.5px;border-radius:8px}
+@media (max-width:767px){ .svf-bar .svf-btn{padding:9px 6px;font-size:12.5px;gap:5px} }
 
 /* ── عبارة حقوق المصمّم: تذييلٌ في آخر الصفحة، وتُخفى عند الطباعة لأنّ التقارير أوراقٌ رسميّة ── */
-.svf-credit{position:relative;z-index:1;text-align:center;padding:20px 16px 26px;
-  font-family:'IBM Plex Sans Arabic','Tajawal',system-ui,sans-serif;font-size:12.5px;line-height:1.75;color:#3b4554}
+.svf-credit{position:relative;z-index:1;text-align:center;padding:22px 16px 28px;
+  font-family:var(--svf-font);font-size:12.5px;line-height:1.75;color:#3b4554}
 .svf-credit p{margin:0}
 .svf-credit b{font-weight:600}
 .svf-credit .r{font-size:11.5px;opacity:.82;margin-top:2px}
@@ -103,6 +145,7 @@ body[data-svf-page="form"] .svf-nav{display:none}
   .svf-id{flex-wrap:wrap;padding:9px 12px 5px;gap:4px 10px}
   .svf-nav{order:3;width:100%;margin-inline-start:0;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
   .svf-nav::-webkit-scrollbar{display:none}
+  .svf-id #svfLogout{margin-inline-start:auto;padding:3px 10px}
 }
 @media (prefers-reduced-motion:reduce){ .svf-scene *{animation:none !important} }
 @media print{
@@ -146,7 +189,7 @@ body[data-svf-page="form"] .svf-nav{display:none}
 
 <div class="svf-id">
   <b>منظومة الإشراف التربوي</b>
-  <i>الرياضة المدرسية، محافظة مسقط</i>
+  <i>محافظة مسقط</i>
   <nav class="svf-nav" aria-label="أنظمة المنظومة">
     <a data-p="home" href="https://supervisor-mct.com/">الرئيسية</a>
     <a data-p="reports" href="https://supervisor-mct.com/reports.html">نظام التقارير</a>

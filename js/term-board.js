@@ -143,12 +143,13 @@
         }
 
         // ── العرض ──
+        // خلايا صفٍّ واحد (كبطاقة الإحصائيّات) — كانت أربع بطاقاتٍ متدرّجة الألوان.
+        // tone يبقى في التوقيع: «لم تزره بعد» وحدها تُميَّز بالذهبيّ حين يكون لها عدد.
         function svfTermCard(value, label, tone) {
-            const tones = { blue: 'from-blue-600 to-blue-700', green: 'from-emerald-600 to-emerald-700',
-                            amber: 'from-amber-500 to-amber-600', slate: 'from-slate-600 to-slate-700' };
-            return `<div class="bg-gradient-to-br ${tones[tone] || tones.slate} text-white rounded-2xl p-5 shadow-sm">
-                        <div class="text-3xl font-extrabold">${value}</div>
-                        <div class="text-sm opacity-90 mt-1">${label}</div>
+            const num = tone === 'amber' && value !== '—' && value !== 0 ? 'text-amber-700' : 'text-slate-900';
+            return `<div class="px-5 py-4">
+                        <div class="text-3xl font-bold tabular-nums ${num}">${value}</div>
+                        <div class="text-sm text-slate-600 mt-1">${label}</div>
                     </div>`;
         }
 
@@ -240,7 +241,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-2xl border border-slate-200 grid grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-x-reverse divide-slate-200">
                 ${svfTermCard(p.visits.length, 'زيارة هذا الفصل', 'blue')}
                 ${svfTermCard(visitedCount, 'معلماً زُرته', 'green')}
                 ${svfTermCard(p.linked ? p.notVisited.length : '—', 'لم تزره بعد', 'amber')}
@@ -257,7 +258,7 @@
                         <i class="fa-solid fa-user-clock text-amber-500"></i> لم تزرهم بعد
                         <span class="text-xs font-medium text-slate-400">(${p.notVisited.length})</span></h4>
                     <div class="max-h-80 overflow-y-auto">
-                        ${svfTermList(notVisitedRows, p.linked ? 'زرت كلّ معلميك هذا الفصل 👏' : 'يحتاج الربط بقاعدة المعلمين.')}
+                        ${svfTermList(notVisitedRows, p.linked ? 'زرت كلّ معلميك هذا الفصل.' : 'يحتاج الربط بقاعدة المعلمين.')}
                     </div>
                 </div>
 

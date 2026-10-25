@@ -21,10 +21,8 @@
                     sectionDiv = document.createElement('div');
                     sectionDiv.className = 'bg-white rounded-2xl shadow-sm border border-slate-200 mb-6';
                     sectionDiv.innerHTML = `
-                        <div class="bg-slate-100 p-4 border-b border-slate-200 rounded-t-2xl">
-                            <h3 class="font-bold text-slate-700 flex items-center gap-2">
-                                <span class="w-2 h-6 bg-blue-600 rounded-full"></span>${currentDomain}
-                            </h3>
+                        <div class="px-5 py-3 border-b border-slate-200 bg-blue-50/70 rounded-t-2xl">
+                            <h3 class="text-sm font-bold text-blue-800">${currentDomain}</h3>
                         </div>`;
                     formContainer.appendChild(sectionDiv);
                 }
@@ -50,7 +48,7 @@
                     <div class="relative">
                         <div class="flex justify-between items-center mb-1">
                             <label class="text-xs font-bold text-slate-500">الوصف الإشرافي والأدلة:</label>
-                            <button type="button" class="edit-evidence-btn" id="edit-evidence-${item.id}" data-id="${item.id}">✏️ تعديل الأدلة (اختياري)</button>
+                            <button type="button" class="edit-evidence-btn" id="edit-evidence-${item.id}" data-id="${item.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i> تعديل الأدلة (اختياري)</button>
                         </div>
                         <div id="notes-${item.id}" class="item-notes w-full min-h-[80px] p-3 pl-10 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow" contenteditable="true"></div>
                         <div id="evidence-panel-${item.id}" class="evidence-panel hidden absolute z-50 bg-white border border-slate-200 shadow-xl rounded-lg p-4 w-full max-w-md mt-1 left-0">
@@ -80,7 +78,7 @@
                     btn.type = 'button';
                     btn.dataset.tpl = tpl.id;
                     btn.className = `tpl-btn border text-xs font-medium px-3 py-1.5 rounded-full transition-all ${c.btn || ''}`;
-                    btn.innerHTML = `${tpl.icon} ${tpl.label}`;
+                    btn.textContent = tpl.label;
                     btn.addEventListener('click', () => applyTemplate(tpl.id));
                     btnContainer.appendChild(btn);
                 });
@@ -91,8 +89,8 @@
                 prevBtn.type = 'button';
                 prevBtn.id = 'tpl-previous-visit';
                 prevBtn.className = 'tpl-btn border text-xs font-bold px-3 py-1.5 rounded-full transition-all '
-                                  + 'bg-slate-800 text-white hover:bg-slate-700 border-slate-800';
-                prevBtn.innerHTML = '🕘 الزيارة السابقة';
+                                  + 'bg-blue-700 text-white hover:bg-blue-800 border-blue-700';
+                prevBtn.innerHTML = '<i class="fa-solid fa-clock-rotate-left ml-1" aria-hidden="true"></i>الزيارة السابقة';
                 prevBtn.title = 'يملأ البنود الثلاثة عشر بدرجات آخر زيارةٍ لهذا المعلّم';
                 prevBtn.addEventListener('click', applyPreviousVisitScores);
                 btnContainer.appendChild(prevBtn);

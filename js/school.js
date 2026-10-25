@@ -673,14 +673,14 @@
             });
             
             if (reports.length === 0) {
-                reportsListContainer.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400"><i class="fa-solid fa-folder-open text-4xl mb-2"></i><p>لا توجد تقارير محفوظة.</p></div>';
+                reportsListContainer.innerHTML = '<div class="col-span-full text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 text-slate-600"><p>لا تقارير مدرسيّة محفوظة بعد. ابدأ بزرّ «تقرير جديد».</p></div>';
                 return;
             }
             
             reports.forEach(report => {
                 const typeName = (schoolVisitTypesData && schoolVisitTypesData[report.visitType]) ? schoolVisitTypesData[report.visitType].name : 'غير محدد';
                 const card = document.createElement('div');
-                card.className = 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col';
+                card.className = 'bg-white border border-slate-200 rounded-2xl p-5 flex flex-col';
                 const objLen = Array.isArray(report.objectives) ? report.objectives.length : 0;
 
                 // التحديد للرفع إلى البوّابة، ووسم حالة الزيارة
@@ -704,7 +704,7 @@
 
                 card.innerHTML = `
                     <label class="flex items-center gap-2 mb-3 cursor-pointer select-none">
-                        <input type="checkbox" class="queue-pick-school w-4 h-4 accent-green-700" data-key="${report.key}" ${picked ? 'checked' : ''}>
+                        <input type="checkbox" class="queue-pick-school w-4 h-4" data-key="${report.key}" ${picked ? 'checked' : ''}>
                         <span class="text-xs text-slate-500">تحديد للرفع</span>
                         ${stateBadge}${confirmSentBtn}
                     </label>
@@ -717,9 +717,9 @@
                         <div class="flex items-center"><i class="fa-solid fa-check-double ml-2 w-4"></i> ${objLen} أهداف محققة</div>
                     </div>
                     <div class="mt-auto flex gap-2 pt-3 border-t border-slate-100">
-                        <button class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium transition-colors view-report-btn" data-key="${report.key}">عرض</button>
-                        <button class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-lg text-sm font-medium transition-colors edit-report-btn" data-key="${report.key}">تعديل</button>
-                        <button class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-lg text-sm font-medium transition-colors delete-report-btn" data-key="${report.key}">حذف</button>
+                        <button class="svf-btn svf-btn-secondary svf-btn-sm flex-1 view-report-btn" data-key="${report.key}">عرض</button>
+                        <button class="svf-btn svf-btn-secondary svf-btn-sm flex-1 edit-report-btn" data-key="${report.key}">تعديل</button>
+                        <button class="svf-btn svf-btn-danger svf-btn-sm delete-report-btn" data-key="${report.key}">حذف</button>
                     </div>
                 `;
                 reportsListContainer.appendChild(card);
@@ -1189,7 +1189,7 @@
             const issues = schoolTimeIssues();
             box.classList.toggle('hidden', !issues.length);
             box.innerHTML = issues.length
-                ? '<p class="font-bold mb-1">⚠️ تنبيه في الوقت</p>'
+                ? '<p class="font-bold mb-1">تنبيه في الوقت</p>'
                   + issues.map(t => '<p>' + schoolRouteEsc(t) + '</p>').join('')
                 : '';
         }

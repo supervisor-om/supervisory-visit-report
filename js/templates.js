@@ -60,15 +60,10 @@
             { id: 'strong_admin',   label: 'منضبط إدارياً / يحتاج تطوير طرق التدريس', icon: '🗂️', color: 'purple', scores: [3,3,4,2,1,3,2,4,3,4,2,1,3] },
         ];
 
-        const colorMap = {
-            green:  { btn: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200',  active: 'ring-2 ring-green-400' },
-            blue:   { btn: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200',      active: 'ring-2 ring-blue-400' },
-            amber:  { btn: 'bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200',  active: 'ring-2 ring-amber-400' },
-            orange: { btn: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200', active: 'ring-2 ring-orange-400' },
-            red:    { btn: 'bg-red-100 text-red-800 hover:bg-red-200 border-red-200',          active: 'ring-2 ring-red-400' },
-            teal:   { btn: 'bg-teal-100 text-teal-800 hover:bg-teal-200 border-teal-200',      active: 'ring-2 ring-teal-400' },
-            purple: { btn: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200', active: 'ring-2 ring-purple-400' },
-        };
+        // القوالب أزرارٌ محايدة: ألوانها السبعة كانت تتنافس مع ألوان سلّم التقييم نفسه.
+        // المفاتيح باقيةٌ لأنّ كلّ قالبٍ يُشير إلى لونه.
+        const TPL_NEUTRAL = { btn: 'bg-white text-slate-700 hover:border-blue-500 hover:text-blue-800 border-slate-300', active: 'ring-2 ring-blue-500 border-blue-600 text-blue-800' };
+        const colorMap = { green: TPL_NEUTRAL, blue: TPL_NEUTRAL, amber: TPL_NEUTRAL, orange: TPL_NEUTRAL, red: TPL_NEUTRAL, teal: TPL_NEUTRAL, purple: TPL_NEUTRAL };
 
         function applyTemplate(templateId) {
             const tpl = supervisoryTemplates.find(t => t.id === templateId);

@@ -26,17 +26,36 @@
            اللاصق. تُرفع الحاوية نفسها ما دامت لوحةٌ مفتوحة. */
         .evidence-open-wrap { position: relative; z-index: 60; }
 
-        .rating-btn.active { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .rating-btn.active.score-1 { background-color: #166534 !important; color: #fff !important; border-color: #166534 !important; }
-        .rating-btn.active.score-2 { background-color: #1e40af !important; color: #fff !important; border-color: #1e40af !important; }
-        .rating-btn.active.score-3 { background-color: #ca8a04 !important; color: #fff !important; border-color: #ca8a04 !important; }
-        .rating-btn.active.score-4 { background-color: #9f1239 !important; color: #fff !important; border-color: #9f1239 !important; }
-        .rating-btn.active.score-5 { background-color: #991b1b !important; color: #fff !important; border-color: #991b1b !important; }
+        /* سلّم التقييم: الألوان نفسها في SVF_COLORS.rating (js/svf-theme.js) للرسوم — عدّلهما معاً */
+        .rating-btn { color: #334155; }
+        .rating-btn:hover { border-color: #85acd1 !important; }
+        .rating-btn.active { font-weight: 700; }
+        .rating-btn.active.score-1 { background-color: #1d6b45 !important; color: #fff !important; border-color: #1d6b45 !important; }
+        .rating-btn.active.score-2 { background-color: #0f4c81 !important; color: #fff !important; border-color: #0f4c81 !important; }
+        .rating-btn.active.score-3 { background-color: #9a6f24 !important; color: #fff !important; border-color: #9a6f24 !important; }
+        .rating-btn.active.score-4 { background-color: #b5452f !important; color: #fff !important; border-color: #b5452f !important; }
+        .rating-btn.active.score-5 { background-color: #7a2320 !important; color: #fff !important; border-color: #7a2320 !important; }
+
+        /* تبويبات الزيارات الإشرافيّة: الشريط زجاجٌ، والمحدَّد كحليٌّ فاتح (bg-white يصير زجاجاً في القشرة فلا يُميَّز) */
+        #supervisoryVisitsApp .nav-tab { border-radius: 10px; }
+        #supervisoryVisitsApp .nav-tab:not(.active):hover { background-color: rgba(15, 76, 129, .06); }
+        #supervisoryVisitsApp .nav-tab.active.bg-white, #supervisoryVisitsApp .nav-tab.active {
+            background-color: #eef4f9 !important; color: #0c3e6a !important; box-shadow: inset 0 0 0 1px #b3cce4 !important;
+            backdrop-filter: none !important; font-weight: 700; }
+
+        /* الورقة: معاينة المراسلة تبقى بيضاء مصمتة كالخطاب المطبوع */
+        .svf-paper { background: #fff; }
+
+        /* التركيز مرئيٌّ في كلّ الحقول والأزرار */
+        input:focus-visible, select:focus-visible, textarea:focus-visible, [contenteditable]:focus-visible {
+            outline: 2px solid #0f4c81; outline-offset: 1px; }
+        button:focus-visible, a:focus-visible, [role="button"]:focus-visible { outline: 2px solid #f0b44a; outline-offset: 2px; }
+        input[type="checkbox"], input[type="radio"] { accent-color: #0f4c81; }
 
         @media print {
             @page { size: A4; margin: 10mm; }
-            body { background: white; font-family: 'Times New Roman', serif; color: black; }
-            .no-print, .main-container, .modal-overlay, #welcomeView, .controls, .nav-tabs, #backToWelcomeFromSupervisory, .edit-evidence-btn, .evidence-panel, #manageTypesModal, #addEditTypeModal, #schoolVisitsApp header button { display: none !important; }
+            body { background: white; color: black; }
+            #toast-container, #svfLogout, .no-print, .main-container, .modal-overlay, #welcomeView, .controls, .nav-tabs, #backToWelcomeFromSupervisory, .edit-evidence-btn, .evidence-panel, #manageTypesModal, #addEditTypeModal, #schoolVisitsApp header button { display: none !important; }
             .print-view { display: block !important; position: static !important; width: 100% !important; margin: 0; padding: 0; }
             #schoolVisitsApp #reportPreviewContainer { display: block !important; visibility: visible !important; position: static; box-shadow: none; width: 100%; padding: 0; margin: 0; }
             #schoolVisitsApp #schoolFormView, #schoolVisitsApp #schoolDashboardView { display: none !important; }
@@ -44,8 +63,9 @@
         }
 
         .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 0.5); }
-        .edit-evidence-btn { font-size: 0.75rem; color: #4b5563; background-color: #f3f4f6; border: 1px solid #e5e7eb; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: bold; }
-        .edit-evidence-btn:hover { background-color: #e5e7eb; color: #1e40af; border-color: #cbd5e1; }
+        .edit-evidence-btn { font-size: 0.75rem; color: #475569; background-color: transparent; border: 1px solid #cbd5e1; padding: 3px 10px; border-radius: 8px; cursor: pointer; transition: background-color .15s, color .15s, border-color .15s; font-weight: 600; }
+        .edit-evidence-btn i { font-size: .7rem; margin-left: 3px; }
+        .edit-evidence-btn:hover { background-color: #eef4f9; color: #0c3e6a; border-color: #85acd1; }
 
         .evidence-panel {
             animation: slideDown 0.2s ease-out forwards;

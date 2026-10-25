@@ -274,31 +274,29 @@
             overlay.innerHTML = `
             <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full" dir="rtl">
               <div class="flex items-center justify-between p-5 border-b border-slate-200">
-                <h3 class="text-lg font-bold text-slate-800">🚀 تصدير لموقع الوزارة</h3>
+                <h3 class="text-lg font-bold text-slate-900">تصدير إلى بوّابة الوزارة</h3>
                 <button onclick="document.getElementById('moeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
               </div>
               <div class="p-5 space-y-4">
 
                 ${blocked ? `
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-                  <div class="text-3xl mb-2">⚠️</div>
-                  <div class="font-bold text-amber-800 mb-1">حجب المتصفّح فتح البوّابة</div>
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <div class="font-bold text-amber-900 mb-1">حجب المتصفّح فتح البوّابة</div>
                   <p class="text-sm text-amber-700">اسمح بالنوافذ المنبثقة لهذا الموقع، أو افتحها بالزرّ أدناه</p>
                 </div>` : `
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-                  <div class="text-3xl mb-2">🚀</div>
+                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                   <div class="font-bold text-emerald-800 mb-1">فُتحت بوّابة الوزارة في تبويب جديد</div>
                   <p class="text-sm text-emerald-700">يتولّى سكربت الأتمتة التعبئة والحفظ — تابِع اللوحة هناك</p>
                 </div>`}
 
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <div class="text-xs text-slate-500 mb-1 font-mono">البيانات المُصدَّرة (JSON)</div>
+                  <div class="text-xs text-slate-500 mb-1">البيانات المُصدَّرة (JSON)</div>
                   <textarea id="moe-json-preview" class="w-full font-mono text-xs bg-white border border-slate-200 rounded-lg p-2 h-28 resize-none" readonly></textarea>
-                  <button onclick="navigator.clipboard.writeText(document.getElementById('moe-json-preview').value).then(()=>showToast('تم النسخ مجدداً ✅'))" class="mt-2 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs transition-colors">إعادة النسخ</button>
+                  <button onclick="navigator.clipboard.writeText(document.getElementById('moe-json-preview').value).then(()=>showToast('نُسخت البيانات'))" class="svf-btn svf-btn-ghost svf-btn-sm mt-2 w-full">إعادة النسخ</button>
                 </div>
 
-                <button onclick="window.open('${ministryUrl}#svfs=${b64}','_blank');document.getElementById('moeExportModal').remove()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
-                  ${blocked ? 'فتح بوّابة الوزارة ←' : 'فتحها مرّة أخرى ←'}
+                <button onclick="window.open('${ministryUrl}#svfs=${b64}','_blank');document.getElementById('moeExportModal').remove()" class="svf-btn svf-btn-moe w-full">
+                  ${blocked ? 'فتح بوّابة الوزارة' : 'فتحها مرّة أخرى'}
                 </button>
 
               </div>
@@ -307,7 +305,7 @@
             document.body.appendChild(overlay);
             document.getElementById('moe-json-preview').value = jsonStr;
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-            showToast(blocked ? 'حجب المتصفّح فتح البوّابة' : 'فُتحت بوّابة الوزارة 🚀',
+            showToast(blocked ? 'حجب المتصفّح فتح البوّابة' : 'فُتحت بوّابة الوزارة',
                       blocked ? 'error' : 'success');
         }
 
@@ -393,27 +391,27 @@
             overlay.innerHTML = `
             <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full" dir="rtl">
               <div class="flex items-center justify-between p-5 border-b border-slate-200">
-                <h3 class="text-lg font-bold text-slate-800">🏫 تصدير زيارة مدرسية للوزارة</h3>
+                <h3 class="text-lg font-bold text-slate-900">تصدير زيارة مدرسية إلى بوّابة الوزارة</h3>
                 <button onclick="document.getElementById('schoolMoeExportModal').remove()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
               </div>
               <div class="p-5 space-y-4">
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                  سيتم نقلك لبوابة الوزارة وتعبئة استمارة الزيارة المدرسية تلقائياً بالبيانات التالية:
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700">
+                  تُفتح بوّابة الوزارة وتُعبّأ استمارة الزيارة المدرسيّة تلقائياً بهذه البيانات:
                 </div>
                 <table class="w-full text-sm border-collapse">
-                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500 w-2/5">المدرسة</td><td class="px-3 py-2 font-semibold">${exportData.school || '—'}</td></tr>
-                  <tr><td class="px-3 py-2 text-slate-500">التاريخ</td><td class="px-3 py-2 font-semibold">${exportData.date || '—'}</td></tr>
-                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">نوع الزيارة</td><td class="px-3 py-2 font-semibold">${typeLabels[visitTypeNum] || typeName || '—'}</td></tr>
-                  <tr><td class="px-3 py-2 text-slate-500">وقت الوصول</td><td class="px-3 py-2 font-semibold">${exportData.arrivalTime}</td></tr>
-                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">وقت الانصراف</td><td class="px-3 py-2 font-semibold">${exportData.departureTime}</td></tr>
-                  <tr><td class="px-3 py-2 text-slate-500">الأهداف</td><td class="px-3 py-2 text-xs">${objectives.length > 0 ? objectives.slice(0,3).join(' • ').substring(0, 80) + '...' : '—'}</td></tr>
+                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500 w-2/5">المدرسة</td><td class="px-3 py-2 font-semibold">${svfEscapeHtml(exportData.school || '—')}</td></tr>
+                  <tr><td class="px-3 py-2 text-slate-500">التاريخ</td><td class="px-3 py-2 font-semibold">${svfEscapeHtml(exportData.date || '—')}</td></tr>
+                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">نوع الزيارة</td><td class="px-3 py-2 font-semibold">${svfEscapeHtml(typeLabels[visitTypeNum] || typeName || '—')}</td></tr>
+                  <tr><td class="px-3 py-2 text-slate-500">وقت الوصول</td><td class="px-3 py-2 font-semibold">${svfEscapeHtml(exportData.arrivalTime)}</td></tr>
+                  <tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">وقت الانصراف</td><td class="px-3 py-2 font-semibold">${svfEscapeHtml(exportData.departureTime)}</td></tr>
+                  <tr><td class="px-3 py-2 text-slate-500">الأهداف</td><td class="px-3 py-2 text-xs">${objectives.length > 0 ? svfEscapeHtml(objectives.slice(0,3).join(' • ').substring(0, 80) + '...') : '—'}</td></tr>
                   ${routeLines.length ? '<tr class="bg-slate-50"><td class="px-3 py-2 text-slate-500">خطّ السير</td><td class="px-3 py-2 text-xs">' + routeLines.map(l => l.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))).join(' • ') + '</td></tr>' : ''}
                 </table>
                 <div class="flex gap-3">
-                  <button id="svf-go-btn" class="flex-1 bg-gradient-to-br from-amber-600 to-amber-800 hover:from-amber-700 hover:to-amber-900 text-white py-3 rounded-xl text-sm font-bold transition-colors">
+                  <button id="svf-go-btn" class="svf-btn svf-btn-moe flex-1">
                     فتح موقع الوزارة والتعبئة التلقائية
                   </button>
-                  <button onclick="document.getElementById('schoolMoeExportModal').remove()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-3 rounded-xl text-sm transition-colors">إلغاء</button>
+                  <button onclick="document.getElementById('schoolMoeExportModal').remove()" class="svf-btn svf-btn-ghost">إلغاء</button>
                 </div>
               </div>
             </div>`;
@@ -422,7 +420,7 @@
 
             const goBtn = document.getElementById('svf-go-btn');
             if (goBtn) {
-                if (!schoolBlocked) goBtn.textContent = 'فتحها مرّة أخرى ←';
+                if (!schoolBlocked) goBtn.textContent = 'فتحها مرّة أخرى';
                 goBtn.addEventListener('click', () => {
                     window.open(ministryUrl + '#svf=' + b64, '_blank');
                     overlay.remove();
@@ -430,7 +428,7 @@
             }
 
             showToast(schoolBlocked ? 'حجب المتصفّح فتح البوّابة — افتحها بالزرّ'
-                                    : 'فُتحت بوّابة الوزارة 🚀',
+                                    : 'فُتحت بوّابة الوزارة',
                       schoolBlocked ? 'error' : 'success');
         }
 
@@ -551,15 +549,15 @@
                     }
 
                     const card = document.createElement('div');
-                    card.className = 'bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col justify-between';
+                    card.className = 'bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between';
                     card.innerHTML = `
                         <label class="flex items-center gap-2 mb-3 cursor-pointer select-none">
-                            <input type="checkbox" class="queue-pick w-4 h-4 accent-indigo-600" data-key="${key}" ${picked ? 'checked' : ''}>
+                            <input type="checkbox" class="queue-pick w-4 h-4" data-key="${key}" ${picked ? 'checked' : ''}>
                             <span class="text-xs text-slate-500">تحديد للرفع</span>
                             ${stateBadge}${confirmSentBtn}
                         </label>
                         <div class="mb-4">
-                            <h4 class="font-bold text-slate-800 text-lg">${esc(tName) || 'غير معروف'}</h4>
+                            <h4 class="font-bold text-slate-900 text-lg">${esc(tName) || 'غير معروف'}</h4>
                             <div class="text-sm text-slate-500 mt-1 flex flex-col gap-1">
                                 <span><i class="fa-solid fa-school ml-1 text-slate-400"></i> ${esc(schoolName)}</span>
                                 <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${visitDate || '-'}</span>
@@ -567,10 +565,10 @@
                             </div>
                         </div>
                         <div class="flex gap-2 mt-auto pt-4 border-t border-slate-100">
-                            <button class="load-btn flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">عرض</button>
-                            <button class="edit-btn flex-1 bg-amber-50 text-amber-600 hover:bg-amber-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">تعديل</button>
-                            <button class="print-archive-btn flex-1 bg-green-50 text-green-600 hover:bg-green-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}"><i class="fa-solid fa-print ml-1"></i>طباعة</button>
-                            <button class="delete-btn flex-1 bg-red-50 text-red-600 hover:bg-red-100 py-2 rounded-lg text-sm font-bold transition-colors" data-key="${key}">حذف</button>
+                            <button class="load-btn svf-btn svf-btn-secondary svf-btn-sm flex-1" data-key="${key}">عرض</button>
+                            <button class="edit-btn svf-btn svf-btn-secondary svf-btn-sm flex-1" data-key="${key}">تعديل</button>
+                            <button class="print-archive-btn svf-btn svf-btn-secondary svf-btn-sm flex-1" data-key="${key}">طباعة</button>
+                            <button class="delete-btn svf-btn svf-btn-danger svf-btn-sm" data-key="${key}">حذف</button>
                         </div>
                     `;
                     listContainer.appendChild(card);

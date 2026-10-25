@@ -3,25 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>قسم المراسلات المطور — منظومة الإشراف التربوي (الرياضة المدرسية - محافظة مسقط)</title>
+  <meta name="author" content="أسعد الخصيبي">
+  <meta name="copyright" content="© 2026 أسعد الخصيبي — تصميم وتطوير">
+  <meta name="theme-color" content="#082742">
+  <link rel="icon" type="image/png" href="apple-touch-icon.png">
+  <title>المراسلات — منظومة الإشراف التربوي</title>
+  <style>@media (prefers-reduced-motion:no-preference){ @view-transition{navigation:auto} }</style>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <!-- لوحة الألوان والخطّ لـTailwind — مشتركةٌ مع نظام التقارير والتقرير الشهري -->
+  <script src="js/svf-theme.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #4f46e5;
-      --primary-dark: #3730a3;
-      --primary-light: #eef2ff;
+      --primary: #0f4c81;
+      --primary-dark: #0c3e6a;
+      --primary-light: #eef4f9;
     }
     body {
-      font-family: 'Cairo', sans-serif;
-      background-color: #f4f6fb;
+      font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
       color: #1e293b;
       overflow-x: hidden;
     }
     .official-paper {
-      font-family: 'Amiri', 'Cairo', serif;
+      font-family: 'Noto Naskh Arabic', 'IBM Plex Sans Arabic', serif;
       line-height: 2;
       background: #ffffff;
       border: 1px solid #e2e8f0;
@@ -31,10 +37,8 @@
       transition: all 0.2s ease;
     }
     .pill-tab.active {
-      background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+      background: #0f4c81;
       color: #ffffff;
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-      transform: translateY(-1px);
     }
     .custom-scrollbar::-webkit-scrollbar {
       width: 6px;
@@ -70,69 +74,225 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" data-svf-page="reports">
+<!-- قشرة الموقع (شريط الهويّة + مشهد الطابور + الزجاج + التنقّل) — المصدر: supervisory-visit-report/site-shell.html -->
+<style>
+:root{
+  --svf-font:'IBM Plex Sans Arabic','Segoe UI',Tahoma,system-ui,sans-serif;
+  --svf-navy:#0f4c81; --svf-navy-d:#0c3e6a; --svf-navy-l:#eef4f9; --svf-navy-line:#b3cce4;
+  --svf-dark:#082742;            /* شريط الهويّة: كحليّ الأيقونة الداكن */
+  --svf-ink:#f7f5ee;             /* النصّ على الشريط */
+  --svf-gold:#f0b44a; --svf-gold-d:#e3a133;
+  --svf-text:#14202b; --svf-muted:#56657a; --svf-line:#d7dee7;
+  --svf-r-panel:16px; --svf-r-ctl:10px;
+  --svf-day-1:#e8edf4; --svf-day-2:#f1ece7; --svf-day-3:#f7e4d6; --svf-day-4:#f2dccb;
+  --svf-sun:rgba(255,214,150,.42); --svf-sun-2:rgba(255,226,186,.18);
+  --svf-soil-1:#e7e1d9; --svf-soil-2:#dcd3c8;
+  --svf-rank:#b6aca2;
+  --svf-glass:rgba(255,255,255,.82);
+  --svf-glass-line:rgba(255,255,255,.9);
+  --svf-sheen:rgba(255,255,255,.28);
+}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.18s}
+html{background:var(--svf-day-1)}
+body{background:transparent !important}
 
-  <!-- الشريط العلوي للهوية المعتمدة -->
-  <header class="bg-gradient-to-l from-indigo-900 via-indigo-800 to-slate-900 text-white shadow-lg sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/20 shadow-inner">
-          <svg class="w-6 h-6 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-          </svg>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-lg md:text-xl font-bold tracking-tight">منظومة الإشراف التربوي — قسم المراسلات المطوّر</h1>
-            <span class="bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs px-2.5 py-0.5 rounded-full font-semibold">الإصدار الذكي المترابط</span>
-          </div>
-          <p class="text-xs text-indigo-200">الرياضة المدرسية — محافظة مسقط | إعداد وتصميم: أ. أسعد الخصيبي</p>
-        </div>
+/* ── المشهد: ثابتٌ خلف كلّ شيء ── */
+.svf-scene{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.svf-scene span,.svf-scene svg{position:absolute;display:block}
+.svf-sky{inset:0;background:linear-gradient(180deg,
+  var(--svf-day-1) 0%,var(--svf-day-2) 38%,var(--svf-day-3) 74%,var(--svf-day-4) 100%)}
+.svf-sun{inset-inline-start:20%;inset-block-start:52%;width:min(30vw,300px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle,var(--svf-sun) 0%,var(--svf-sun-2) 45%,transparent 70%);
+  animation:svfRise 48s ease-in-out infinite alternate}
+.svf-ground{inset-inline:0;inset-block-start:84%;bottom:0;
+  background:linear-gradient(180deg,var(--svf-soil-1) 0%,var(--svf-soil-2) 100%)}
+.svf-ranks{inset-inline:-4%;bottom:0;width:108%;height:26%;
+  animation:svfDrift 26s ease-in-out infinite alternate}
+.svf-ranks g{fill:var(--svf-rank)}
+.svf-ranks .far{opacity:.2}
+.svf-ranks .near{opacity:.28}
+/* ضوءٌ مائلٌ ثابت: كان يمسح الصفحة كلّ ٢٢ ثانية فوق الاستمارات */
+.svf-sheen{inset:-25%;transform:translateX(-12%);
+  background:linear-gradient(115deg,transparent 42%,var(--svf-sheen) 48%,rgba(255,255,255,.06) 53%,transparent 62%)}
+@keyframes svfRise{from{transform:translateY(5%) scale(.97)}to{transform:translateY(-8%) scale(1.03)}}
+@keyframes svfDrift{from{transform:translate3d(0,0,0) scale(1.01)}to{transform:translate3d(-2%,0,0) scale(1.04)}}
+
+/* ── الزجاج: أسطح الصفحات تصير ألواحاً فوق المشهد ── */
+.bg-white,.svf-glass{
+  background-color:var(--svf-glass) !important;
+  -webkit-backdrop-filter:blur(14px) saturate(1.1);
+  box-shadow:inset 0 1px 0 var(--svf-glass-line)}
+@supports (backdrop-filter: blur(4px)){
+  .bg-white,.svf-glass{backdrop-filter:blur(14px) saturate(1.1)}
+}
+/* لوح النافذة المنبثقة يبقى مصمتاً: تحته ستارةٌ داكنة، والشفافيّة تُذهب قراءته */
+.fixed.inset-0 .bg-white,.modal-overlay .bg-white{
+  background-color:#fff !important;-webkit-backdrop-filter:none;backdrop-filter:none}
+
+/* ── شريط الهويّة ── */
+.svf-id{background:var(--svf-dark);color:var(--svf-ink);
+  font-family:var(--svf-font);
+  display:flex;align-items:center;gap:14px;padding:10px 24px;min-height:52px;box-sizing:border-box;
+  font-size:13px;line-height:1.45;direction:rtl;position:relative;z-index:1;
+  box-shadow:inset 0 -1px 0 rgba(240,180,74,.35)}
+.svf-id b{font-weight:600;font-size:14.5px;letter-spacing:-.2px}
+.svf-id i{font-style:normal;opacity:.62;padding-inline-start:14px;border-inline-start:1px solid rgba(247,245,238,.22)}
+.svf-nav{margin-inline-start:auto;display:flex;align-items:center;gap:2px}
+.svf-nav a{color:inherit;text-decoration:none;border-radius:8px;padding:6px 12px;white-space:nowrap;
+  opacity:.78;transition:background-color .2s ease,opacity .2s ease}
+.svf-nav a:hover{opacity:1;background:rgba(247,245,238,.1)}
+.svf-nav a:active{background:rgba(247,245,238,.05)}
+.svf-nav a[aria-current]{opacity:1;background:rgba(247,245,238,.14);box-shadow:inset 0 -2px 0 var(--svf-gold);cursor:default}
+.svf-nav a:focus-visible,.svf-id button:focus-visible{opacity:1;outline:2px solid var(--svf-gold);outline-offset:2px}
+body[data-svf-page="form"] .svf-nav{display:none}
+/* زرّ الخروج يحقنه js/gate.js في آخر الشريط حين يجده */
+.svf-id #svfLogout{position:static;opacity:.78;background:transparent;border:1px solid rgba(247,245,238,.28);
+  color:inherit;border-radius:8px;padding:5px 12px;font:500 12.5px var(--svf-font);cursor:pointer;white-space:nowrap}
+.svf-id #svfLogout:hover{opacity:1;background:rgba(247,245,238,.08)}
+
+/* ── مكوّناتٌ مشتركة ── */
+.svf-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 24px;margin:0 0 22px}
+.svf-head h1{font:700 clamp(22px,2.3vw,28px)/1.3 var(--svf-font);color:var(--svf-text);margin:0;letter-spacing:-.3px}
+.svf-head p{margin:6px 0 0;color:var(--svf-muted);font-size:14px;line-height:1.7;max-width:64ch}
+.svf-head .svf-acts{display:flex;flex-wrap:wrap;gap:8px}
+
+.svf-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;
+  font:600 14px/1.25 var(--svf-font);padding:10px 18px;border-radius:var(--svf-r-ctl);
+  border:1px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+.svf-btn:focus-visible{outline:2px solid var(--svf-gold);outline-offset:2px}
+.svf-btn:disabled,.svf-btn[disabled]{opacity:.45;cursor:not-allowed}
+.svf-btn i{font-size:.95em;opacity:.9}
+.svf-btn-primary{background:var(--svf-navy);color:#fff}
+.svf-btn-primary:hover:not(:disabled){background:var(--svf-navy-d)}
+.svf-btn-secondary{background:#fff;color:var(--svf-navy);border-color:var(--svf-navy-line)}
+.svf-btn-secondary:hover:not(:disabled){background:var(--svf-navy-l);border-color:var(--svf-navy)}
+.svf-btn-ghost{background:transparent;color:var(--svf-muted)}
+.svf-btn-ghost:hover:not(:disabled){background:rgba(15,76,129,.07);color:var(--svf-text)}
+.svf-btn-danger{background:transparent;color:#9e352c}
+.svf-btn-danger:hover:not(:disabled){background:#fcf0ef}
+/* الفعل المميّز الوحيد: الجسر إلى بوّابة الوزارة */
+.svf-btn-moe{background:var(--svf-gold);color:var(--svf-dark)}
+.svf-btn-moe:hover:not(:disabled){background:var(--svf-gold-d)}
+.svf-btn-sm{padding:6px 12px;font-size:12.5px;border-radius:8px}
+@media (max-width:767px){ .svf-bar .svf-btn{padding:9px 6px;font-size:12.5px;gap:5px} }
+
+/* ── عبارة حقوق المصمّم: تذييلٌ في آخر الصفحة، وتُخفى عند الطباعة لأنّ التقارير أوراقٌ رسميّة ── */
+.svf-credit{position:relative;z-index:1;text-align:center;padding:22px 16px 28px;
+  font-family:var(--svf-font);font-size:12.5px;line-height:1.75;color:#3b4554}
+.svf-credit p{margin:0}
+.svf-credit b{font-weight:600}
+.svf-credit .r{font-size:11.5px;opacity:.82;margin-top:2px}
+@media (max-width:900px){ .svf-id i{display:none} }
+@media (max-width:640px){
+  .svf-id{flex-wrap:wrap;padding:9px 12px 5px;gap:4px 10px}
+  .svf-nav{order:3;width:100%;margin-inline-start:0;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+  .svf-nav::-webkit-scrollbar{display:none}
+  .svf-id #svfLogout{margin-inline-start:auto;padding:3px 10px}
+}
+@media (prefers-reduced-motion:reduce){ .svf-scene *{animation:none !important} }
+@media print{
+  .svf-scene,.svf-id,.svf-credit{display:none !important}
+  html{background:#fff}
+  .bg-white,.svf-glass{background-color:#fff !important;backdrop-filter:none;box-shadow:none}
+}
+</style>
+
+<div class="svf-scene" aria-hidden="true">
+  <span class="svf-sky"></span>
+  <span class="svf-sun"></span>
+  <span class="svf-ground"></span>
+  <svg class="svf-ranks" viewBox="0 0 1200 240" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs><g id="svf-pupil"><circle cx="0" cy="-46" r="9.5"/><path d="M-13 -36 q13 -7 26 0 l5 36 h-36 z"/></g></defs>
+    <g class="far">
+      <use href="#svf-pupil" transform="translate(40,150) scale(.38)"/><use href="#svf-pupil" transform="translate(91,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(142,150) scale(.38)"/><use href="#svf-pupil" transform="translate(193,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(244,150) scale(.38)"/><use href="#svf-pupil" transform="translate(295,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(346,150) scale(.38)"/><use href="#svf-pupil" transform="translate(397,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(448,150) scale(.38)"/><use href="#svf-pupil" transform="translate(499,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(550,150) scale(.38)"/><use href="#svf-pupil" transform="translate(601,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(652,150) scale(.38)"/><use href="#svf-pupil" transform="translate(703,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(754,150) scale(.38)"/><use href="#svf-pupil" transform="translate(805,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(856,150) scale(.38)"/><use href="#svf-pupil" transform="translate(907,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(958,150) scale(.38)"/><use href="#svf-pupil" transform="translate(1009,150) scale(.38)"/>
+      <use href="#svf-pupil" transform="translate(1060,150) scale(.38)"/><use href="#svf-pupil" transform="translate(1111,150) scale(.38)"/>
+    </g>
+    <g class="near">
+      <use href="#svf-pupil" transform="translate(66,192) scale(.62)"/><use href="#svf-pupil" transform="translate(146,192) scale(.62)"/>
+      <use href="#svf-pupil" transform="translate(226,192) scale(.62)"/><use href="#svf-pupil" transform="translate(306,192) scale(.62)"/>
+      <use href="#svf-pupil" transform="translate(386,192) scale(.62)"/><use href="#svf-pupil" transform="translate(466,192) scale(.62)"/>
+      <use href="#svf-pupil" transform="translate(546,192) scale(.62)"/><use href="#svf-pupil" transform="translate(626,192) scale(.62)"/>
+      <use href="#svf-pupil" transform="translate(706,192) scale(.62)"/><use href="#svf-pupil" transform="translate(786,192) scale(.62)"/>
+      <use href="#svf-pupil" transform="translate(866,192) scale(.62)"/><use href="#svf-pupil" transform="translate(946,192) scale(.62)"/>
+      <use href="#svf-pupil" transform="translate(1026,192) scale(.62)"/><use href="#svf-pupil" transform="translate(1106,192) scale(.62)"/>
+    </g>
+  </svg>
+  <span class="svf-sheen"></span>
+</div>
+
+<div class="svf-id">
+  <b>منظومة الإشراف التربوي</b>
+  <i>محافظة مسقط</i>
+  <nav class="svf-nav" aria-label="أنظمة المنظومة">
+    <a data-p="home" href="https://supervisor-mct.com/">الرئيسية</a>
+    <a data-p="reports" href="https://supervisor-mct.com/reports.html">نظام التقارير</a>
+    <a data-p="monthly" href="https://supervisor-mct.com/monthly.html">التقرير الشهري</a>
+    <a data-p="plan" href="https://plan.supervisor-mct.com/">خطة السير</a>
+    <a data-p="data" href="https://teachers.supervisor-mct.com/data.html">البيانات المجمّعة</a>
+  </nav>
+</div>
+<script>
+(function(){var k=document.body.getAttribute('data-svf-page');if(!k)return;
+var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('aria-current','page');})();
+</script>
+<!-- روابط التنقّل: ما كان في الأصل نفسه يُحمَّل مسبقاً كاملاً عند المرور عليه، وما كان في نطاقٍ فرعيٍّ يُجلب فقط -->
+<script type="speculationrules">
+{"prerender":[{"where":{"and":[{"selector_matches":".svf-nav a"},{"href_matches":"/*"}]},"eagerness":"moderate"}],
+ "prefetch":[{"where":{"and":[{"selector_matches":".svf-nav a"},{"not":{"href_matches":"/*"}}]},"eagerness":"moderate"}]}
+</script>
+<!-- /svf-shell -->
+
+  <!-- رأس الصفحة: النمط نفسه في كلّ أنظمة المنظومة (.svf-head في site-shell.html) -->
+  <header class="max-w-7xl mx-auto w-full px-4 pt-10">
+    <div class="svf-head" style="margin-bottom:16px">
+      <div>
+        <h1>المراسلات</h1>
+        <p>قوالب المخاطبات الرسمية مترابطةً في سلاسل، مع رقم القيد والكشف المرفق، ونقلها إلى نظام المراسلات الوزاري.</p>
       </div>
-
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="bg-white/10 border border-white/15 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
-          <span class="text-indigo-200">المشرف التربوي:</span>
-          <input id="supervisorNameInput" type="text" value="أ. أسعد الخصيبي" class="bg-transparent border-b border-indigo-300/40 focus:border-white focus:outline-none text-white font-semibold w-36 text-xs" />
-        </div>
-        <button id="openCrsPortalBtn" type="button" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-lg transition shadow flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="svf-acts items-center">
+        <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm">
+          <span class="text-slate-500">المشرف التربوي:</span>
+          <input id="supervisorNameInput" type="text" value="أ. أسعد الخصيبي" class="bg-transparent border-b border-slate-300 focus:border-blue-700 focus:outline-none text-slate-900 font-semibold w-36 text-sm" />
+        </label>
+        <button id="openCodeExportModalBtn" type="button" class="svf-btn svf-btn-ghost svf-btn-sm">دليل تضمين الكود بموقعك</button>
+        <button id="openCrsPortalBtn" type="button" class="svf-btn svf-btn-moe">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
           </svg>
-          <span>فتح نظام المراسلات الوزاري (CRS)</span>
-        </button>
-        <button id="openCodeExportModalBtn" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-3 py-2 rounded-lg border border-indigo-400/30 transition flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
-          </svg>
-          <span>دليل تضمين الكود بموقعك</span>
+          <span>فتح نظام المراسلات الوزاري</span>
         </button>
       </div>
     </div>
   </header>
 
   <!-- شريط السلاسل الإدارية الذكية والتنبيهات -->
-  <section class="bg-white border-b border-slate-200 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+  <section class="max-w-7xl mx-auto w-full px-4">
+    <div class="bg-white border border-slate-200 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2 flex-wrap text-xs">
-        <span class="font-bold text-indigo-900 flex items-center gap-1">
-          <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-          </svg>
-          السلاسل الإدارية المترابطة:
-        </span>
-        <button type="button" data-chain="exchange" class="chain-preset-btn bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-md font-medium transition">
+        <span class="font-bold text-slate-900">السلاسل الإدارية المترابطة:</span>
+        <button type="button" data-chain="exchange" class="chain-preset-btn bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-800 border border-slate-300 hover:border-blue-500 px-2.5 py-1 rounded-lg font-medium transition-colors">
           1. سلسلة تبادل الزيارات: استضافة ← تعميم البرنامج ← شكر / غياب
         </button>
-        <button type="button" data-chain="visit" class="chain-preset-btn bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-md font-medium transition">
+        <button type="button" data-chain="visit" class="chain-preset-btn bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-800 border border-slate-300 hover:border-blue-500 px-2.5 py-1 rounded-lg font-medium transition-colors">
           2. سلسلة المتابعة الفنية: ملاحظات زيارة ← توصيات متأخرة ← مدرسة مخالفة
         </button>
-        <button type="button" data-chain="workshop" class="chain-preset-btn bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-md font-medium transition">
+        <button type="button" data-chain="workshop" class="chain-preset-btn bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-800 border border-slate-300 hover:border-blue-500 px-2.5 py-1 rounded-lg font-medium transition-colors">
           3. سلسلة الورش: دعوة ورشة ← غياب مستهدف / شهادات شكر
         </button>
       </div>
       <div id="overdueAlertBanner" class="hidden items-center gap-2 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-semibold">
-        <span class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+        <span class="w-2 h-2 rounded-full bg-rose-600"></span>
         <span id="overdueAlertText">توجد مراسلات انتهت مهلة الإفادة المحددة لها!</span>
         <button id="scrollToLogBtn" type="button" class="underline hover:text-rose-900 mr-1">عرض بالسجل</button>
       </div>
@@ -141,11 +301,11 @@
 
   <!-- شريط تبويب القوالب الـ 12 (8 أساسية مطورة + 4 جديدة) -->
   <section class="max-w-7xl mx-auto w-full px-4 pt-4">
-    <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200/80">
+    <div class="bg-white rounded-2xl p-4 border border-slate-200">
       <div class="flex items-center justify-between mb-2.5 flex-wrap gap-2">
         <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-slate-700">قوالب المراسلات الرسمية (12 قالباً):</span>
-          <span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-medium">8 قوالب أساسية مطورة + 4 قوالب إشرافية جديدة</span>
+          <span class="text-sm font-bold text-slate-900">قوالب المراسلات الرسمية</span>
+          <span class="text-[11px] text-slate-500">ثمانية أساسيّة وأربعة جديدة</span>
         </div>
         <div id="activeLinkBadge" class="hidden items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs px-2.5 py-1 rounded-lg">
           <span class="font-bold">مرتبطة بمعاملة سابقة:</span>
@@ -169,7 +329,7 @@
       <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
         <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
           <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">1</span>
+            <span class="w-6 h-6 rounded-full border border-blue-300 text-blue-800 flex items-center justify-center text-xs font-bold">1</span>
             بيانات القيد الوزاري والربط المرجعي (CRS)
           </h2>
           <span class="text-[11px] text-slate-400">متوافق مع dms.moe.gov.om</span>
@@ -212,7 +372,7 @@
       <div id="recipientCardSection" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
         <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
           <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">2</span>
+            <span class="w-6 h-6 rounded-full border border-blue-300 text-blue-800 flex items-center justify-center text-xs font-bold">2</span>
             المخاطَبون والفئة المستهدفة (قاعدة المدارس والمعلمين)
           </h2>
           <span id="recipientFormulaBadge" class="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md font-semibold">تأنيث وتذكير تلقائي</span>
@@ -250,10 +410,10 @@
               <input id="schoolSearchInput" list="muscatSchoolsDatalist" type="text" placeholder="ابحث عن مدرسة أو اكتب اسمها..." class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-600 focus:outline-none" />
               <datalist id="muscatSchoolsDatalist"></datalist>
             </div>
-            <button id="addSchoolBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-lg transition shrink-0">
+            <button id="addSchoolBtn" type="button" class="svf-btn svf-btn-primary svf-btn-sm shrink-0">
               + إضافة مدرسة
             </button>
-            <button id="addSchoolWithTeachersBtn" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg transition shrink-0" title="إضافة المدرسة مع إلحاق معلميها بالكشف المرفق">
+            <button id="addSchoolWithTeachersBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm shrink-0" title="إضافة المدرسة مع إلحاق معلميها بالكشف المرفق">
               + مع معلميها
             </button>
           </div>
@@ -261,7 +421,7 @@
           <!-- فلتر سريع بولايات محافظة مسقط -->
           <div class="flex items-center gap-1.5 flex-wrap">
             <span class="text-[11px] text-slate-500">تصفية سريعة:</span>
-            <button type="button" data-wilayat="all" class="wilayat-filter-btn bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[11px] font-semibold">الكل</button>
+            <button type="button" data-wilayat="all" class="wilayat-filter-btn bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[11px] font-semibold">الكل</button>
             <button type="button" data-wilayat="السيب" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">السيب</button>
             <button type="button" data-wilayat="بوشر" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">بوشر</button>
             <button type="button" data-wilayat="مطرح" class="wilayat-filter-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[11px]">مطرح</button>
@@ -296,7 +456,7 @@
               <input id="manualTeacherName" type="text" placeholder="اسم المعلم/المعلمة" class="col-span-5 rounded border border-slate-300 px-2 py-1.5 text-xs" />
               <input id="manualTeacherFileNo" type="text" placeholder="رقم الملف" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-xs" />
               <input id="manualTeacherSchool" type="text" placeholder="المدرسة" class="col-span-3 rounded border border-slate-300 px-2 py-1.5 text-xs" />
-              <button id="addManualTeacherBtn" type="button" class="col-span-1 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded flex items-center justify-center">+</button>
+              <button id="addManualTeacherBtn" type="button" class="col-span-1 svf-btn svf-btn-secondary svf-btn-sm">+</button>
             </div>
             <div id="attachedTeachersList" class="max-h-28 overflow-y-auto custom-scrollbar space-y-1 text-[11px]"></div>
           </div>
@@ -307,10 +467,10 @@
       <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
         <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
           <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">3</span>
+            <span class="w-6 h-6 rounded-full border border-blue-300 text-blue-800 flex items-center justify-center text-xs font-bold">3</span>
             <span id="dynamicFieldsTitle">بيانات المراسلة</span>
           </h2>
-          <button id="insertPhraseMenuBtn" type="button" class="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md font-semibold transition">
+          <button id="insertPhraseMenuBtn" type="button" class="svf-btn svf-btn-ghost svf-btn-sm">
             + عبارات إدارية جاهزة
           </button>
         </div>
@@ -319,11 +479,11 @@
         <div id="quickPhrasesPanel" class="hidden mb-3 p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs space-y-1.5">
           <div class="font-bold text-indigo-900 text-[11px]">انقر لإدراج العبارة في حقل الملاحظات أو الفقرة الإضافية:</div>
           <div class="flex flex-wrap gap-1">
-            <button type="button" data-phrase="ضرورة استكمال سجلات التحضير اليومي وفق الوثيقة المعتمدة." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">سجلات التحضير</button>
-            <button type="button" data-phrase="تفعيل الأنشطة الرياضية الداخلية والمسابقات البينية بين الفصول." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">الأنشطة الرياضية</button>
-            <button type="button" data-phrase="التأكد من توفر اشتراطات الأمن والسلامة في الملاعب والأدوات الرياضية." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">الأمن والسلامة</button>
-            <button type="button" data-phrase="تنويع استراتيجيات التدريس ومراعاة الفروق الفردية والمهارات الحركية للطلبة." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">استراتيجيات التدريس</button>
-            <button type="button" data-phrase="توظيف التقويم المستمر وأدواته المعتمدة في رصد أداء الطلبة عملياً ونظرياً." class="quick-phrase-chip bg-white hover:bg-indigo-600 hover:text-white text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">التقويم المستمر</button>
+            <button type="button" data-phrase="ضرورة استكمال سجلات التحضير اليومي وفق الوثيقة المعتمدة." class="quick-phrase-chip bg-white hover:bg-blue-50 hover:text-blue-800 text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">سجلات التحضير</button>
+            <button type="button" data-phrase="تفعيل الأنشطة الرياضية الداخلية والمسابقات البينية بين الفصول." class="quick-phrase-chip bg-white hover:bg-blue-50 hover:text-blue-800 text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">الأنشطة الرياضية</button>
+            <button type="button" data-phrase="التأكد من توفر اشتراطات الأمن والسلامة في الملاعب والأدوات الرياضية." class="quick-phrase-chip bg-white hover:bg-blue-50 hover:text-blue-800 text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">الأمن والسلامة</button>
+            <button type="button" data-phrase="تنويع استراتيجيات التدريس ومراعاة الفروق الفردية والمهارات الحركية للطلبة." class="quick-phrase-chip bg-white hover:bg-blue-50 hover:text-blue-800 text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">استراتيجيات التدريس</button>
+            <button type="button" data-phrase="توظيف التقويم المستمر وأدواته المعتمدة في رصد أداء الطلبة عملياً ونظرياً." class="quick-phrase-chip bg-white hover:bg-blue-50 hover:text-blue-800 text-slate-700 border border-indigo-200 px-2 py-1 rounded text-[11px] transition">التقويم المستمر</button>
           </div>
         </div>
 
@@ -335,7 +495,7 @@
       <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90">
         <div class="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
           <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">4</span>
+            <span class="w-6 h-6 rounded-full border border-blue-300 text-blue-800 flex items-center justify-center text-xs font-bold">4</span>
             نسخة إلى (CC) والمرفقات القياسية
           </h2>
         </div>
@@ -386,27 +546,27 @@
       <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200/90 space-y-2.5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex flex-wrap items-center gap-1.5">
-            <button id="copySubjectBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+            <button id="copySubjectBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm">
               <span>نسخ الموضوع</span>
             </button>
-            <button id="copyBodyBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+            <button id="copyBodyBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm">
               <span>نسخ النص</span>
             </button>
-            <button id="saveWordBtn" type="button" class="bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+            <button id="saveWordBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm">
               <span>حفظ Word</span>
             </button>
-            <button id="printPdfBtn" type="button" class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs px-3 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+            <button id="printPdfBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm">
               <span>طباعة / PDF</span>
             </button>
-            <button id="copyAndOpenCrsBtn" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow-sm flex items-center gap-1">
+            <button id="copyAndOpenCrsBtn" type="button" class="svf-btn svf-btn-primary svf-btn-sm">
               <span>نسخ وفتح نظام المراسلات</span>
             </button>
           </div>
           <div class="flex items-center gap-1.5">
-            <button id="saveToLogBtn" type="button" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-3 py-2 rounded-lg transition">
+            <button id="saveToLogBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm">
               + حفظ بالسجل
             </button>
-            <button id="resetFormBtn" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs px-3 py-2 rounded-lg transition">
+            <button id="resetFormBtn" type="button" class="svf-btn svf-btn-danger svf-btn-sm">
               مسح
             </button>
           </div>
@@ -416,10 +576,10 @@
         <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
           <span class="font-bold text-slate-600">النقل السريع المقسّم لنظام الوزارة (dms.moe.gov.om):</span>
           <div class="flex flex-wrap items-center gap-1.5">
-            <button id="quickCopyRecipientBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">1. نسخ المخاطَب</button>
-            <button id="quickCopySubjectBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">2. نسخ الموضوع</button>
-            <button id="quickCopyCleanBodyBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">3. نسخ المتن فقط</button>
-            <button id="quickCopyTableBtn" type="button" class="bg-white hover:bg-indigo-50 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-semibold transition">4. نسخ جدول المعلمين</button>
+            <button id="quickCopyRecipientBtn" type="button" class="svf-btn svf-btn-ghost svf-btn-sm border border-slate-300">1. نسخ المخاطَب</button>
+            <button id="quickCopySubjectBtn" type="button" class="svf-btn svf-btn-ghost svf-btn-sm border border-slate-300">2. نسخ الموضوع</button>
+            <button id="quickCopyCleanBodyBtn" type="button" class="svf-btn svf-btn-ghost svf-btn-sm border border-slate-300">3. نسخ المتن فقط</button>
+            <button id="quickCopyTableBtn" type="button" class="svf-btn svf-btn-ghost svf-btn-sm border border-slate-300">4. نسخ جدول المعلمين</button>
           </div>
         </div>
       </div>
@@ -484,10 +644,10 @@
             <p class="text-[11px] text-slate-500">يُحفظ تلقائياً في متصفحك (localStorage) مع متابعة المهل الزمنية والسلاسل الإدارية</p>
           </div>
           <div class="flex items-center gap-1.5">
-            <button id="exportLogCsvBtn" type="button" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition">
+            <button id="exportLogCsvBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm">
               تصدير السجل (Excel/CSV)
             </button>
-            <button id="clearAllLogBtn" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition">
+            <button id="clearAllLogBtn" type="button" class="svf-btn svf-btn-danger svf-btn-sm">
               مسح السجل
             </button>
           </div>
@@ -531,10 +691,10 @@
         </ul>
       </div>
       <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-        <button id="copyFullHtmlSourceBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition">
+        <button id="copyFullHtmlSourceBtn" type="button" class="svf-btn svf-btn-primary svf-btn-sm">
           نسخ الكود المصدري الكامل للقسم
         </button>
-        <button id="closeCodeExportModalBtn2" type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition">
+        <button id="closeCodeExportModalBtn2" type="button" class="svf-btn svf-btn-ghost svf-btn-sm">
           إغلاق
         </button>
       </div>
@@ -547,8 +707,8 @@
       <h4 id="confirmModalTitle" class="font-bold text-slate-800 text-sm">تأكيد الإجراء</h4>
       <p id="confirmModalMessage" class="text-xs text-slate-600 leading-relaxed"></p>
       <div class="flex items-center justify-end gap-2 pt-2">
-        <button id="confirmModalYesBtn" type="button" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2 rounded-lg">نعم، تأكيد</button>
-        <button id="confirmModalNoBtn" type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg">إلغاء</button>
+        <button id="confirmModalYesBtn" type="button" class="svf-btn svf-btn-sm bg-red-600 hover:bg-red-700 text-white">نعم، تأكيد</button>
+        <button id="confirmModalNoBtn" type="button" class="svf-btn svf-btn-secondary svf-btn-sm">إلغاء</button>
       </div>
     </div>
   </div>
@@ -1374,7 +1534,7 @@
           ? (isActive ? "bg-amber-300 text-slate-950" : "bg-amber-100 text-amber-800")
           : (isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600");
         return `
-          <button type="button" data-template-id="${t.id}" class="template-tab-btn pill-tab px-3 py-1.5 rounded-xl text-xs font-bold border ${isActive ? "active border-indigo-700" : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"} flex items-center gap-1.5">
+          <button type="button" data-template-id="${t.id}" class="template-tab-btn pill-tab px-3 py-1.5 rounded-xl text-xs font-bold border ${isActive ? "active border-blue-700" : "bg-white hover:bg-blue-50 text-slate-700 border-slate-300"} flex items-center gap-1.5">
             <span>${t.name}</span>
             <span class="text-[10px] px-1.5 py-0.2 rounded-full ${badgeClass}">${t.badge}</span>
           </button>
@@ -2649,5 +2809,12 @@
       initEvents();
     });
   </script>
+<!-- svf-credit -->
+<footer class="svf-credit">
+  <p>إعداد وتصميم: <b>أ. أسعد الخصيبي</b></p>
+  <p>مشرف الرياضة المدرسية</p>
+  <p class="r">جميع حقوق التصميم والتطوير محفوظة © 2026</p>
+</footer>
+<!-- /svf-credit -->
 </body>
 </html>

@@ -3,6 +3,19 @@
         // =========================================================================
         let statsPieChart = null;
         let statsLineChart = null;
+        let statsBarChart = null;
+
+        // ألوان الرسوم من لوحة المنظومة (js/svf-theme.js)، وخطّ الواجهة نفسه
+        const SVF_C = (typeof window !== 'undefined' && window.SVF_COLORS) || null;
+        const SVF_RATING = (SVF_C && SVF_C.rating) || { 1: '#1d6b45', 2: '#0f4c81', 3: '#9a6f24', 4: '#b5452f', 5: '#7a2320' };
+        const SVF_NAVY = (SVF_C && SVF_C.blue[600]) || '#0f4c81';
+        const SVF_SERIES = SVF_C ? [SVF_C.blue[600], SVF_C.green[600], SVF_C.gold[500], SVF_C.red[500], SVF_C.slate[500], SVF_C.blue[300], SVF_C.green[300]]
+                                 : ['#0f4c81', '#246445', '#b98a32', '#bb463b', '#64748b', '#85acd1', '#86ba9b'];
+        if (typeof Chart !== 'undefined' && Chart.defaults) {
+            Chart.defaults.font.family = "'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif";
+            Chart.defaults.color = '#475569';
+            Chart.defaults.borderColor = 'rgba(15, 23, 42, .08)';
+        }
 
         function renderStatistics() {
             const container = document.getElementById('stats-view');
@@ -25,7 +38,9 @@
 
             // This month (YYYY-MM)
             const now = new Date();
-            const thisMonth = now.toISOString().slice(0, 7);
+            // المفتاح محلّيّ لا بـtoISOString: توقيت مسقط (+4) يُنقص اليوم الأوّل من الشهر إلى الشهر السابق
+            const ym = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            const thisMonth = ym(now);
             const thisMonthVisits = reports.filter(r => (r.visitDate || '').startsWith(thisMonth)).length;
 
             // This year
@@ -68,7 +83,7 @@
             const monthlyData = {};
             for (let m = 5; m >= 0; m--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
-                const key = d.toISOString().slice(0, 7);
+                const key = ym(d);
                 monthlyData[key] = 0;
             }
             reports.forEach(r => {
@@ -86,105 +101,69 @@
                     return { date: r.visitDate, avg: Math.round(avg * 100) / 100, teacher: r.teacherName };
                 });
 
-            const scoreLabels = { 1: 'ممتاز', 2: 'جيد جداً', 3: 'جيد', 4: 'مقبول', 5: 'يحتاج تطوير' };
-            const scoreColorsMap = { 1: '#22c55e', 2: '#3b82f6', 3: '#f59e0b', 4: '#f97316', 5: '#ef4444' };
+            // أسماء المستويات كما في الاستمارة نفسها (أزرار التقييم)
+            const scoreLabels = { 1: 'متميز', 2: 'جيد', 3: 'ملائم', 4: 'غير ملائم', 5: 'تدخل سريع' };
+            const esc = (s) => (typeof svfEscapeHtml === 'function' ? svfEscapeHtml(s) : String(s));
+            const scoreColorsMap = SVF_RATING;
             const monthNames = { '01':'يناير','02':'فبراير','03':'مارس','04':'أبريل','05':'مايو','06':'يونيو','07':'يوليو','08':'أغسطس','09':'سبتمبر','10':'أكتوبر','11':'نوفمبر','12':'ديسمبر' };
             const getMonthName = (key) => {
                 const [, mo] = key.split('-');
                 return monthNames[mo] || key;
             };
 
+            const kpi = (n, label) => `<div class="px-5 py-4">
+                    <div class="text-3xl font-bold text-slate-900 tabular-nums">${n}</div>
+                    <div class="text-sm text-slate-600 mt-1">${label}</div>
+                </div>`;
+            const panel = (title, body) => `<div class="bg-white rounded-2xl border border-slate-200 p-6">
+                    <h3 class="text-base font-bold text-slate-900 mb-4">${title}</h3>${body}</div>`;
+            const empty = (msg) => `<p class="text-slate-500 text-sm text-center py-6">${msg}</p>`;
+
             container.innerHTML = `
                 <div class="space-y-6">
-                    <!-- Summary cards -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-5 text-center shadow-lg text-white">
-                            <div class="text-3xl font-extrabold">${totalVisits}</div>
-                            <div class="text-sm text-blue-100 mt-1">إجمالي الزيارات</div>
-                        </div>
-                        <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-5 text-center shadow-lg text-white">
-                            <div class="text-3xl font-extrabold">${thisMonthVisits}</div>
-                            <div class="text-sm text-green-100 mt-1">زيارات هذا الشهر</div>
-                        </div>
-                        <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl p-5 text-center shadow-lg text-white">
-                            <div class="text-3xl font-extrabold">${thisYearVisits}</div>
-                            <div class="text-sm text-indigo-100 mt-1">زيارات هذا العام</div>
-                        </div>
-                        <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-5 text-center shadow-lg text-white">
-                            <div class="text-3xl font-extrabold">${uniqueTeachers}</div>
-                            <div class="text-sm text-amber-100 mt-1">معلم تمت زيارته</div>
-                        </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 grid grid-cols-2 md:grid-cols-4 md:divide-x md:divide-x-reverse divide-slate-200">
+                        ${kpi(totalVisits, 'إجمالي الزيارات')}
+                        ${kpi(thisMonthVisits, 'زيارات هذا الشهر')}
+                        ${kpi(thisYearVisits, 'زيارات هذا العام')}
+                        ${kpi(uniqueTeachers, 'معلماً تمّت زيارته')}
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Pie chart: Score distribution -->
-                        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                            <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-chart-pie ml-2 text-blue-500"></i>توزيع درجات التقييم</h3>
-                            ${totalScoreEntries === 0
-                                ? '<p class="text-slate-400 text-sm text-center py-6">لا توجد بيانات كافية</p>'
-                                : '<div style="max-height:300px;position:relative;"><canvas id="statsPieChart"></canvas></div>'
-                            }
-                        </div>
-
-                        <!-- Line chart: Average performance over visits -->
-                        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                            <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-chart-line ml-2 text-green-500"></i>متوسط الأداء عبر الزيارات</h3>
-                            ${avgPerVisit.length < 2
-                                ? '<p class="text-slate-400 text-sm text-center py-6">تحتاج زيارتين على الأقل</p>'
-                                : '<div style="max-height:300px;position:relative;"><canvas id="statsLineChart"></canvas></div>'
-                            }
-                        </div>
+                        ${panel('توزيع درجات التقييم', totalScoreEntries === 0
+                            ? empty('لا درجات محفوظة بعد')
+                            : '<div style="max-height:300px;position:relative;"><canvas id="statsPieChart"></canvas></div>')}
+                        ${panel('متوسط الأداء عبر الزيارات', avgPerVisit.length < 2
+                            ? empty('يظهر بعد زيارتين على الأقل')
+                            : '<div style="max-height:300px;position:relative;"><canvas id="statsLineChart"></canvas></div>')}
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Monthly visits bar chart -->
-                        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                            <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-calendar-days ml-2 text-indigo-500"></i>الزيارات الشهرية (آخر 6 أشهر)</h3>
-                            <div style="max-height:250px;position:relative;"><canvas id="statsBarChart"></canvas></div>
-                        </div>
-
-                        <!-- Top schools -->
-                        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                            <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-school ml-2 text-amber-500"></i>أكثر المدارس زيارةً</h3>
-                            ${topSchools.length === 0
-                                ? '<p class="text-slate-400 text-sm text-center py-4">لا توجد بيانات</p>'
-                                : `<div class="space-y-3">${topSchools.map(([school, cnt], idx) => {
-                                    const maxC = topSchools[0][1];
-                                    const pct = Math.round(cnt / maxC * 100);
-                                    const colors = ['from-amber-400 to-amber-600','from-amber-300 to-amber-500','from-amber-200 to-amber-400','from-slate-300 to-slate-400','from-slate-200 to-slate-300'];
-                                    return `<div class="flex items-center gap-3">
-                                        <span class="text-xs font-bold text-white bg-gradient-to-r ${colors[idx] || colors[4]} w-6 h-6 rounded-full flex items-center justify-center">${idx + 1}</span>
-                                        <div class="flex-grow">
-                                            <div class="flex justify-between text-sm mb-1">
-                                                <span class="font-medium text-slate-700">${school}</span>
-                                                <span class="text-slate-400">${cnt} زيارة</span>
-                                            </div>
-                                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                <div class="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full" style="width:${pct}%"></div>
-                                            </div>
+                        ${panel('الزيارات الشهرية (آخر ستة أشهر)', '<div style="max-height:250px;position:relative;"><canvas id="statsBarChart"></canvas></div>')}
+                        ${panel('أكثر المدارس زيارةً', topSchools.length === 0 ? empty('لا زيارات بعد')
+                            : `<ol class="space-y-3">${topSchools.map(([school, cnt], idx) => {
+                                const pct = Math.round(cnt / topSchools[0][1] * 100);
+                                return `<li class="flex items-center gap-3">
+                                    <span class="w-5 text-sm font-bold text-slate-500 tabular-nums text-center">${idx + 1}</span>
+                                    <div class="flex-grow min-w-0">
+                                        <div class="flex justify-between gap-3 text-sm mb-1">
+                                            <span class="font-medium text-slate-800 truncate">${esc(school)}</span>
+                                            <span class="text-slate-500 whitespace-nowrap">${cnt} زيارة</span>
                                         </div>
-                                    </div>`;
-                                }).join('')}</div>`
-                            }
-                        </div>
+                                        <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div class="h-full bg-blue-600 rounded-full" style="width:${pct}%"></div>
+                                        </div>
+                                    </div>
+                                </li>`;
+                            }).join('')}</ol>`)}
                     </div>
 
-                    <!-- Top teachers visited -->
-                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                        <h3 class="text-base font-bold text-slate-700 mb-4 flex items-center"><i class="fa-solid fa-chalkboard-user ml-2 text-purple-500"></i>أكثر المعلمين زيارةً (أعلى 5)</h3>
-                        ${topTeachers.length === 0
-                            ? '<p class="text-slate-400 text-sm text-center py-4">لا توجد بيانات</p>'
-                            : `<div class="grid grid-cols-1 md:grid-cols-5 gap-3">${topTeachers.map(([teacher, cnt], idx) => {
-                                const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
-                                return `<div class="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-xl p-4 text-center">
-                                    <div class="text-2xl mb-1">${medals[idx] || ''}</div>
-                                    <div class="font-bold text-slate-700 text-sm truncate">${teacher}</div>
-                                    <div class="text-purple-600 font-extrabold text-lg mt-1">${cnt}</div>
-                                    <div class="text-xs text-slate-400">زيارة</div>
-                                </div>`;
-                            }).join('')}</div>`
-                        }
-                    </div>
+                    ${panel('أكثر المعلمين زيارةً', topTeachers.length === 0 ? empty('لا زيارات بعد')
+                        : `<ol class="grid grid-cols-1 md:grid-cols-5 gap-3">${topTeachers.map(([teacher, cnt], idx) => `
+                            <li class="border border-slate-200 rounded-xl p-4 bg-white">
+                                <div class="text-xs font-bold text-slate-500 tabular-nums mb-1">${idx + 1}</div>
+                                <div class="font-bold text-slate-800 text-sm truncate" title="${esc(teacher)}">${esc(teacher)}</div>
+                                <div class="text-sm text-slate-600 mt-1"><b class="text-blue-700 text-lg tabular-nums">${cnt}</b> زيارة</div>
+                            </li>`).join('')}</ol>`)}
                 </div>
             `;
 
@@ -226,19 +205,19 @@
                             datasets: [{
                                 label: 'متوسط الأداء',
                                 data: avgPerVisit.map(v => v.avg),
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'rgba(59,130,246,0.1)',
+                                borderColor: SVF_NAVY,
+                                backgroundColor: 'rgba(15,76,129,0.08)',
                                 fill: true,
                                 tension: 0.3,
                                 pointRadius: 4,
-                                pointBackgroundColor: '#3b82f6'
+                                pointBackgroundColor: SVF_NAVY
                             }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: true,
                             scales: {
-                                y: { reverse: true, min: 1, max: 5, title: { display: true, text: 'المعدل (1=أفضل)', font: { family: 'Tajawal' } } },
+                                y: { reverse: true, min: 1, max: 5, title: { display: true, text: 'المعدل (1 = أفضل)' } },
                                 x: { title: { display: false } }
                             },
                             plugins: {
@@ -257,17 +236,18 @@
             // Monthly bar chart
             const barCtx = document.getElementById('statsBarChart');
             if (barCtx) {
-                new Chart(barCtx, {
+                if (statsBarChart) statsBarChart.destroy();
+                statsBarChart = new Chart(barCtx, {
                     type: 'bar',
                     data: {
                         labels: Object.keys(monthlyData).map(k => getMonthName(k)),
                         datasets: [{
                             label: 'عدد الزيارات',
                             data: Object.values(monthlyData),
-                            backgroundColor: 'rgba(99,102,241,0.7)',
-                            borderColor: 'rgba(99,102,241,1)',
-                            borderWidth: 1,
-                            borderRadius: 6
+                            backgroundColor: SVF_NAVY,
+                            borderWidth: 0,
+                            borderRadius: 4,
+                            maxBarThickness: 36
                         }]
                     },
                     options: {

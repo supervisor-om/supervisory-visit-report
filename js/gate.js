@@ -91,29 +91,29 @@
     function injectStyle() {
         const css = `
             html[${LOCK}] body > *:not(#svfGate) { display: none !important; }
-            html[${LOCK}] body { background: #0a1410; }
+            html[${LOCK}] body { background: #082742; }
             #svfGate { position: fixed; inset: 0; z-index: 2147483000; display: flex;
                 align-items: center; justify-content: center; padding: 20px;
-                background: radial-gradient(120% 90% at 50% 0%, #16281f 0%, #0a1410 60%);
-                font-family: 'Tajawal', system-ui, sans-serif; direction: rtl; }
+                background: linear-gradient(180deg, #082742 0%, #1c2a4a 55%, #4a2f3c 100%);
+                font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif; direction: rtl; }
             #svfGate .box { width: 100%; max-width: 380px; background: rgba(255,255,255,.06);
-                border: 1px solid rgba(247,245,238,.16); border-radius: 22px; padding: 28px 24px;
+                border: 1px solid rgba(247,245,238,.16); border-radius: 18px; padding: 30px 26px;
                 box-shadow: 0 24px 60px rgba(0,0,0,.45); backdrop-filter: blur(8px); text-align: center; }
-            #svfGate h1 { color: #f7f5ee; font-size: 19px; font-weight: 700; margin: 0 0 6px; }
+            #svfGate h1 { color: #f7f5ee; font-size: 20px; font-weight: 700; margin: 0 0 6px; }
             #svfGate p  { color: rgba(247,245,238,.62); font-size: 13px; margin: 0 0 20px; line-height: 1.7; }
             #svfGate input { width: 100%; box-sizing: border-box; text-align: center; letter-spacing: 3px;
-                background: rgba(10,20,16,.5); border: 1px solid rgba(247,245,238,.22); color: #f7f5ee;
-                border-radius: 12px; padding: 12px; font-size: 16px; font-family: inherit; }
+                background: rgba(4,14,26,.45); border: 1px solid rgba(247,245,238,.22); color: #f7f5ee;
+                border-radius: 10px; padding: 12px; font-size: 16px; font-family: inherit; }
             #svfGate input:focus { outline: 2px solid #f0b44a; outline-offset: 1px; }
-            #svfGate button { width: 100%; margin-top: 12px; background: #f0b44a; color: #16281f;
-                border: 0; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700;
+            #svfGate button { width: 100%; margin-top: 12px; background: #f0b44a; color: #082742;
+                border: 0; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 700;
                 font-family: inherit; cursor: pointer; }
             #svfGate button:disabled { opacity: .6; cursor: default; }
             #svfGate .msg { color: #ffb4a2; font-size: 13px; margin-top: 12px; min-height: 18px; }
             #svfGate .foot { color: rgba(247,245,238,.38); font-size: 11px; margin: 18px 0 0; }
             #svfLogout { position: fixed; inset-block-end: 14px; inset-inline-start: 14px; z-index: 2147482000;
-                background: rgba(10,20,16,.72); color: #f7f5ee; border: 1px solid rgba(247,245,238,.2);
-                border-radius: 999px; padding: 6px 14px; font: 600 12px 'Tajawal', system-ui, sans-serif;
+                background: rgba(8,39,66,.78); color: #f7f5ee; border: 1px solid rgba(247,245,238,.2);
+                border-radius: 999px; padding: 6px 14px; font: 500 12px 'IBM Plex Sans Arabic', system-ui, sans-serif;
                 cursor: pointer; opacity: .55; transition: opacity .15s; }
             #svfLogout:hover { opacity: 1; }
             @media print { #svfGate, #svfLogout { display: none !important; } }
@@ -126,9 +126,9 @@
             @media (min-width: 768px) { html[${LETTERS}] #welcomeCards { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 72rem; } }
             html[data-svf-monthly-denied] body > *:not(#svfMonthlyDenied):not(#svfLogout):not(script):not(style) { display: none !important; }
             #svfMonthlyDenied { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-                padding: 20px; background: #f7f8fa; font-family: 'Tajawal', system-ui, sans-serif; direction: rtl; }
-            #svfMonthlyDenied .box { max-width: 380px; text-align: center; background: #fff; border: 1px solid #e2e8f0;
-                border-radius: 18px; padding: 28px 24px; box-shadow: 0 10px 30px rgba(15,23,42,.08); }
+                padding: 20px; background: #e8edf4; font-family: 'IBM Plex Sans Arabic', 'Segoe UI', system-ui, sans-serif; direction: rtl; }
+            #svfMonthlyDenied .box { max-width: 380px; text-align: center; background: #fff; border: 1px solid #d7dee7;
+                border-radius: 16px; padding: 28px 24px; }
             #svfMonthlyDenied h1 { font-size: 18px; margin: 0 0 8px; color: #0f172a; }
             #svfMonthlyDenied p { font-size: 14px; color: #475569; margin: 0 0 16px; }
             #svfMonthlyDenied a { display: inline-block; background: #0f4c81; color: #fff; text-decoration: none;
@@ -152,7 +152,7 @@
                        placeholder="رمز المشرف" aria-label="رمز المشرف">
                 <button type="submit" id="svfGateBtn">دخول</button>
                 <p class="msg" id="svfGateMsg" role="status"></p>
-                <p class="foot">الرياضة المدرسية — محافظة مسقط</p>
+                <p class="foot">محافظة مسقط</p>
             </form>`;
         document.body.appendChild(box);
         document.getElementById('svfGateForm').addEventListener('submit', submit);
@@ -216,7 +216,11 @@
             try { localStorage.removeItem(KEY); } catch (e) {}
             location.reload();
         });
-        document.body.appendChild(b);
+        // في الصفحات التي تحمل شريط الهويّة (site-shell.html) يجلس الزرّ في آخره،
+        // فلا يطفو فوق الاستمارات وأشرطة أفعالها؛ وفي غيرها يبقى في الزاوية
+        let bar = null;
+        try { bar = document.querySelector && document.querySelector('.svf-id'); } catch (e) { bar = null; }
+        (bar || document.body).appendChild(b);
     }
 
     function start() {
