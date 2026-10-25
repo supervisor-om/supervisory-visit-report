@@ -302,7 +302,9 @@
         function toggleSupervisoryView(viewId) {
             // المداولة لأصحابها وحدهم (gate.js: DEBRIEF_OWNERS) — لغيرهم يبقى النموذج
             if (viewId === 'debrief-view' && !(window.SupervisorGate && SupervisorGate.canDebrief && SupervisorGate.canDebrief())) viewId = 'form-view';
-            document.querySelectorAll('#form-view, #debrief-view, #dashboard-view, #saved-reports-view, #stats-view, #term-view').forEach(view => {
+            // وعين المشرف كذلك (gate.js: EYE_OWNERS)
+            if (viewId === 'eye-view' && !(window.SupervisorGate && SupervisorGate.canEye && SupervisorGate.canEye())) viewId = 'form-view';
+            document.querySelectorAll('#form-view, #debrief-view, #dashboard-view, #saved-reports-view, #stats-view, #term-view, #eye-view').forEach(view => {
                 view.classList.add('hidden');
             });
 
@@ -319,6 +321,8 @@
 
             // المداولة تُبنى من النموذج لحظة فتحها (js/debrief.js)
             if (viewId === 'debrief-view' && typeof svfDebriefOpen === 'function') { try { svfDebriefOpen(); } catch (e) { console.warn(e); } }
+            // عين المشرف تُبنى أوّل فتحٍ وتعرض نتيجة التقرير المفتوح (js/eye.js)
+            if (viewId === 'eye-view' && typeof svfEyeOpen === 'function') { try { svfEyeOpen(); } catch (e) { console.warn(e); } }
 
             if (viewId === 'saved-reports-view') {
                 renderSavedReports();

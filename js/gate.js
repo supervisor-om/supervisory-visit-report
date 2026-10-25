@@ -29,6 +29,9 @@
     // المداولة الإشرافيّة كذلك (طلب أسعد 2026-10-13: «لي وحدي»): تبويبها وشاشتها لهؤلاء وحدهم
     const DEBRIEF_OWNERS = ['asad'];
     const DEBRIEF = 'data-svf-debrief';
+    // «عين المشرف» كذلك (طلب أسعد 2026-10-25: «أنت وحدك أولاً»): تبويبها وشاشتها لهؤلاء وحدهم
+    const EYE_OWNERS = ['asad'];
+    const EYE = 'data-svf-eye';
 
     function readSession() {
         try {
@@ -63,6 +66,11 @@
         return !!(s && DEBRIEF_OWNERS.indexOf(s.id) !== -1);
     }
 
+    function canEye() {
+        const s = readSession();
+        return !!(s && EYE_OWNERS.indexOf(s.id) !== -1);
+    }
+
     function canMonthly() {
         const s = readSession();
         return !!(s && MONTHLY_OWNERS.indexOf(s.id) !== -1);
@@ -74,6 +82,8 @@
         else document.documentElement.removeAttribute(LETTERS);
         if (canDebrief()) document.documentElement.setAttribute(DEBRIEF, '');
         else document.documentElement.removeAttribute(DEBRIEF);
+        if (canEye()) document.documentElement.setAttribute(EYE, '');
+        else document.documentElement.removeAttribute(EYE);
         const ok = canMonthly();
         if (ok) document.documentElement.setAttribute(MONTHLY, '');
         else document.documentElement.removeAttribute(MONTHLY);
@@ -123,6 +133,8 @@
             html:not([${LETTERS}]) #lettersApp { display: none !important; }
             html:not([${DEBRIEF}]) .nav-tab[data-view="debrief-view"],
             html:not([${DEBRIEF}]) #debrief-view { display: none !important; }
+            html:not([${EYE}]) .nav-tab[data-view="eye-view"],
+            html:not([${EYE}]) #eye-view { display: none !important; }
             @media (min-width: 768px) { html[${LETTERS}] #welcomeCards { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 72rem; } }
             html[data-svf-monthly-denied] body > *:not(#svfMonthlyDenied):not(#svfLogout):not(script):not(style) { display: none !important; }
             #svfMonthlyDenied { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -238,6 +250,7 @@
         canMonthly,
         canLetters,
         canDebrief,
+        canEye,
         isOpen: () => !!readSession(),
         logout: () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
     };

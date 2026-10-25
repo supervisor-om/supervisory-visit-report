@@ -137,6 +137,9 @@ function env(store, opts) {
         check('debrief: لغيره ولا لمن بلا جلسة', !other.root.hasAttribute('data-svf-debrief') && other.ctx.SupervisorGate.canDebrief() === false && !none.root.hasAttribute('data-svf-debrief'));
         check('debrief: قاعدة الإخفاء تشمل التبويب والشاشة',
               /html:not\(\[\$\{DEBRIEF\}\]\) \.nav-tab\[data-view="debrief-view"\],\s*html:not\(\[\$\{DEBRIEF\}\]\) #debrief-view \{ display: none !important; \}/.test(GATE));
+        // عين المشرف لأسعد وحده (طلبه 2026-10-25)
+        check('eye: لأسعد السمة وcanEye', asad.root.hasAttribute('data-svf-eye') && asad.ctx.SupervisorGate.canEye() === true);
+        check('eye: لغيره ولا لمن بلا جلسة', !other.root.hasAttribute('data-svf-eye') && other.ctx.SupervisorGate.canEye() === false && !none.root.hasAttribute('data-svf-eye'));
         const SUPJS = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/supervisory.js'), 'utf8');
         check('debrief: التبديل لا يفتحها لغيره', /viewId === 'debrief-view' && !\(window\.SupervisorGate && SupervisorGate\.canDebrief && SupervisorGate\.canDebrief\(\)\)\) viewId = 'form-view';/.test(SUPJS));
         const INIT = require('fs').readFileSync(require('path').join(__dirname, '..', 'js/init.js'), 'utf8');
