@@ -342,6 +342,16 @@
             }
             else if (b.id === 'debriefWord') exportWord();
             else if (b.id === 'debriefEyeCard') { if (typeof root.svfEyeShareCard === 'function') root.svfEyeShareCard(); }
+            else if (b.id === 'debriefEyeIndicator') {
+                // أهداف العين القابلة للقياس ← «مؤشّر النجاح» في الاتّفاق (يُضاف إلى ما كُتب، ولا يتكرّر)
+                const t = typeof root.svfEyeIndicatorText === 'function' ? root.svfEyeIndicatorText() : '';
+                if (!t) return;
+                update(st => {
+                    const cur = ((st.agree || {}).indicator || '').trim();
+                    st.agree = Object.assign({}, st.agree, { indicator: cur.includes(t) ? cur : (cur ? cur + '؛ ' : '') + t });
+                }, true);
+                root.showToast && showToast('أُدرجت الأهداف في «مؤشّر النجاح»');
+            }
             else if (b.id === 'debriefToRecs') toRecs();
             else if (b.id === 'debriefBig') { box.classList.toggle('debrief-big'); render(); }
         });

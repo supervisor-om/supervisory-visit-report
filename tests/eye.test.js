@@ -502,7 +502,8 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('speech→debrief: العبارات التي تحتاج مراجعةً لا تدخل المداولة', !JSON.stringify(dp).includes('غبي'));
     const closed = E.debriefPrompts({ speech: SX.analyze(Array.from({ length: 30 }, (_, i) => ({ t: i * 20, x: 'هل جاهزين يا شباب نبدأ الحين أحسنت' })), {}) }, {}, {});
     check('speech→debrief: أسئلةٌ مغلقة وتعزيزٌ عامّ ← سؤالان للتأمّل', closed.ask.some(t => /مغلقة/.test(t)) && closed.ask.some(t => /أغلب تعزيزك عامّ/.test(t)), JSON.stringify(closed.ask));
-    check('speech→summary: سطر الأرقام في الملخّص', /وسُمع في كلام المعلّم: تعزيزٌ \(\d+\)، وتصحيحٌ \(\d+\)، وأسئلةٌ \(\d+\)/.test(E.summaryText(Object.assign({}, M, { observed: 2100, activePct: 50, activeSec: 1000 }), {})));
+    check('speech→summary: سطر الأرقام في الملخّص', /وسُمع في كلام المعلم: تعزيزٌ \(\d+\)، وتصحيحٌ \(\d+\)، وأسئلةٌ \(\d+\)/.test(E.summaryText(Object.assign({}, M, { observed: 2100, activePct: 50, activeSec: 1000 }), {})));
+    check('speech→summary: وللمعلّمة «كلام المعلمة» (كان «المعلّم» للجميع)', /وسُمع في كلام المعلمة:/.test(E.summaryText(Object.assign({}, M, { observed: 2100, activePct: 50, activeSec: 1000 }), { female: true })));
 
     // التوصيل
     const UI = read('js/eye.js'), RP = read('js/eye-report.js'), H = read('reports.html'), SW = read('sw.js');
@@ -518,6 +519,104 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: النصّ مهروبٌ في النتيجة والبثّ الحيّ نصٌّ لا HTML', /«\$\{esc\(x\)\}»/.test(UI) && /tx\.appendChild\(document\.createTextNode\('«' \+ last\.x \+ '»'\)\)/.test(UI));
     check('wiring: البطاقة أرقام الكلام وأمثلة «ما يُعزَّز» وحدها — لا النصّ ولا عبارات المراجعة', /كلام المعلّم/.test(RP) && !/harsh|\.ex\b|specEx|hiEx|\.sp\b|\.seg\b/.test(RP));
     check('wiring: الوحدة محمّلةٌ قبل الشاشة وفي عامل الخدمة', /eye-core\.js[\s\S]{0,80}eye-speech\.js[\s\S]*eye\.js/.test(H) && SW.includes("'./js/eye-speech.js'"));
+}
+
+/* ── ١٨) أدوات المشرف (2026-10-26): عيّنة الطلبة، لحظات الحصة، أهدافٌ تُقاس وتُتابَع، أنماط الرصد ── */
+{
+    // حصّةٌ اصطناعيّة: ٣٢ دقيقة بعناصرها، وانتظارٌ طويلٌ في الأنشطة التعليميّة، وقاطرةٌ من تسعةٍ في التطبيق
+    const secs = [];
+    const PLAN = t => t < 360 ? ['warm', 15, 'S', 0] : t < 600 ? ['fit', 13, 'L', 0] : t < 1260 ? ['teach', 9, 'G', 0] : t < 1740 ? ['apply', 10, 'L', 9] : ['close', 2, 'C', 0];
+    for (let t = 0; t < 1920; t++) {
+        const [k, mv, fm, ln] = PLAN(t), idle = k === 'close' || (k === 'teach' && t >= 1020 && t < 1240);
+        secs.push({ m: idle ? 0.004 : 0.05, v: t % 5 === 0, w: false, p: t % 3 ? null : { n: 22, mv: idle ? 2 : mv, o: 1, q: k === 'apply' ? 10 : 0, r: true, fm, ln: t > 1300 && t < 1500 ? ln : 0, d: 2 } });
+    }
+    const ev = [[0, 'warm'], [360, 'fit'], [600, 'teach'], [1260, 'apply'], [1740, 'close']].map(([t, k]) => ({ t, k }));
+    const M = E.summarize({ secs, grid: [], sens: 'medium', ctx: ev, mic: 'device' });
+
+    // عيّنة الطلبة
+    const sample = { n: 8, a: '11213211', b: '33223312' };
+    const SS = E.sampleStats(sample);
+    check('sample: القراءتان (إتقان = أتقن + نصف الجزئيّ)', SS.a.pct === 25 && SS.b.pct === 69 && SS.b.ok === 4 && SS.b.part === 3 && SS.b.no === 1, JSON.stringify(SS));
+    check('sample: التقدّم = من تحسّن أو حافظ على إتقانه بين القراءتين', SS.both === 8 && SS.improved === 5 && SS.kept === 1 && SS.regressed === 0 && SS.progress === 75);
+    check('sample: آخر قراءةٍ فيها خمسةٌ فأكثر هي المعتمدة، وإلّا الأولى', SS.finalRound === 'b' && E.sampleStats({ n: 8, a: '33321', b: '33' }).finalRound === 'a' && E.sampleStats({ n: 8, a: '332', b: '' }).final === null);
+    check('sample: رموزٌ غريبة وعددٌ أكبر من العيّنة تُهمل', E.sampleStats({ n: 3, a: '39x3333' }).a.rated === 1 && E.sampleStats(null) === null);
+    check('sample: كمّيّات الاستمارة (جميع/معظم/أغلب/قليل/نادر)', [95, 90, 80, 75, 60, 50, 30, 25, 10].map(E.quantScore).join('') === '112233445');
+
+    // البند ١ والبند ٢ من العيّنة، والبند ١١ من متابعة الأهداف
+    const s0 = E.suggest(M, {}, { female: true });
+    check('sample→suggest: بلا عيّنةٍ لا يُقترح البند ١، وسببه يدلّ على العيّنة', !s0.some(s => s.id === 1) && /عيّنة الطلبة/.test(E.unsupported(s0, M).find(u => u.id === 1).why));
+    const s1 = E.suggest(M, {}, { female: true, sample });
+    const i1 = s1.find(s => s.id === 1), i2 = s1.find(s => s.id === 2);
+    check('sample→suggest: البند ١ من إتقان آخر قراءة (٦٩٪ ← أغلب = ملائم) بشاهده', i1 && i1.score === 3 && i1.basis === 'sample' && i1.conf === 'high'
+          && /في عيّنةٍ من \(8\) طلبة في آخر الحصة: أتقن المهارة \(4\)، وأدّاها جزئيّاً \(3\)، ولم يتقنها \(1\) — نسبة الإتقان \(69%\)/.test(i1.evidence), JSON.stringify(i1));
+    check('sample→suggest: البند ٢ من التقدّم (٧٥٪ ← معظم = جيد)، والإتقان «من … إلى …»', i2 && i2.score === 2 && i2.basis === 'sample' && /تقدّم \(5\) من \(8\) طلبة في العيّنة/.test(i2.evidence) && /وارتفع الإتقان من \(25%\) إلى \(69%\)/.test(i2.evidence), JSON.stringify(i2));
+    check('sample→suggest: وطلبةٌ خارج النشاط يُنزلانه كما كان', E.suggest(M, { out: 3 }, { sample }).find(s => s.id === 2).score === 4);
+    check('suggest: البند ٢ بلا عيّنةٍ كما كان (مراعاة الفروق، ومن هم خارج النشاط)', E.suggest({}, { include: 2 }, {}).find(s => s.id === 2).score === 1 && E.suggest({}, { out: 1 }, {}).find(s => s.id === 2).score === 3
+          && E.suggest({}, { include: 1, out: 1 }, {}).find(s => s.id === 2).evidence === 'راعى المعلم الفروق الفردية بين الطلبة مرّة واحدة (تكليفٌ حسب المستوى أو دمجٌ لذوي الإعاقة والاحتياجات)، وظلّ طالبٌ واحد خارج النشاط.');
+    check('sample→suggest: الصفوف ١–٤ «التلاميذ»', /تلاميذ/.test(E.suggest(M, {}, { sample, pupil: s => s.replace(/طلبة/g, 'تلاميذ') }).find(s => s.id === 1).evidence));
+
+    // الأهداف القابلة للقياس
+    const d = { M, counts: { dish: 3, out: 1 }, sample };
+    const C = E.targetCandidates(d);
+    check('targets: المقترحة ما لم يبلغ حدّه، والتعلّم أوّلاً (حركة الطلبة ثمّ الإتقان)', C[0].k === 'move' && C[1].k === 'mastery' && C.every(t => E.METRIC[t.k].dir > 0 ? t.base < E.METRIC[t.k].good : t.base > E.METRIC[t.k].good), C.map(t => t.k).join(','));
+    check('targets: الهدف متدرّجٌ من القيمة لا قفزٌ إلى المثاليّ', C.find(t => t.k === 'move').goal === 60 && E.METRIC.move.goal(30) === 40 && E.METRIC.mastery.goal(69) === 85 && E.METRIC.idle.goal(480) === 240);
+    const tMove = C.find(t => t.k === 'move'), tIdle = C.find(t => t.k === 'idle');
+    check('targets: جملة التوصية بالأرقام', E.targetText(tMove, {}) === 'رفع زمن حركة الطلبة في عناصر الحصة النشطة من (' + tMove.base + '%) إلى (60%) على الأقلّ'
+          && /من \(4\) دقائق إلى دقيقتين على الأكثر/.test(E.targetText(tIdle, {})), E.targetText(tIdle, {}));
+    check('targets: بصيغة الجنس، و«التلاميذ» للصفوف ١–٤', /كلام المعلمة/.test(E.targetText({ k: 'org', base: 55, goal: 40 }, { female: true })) && /التلاميذ/.test(E.targetText(tMove, { pupil: s => s.replace('الطلبة', 'التلاميذ') })));
+    check('targets: ومؤشّر الاتّفاق «… على الأقلّ / على الأكثر»', E.targetGoalText(tMove) === 'حركة الطلبة في عناصر الحصة النشطة 60% على الأقلّ' && E.targetGoalText({ k: 'dish', goal: 0 }) === 'المشاركون بغير الزيّ الرياضيّ 0');
+    check('targets: ما لا يُقاس في هذا الرصد لا يُقترح (لا كلام ← لا أهداف كلام)', !C.some(t => ['praiseSpec', 'qHi', 'check', 'org'].includes(t.k)) && !E.targetCandidates({ M: {}, counts: {} }).length);
+    const now = { M: Object.assign({}, M, { people: Object.assign({}, M.people, { movingPlay: 54 }) }), counts: { dish: 0, out: 2 }, sample: { n: 8, b: '33333332' } };
+    const V = t => E.targetCheck(t, now).verdict;
+    check('targets→follow: بلغه / تحسّن / بقي / تراجع / لم يُقس', V(tMove) === 'better' && V({ k: 'mastery', base: 69, goal: 85 }) === 'met' && V(tIdle) === 'same'
+          && V({ k: 'out', base: 1, goal: 0 }) === 'worse' && V({ k: 'qHi', base: 0, goal: 2 }) === 'na' && E.targetCheck({ k: 'nope' }, now) === null);
+
+    const follow = [E.targetCheck(tMove, now), E.targetCheck({ k: 'mastery', base: 69, goal: 85 }, now), E.targetCheck(tIdle, now), E.targetCheck({ k: 'qHi', base: 0, goal: 2 }, now)];
+    const i11 = E.suggest(M, {}, { follow, followDate: '2026-10-01' }).find(s => s.id === 11);
+    check('follow→suggest: البند ١١ من متابعة الأهداف (العمل بتوجيهات المشرف) — وما لم يُقس لا يُحسب', i11 && i11.score === 3 && i11.basis === 'follow' && i11.conf === 'high'
+          && /^من أهداف الزيارة السابقة \(2026-10-01\): تحقّق \(1\) من \(3\)، وتحسّن \(1\) دون أن يبلغ هدفه — /.test(i11.evidence), JSON.stringify(i11));
+    const allMet = [{ verdict: 'met', label: 'أ', unit: '%', base: 40, now: 60 }, { verdict: 'met', label: 'ب', unit: 'n', base: 3, now: 0 }];
+    check('follow→suggest: تحقّقت كلّها ← جيد (المتميّز يقدّره المشرف)، ولا شيء ← غير ملائم، ولا قياس ← لا اقتراح',
+          E.suggest({}, {}, { follow: allMet }).find(s => s.id === 11).score === 2 && E.suggest({}, {}, { follow: [{ verdict: 'same', label: 'أ', unit: '%', base: 1, now: 1 }] }).find(s => s.id === 11).score === 4
+          && !E.suggest({}, {}, { follow: [{ verdict: 'na' }] }).some(s => s.id === 11));
+    const dpF = E.debriefPrompts(M, {}, { female: true, follow, sample });
+    check('follow→debrief: ما تحقّق يُعزَّز، وما لم يتحقّق سؤال', dpF.good.some(t => /^تحقّق هدف الزيارة السابقة: إتقان عيّنة الطلبة للمهارة \(69% ← 94%\)/.test(t)) && dpF.ask.some(t => /هدف «أطول انتظارٍ بين نشاطين» من الزيارة السابقة لم يتحقّق/.test(t))
+          && dpF.ask.some(t => /^تحسّن «حركة الطلبة في عناصر الحصة النشطة» \(\d+% ← 54%\) ولم يبلغ المتّفق عليه \(60%\)\. ما الذي يوصلكِ إليه/.test(t)), JSON.stringify(dpF));
+    check('formations: زمن القاطرة الطويلة حقيقيٌّ وإن تباعدت اللقطات (كان يُعدّ بالثواني التي فيها لقطة)', M.forms.longLineSec === M.forms.longRun.sec && M.forms.longLineSec > 150, M.forms.longLineSec);
+    check('sample→debrief: إتقانٌ قليلٌ سؤال، وتقدّم أغلب العيّنة إجادة', E.debriefPrompts({}, {}, { sample: { n: 6, a: '111111', b: '111123' } }).ask.some(t => /أتقن المهارة \(1\) من \(6\) طلبة في العيّنة/.test(t)) && dpF.good.some(t => /تقدّم \(5\) من \(8\) طلبة في العيّنة/.test(t)));
+    check('summary: العيّنة ومتابعة الأهداف في سطر الملاحظات', /وأتقن المهارة \(4\) من \(8\) طلبة في عيّنة الطلبة، وتحقّق \(1\) من \(3\) من أهداف الزيارة السابقة\.$/.test(E.summaryText(M, { sample, follow })));
+    check('summary: لمساتٌ وعيّنةٌ بلا رصدٍ ← سطرٌ بلا مدّة', E.summaryText({}, { sample }) === 'رُصدت الحصة بعين المشرف: أتقن المهارة (4) من (8) طلبة في عيّنة الطلبة.');
+
+    // لحظات الحصة
+    check('moments: متى بدأ أطول انتظار، وأطول قاطرةٍ طويلة، والحصة دقيقةً دقيقة', M.longestIdleAt >= 1015 && M.longestIdleAt <= 1030 && M.forms.longRun.at === 1302 && M.forms.longRun.size === 9 && M.forms.longRun.sec > 150 && M.mins.length === 32, JSON.stringify([M.longestIdleAt, M.forms.longRun]));
+    const AM = E.autoMoments(M, {});
+    check('moments: أطول انتظار والقاطرة وأعلى حركة — بأوقاتها وعناصرها', AM.map(x => x.k).join(',') === 'peak,idle,line' && AM.find(x => x.k === 'idle').part === 'teach' && AM.find(x => x.k === 'line').part === 'apply'
+          && /واستمرّ \(4\) دقائق/.test(AM.find(x => x.k === 'idle').text) && /قاطرةٌ من \(9\) طلبة/.test(AM.find(x => x.k === 'line').text), JSON.stringify(AM));
+    check('moments: أدنى دقيقةٍ عند بدء أطول انتظارٍ لا تُذكر مرّتين', !AM.some(x => x.k === 'low'));
+    check('moments: بلا رصدٍ لا لحظات', !E.autoMoments({}, {}).length && !E.autoMoments(null).length);
+
+    // أنماط الرصد
+    const P = E.patterns([{ teacher: 'سالم الهنائي', d }, { teacher: 'سالم  الهنائي', d }, { teacher: 'مريم', d: now }, { teacher: 'خالد', d: { counts: {} } }]);
+    check('patterns: الحصص المرصودة والمعلّمون (المسافات لا تفرّق الاسم)', P.lessons === 3 && P.teachers === 2, JSON.stringify([P.lessons, P.teachers]));
+    const li = P.issues.find(x => x.k === 'longIdle');
+    check('patterns: ما يتكرّر بعدد حصصه ونسبتها ومعلّميه', li && li.n === 3 && li.pct === 100 && li.teachers.length === 2 && P.issues.find(x => x.k === 'dish').teachers.length === 1);
+    check('patterns: موضوعات البرنامج التدريبيّ مرتّبةٌ بعدد المعلّمين', P.topics[0].teachers.length === 2 && P.topics.every((t, i, a) => !i || a[i - 1].teachers.length >= t.teachers.length));
+    check('patterns: نسبة الأهداف المتحقّقة من المتابعات المحفوظة', E.patterns([{ teacher: 'أ', d: { M: {}, follow: { list: follow } } }]).follow.met === 1 && E.patterns([{ teacher: 'أ', d: { M: {}, follow: { list: follow } } }]).follow.measured === 3);
+    check('patterns: issuesOf لا يرمي على بياناتٍ ناقصة', Array.isArray(E.issuesOf({})) && Array.isArray(E.issuesOf(null)));
+
+    // التوصيل
+    const UI = read('js/eye.js'), RP = read('js/eye-report.js'), DB = read('js/debrief.js');
+    check('wiring: العلامة أثناء الرصد وحده، بوقتها، وملاحظتها مهروبة', /function addMark\(\) \{\s*\n\s*if \(!S\.running\)/.test(UI) && /S\.marks\.push\(\{ t: Math\.round\(now\(\)\), note: '' \}\)/.test(UI)
+          && /value="\$\{esc\(m\.note \|\| ''\)\}"/.test(UI) && /\$\{esc\(x\.text \|\| 'بلا ملاحظة'\)\}/.test(UI));
+    check('wiring: العيّنة والعلامات تُحفظ مع الرصد وتُستعاد، وتُصفَّر مع رصدٍ جديد', /sample: hasSample\(S\.sample\) \? Object\.assign\(\{\}, S\.sample\) : null,\s*\n\s*marks: S\.marks\.map\(m => \[m\.t, m\.note \|\| ''\]\)/.test(UI)
+          && /S\.sample = data\.sample \? Object\.assign\(\{\}, data\.sample\) : null;\s*\n\s*S\.marks = \(data\.marks \|\| \[\]\)/.test(UI) && (UI.match(/S\.sample = null; S\.sampleRound = 'a'; S\.marks = \[\];/g) || []).length === 2);
+    check('wiring: أهداف الزيارة السابقة (الرصد السابق للمعلّم نفسه) تُقاس على رصد اليوم، ثمّ يُقترح بها', /const prev = prevEye\(\);\s*\n\s*if \(prev && Array\.isArray\(prev\.d\.targets\)[\s\S]{0,200}targetCheck\(t, data\)[\s\S]{0,120}data\.sugg = E\(\)\.suggest\(keep, data\.counts, ctxOf\(data\)\);\s*\n\s*data\.summary = E\(\)\.summaryText\(keep, ctxOf\(data\)\)/.test(UI)
+          && /if \(d\.follow && Array\.isArray\(d\.follow\.targets\)\) d\.follow\.list = d\.follow\.targets\.map\(t => E\(\)\.targetCheck\(t, d\)\)/.test(UI));
+    check('wiring: «تركيز هذه الحصة» قبل الرصد وأثناءه، ويختفي حين تظهر المتابعة', /function renderFocus\(\) \{[\s\S]{0,200}const prev = S\.result \? null : prevEye\(\);/.test(UI) && /renderFocus\(\);\s*\n\s*\}\s*\n\s*\n\s*\/\/ علامات المشرف/.test(UI));
+    check('wiring: الأهداف إلى «التوصيات» بلا تكرار، وإلى «مؤشّر النجاح» في المداولة', /const add = lines\.filter\(l => !ta\.value\.includes\(l\.slice\(2\)\)\);/.test(UI) && /'، ويُقاس في الزيارة القادمة\.'/.test(UI)
+          && /b\.id === 'debriefEyeIndicator'[\s\S]{0,300}root\.svfEyeIndicatorText\(\)[\s\S]{0,300}cur\.includes\(t\) \? cur/.test(DB) && /root\.svfEyeIndicatorText = function/.test(UI));
+    check('wiring: أنماط الرصد من تقارير العام الدراسيّ الحاليّ وأسماؤها مهروبة', /academicYearOf\(r\.visitDate\) !== ay/.test(UI) && /const names = arr => arr\.slice\(0, 4\)\.map\(esc\)/.test(UI));
+    check('wiring: البطاقة فيها العيّنة والأهداف — لا ملاحظات المشرف (العلامات)', /عيّنة الطلبة/.test(RP) && /أهدافنا للزيارة القادمة/.test(RP) && !/marks|momentsOf|autoMoments/.test(RP));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

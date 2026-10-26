@@ -44,7 +44,8 @@
         wake: null, fileUrl: null, written: '', result: null,
         roi: null, roiDraft: null, roiMode: false, mask: null, cells: null,
         ctxEvents: [], ctxCur: null, pSnap: null, pSnapAt: -1, runId: 0, classMax: 0,
-        sp: null, speechConsent: false
+        sp: null, speechConsent: false,
+        sample: null, sampleRound: 'a', marks: []          // عيّنة الطلبة، وعلامات المشرف بأوقاتها
     };
     const SR = () => root.SpeechRecognition || root.webkitSpeechRecognition || null;
     const SX = () => root.SvfEyeSpeech;
@@ -66,6 +67,14 @@
     const now = () => (S.src === 'file' ? (S.video ? S.video.currentTime : 0) : (performance.now() - S.t0) / 1000);
     const mmss = sec => { sec = Math.max(0, Math.floor(sec)); const m = Math.floor(sec / 60), s = sec % 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; };
     const suggCtx = () => ({ female: female(), pupil });
+    // مع العيّنة ومتابعة أهداف الزيارة السابقة — لكلّ ما يُبنى من بيانات رصدٍ محفوظة (الاقتراح، الملخّص، المداولة، البطاقة)
+    const ctxOf = d => Object.assign(suggCtx(), { sample: d && d.sample, follow: d && d.follow ? d.follow.list : null, followDate: d && d.follow ? d.follow.date : null });
+    const standardOf = id => { const it = typeof evaluationItems !== 'undefined' ? evaluationItems.find(x => x.id === id) : null; return it ? it.standard : 'البند ' + id; };
+    const freshSample = n => ({ n: n || 8, a: '', b: '' });
+    const hasSample = sm => !!(sm && /[123]/.test(String(sm.a || '') + String(sm.b || '')));
+    const partShort = k => (k && E().PART[k] ? E().PART[k].short : '');
+    // عنصر الحصة الذي كان قائماً عند الثانية t (من لمسات «عناصر الحصة»)
+    const partAt = (cx, t) => { let k = null; (cx || []).forEach(e => { const et = Array.isArray(e) ? e[0] : e.t, ek = Array.isArray(e) ? e[1] : e.k; if (et <= t) k = ek; }); return k; };
 
     // ── البناء ──
     function build() {
@@ -117,6 +126,7 @@
                     </span>
                 </div>
             </section>
+            <section id="eyeFocus" class="hidden bg-white rounded-2xl border border-slate-200 border-r-4 p-4" style="border-right-color:#f0b44a" aria-live="polite"></section>
             <p id="eyeMsg" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm" role="alert"></p>
 
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
@@ -163,6 +173,15 @@
                     </div>
 
                     <div class="bg-white rounded-2xl border border-slate-200 p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <b class="text-sm text-slate-900">لحظات للمداولة</b>
+                            <button type="button" id="eyeMark" class="svf-btn svf-btn-secondary svf-btn-sm"><i class="fa-solid fa-bookmark" aria-hidden="true"></i>علامة الآن</button>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1 leading-5">المس «علامة» حين ترى ما تريد مناقشته مع المعلّم: يُحفظ وقته وعنصر الحصة، واكتب ملاحظةً قصيرة إن شئت.</p>
+                        <ul id="eyeMarks" class="mt-2 space-y-1.5"></ul>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 p-4">
                         <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                             <b class="text-sm text-slate-900">مجرى الحصة</b>
                             <span class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
@@ -170,6 +189,7 @@
                                 <span class="flex items-center gap-1"><i class="inline-block w-3 h-3 rounded-sm" style="background:#cbd5e1"></i>انتظار أو شرح</span>
                                 <span class="flex items-center gap-1"><i class="inline-block w-3 h-3 rounded-sm border border-slate-300" style="background:#f1f5f9"></i>غير محسوب</span>
                                 <span class="flex items-center gap-1"><i class="inline-block w-1 h-3" style="background:#b5452f"></i>لمسة</span>
+                                <span class="flex items-center gap-1"><i class="inline-block w-2 h-3" style="background:#f0b44a"></i>علامة</span>
                             </span>
                         </div>
                         <canvas id="eyeTimeline" class="w-full block" style="height:72px"></canvas>
@@ -201,11 +221,28 @@
                         </div>
                         <button type="button" id="eyeTapsOnly" class="svf-btn svf-btn-secondary svf-btn-sm w-full mt-4">اقترح التقييم من لمساتي وحدها</button>
                     </section>
+
+                    <section class="bg-white rounded-2xl border border-slate-200 p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <h2 class="font-bold text-slate-900">عيّنة الطلبة — إتقان المهارة</h2>
+                            <label class="flex items-center gap-1.5 text-xs text-slate-600">العدد
+                                <select id="eyeSampleN" class="bg-white border border-slate-300 rounded-lg px-1.5 py-1 text-sm">${[5, 6, 8, 10, 12].map(n => `<option value="${n}"${n === 8 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+                        </div>
+                        <p class="text-xs text-slate-600 mt-1 mb-2 leading-5">اختر طلبةً متفاوتين واحفظ مواقعهم، وقيّمهم في أوّل التطبيق ثمّ في آخره. المس رقم الطالب ليتبدّل:
+                            لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ (التحصيل) و٢ (التقدّم).</p>
+                        <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="القراءة">
+                            <button type="button" class="eye-round svf-btn svf-btn-primary svf-btn-sm" data-round="a" aria-pressed="true">أوّل التطبيق</button>
+                            <button type="button" class="eye-round svf-btn svf-btn-secondary svf-btn-sm" data-round="b" aria-pressed="false">آخر الحصة</button>
+                        </div>
+                        <div id="eyeSampleChips" class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 xl:grid-cols-6 gap-1.5 mt-2"></div>
+                        <p id="eyeSampleSum" class="text-xs text-slate-600 mt-2 leading-5"></p>
+                    </section>
                 </aside>
             </div>
 
             <section id="eyeResult" class="hidden space-y-4" aria-live="polite"></section>
-            <section id="eyeAgree" class="bg-white rounded-2xl border border-slate-200 p-5"></section>`;
+            <section id="eyeAgree" class="bg-white rounded-2xl border border-slate-200 p-5"></section>
+            <section id="eyePatterns" class="bg-white rounded-2xl border border-slate-200 p-5"></section>`;
 
         S.canvas = document.createElement('canvas');
         S.canvas.width = W; S.canvas.height = S.h;
@@ -236,10 +273,19 @@
         body.querySelectorAll('.eye-tag').forEach(b => b.addEventListener('click', () => tap(b.dataset.tag, b)));
         body.querySelectorAll('.eye-dec').forEach(b => b.addEventListener('click', () => dec(b.dataset.dec)));
         body.querySelectorAll('.eye-ctx').forEach(b => b.addEventListener('click', () => setCtx(b.dataset.ctx)));
+        $('eyeMark').addEventListener('click', addMark);
+        $('eyeMarks').addEventListener('input', e => { const i = +e.target.dataset.mark; if (S.marks[i]) { S.marks[i].note = e.target.value.slice(0, 160); syncMarks(false); } });
+        $('eyeMarks').addEventListener('change', e => { if (e.target.dataset.mark != null) syncMarks(true); });
+        $('eyeMarks').addEventListener('click', e => { const b = e.target.closest('[data-unmark]'); if (b) { S.marks.splice(+b.dataset.unmark, 1); renderMarks(); drawTimeline(); syncMarks(true); } });
+        body.querySelectorAll('.eye-round').forEach(b => b.addEventListener('click', () => { S.sampleRound = b.dataset.round; renderSample(); }));
+        $('eyeSampleChips').addEventListener('click', e => { const b = e.target.closest('[data-pupil]'); if (b) sampleTap(+b.dataset.pupil); });
+        $('eyeSampleN').addEventListener('change', () => { const sm = S.sample || freshSample(); sm.n = +$('eyeSampleN').value || 8; S.sample = sm; renderSample(); sampleChanged(); });
         root.addEventListener('resize', () => { drawTimeline(); drawHeat(); drawView(); });
         if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', refreshMics);
         refreshMics();
         renderKpis(null);
+        renderSample();
+        renderMarks();
         S.bound = true;
     }
 
@@ -313,7 +359,9 @@
         const d = S.result;
         if (!d || S.running) return;
         d.counts = Object.assign({}, S.counts);
-        d.sugg = E().suggest(d.M || {}, d.counts, suggCtx());
+        if (d.follow && Array.isArray(d.follow.targets)) d.follow.list = d.follow.targets.map(t => E().targetCheck(t, d)).filter(Boolean);
+        d.sugg = E().suggest(d.M || {}, d.counts, ctxOf(d));
+        d.summary = E().summaryText(d.M || {}, ctxOf(d));
         save(d);
         renderResult(d);
     }
@@ -333,6 +381,95 @@
             b.classList.toggle('svf-btn-secondary', !on);
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
+    }
+
+    // ── لحظات للمداولة: علامات المشرف بأوقاتها ──
+    function addMark() {
+        if (!S.running) { toast('توضع العلامة أثناء الرصد', 'info'); return; }
+        if (S.marks.length >= 40) { toast('بلغت العلامات حدّها (٤٠)', 'info'); return; }
+        S.marks.push({ t: Math.round(now()), note: '' });
+        renderMarks();
+        drawTimeline();
+        const b = $('eyeMark'); if (b) { b.classList.add('ring-2', 'ring-amber-400'); setTimeout(() => b.classList.remove('ring-2', 'ring-amber-400'), 300); }
+    }
+    function renderMarks() {
+        const ul = $('eyeMarks');
+        if (!ul) return;
+        const cx = S.running ? S.ctxEvents : (S.result && S.result.cx) || S.ctxEvents;
+        ul.innerHTML = S.marks.map((m, i) => `<li class="flex items-center gap-2">
+                <span class="flex-none text-xs tabular-nums text-slate-600 w-11">${mmss(m.t)}</span>
+                ${partShort(partAt(cx, m.t)) ? `<span class="flex-none text-[11px] text-slate-500">${esc(partShort(partAt(cx, m.t)))}</span>` : ''}
+                <input type="text" data-mark="${i}" value="${esc(m.note || '')}" maxlength="160" placeholder="ملاحظة قصيرة (اختياريّة)" class="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 py-1 text-sm">
+                <button type="button" data-unmark="${i}" class="flex-none w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:border-red-400" aria-label="حذف العلامة">×</button></li>`).join('')
+            || '<li class="text-xs text-slate-400">لا علامات بعد.</li>';
+    }
+    // بعد الرصد: العلامات تُحفظ مع النتيجة (الملاحظة تُكتب في أيّ وقت)
+    function syncMarks(rerender) {
+        if (!S.result || S.running) return;
+        S.result.marks = S.marks.map(m => [m.t, m.note || '']);
+        save(S.result);
+        if (rerender) renderResult(S.result);
+    }
+
+    // ── عيّنة الطلبة ──
+    function sampleTap(i) {
+        const sm = S.sample || (S.sample = freshSample(+(($('eyeSampleN') || {}).value) || 8));
+        const r = S.sampleRound === 'b' ? 'b' : 'a';
+        const arr = String(sm[r] || '').padEnd(sm.n, '0').slice(0, sm.n).split('');
+        arr[i] = String((Number(arr[i] || 0) + 1) % 4);
+        sm[r] = arr.join('').replace(/0+$/, '');
+        renderSample();
+        sampleChanged();
+    }
+    function sampleChanged() {
+        if (!S.result || S.running) return;
+        S.result.sample = hasSample(S.sample) ? Object.assign({}, S.sample) : null;
+        resuggest();
+    }
+    function renderSample() {
+        const box = $('eyeSampleChips');
+        if (!box) return;
+        const sm = S.sample || freshSample(+(($('eyeSampleN') || {}).value) || 8);
+        if ($('eyeSampleN')) $('eyeSampleN').value = String(sm.n);
+        const r = S.sampleRound === 'b' ? 'b' : 'a';
+        document.querySelectorAll('#eyeBody .eye-round').forEach(b => {
+            const on = b.dataset.round === r;
+            b.classList.toggle('svf-btn-primary', on); b.classList.toggle('svf-btn-secondary', !on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        const LOOK = { 0: ['border-slate-200 text-slate-600', '', 'لم يُقيَّم'], 1: ['border-red-300 bg-red-50 text-red-800', 'fa-xmark', 'لم يتقن'],
+                       2: ['border-amber-300 bg-amber-50 text-amber-900', 'fa-circle-half-stroke', 'جزئيّاً'], 3: ['border-green-300 bg-green-50 text-green-800', 'fa-check', 'أتقن'] };
+        const DOT = { 1: '#b5452f', 2: '#9a6f24', 3: '#1d6b45' };
+        let h = '';
+        for (let i = 0; i < sm.n; i++) {
+            const v = Number(String(sm[r] || '')[i] || 0), was = r === 'b' ? Number(String(sm.a || '')[i] || 0) : 0;
+            const [cls, ic, lbl] = LOOK[v] || LOOK[0];
+            h += `<button type="button" data-pupil="${i}" class="relative flex items-center justify-center gap-1 h-10 rounded-lg border bg-white text-sm font-bold tabular-nums ${cls}" aria-label="الطالب ${i + 1}: ${lbl}">
+                ${i + 1}${ic ? `<i class="fa-solid ${ic} text-xs" aria-hidden="true"></i>` : ''}${was ? `<i class="absolute top-1 left-1 w-1.5 h-1.5 rounded-full" style="background:${DOT[was]}" title="أوّل التطبيق" aria-hidden="true"></i>` : ''}</button>`;
+        }
+        box.innerHTML = h;
+        const SS = E().sampleStats(sm), sum = $('eyeSampleSum');
+        if (!sum) return;
+        const rd = (t, x) => (x.rated ? t + ': قُيّم ' + x.rated + ' — أتقن ' + x.ok + '، جزئيّاً ' + x.part + '، لم يتقن ' + x.no + ' (' + x.pct + '%)' : '');
+        sum.textContent = SS ? [rd('أوّل التطبيق', SS.a), rd('آخر الحصة', SS.b), SS.both ? 'تقدّم ' + SS.improved + ' من ' + SS.both : ''].filter(Boolean).join(' · ') : '';
+        if (SS && !SS.final && (SS.a.rated || SS.b.rated)) sum.textContent += ' — يلزم ' + E().MIN_SAMPLE + ' طلبةٍ في القراءة ليُقترح منها';
+    }
+
+    // ── تركيز هذه الحصة: أهداف الزيارة السابقة للمعلّم نفسه (قبل الرصد وأثناءه) ──
+    function renderFocus() {
+        const box = $('eyeFocus');
+        if (!box) return;
+        const prev = S.result ? null : prevEye();
+        const T = prev && prev.d && Array.isArray(prev.d.targets) ? prev.d.targets.filter(t => t && E().METRIC[t.k]) : [];
+        if (!T.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+        box.innerHTML = `<div class="flex flex-wrap items-baseline justify-between gap-2">
+                <b class="text-slate-900">تركيز هذه الحصة — أهداف الزيارة السابقة</b>
+                <span class="text-xs text-slate-500">اتُّفق عليها في <bdi>${esc(prev.date || '')}</bdi>، ويقيسها هذا الرصد بعد الإيقاف</span></div>
+            <ul class="mt-2 space-y-1">${T.map(t => {
+                const x = E().METRIC[t.k];
+                return `<li class="text-sm text-slate-700 leading-6">• <b class="text-slate-900">${esc(E().targetGoalText(t))}</b>
+                    <span class="text-xs text-slate-500">— كانت ${esc(E().fmtTarget(x.unit, t.base))}، ويقيسه ${esc(E().NEEDS[x.needs] || '')}</span></li>`;
+            }).join('')}</ul>`;
+        box.classList.remove('hidden');
     }
 
     // ── منطقة الصفّ ──
@@ -651,9 +788,13 @@
         S.tl = null;
         S.consent = src !== 'none' || !!S.audio || checked('eyeSpeech') ? checked('eyeConsent') : false;
         S.sp = null;
+        S.sample = null; S.sampleRound = 'a'; S.marks = [];
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
         renderCounts();
         renderCtx();
+        renderSample();
+        renderMarks();
+        renderFocus();
         applyVideoVisibility();
         $('eyeResult').classList.add('hidden');
         $('eyeIdle').classList.toggle('hidden', src !== 'none');
@@ -912,6 +1053,18 @@
             g.fillStyle = E().TAG[e.k].neg ? '#b5452f' : '#b98a32';
             g.fillRect(x, Hc - 6, 2, 6);
         });
+        // علامات المشرف: خطٌّ ذهبيّ بطول الشريط ومثلّثٌ أعلاه — ولحظات الرصد نقطةٌ كحليّة أعلاه
+        const marks = S.running || !S.result ? S.marks.map(m => m.t) : (S.result.marks || []).map(m => m[0]);
+        marks.forEach(t => {
+            const x = Wc - (t / 10 + 0.5) * bw;
+            g.fillStyle = '#f0b44a';
+            g.fillRect(x - 1, 6, 2, Hc - 12);
+            g.beginPath(); g.moveTo(x - 5, 0); g.lineTo(x + 5, 0); g.lineTo(x, 7); g.closePath(); g.fill();
+        });
+        if (!S.running && S.result) E().autoMoments(S.result.M || {}).forEach(m => {
+            const x = Wc - (m.t / 10 + 0.5) * bw;
+            g.fillStyle = '#082742'; g.beginPath(); g.arc(x, 4, 3.5, 0, Math.PI * 2); g.fill();
+        });
     }
 
     function drawHeat(digits) {
@@ -1042,7 +1195,7 @@
         const M = E().summarize(recNow());
         const hasTaps = S.events.length > 0 || Object.keys(S.counts).some(k => S.counts[k] > 0);
         const sp = S.sp && S.sp.segs.length ? S.sp : null;
-        if (!M.observed && !M.ctx.covered && !hasTaps && !sp) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا أو المس «سياق الحصة» أو وسوم «ما لا تراه الكاميرا» أثناء الحصة.'); return; }
+        if (!M.observed && !M.ctx.covered && !hasTaps && !sp && !hasSample(S.sample)) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا أو المس «عناصر الحصة» أو وسوم «ما لا تراه الكاميرا» أو «عيّنة الطلبة» أثناء الحصة.'); return; }
         // «طلبة خارج النشاط»: تقترحه الكاميرا من منطقة الصفّ، ويبقى عدد المشرف إن لمسه
         let outAuto = 0;
         if (M.people && M.people.roi && M.people.outsideMed > 0 && !(S.counts.out > 0)) {
@@ -1062,7 +1215,6 @@
         keep.rec = recPref();                          // الزمن الموصى به للعناصر (اختيار المشرف) يُحفظ مع النتيجة
         // كلام المعلّم: تحليله يدخل M فيُقترح منه ويُعاد الاقتراح عليه، والنصّ نفسه في data.sp
         if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: M.seconds });
-        const sugg = E().suggest(keep, S.counts, suggCtx());
         const data = {
             v: 2, at: new Date().toISOString(), src: M.observed ? S.src : (S.src === 'none' || M.ctx.covered ? 'none' : 'taps'), sens: sens(),
             audio: !!S.hadAudio, mic: S.mic || 'device', consent: !!S.consent,
@@ -1077,10 +1229,17 @@
             cx: S.ctxEvents.map(e => [e.t, e.k]),
             outAuto, dishAuto,
             sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]) } : null,
-            sugg,
-            summary: E().summaryText(keep, suggCtx()),
+            sample: hasSample(S.sample) ? Object.assign({}, S.sample) : null,
+            marks: S.marks.map(m => [m.t, m.note || '']),
+            targets: [],
             applied: []
         };
+        // أهداف الزيارة السابقة للمعلّم نفسه تُقاس على رصد اليوم (والبند ١١ منها)
+        const prev = prevEye();
+        if (prev && Array.isArray(prev.d.targets) && prev.d.targets.length)
+            data.follow = { date: prev.date || '', targets: prev.d.targets, list: prev.d.targets.map(t => E().targetCheck(t, data)).filter(Boolean) };
+        data.sugg = E().suggest(keep, data.counts, ctxOf(data));
+        data.summary = E().summaryText(keep, ctxOf(data));
         save(data);
         renderResult(data);
         $('eyeResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1098,7 +1257,9 @@
     function chip(score) {
         return `<span class="inline-block text-xs font-bold text-white rounded-md px-2 py-0.5" style="background:${RATING()[score]}">${esc(E().LEVELS[score])}</span>`;
     }
-    const basisText = { camera: 'من الكاميرا', ai: 'من كشف الطلبة', ctx: 'من سياق الحصة', taps: 'من لمساتك', both: 'من لمساتك والرصد', speech: 'من كلام المعلّم' };
+    const basisText = { camera: 'من الكاميرا', ai: 'من كشف الطلبة', ctx: 'من سياق الحصة', taps: 'من لمساتك', both: 'من لمساتك والرصد', speech: 'من كلام المعلّم',
+                        sample: 'من عيّنة الطلبة', follow: 'من متابعة أهداف الزيارة السابقة' };
+    const VERDICT = { met: ['تحقّق', '#1d6b45'], better: ['تحسّن', '#9a6f24'], same: ['لم يتغيّر', '#64748b'], worse: ['تراجع', '#b5452f'], na: ['لم يُقس', '#94a3b8'] };
     const confText = { high: 'ثقة عالية', medium: 'ثقة متوسطة', low: 'ثقة منخفضة' };
     const confColor = { high: '#1d6b45', medium: '#9a6f24', low: '#b5452f' };
 
@@ -1175,7 +1336,7 @@
             rows.push(row('فترات الانتظار بين الأنشطة', M.waits ? M.waits + small('أطولها ' + esc(D(M.longestIdle))) : 'لا فترات طويلة'));
         }
         if (data.mic === 'teacher') {
-            rows.push(row('كلام المعلم (ميكروفونه)', data.audio ? M.talkPct + '%' + small('من الحصة، وأثناء النشاط ' + M.coachPct + '%') : noAudio));
+            rows.push(row(female() ? 'كلام المعلمة (ميكروفونها)' : 'كلام المعلم (ميكروفونه)', data.audio ? M.talkPct + '%' + small('من الحصة، وأثناء النشاط ' + M.coachPct + '%') : noAudio));
         } else if (M.observed) {
             rows.push(row('الشرح والتوجيه (تقديري)', data.audio ? esc(D(M.explainSec)) : noAudio));
         }
@@ -1184,7 +1345,12 @@
             if (!C && M.phases) rows.push(row('نشاط مراحل الحصة', `<span class="inline-flex flex-wrap gap-x-3 justify-end"><span>الإحماء ${M.phases.warm}%</span><span>الرئيس ${M.phases.main}%</span><span>الختام ${M.phases.close}%</span></span>`));
             rows.push(row('استثمار المساحة', M.space && M.space.coverage ? M.space.coverage + '% ' + (data.roi ? 'من منطقة الصف' : 'من الملعب المرئي') : '—'));
         }
-        if (data.consent) rows.push(row('أُبلغ المعلم بالرصد', 'نعم'));
+        const SSr = E().sampleStats(data.sample);
+        if (SSr && (SSr.a.rated || SSr.b.rated)) {
+            const fin = SSr.final || (SSr.b.rated ? SSr.b : SSr.a);
+            rows.push(row('عيّنة الطلبة', 'إتقان ' + fin.pct + '%' + small((SSr.both ? 'تقدّم ' + SSr.improved + ' من ' + SSr.both + ' · ' : '') + 'قُيّم ' + fin.rated + (SSr.final ? '' : ' — أقلّ من ' + E().MIN_SAMPLE))));
+        }
+        if (data.consent) rows.push(row(female() ? 'أُبلغت المعلمة بالرصد' : 'أُبلغ المعلم بالرصد', 'نعم'));
         const metrics = rows.length ? rows.join('') : `<p class="text-sm text-slate-600 py-2">لم تُشغَّل الكاميرا — الاقتراح من لمساتك وحدها.</p>`;
 
         // عناصر الحصة: الزمن الفعليّ مقابل الموصى به، والحركة والشرح والانتظار في كلّ عنصر
@@ -1285,7 +1451,7 @@
         }
 
         // للمداولة وللمعلّم: ما يُعزَّز وما يُسأل عنه، والنموّ منذ الرصد السابق، والبطاقة
-        const dp = E().debriefPrompts(M, data.counts || {}, suggCtx());
+        const dp = E().debriefPrompts(M, data.counts || {}, ctxOf(data));
         const prev = prevEye(), grow = growthLines(data, prev);
         const canDebrief = !!(root.SupervisorGate && SupervisorGate.canDebrief && SupervisorGate.canDebrief());
         const talkHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
@@ -1300,6 +1466,62 @@
                 <button type="button" id="eyePrint" class="svf-btn svf-btn-secondary"><i class="fa-solid fa-print" aria-hidden="true"></i>طباعة / PDF</button>
                 ${canDebrief ? '<button type="button" id="eyeToDebrief" class="svf-btn svf-btn-ghost">افتح المداولة</button>' : ''}
             </div></div>`;
+
+        // متابعة أهداف الزيارة السابقة: قبلُ ← الآن مقابل الهدف
+        let followHtml = '';
+        const FW = data.follow && Array.isArray(data.follow.list) ? data.follow.list : [];
+        if (FW.length) {
+            followHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">متابعة أهداف الزيارة السابقة</h2>
+                    <span class="text-xs text-slate-500">اتُّفق عليها في <bdi>${esc(data.follow.date || '')}</bdi> — ومنها شاهد البند ١١</span></div>
+                <div class="overflow-x-auto mt-3"><table class="w-full text-sm">
+                    <thead><tr class="text-xs text-slate-500"><th class="text-right font-medium py-1">الهدف</th><th class="font-medium">قبلُ</th><th class="font-medium">الآن</th><th class="font-medium">المتّفق عليه</th><th class="font-medium"></th></tr></thead>
+                    <tbody>${FW.map(f => {
+                        const [vt, vc] = VERDICT[f.verdict] || VERDICT.na;
+                        return `<tr class="border-t border-slate-100"><td class="py-2 text-slate-800">${esc(f.label)}${f.verdict === 'na' ? `<div class="text-[11px] text-slate-500">يقيسه ${esc(E().NEEDS[f.needs] || '')}</div>` : ''}</td>
+                            <td class="text-center tabular-nums">${esc(E().fmtTarget(f.unit, f.base))}</td><td class="text-center tabular-nums font-bold">${esc(E().fmtTarget(f.unit, f.now))}</td>
+                            <td class="text-center tabular-nums">${esc(E().fmtTarget(f.unit, f.goal))}</td>
+                            <td class="text-center"><span class="inline-block text-xs font-bold text-white rounded px-1.5" style="background:${vc}">${vt}</span></td></tr>`;
+                    }).join('')}</tbody></table></div></div>`;
+        }
+
+        // لحظات الحصة: علامات المشرف وما كشفه الرصد — بأوقاتها وعناصرها، لتُطرح في المداولة «في الدقيقة …»
+        const momList = momentsOf(data);
+        const momHtml = momList.length ? `<div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">لحظات الحصة</h2>
+                    <span class="text-xs text-slate-500">علاماتك وما كشفه الرصد — تظهر في المداولة بأوقاتها</span></div>
+                <ul class="mt-3 divide-y divide-slate-100">${momList.map(x => `<li class="py-2 flex items-baseline gap-3">
+                    <span class="flex-none text-xs tabular-nums text-slate-600 w-11">${mmss(x.t)}</span>
+                    <span class="flex-none text-[11px] rounded px-1.5 py-0.5 ${x.mine ? 'bg-amber-50 text-amber-900 border border-amber-200' : 'bg-slate-100 text-slate-600'}">${x.mine ? 'علامتك' : 'من الرصد'}</span>
+                    ${x.part ? `<span class="flex-none text-[11px] text-slate-500">${esc(partShort(x.part))}</span>` : ''}
+                    <span class="text-sm text-slate-800 leading-6 min-w-0">${esc(x.text || 'بلا ملاحظة')}</span></li>`).join('')}</ul></div>` : '';
+
+        // أهدافٌ قابلة للقياس للزيارة القادمة: تُختار وتُعدَّل، وتُدرج في التوصيات وفي «مؤشّر النجاح» بالمداولة
+        const chosen = Array.isArray(data.targets) ? data.targets : [];
+        const cands = E().targetCandidates(data, 5);
+        chosen.forEach(t => { if (!cands.some(c => c.k === t.k)) cands.push(Object.assign({}, E().METRIC[t.k] ? { label: E().METRIC[t.k].label, unit: E().METRIC[t.k].unit, dir: E().METRIC[t.k].dir } : {}, t)); });
+        const targetsHtml = cands.length ? `<div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">أهدافٌ قابلة للقياس للزيارة القادمة</h2>
+                    <span class="text-xs text-slate-500">اختر هدفاً أو اثنين تتّفق عليهما مع المعلّم — يقيسها الرصد التالي له تلقائيّاً</span></div>
+                <ul class="mt-2">${cands.map(c => {
+                    const on = chosen.find(t => t.k === c.k), t = on || c, x = E().METRIC[c.k];
+                    const isSec = c.unit === 'sec', gv = isSec ? Math.round(t.goal / 6) / 10 : t.goal;
+                    return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0">
+                        <input type="checkbox" class="eye-target mt-1.5 w-4 h-4" data-k="${esc(c.k)}" ${on ? 'checked' : ''} aria-label="${esc(c.label)}">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <b class="text-slate-900">${esc(c.label)}</b>
+                                <span class="text-xs text-slate-500">الآن ${esc(E().fmtTarget(c.unit, t.base))}</span>
+                                <label class="flex items-center gap-1 text-xs text-slate-600">الهدف ${x && x.dir > 0 ? '≥' : '≤'}
+                                    <input type="number" data-goal="${esc(c.k)}" value="${esc(String(gv))}" min="0" max="${isSec ? 60 : 100}" step="${isSec ? 0.5 : 1}" class="w-16 text-center border border-slate-300 rounded-md py-0.5">${isSec ? ' د' : c.unit === '%' ? '%' : ''}</label>
+                            </div>
+                            <p class="text-sm text-slate-600 mt-1 leading-6">${esc(E().targetText(t, suggCtx()))}</p>
+                        </div></li>`;
+                }).join('')}</ul>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <button type="button" id="eyeTargetsRecs" class="svf-btn svf-btn-secondary svf-btn-sm" ${chosen.length ? '' : 'disabled'}>إدراج المحدَّد في «التوصيات»</button>
+                    <span class="text-xs text-slate-500 self-center">${chosen.length ? 'اختير ' + chosen.length + ' — ويظهر في المداولة وبطاقة المعلّم' : 'لم يُختر هدفٌ بعد'}</span>
+                </div></div>` : '';
 
         const sugg = data.sugg || [];
         const applied = new Set(data.applied || []);
@@ -1336,10 +1558,13 @@
                     </div>
                 </div>
             </div>
+            ${followHtml}
+            ${momHtml}
             ${partsHtml}
             ${formsHtml}
             ${speechHtml}
             ${talkHtml}
+            ${targetsHtml}
             <div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">التقييم المقترح</h2>
                 <p class="text-sm text-slate-600 mt-1 leading-6">اقتراحٌ يُراجَع لا حكمٌ نهائيّ: يُقترح البند الذي عليه شاهدٌ من الرصد أو من لمساتك، ومع كلٍّ شاهده ودرجة الثقة فيه.
@@ -1386,6 +1611,9 @@
             renderResult(S.result);
             toast('حُذف النصّ — احفظ التقرير ليُحذف من نسخته المحفوظة');
         });
+        box.querySelectorAll('.eye-target').forEach(cb => cb.addEventListener('change', () => setTarget(cb.dataset.k, cb.checked)));
+        box.querySelectorAll('[data-goal]').forEach(inp => inp.addEventListener('change', () => setTargetGoal(inp.dataset.k || inp.dataset.goal, inp.value)));
+        $('eyeTargetsRecs') && $('eyeTargetsRecs').addEventListener('click', targetsToRecs);
         $('eyeRecSave') && $('eyeRecSave').addEventListener('click', () => {
             const rec = {};
             box.querySelectorAll('[data-rec]').forEach(el => { const v = Number(el.value); if (v >= 0 && v <= 40) rec[el.dataset.rec] = v; });
@@ -1394,6 +1622,109 @@
             toast('حُفظ الزمن الموصى به للعناصر وأُعيد الاقتراح');
         });
         decorate();
+        renderFocus();
+    }
+
+    // علامات المشرف (بنصّه) ولحظات الرصد، مرتّبةً بالوقت
+    function momentsOf(data) {
+        if (!data) return [];
+        const cx = data.cx || [];
+        const mine = (data.marks || []).map(m => ({ t: m[0], text: m[1] || '', mine: true, part: partAt(cx, m[0]) }));
+        const auto = E().autoMoments(data.M || {}, suggCtx()).map(x => Object.assign(x, { part: x.part || partAt(cx, x.t) }));
+        return mine.concat(auto).sort((a, b) => a.t - b.t);
+    }
+
+    // ── أهداف الزيارة القادمة ──
+    function setTarget(k, on) {
+        const d = S.result;
+        if (!d || !E().METRIC[k]) return;
+        d.targets = (d.targets || []).filter(t => t.k !== k);
+        if (on) {
+            const c = E().targetCandidates(d, 20).find(t => t.k === k);
+            if (c) d.targets.push({ k, item: c.item, base: c.base, goal: c.goal });
+        }
+        save(d);
+        renderResult(d);
+    }
+    function setTargetGoal(k, val) {
+        const d = S.result, x = E().METRIC[k];
+        if (!d || !x) return;
+        let v = Number(val);
+        if (!isFinite(v) || v < 0) return;
+        if (x.unit === 'sec') v = Math.round(v * 60);
+        else v = Math.round(v);
+        let t = (d.targets || []).find(t => t.k === k);
+        if (!t) {                                        // تعديل الهدف يختاره
+            const c = E().targetCandidates(d, 20).find(t => t.k === k);
+            if (!c) return;
+            t = { k, item: c.item, base: c.base, goal: c.goal };
+            d.targets = (d.targets || []).concat(t);
+        }
+        t.goal = v;
+        save(d);
+        renderResult(d);
+    }
+    function targetLines(d) {
+        return (d && d.targets || []).filter(t => E().METRIC[t.k]).map(t => '• ' + standardOf(t.item) + ': ' + E().targetText(t, suggCtx()) + '، ويُقاس في الزيارة القادمة.');
+    }
+    function targetsToRecs() {
+        const ta = $('recommendationsContent'), lines = targetLines(S.result);
+        if (!ta || !lines.length) return;
+        const add = lines.filter(l => !ta.value.includes(l.slice(2)));
+        if (!add.length) { toast('الأهداف في «التوصيات» أصلاً'); return; }
+        ta.value = ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' + add.join('\n') : add.join('\n');
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        toast('أُدرج ' + (add.length === 1 ? 'هدفٌ' : add.length + ' أهداف') + ' في «التوصيات» — تُرفع إلى خانتها في البوّابة');
+    }
+
+    // ── أنماط رصدك (من التقارير المحفوظة في العام الدراسيّ الحاليّ) ──
+    function patternRows() {
+        const rows = [];
+        const ay = typeof academicYearOf === 'function' ? academicYearOf(new Date().toISOString()) : null;
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || k.indexOf('supervision_v6_visit_') !== 0) continue;
+                try {
+                    const r = JSON.parse(localStorage.getItem(k));
+                    const raw = r && r.formData && r.formData.eyeData;
+                    if (!raw) continue;
+                    const d = JSON.parse(raw);
+                    if (!d || !d.M) continue;
+                    if (ay != null && r.visitDate && academicYearOf(r.visitDate) !== ay) continue;
+                    rows.push({ teacher: r.teacherName || '', date: r.visitDate || '', d });
+                } catch (e) { /* تقريرٌ تالف يُتخطّى */ }
+            }
+        } catch (e) { /* التخزين غير متاح */ }
+        return rows;
+    }
+    function renderPatterns() {
+        const box = $('eyePatterns');
+        if (!box) return;
+        const A = E().patterns(patternRows());
+        const head = `<div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">أنماط رصدك</h2>
+            <span class="text-xs text-slate-500">من التقارير المحفوظة في هذا العام الدراسيّ: ما يتكرّر عند معلّميك، ومنه موضوعات برنامجك التدريبيّ</span></div>`;
+        if (A.lessons < 2) {
+            box.innerHTML = head + `<p class="text-sm text-slate-600 mt-2 leading-6">تظهر الأنماط بعد حصّتين مرصودتين في تقارير محفوظة${A.lessons ? ' — لديك حصّةٌ واحدة' : ''}.</p>`;
+            return;
+        }
+        const names = arr => arr.slice(0, 4).map(esc).join('، ') + (arr.length > 4 ? ' و(' + (arr.length - 4) + ') غيرهم' : '');
+        const kv = (v, k) => `<div class="py-3 px-2"><div class="text-2xl font-bold tabular-nums text-slate-900">${v}</div><div class="text-xs text-slate-600">${k}</div></div>`;
+        const topics = A.topics.filter(t => t.teachers.length >= 2).slice(0, 3);
+        box.innerHTML = head + `
+            <div class="grid grid-cols-2 sm:grid-cols-4 border border-slate-200 rounded-xl mt-3 text-center divide-x divide-x-reverse divide-slate-200">
+                ${kv(A.lessons, 'حصص مرصودة')}${kv(A.teachers, A.teachers === 1 ? 'معلّم' : 'معلّمون')}
+                ${kv(A.avgMove != null ? A.avgMove + '%' : '—', 'متوسّط حركة الطلبة')}${kv(A.follow.measured ? A.follow.met + ' من ' + A.follow.measured : '—', 'أهدافٌ تحقّقت في المتابعة')}
+            </div>
+            ${A.issues.length ? `<h3 class="font-bold text-slate-800 mt-4">ما يتكرّر في حصصك</h3>
+            <ul class="mt-2 space-y-2.5">${A.issues.map(x => `<li>
+                <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm"><span class="text-slate-800">${esc(x.label)}</span>
+                    <span class="text-xs text-slate-500 tabular-nums">${x.n} من ${A.lessons} حصص · ${x.pct}%</span></div>
+                <div class="h-2 bg-slate-100 rounded mt-1"><div class="h-2 rounded" style="width:${x.pct}%;background:#0f4c81"></div></div>
+                <div class="text-xs text-slate-500 mt-1">${names(x.teachers)}</div></li>`).join('')}</ul>` : '<p class="text-sm text-slate-600 mt-3">لا نمط متكرّراً في الحصص المرصودة.</p>'}
+            ${topics.length ? `<div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3"><b class="text-sm text-slate-900">مقترحٌ لبرنامجك التدريبيّ</b>
+                <ol class="mt-1.5 space-y-1 list-decimal pr-5 text-sm text-slate-700">${topics.map(t => `<li class="leading-6"><b class="text-slate-900">${esc(t.topic)}</b> — يحتاجه (${t.teachers.length}) معلّمين: ${names(t.teachers)}</li>`).join('')}</ol>
+                <p class="text-xs text-slate-500 mt-1.5">موضوعٌ يشترك فيه معلّمان فأكثر يصلح ورشةً أو درساً تطبيقيّاً أو زيارةً تبادليّة.</p></div>` : ''}`;
     }
 
     // بطاقة التحليل للمعلّم (js/eye-report.js): صورةٌ تُشارَك (واتساب وغيره) أو صفحةٌ تُطبع PDF — من أرقام الرصد وحدها
@@ -1401,7 +1732,8 @@
         if (!S.result) return;
         if (!root.SvfEyeReport) { toast('تعذّر تحميل البطاقة — حدّث الصفحة', 'error'); return; }
         const I = info(), prev = prevEye();
-        const extra = { grow: growthLines(S.result, prev), prevDate: prev && prev.date, prompts: E().debriefPrompts(S.result.M || {}, S.result.counts || {}, suggCtx()) };
+        const extra = { grow: growthLines(S.result, prev), prevDate: prev && prev.date, prompts: E().debriefPrompts(S.result.M || {}, S.result.counts || {}, ctxOf(S.result)),
+                        targets: (S.result.targets || []).filter(t => E().METRIC[t.k]).map(t => E().targetGoalText(t) + ' (الآن ' + E().fmtTarget(E().METRIC[t.k].unit, t.base) + ')') };
         SvfEyeReport[mode === 'print' ? 'print' : 'share'](S.result, I, extra).then(r => {
             if (r === 'download') toast('حُفظت البطاقة صورةً في جهازك — أرسلها للمعلّم');
         }).catch(e => { if (!e || e.name !== 'AbortError') toast('تعذّرت مشاركة البطاقة', 'error'); });
@@ -1471,8 +1803,11 @@
         S.secs = []; S.grid = null; S.events = []; S.counts = {}; S.result = null; S.tl = null; S.savedHeat = null;
         S.ctxEvents = []; S.ctxCur = null; S.pSnap = null; S.src = null; S.consent = false; S.hadAudio = false; S.classMax = 0;
         S.sp = null; S.speechConsent = false;
+        S.sample = null; S.sampleRound = 'a'; S.marks = [];
         renderCounts();
         renderCtx();
+        renderSample();
+        renderMarks();
         $('eyeResult').classList.add('hidden');
         $('eyeResult').innerHTML = '';
         $('eyeIdle').classList.remove('hidden');
@@ -1480,6 +1815,7 @@
         renderKpis(null);
         drawTimeline([]);
         message('');
+        renderFocus();
     }
 
     // ── اتّفاق العين معك (من التقارير المحفوظة) ──
@@ -1542,7 +1878,7 @@
         const wasMine = ta.value === S.written;
         ta.value = txt;
         if (wasMine) { S.written = txt; S.result = d; }
-        setTimeout(renderAgreement, 0);
+        setTimeout(() => { renderAgreement(); renderPatterns(); }, 0);
     };
 
     // يُستدعى عند فتح التبويب (toggleSupervisoryView)
@@ -1550,11 +1886,12 @@
         if (!E()) return;
         if (!S.bound) build();
         renderAgreement();
+        renderPatterns();
         decorate();
         drawView();
-        if (S.running) { drawTimeline(); return; }
+        if (S.running) { drawTimeline(); renderFocus(); return; }
         const saved = ($('eyeData') && $('eyeData').value) || '';
-        if (saved === S.written) { if (S.result) { drawTimeline(); drawHeat(S.savedHeat); } return; }
+        if (saved === S.written) { if (S.result) { drawTimeline(); drawHeat(S.savedHeat); } renderFocus(); return; }
         // تقريرٌ آخر فُتح أو صُفّر النموذج: تُعرض نتيجته المحفوظة أو تبدأ الشاشة من جديد
         reset();
         S.written = saved;
@@ -1564,7 +1901,11 @@
             S.result = data;
             S.counts = Object.assign({}, data.counts || {});
             S.events = (data.ev || []).map(e => ({ t: e[0], k: e[1] }));
+            S.sample = data.sample ? Object.assign({}, data.sample) : null;
+            S.marks = (data.marks || []).map(m => ({ t: m[0], note: m[1] || '' }));
             renderCounts();
+            renderSample();
+            renderMarks();
             renderResult(data);
         } catch (e) { /* بياناتٌ تالفة: تبقى الشاشة فارغة */ }
     };
@@ -1578,7 +1919,9 @@
         if (!d || !d.M || !E()) return '';
         const M = d.M, P = M.people && M.people.detSecs >= 60 ? M.people : null;
         const det = M.ctx && M.ctx.covered >= 60 ? E().partsDetail(M, M.rec) : null;
-        const dp = E().debriefPrompts(M, d.counts || {}, suggCtx());
+        const dp = E().debriefPrompts(M, d.counts || {}, ctxOf(d));
+        const mom = momentsOf(d);
+        const tg = Array.isArray(d.targets) ? d.targets.filter(t => E().METRIC[t.k]) : [];
         const kv = (k, v) => `<div class="px-3 py-2"><div class="text-lg font-bold text-slate-900 tabular-nums">${esc(v)}</div><div class="text-[11px] text-slate-600">${esc(k)}</div></div>`;
         const mv = movingOf(M);
         return `<div class="bg-white rounded-2xl border border-slate-200 p-5">
@@ -1592,17 +1935,31 @@
             ${det ? `<div class="flex flex-wrap gap-1.5 mt-3">${det.map(r => `<span class="text-xs rounded-lg border px-2 py-1 ${r.verdict === 'ok' ? 'border-green-200 text-green-800' : r.verdict === 'missing' ? 'border-red-200 text-red-800' : 'border-amber-200 text-amber-800'}">${esc(r.short)} ${r.minutes} د</span>`).join('')}</div>` : ''}
             ${dp.good.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-green-700 mb-1">ما يُعزَّز</div>${dp.good.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${dp.ask.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-amber-700 mb-1">أسئلةٌ من الرصد</div>${dp.ask.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
+            ${mom.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-slate-600 mb-1">لحظاتٌ للنقاش</div>${mom.slice(0, 8).map(x => `<div class="text-sm text-slate-700 leading-7">
+                <span class="text-xs tabular-nums text-slate-500 ml-1">${mmss(x.t)}</span>${x.part ? `<span class="text-[11px] text-slate-500 ml-1">${esc(partShort(x.part))}</span>` : ''}${esc(x.text || 'علامة')}</div>`).join('')}</div>` : ''}
+            ${tg.length ? `<div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3"><div class="text-[11px] font-bold text-slate-600 mb-1">أهدافٌ قابلة للقياس للزيارة القادمة</div>
+                ${tg.map(t => `<div class="text-sm text-slate-800 leading-7">• ${esc(E().targetGoalText(t))} <span class="text-xs text-slate-500">(الآن ${esc(E().fmtTarget(E().METRIC[t.k].unit, t.base))})</span></div>`).join('')}
+                <button type="button" id="debriefEyeIndicator" class="svf-btn svf-btn-secondary svf-btn-sm mt-2">أدرجها في «مؤشّر النجاح»</button></div>` : ''}
         </div>`;
+    };
+    // «مؤشّر النجاح» في اتّفاق المداولة من الأهداف المختارة — يقيسه الرصد التالي
+    root.svfEyeIndicatorText = function () {
+        let d = null;
+        try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
+        const T = d && Array.isArray(d.targets) ? d.targets.filter(t => E() && E().METRIC[t.k]) : [];
+        return T.length ? pupil(T.map(t => E().targetGoalText(t)).join('؛ ') + ' — تقيسها عين المشرف في الزيارة القادمة') : '';
     };
     // سطورٌ قصيرةٌ للمعلّم في رسالة المداولة (واتساب)
     root.svfEyeTeacherLines = function () {
         let d = null;
         try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
         if (!d || !d.M || !E()) return '';
-        const dp = E().debriefPrompts(d.M, d.counts || {}, suggCtx());
+        const dp = E().debriefPrompts(d.M, d.counts || {}, ctxOf(d));
         const lines = ['من رصد الحصة:'];
         if (d.summary) lines.push(d.summary);
         dp.good.slice(0, 2).forEach(t => lines.push('✓ ' + t));
+        const tg = Array.isArray(d.targets) ? d.targets.filter(t => E().METRIC[t.k]) : [];
+        if (tg.length) { lines.push('أهدافنا للزيارة القادمة:'); tg.forEach(t => lines.push('• ' + pupil(E().targetGoalText(t)))); }
         return lines.join('\n');
     };
     root.svfEyeShareCard = function () {

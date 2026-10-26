@@ -4,7 +4,7 @@
 // طلب المشرف: «حفظ هذه التحليلات برسوماتٍ بيانيّة وإمكانيّة إرسالها للمعلّم». البطاقة صورةٌ عموديّة (١٠٨٠ عرضاً)
 // تُرسم من **أرقام الرصد المحفوظة وحدها** (#eyeData) — لا إطار كاميرا فيها ولا صوت: لا تقرأ هذه الوحدة الفيديو
 // أصلاً (يفحصه الاختبار). فيها: المعلّم والزيارة، وأرقامٌ أربعة، وعناصر الحصة الخمسة (الفعليّ مقابل الموصى به)،
-// ومجرى الحصة، والتشكيلات، وما يُعزَّز وما يُتأمَّل، والنموّ منذ الرصد السابق.
+// ومجرى الحصة، والتشكيلات، وعيّنة الطلبة، وأهداف الزيارة السابقة والقادمة، وما يُعزَّز وما يُتأمَّل، والنموّ منذ الرصد السابق.
 //
 // share(): مشاركة الصورة (واتساب وغيره) بـ Web Share على الجوّال، وإلّا تنزيلها. print(): صفحةٌ فيها الصورة
 // تُطبع أو تُحفظ PDF — تُفتح النافذة داخل الضغطة نفسها (وإلّا حجبها المتصفّح) ثمّ تُملأ.
@@ -60,7 +60,7 @@
         const P = typeof info.pupil === 'function' ? info.pupil : (s => s);
         const M = (data && data.M) || {}, Y = E();
         const big = document.createElement('canvas');
-        big.width = W; big.height = 3200;
+        big.width = W; big.height = 4400;
         const g = big.getContext('2d');
         g.direction = 'rtl'; g.textAlign = 'right'; g.textBaseline = 'alphabetic';
         g.fillStyle = C.bg; g.fillRect(0, 0, W, big.height);
@@ -183,6 +183,38 @@
             });
             g.textAlign = 'right';
             y += 160;
+        }
+
+        // ٥ج) عيّنة الطلبة — إتقان المهارة وتقدّمهم بين أوّل التطبيق وآخره
+        const SS = Y.sampleStats && Y.sampleStats(data && data.sample);
+        if (SS && SS.final) {
+            y = heading(g, P('عيّنة الطلبة'), y + 30) + 14;
+            g.font = font(400, 26); g.fillStyle = C.text;
+            let t = P('أتقن المهارة (' + SS.final.ok + ') من (' + SS.final.rated + ')، وأدّاها جزئيّاً (' + SS.final.part + ') — نسبة الإتقان (' + SS.final.pct + '%)');
+            if (SS.both >= Y.MIN_SAMPLE) t += P('، وتقدّم (' + SS.improved + ') بين أوّل التطبيق وآخره (' + SS.a.pct + '% ← ' + SS.b.pct + '%)');
+            y = wrap(g, t + '.', W - PAD, y + 6, W - 2 * PAD, 38);
+        }
+
+        // ٥د) متابعة أهداف الزيارة السابقة، وأهدافنا للزيارة القادمة
+        const FW = data && data.follow && Array.isArray(data.follow.list) ? data.follow.list.filter(f => f && f.verdict !== 'na') : [];
+        if (FW.length) {
+            y = heading(g, 'أهداف الزيارة السابقة' + (data.follow.date ? ' (' + data.follow.date + ')' : ''), y + 30) + 10;
+            const VT = { met: ['تحقّق', C.ok], better: ['تحسّن', C.warn], same: ['لم يتغيّر', C.muted], worse: ['تراجع', C.bad] };
+            FW.forEach(f => {
+                const [vt, vc] = VT[f.verdict] || VT.same;
+                g.textAlign = 'left'; g.font = font(700, 24); g.fillStyle = vc; g.fillText(vt, PAD, y);
+                g.textAlign = 'right'; g.font = font(400, 26); g.fillStyle = C.text;
+                y = wrap(g, P(f.label) + ': ' + Y.fmtTarget(f.unit, f.base) + ' ← ' + Y.fmtTarget(f.unit, f.now) + ' (الهدف ' + Y.fmtTarget(f.unit, f.goal) + ')', W - PAD, y, W - 2 * PAD - 140, 38) + 4;
+            });
+        }
+        if (extra.targets && extra.targets.length) {
+            y = heading(g, 'أهدافنا للزيارة القادمة', y + 30) + 10;
+            g.font = font(400, 26);
+            extra.targets.forEach(t => {
+                g.fillStyle = C.gold; g.beginPath(); g.arc(W - PAD - 8, y - 9, 6, 0, Math.PI * 2); g.fill();
+                g.fillStyle = C.text;
+                y = wrap(g, P(t), W - PAD - 26, y, W - 2 * PAD - 26, 38) + 6;
+            });
         }
 
         // ٦) ما يُعزَّز وما يُتأمَّل، والنموّ
