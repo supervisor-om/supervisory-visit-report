@@ -113,8 +113,7 @@
                         <canvas id="eyeView" class="absolute inset-0 w-full h-full" style="pointer-events:none;touch-action:none"></canvas>
                         <canvas id="eyeHeat" class="absolute inset-0 w-full h-full pointer-events-none hidden"></canvas>
                         <div id="eyeIdle" class="absolute inset-0 flex items-center justify-center text-center p-8 text-slate-300 text-sm leading-7">
-                            ضع الجهاز على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.
-                            لا تُعرض الصورة إلّا إن طلبتها: الطلبة يظهرون نقاطاً.</div>
+                            ضع الجهاز أفقيّاً على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.</div>
                         <div id="eyeRoiHint" class="hidden pointer-events-none absolute top-3 inset-x-3 text-center text-sm text-white bg-slate-900/85 rounded-lg px-3 py-2"></div>
                         <div id="eyeStatus" class="hidden pointer-events-none absolute bottom-3 right-3 flex items-center gap-2 bg-slate-900/80 text-white text-sm rounded-lg px-3 py-1.5" aria-live="polite">
                             <span class="w-2 h-2 rounded-full bg-red-500"></span><span id="eyeClock" class="tabular-nums">00:00</span><span class="opacity-60">|</span><span id="eyeState">—</span>
@@ -124,7 +123,7 @@
                         <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
                         <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
                         <span class="flex-1"></span>
-                        <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeShowVideo"> إظهار الصورة</label>
+                        <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
                         <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
                     </div>
                     <p class="text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
@@ -196,7 +195,12 @@
         $('eyeUndo').addEventListener('click', undo);
         $('eyeTapsOnly').addEventListener('click', () => { if (!S.running) finish(); });
         $('eyeHeatToggle').addEventListener('change', () => { $('eyeHeat').classList.toggle('hidden', !$('eyeHeatToggle').checked); drawHeat(); });
-        $('eyeShowVideo').addEventListener('change', () => { applyVideoVisibility(); drawView(); });
+        // الصورة طبيعيّةٌ افتراضاً (طلب المشرف 2026-10-26)، وإخفاؤها اختيارٌ يُذكر في هذا المتصفّح
+        try { if (localStorage.getItem('svf_eye_show') === '0') $('eyeShowVideo').checked = false; } catch (e) { /* يبقى الافتراض */ }
+        $('eyeShowVideo').addEventListener('change', () => {
+            try { localStorage.setItem('svf_eye_show', checked('eyeShowVideo') ? '1' : '0'); } catch (e) { /* تفضيلٌ لا يلزم حفظه */ }
+            applyVideoVisibility(); drawView();
+        });
         $('eyeRoiBtn').addEventListener('click', toggleRoiMode);
         $('eyeRoiClear').addEventListener('click', () => setRoi(null));
         $('eyeView').addEventListener('pointerdown', roiPoint);
@@ -365,6 +369,21 @@
         const v = old.cloneNode(false);
         old.replaceWith(v);
         return v;
+    }
+    // المسرح يأخذ شكل الصورة: الجوّال العموديّ يعطي صورةً طوليّة فيضيق المسرح ويطول (بحدّ ٧٥٪ من الشاشة) بدل عمودٍ ضيّق
+    function fitStage() {
+        const st = $('eyeStage'), v = S.video;
+        if (!st) return;
+        if (S.running && v && v.videoWidth && v.videoHeight > v.videoWidth) {
+            st.style.aspectRatio = v.videoWidth + ' / ' + v.videoHeight;
+            st.style.width = 'min(100%, calc(75vh * ' + v.videoWidth + ' / ' + v.videoHeight + '))';
+            st.style.marginInline = 'auto';
+        } else {
+            st.style.aspectRatio = '16 / 9';
+            st.style.width = '';
+            st.style.marginInline = '';
+        }
+        drawView(); drawHeat();
     }
     function applyVideoVisibility() {
         const v = $('eyeVideo');
@@ -647,7 +666,7 @@
         if (!S.running || !v || v.readyState < 2 || !v.videoWidth) return;
         flushTo(Math.floor(now()));
         const h = Math.max(36, Math.round(W * v.videoHeight / v.videoWidth));
-        if (h !== S.h) { S.h = h; S.canvas.height = h; S.prev = null; if (S.roi) S.mask = E().roiMask(S.roi, W, h); }
+        if (h !== S.h) { S.h = h; S.canvas.height = h; S.prev = null; if (S.roi) S.mask = E().roiMask(S.roi, W, h); fitStage(); }
         try { S.cx.drawImage(v, 0, 0, W, S.h); } catch (e) { return; }
         const n = W * S.h;
         const cur = E().toGray(S.cx.getImageData(0, 0, W, S.h).data, n);
@@ -851,6 +870,7 @@
         $('eyeRoiBtn').disabled = true;
         $('eyeRoiClear').classList.add('hidden');
         applyVideoVisibility();
+        fitStage();
         drawView();
         if (analyze) finish();
     }

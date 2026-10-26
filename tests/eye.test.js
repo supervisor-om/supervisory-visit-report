@@ -348,7 +348,9 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: ctxEv, mi
           /async function startCamera\(\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
           && /function startFile\(file\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
           && /if \(!needConsent\(wantMic\)\) return;/.test(UI) && UI.includes('id="eyeConsent"'));
-    check('wiring: الصورة مخفيّةٌ افتراضاً (النقاط بدلها)', /id="eyeVideo"[^>]*style="opacity:0"/.test(UI) && /<input type="checkbox" id="eyeShowVideo">/.test(UI));
+    check('wiring: الصورة طبيعيّةٌ افتراضاً (طلب المشرف)، وإخفاؤها اختيارٌ يُذكر', /<input type="checkbox" id="eyeShowVideo" checked>/.test(UI)
+          && /localStorage\.getItem\('svf_eye_show'\) === '0'/.test(UI) && /v\.style\.opacity = S\.running && checked\('eyeShowVideo'\)/.test(UI));
+    check('wiring: المسرح يأخذ شكل الصورة العموديّة', /function fitStage\(\)/.test(UI) && /v\.videoHeight > v\.videoWidth/.test(UI));
     check('wiring: خلفيّة الخصوصيّة أربعون بكسلاً رماديّة', /const pw = 40/.test(UI) && /imageSmoothingEnabled = false/.test(UI));
     check('wiring: النموذج محلّيٌّ ويُحمَّل عند الحاجة', /new URL\('vendor\/human\/', document\.baseURI\)/.test(UI) && /await import\(base \+ 'human\.esm\.js'\)/.test(UI)
           && ['human.esm.js', 'centernet.json', 'centernet.bin', 'LICENSE'].every(f => fs.existsSync(path.join(ROOT, 'vendor/human', f))));
@@ -358,7 +360,8 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: ctxEv, mi
     check('wiring: الدرجات المعتمدة تُكتب قبل جمع حقول التقرير', hook > 0 && hook < rd && /typeof svfEyeBeforeSave === 'function'/.test(S));
     check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && UI.includes('id="eyeTeacherMic"') && /enumerateDevices/.test(UI));
     check('wiring: أزرار السياق الأربعة والعدّادات تُنقص', /E\(\)\.CONTEXTS\.map/.test(UI) && /data-dec="\$\{k\}"/.test(UI) && /function resuggest\(\)/.test(UI));
-    check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob|localStorage\.setItem/.test(UI));
+    check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
+          && (UI.match(/localStorage\.setItem\(/g) || []).length === 1 && /localStorage\.setItem\('svf_eye_show'/.test(UI));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
