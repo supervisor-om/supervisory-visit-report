@@ -52,11 +52,16 @@
         teacher: null, pickTeacher: false,                 // المعلّم يُحدَّد بلمسة: يُستثنى من الطلبة ويُرصد موضعه
         // كاميرا الهاتف (js/eye-link.js): الصورة من الـiPhone، والصوت والكلام من ميكروفون هذا الجهاز
         via: null, link: null, linkGen: 0, linkSup: '', linkDown: false, lastFrameAt: 0, rvfc: false, frameTok: null,
-        lostSec: 0, phoneCams: null, wantSpeech: false
+        lostSec: 0, phoneCams: null, wantSpeech: false,
+        // دليل المعلّم (js/lesson-guide.js): {id, skills, sure, on} — من الصفّ وعنوان الدرس، ومهارة الحصة يختارها المشرف
+        guide: null, gkey: '', samplePick: -1
     };
     const IDLE_TEXT = 'ضع الجهاز أفقيّاً على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.';
+    const SAMPLE_HINT = 'طلبةٌ متفاوتون تقيّمهم في أوّل التطبيق ثمّ في آخره: المس الرقم ليتبدّل لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ و٢.';
+    const GRADE_NAME = ['', 'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر', 'الثاني عشر'];
     const SR = () => root.SpeechRecognition || root.webkitSpeechRecognition || null;
     const SX = () => root.SvfEyeSpeech;
+    const LG = () => root.SvfLessonGuide;
     const AI = { human: null, loading: null, ok: false, busy: false, fail: 0, T: null, prevG: null, prevKey: '', canvas: null, cx: null,
                  timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5 };
     const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false, lost: false });
@@ -76,7 +81,8 @@
     const mmss = sec => { sec = Math.max(0, Math.floor(sec)); const m = Math.floor(sec / 60), s = sec % 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; };
     const suggCtx = () => ({ female: female(), pupil });
     // مع العيّنة ومتابعة أهداف الزيارة السابقة — لكلّ ما يُبنى من بيانات رصدٍ محفوظة (الاقتراح، الملخّص، المداولة، البطاقة)
-    const ctxOf = d => Object.assign(suggCtx(), { sample: d && d.sample, follow: d && d.follow ? d.follow.list : null, followDate: d && d.follow ? d.follow.date : null });
+    const ctxOf = d => Object.assign(suggCtx(), { sample: d && d.sample, follow: d && d.follow ? d.follow.list : null, followDate: d && d.follow ? d.follow.date : null,
+                                                  guide: d && d.guide && LG() ? LG().guideCtx(d) : null });
     const standardOf = id => { const it = typeof evaluationItems !== 'undefined' ? evaluationItems.find(x => x.id === id) : null; return it ? it.standard : 'البند ' + id; };
     const freshSample = n => ({ n: n || 8, a: '', b: '' });
     const hasSample = sm => !!(sm && /[123]/.test(String(sm.a || '') + String(sm.b || '')));
@@ -174,6 +180,7 @@
                 </div>
             </section>
             <section id="eyeFocus" class="hidden bg-white rounded-2xl border border-slate-200 border-r-4 p-4" style="border-right-color:#f0b44a" aria-live="polite"></section>
+            <section id="eyeGuide" class="hidden bg-white rounded-2xl border border-slate-200 p-4"></section>
             <p id="eyeMsg" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm" role="alert"></p>
 
             <div id="eyeWork" class="hidden space-y-5">
@@ -305,12 +312,13 @@
                                 <label class="flex items-center gap-1.5 text-xs text-slate-600">العدد
                                     <select id="eyeSampleN" class="bg-white border border-slate-300 rounded-lg px-1.5 py-1 text-sm">${[5, 6, 8, 10, 12].map(n => `<option value="${n}"${n === 8 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
                             </div>
-                            <p class="text-xs text-slate-600 mt-1 mb-2 leading-5">طلبةٌ متفاوتون تقيّمهم في أوّل التطبيق ثمّ في آخره: المس الرقم ليتبدّل لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ و٢.</p>
+                            <p id="eyeSampleHint" class="text-xs text-slate-600 mt-1 mb-2 leading-5">${esc(SAMPLE_HINT)}</p>
                             <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="القراءة">
                                 <button type="button" class="eye-round svf-btn svf-btn-primary svf-btn-sm" data-round="a" aria-pressed="true">أوّل التطبيق</button>
                                 <button type="button" class="eye-round svf-btn svf-btn-secondary svf-btn-sm" data-round="b" aria-pressed="false">آخر الحصة</button>
                             </div>
                             <div id="eyeSampleChips" class="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mt-2"></div>
+                            <div id="eyeSamplePts"></div>
                             <p id="eyeSampleSum" class="text-xs text-slate-600 mt-2 leading-5"></p>
                         </section>
                         <section class="bg-white rounded-2xl border border-slate-200 p-4">
@@ -370,6 +378,14 @@
         $('eyeMarks').addEventListener('click', e => { const b = e.target.closest('[data-unmark]'); if (b) { S.marks.splice(+b.dataset.unmark, 1); renderMarks(); drawTimeline(); syncMarks(true); } });
         body.querySelectorAll('.eye-round').forEach(b => b.addEventListener('click', () => { S.sampleRound = b.dataset.round; renderSample(); }));
         $('eyeSampleChips').addEventListener('click', e => { const b = e.target.closest('[data-pupil]'); if (b) sampleTap(+b.dataset.pupil); });
+        $('eyeSamplePts').addEventListener('click', e => { const b = e.target.closest('[data-spt]'); if (b) samplePoint(b.dataset.spt); });
+        $('eyeGuide').addEventListener('click', e => {
+            const b = e.target.closest('[data-gskill],[data-gopen],[data-gmin]');
+            if (!b || !S.guide) return;
+            if (b.dataset.gskill) guideSkill(b.dataset.gskill);
+            else if (b.hasAttribute('data-gopen')) { S.guide.on = true; S.guide.min = false; guideChanged(); }
+            else { S.guide.min = !S.guide.min; renderGuide(); }    // طيّ البطاقة لا يُلغي الدليل
+        });
         $('eyeSampleN').addEventListener('change', () => { const sm = S.sample || freshSample(); sm.n = +$('eyeSampleN').value || 8; S.sample = sm; renderSample(); sampleChanged(); });
         // مجموعات الوسوم تبويباتٌ — قائمةٌ قصيرةٌ بدل أربع مجموعاتٍ متتالية
         body.querySelectorAll('.eye-gtab').forEach(b => b.addEventListener('click', () => {
@@ -672,12 +688,19 @@
         return a;
     };
 
+    // ومضةٌ تؤكّد اللمسة: إطارٌ خارجيّ (outline) لا ring — قاعدة الزجاج في القشرة تضع box-shadow على كلّ bg-white فتمحو ring (لم تكن تظهر)
+    function flash(el, color, ms) {
+        if (!el) return;
+        el.style.outline = '2px solid ' + color; el.style.outlineOffset = '2px';
+        setTimeout(() => { el.style.outline = ''; el.style.outlineOffset = ''; }, ms);
+    }
+
     // ── اللمسات ──
     function tap(k, btn) {
         S.events.push({ t: S.running ? Math.round(now()) : null, k });
         S.counts[k] = (S.counts[k] || 0) + 1;
         renderCounts();
-        if (btn) { btn.classList.add('ring-2', 'ring-blue-500'); setTimeout(() => btn.classList.remove('ring-2', 'ring-blue-500'), 280); }
+        flash(btn, '#0f4c81', 280);
         if (S.running) drawTimeline(); else resuggest();
     }
     function dec(k) {
@@ -736,7 +759,7 @@
         S.marks.push({ t: Math.round(now()), note: '' });
         renderMarks();
         drawTimeline();
-        const b = $('eyeMark'); if (b) { b.classList.add('ring-2', 'ring-amber-400'); setTimeout(() => b.classList.remove('ring-2', 'ring-amber-400'), 300); }
+        flash($('eyeMark'), '#f0b44a', 300);
     }
     function renderMarks() {
         const ul = $('eyeMarks');
@@ -758,7 +781,10 @@
     }
 
     // ── عيّنة الطلبة ──
+    // بلا دليل: لمسة الرقم تبدّل لم يتقن ← جزئيّاً ← أتقن. ومع مهارةٍ لها نقاطٌ فنّيّة في دليل المعلّم تصير العيّنة «استمارة ملاحظة
+    // النواحي الفنّيّة»: لمسة الرقم تختار الطالب، ثمّ يُلمس ما حقّقه من النقاط (pa/pb)، ومنها رمز إتقانه (a/b) كما كان.
     function sampleTap(i) {
+        if (sampleSkill()) { S.samplePick = S.samplePick === i ? -1 : i; renderSample(); return; }
         const sm = S.sample || (S.sample = freshSample(+(($('eyeSampleN') || {}).value) || 8));
         const r = S.sampleRound === 'b' ? 'b' : 'a';
         const arr = String(sm[r] || '').padEnd(sm.n, '0').slice(0, sm.n).split('');
@@ -767,9 +793,36 @@
         renderSample();
         sampleChanged();
     }
+    // مهارة العيّنة: مهارتها إن قُيّم فيها أحد، وإلّا أوّل مهارةٍ مختارةٍ لها نقاط — وعيّنةٌ قُيّمت تقديراً عامّاً قبل اختيار المهارة تبقى كما هي
+    function sampleSkill() {
+        const G = guideOn();
+        if (!G) return null;
+        const sm = S.sample;
+        if (sm && sm.sk && hasSample(sm)) { const sk = LG().skillOf(G, sm.sk); return LG().observable(sk) ? { G, sk } : null; }
+        if (hasSample(sm)) return null;
+        const id = (S.guide.skills || []).find(k => LG().observable(LG().skillOf(G, k)));
+        return id ? { G, sk: LG().skillOf(G, id) } : null;
+    }
+    function samplePoint(v) {
+        const CK = sampleSkill(), i = S.samplePick;
+        if (!CK || i < 0) return;
+        const sm = S.sample || (S.sample = freshSample(+(($('eyeSampleN') || {}).value) || 8));
+        if (v === 'next') { S.samplePick = (i + 1) % sm.n; renderSample(); return; }
+        const r = S.sampleRound === 'b' ? 'b' : 'a', P = CK.sk.points.length;
+        if (sm.sk !== CK.sk.id) { sm.sk = CK.sk.id; delete sm.pa; delete sm.pb; }
+        if (v === 'clear') LG().clearPupil(sm, r, i, P);
+        else if (v === 'all' || v === 'none') LG().setPoint(sm, r, i, v, true, P);
+        else {
+            const m = Array.isArray(sm['p' + r]) && Number.isInteger(sm['p' + r][i]) ? sm['p' + r][i] : -1, bit = +v;
+            LG().setPoint(sm, r, i, bit, !(m >= 0 && (m & (1 << bit))), P);
+        }
+        renderSample();
+        sampleChanged();
+    }
     function sampleChanged() {
+        updateGuideLive();
         if (!S.result || S.running) return;
-        S.result.sample = hasSample(S.sample) ? Object.assign({}, S.sample) : null;
+        S.result.sample = hasSample(S.sample) ? JSON.parse(JSON.stringify(S.sample)) : null;
         resuggest();
     }
     function renderSample() {
@@ -782,22 +835,175 @@
             const on = b.dataset.round === r;
             b.classList.toggle('svf-btn-primary', on); b.classList.toggle('svf-btn-secondary', !on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
+        const CK = sampleSkill(), P = CK ? CK.sk.points.length : 0;
+        if (!CK) S.samplePick = -1;
+        else if (S.samplePick >= sm.n) S.samplePick = -1;
+        const hint = $('eyeSampleHint');
+        if (hint) hint.textContent = CK ? 'استمارة ملاحظة النواحي الفنّيّة لـ«' + CK.sk.short + '» من دليل المعلّم: المس الطالب ثمّ ما حقّقه من نقاطها — كلّها أتقن، ونصفها فأكثر جزئيّاً. منها شاهد البندين ١ و٢.' : SAMPLE_HINT;
         const LOOK = { 0: ['border-slate-200 text-slate-600', '', 'لم يُقيَّم'], 1: ['border-red-300 bg-red-50 text-red-800', 'fa-xmark', 'لم يتقن'],
                        2: ['border-amber-300 bg-amber-50 text-amber-900', 'fa-circle-half-stroke', 'جزئيّاً'], 3: ['border-green-300 bg-green-50 text-green-800', 'fa-check', 'أتقن'] };
         const DOT = { 1: '#b5452f', 2: '#9a6f24', 3: '#1d6b45' };
+        const mk = CK && Array.isArray(sm['p' + r]) && sm.sk === CK.sk.id ? sm['p' + r] : [];
+        const popc = m => { let n = 0; for (let x = m; x > 0; x >>= 1) n += x & 1; return n; };
         let h = '';
         for (let i = 0; i < sm.n; i++) {
             const v = Number(String(sm[r] || '')[i] || 0), was = r === 'b' ? Number(String(sm.a || '')[i] || 0) : 0;
             const [cls, ic, lbl] = LOOK[v] || LOOK[0];
-            h += `<button type="button" data-pupil="${i}" class="relative flex items-center justify-center gap-1 h-10 rounded-lg border bg-white text-sm font-bold tabular-nums ${cls}" aria-label="الطالب ${i + 1}: ${lbl}">
-                ${i + 1}${ic ? `<i class="fa-solid ${ic} text-xs" aria-hidden="true"></i>` : ''}${was ? `<i class="absolute top-1 left-1 w-1.5 h-1.5 rounded-full" style="background:${DOT[was]}" title="أوّل التطبيق" aria-hidden="true"></i>` : ''}</button>`;
+            const m = Number.isInteger(mk[i]) ? mk[i] : -1, pick = CK && S.samplePick === i;
+            const inner = CK ? `${i + 1}${m >= 0 ? `<span class="text-[11px] font-medium opacity-80">${popc(m)}/${P}</span>` : ''}`
+                : `${i + 1}${ic ? `<i class="fa-solid ${ic} text-xs" aria-hidden="true"></i>` : ''}`;
+            h += `<button type="button" data-pupil="${i}" class="relative flex items-center justify-center gap-1 h-10 rounded-lg border bg-white text-sm font-bold tabular-nums ${cls}"${pick ? ' style="outline:2px solid #0f4c81;outline-offset:2px"' : ''} aria-label="الطالب ${i + 1}: ${lbl}"${CK ? ` aria-pressed="${pick ? 'true' : 'false'}"` : ''}>
+                ${inner}${was ? `<i class="absolute top-1 left-1 w-1.5 h-1.5 rounded-full" style="background:${DOT[was]}" title="أوّل التطبيق" aria-hidden="true"></i>` : ''}</button>`;
         }
         box.innerHTML = h;
+        // لوحة النقاط للطالب المختار
+        const pts = $('eyeSamplePts');
+        if (pts) {
+            const i = S.samplePick;
+            if (CK && i >= 0) {
+                const m = Number.isInteger(mk[i]) ? mk[i] : -1;
+                pts.innerHTML = `<div class="mt-2 rounded-xl border border-blue-200 bg-blue-50/40 p-2">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 text-xs text-slate-600 mb-1.5"><b class="text-sm text-slate-900">الطالب ${i + 1}</b><span>${m >= 0 ? 'حقّق ' + popc(m) + ' من ' + P : 'لم يُقيَّم بعد'} — المس ما حقّقه</span></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">${CK.sk.points.map((p, k) => { const on = m >= 0 && !!(m & (1 << k));
+                        return `<button type="button" data-spt="${k}" aria-pressed="${on}" class="svf-btn svf-btn-sm ${on ? 'svf-btn-primary' : 'svf-btn-secondary'} justify-start text-right"><i class="fa-solid ${on ? 'fa-check' : 'fa-minus'} text-xs" aria-hidden="true"></i>${k + 1}. ${esc(p.short)}</button>`; }).join('')}</div>
+                    <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <button type="button" data-spt="all" class="svf-btn svf-btn-ghost svf-btn-sm">كلّها</button>
+                        <button type="button" data-spt="none" class="svf-btn svf-btn-ghost svf-btn-sm">لا شيء</button>
+                        ${m >= 0 ? '<button type="button" data-spt="clear" class="svf-btn svf-btn-ghost svf-btn-sm">لم يُقيَّم</button>' : ''}
+                        <span class="flex-1"></span>
+                        <button type="button" data-spt="next" class="svf-btn svf-btn-secondary svf-btn-sm">التالي<i class="fa-solid fa-arrow-left text-xs" aria-hidden="true"></i></button>
+                    </div></div>`;
+            } else pts.innerHTML = CK ? '<p class="text-xs text-slate-500 mt-2">المس رقم طالبٍ لتسجّل ما حقّقه من النقاط.</p>' : '';
+        }
         const SS = E().sampleStats(sm), sum = $('eyeSampleSum');
         if (!sum) return;
         const rd = (t, x) => (x.rated ? t + ': قُيّم ' + x.rated + ' — أتقن ' + x.ok + '، جزئيّاً ' + x.part + '، لم يتقن ' + x.no + ' (' + x.pct + '%)' : '');
         sum.textContent = SS ? [rd('أوّل التطبيق', SS.a), rd('آخر الحصة', SS.b), SS.both ? 'تقدّم ' + SS.improved + ' من ' + SS.both : ''].filter(Boolean).join(' · ') : '';
+        const PS = CK && sm.sk === CK.sk.id ? LG().pointStats(sm, CK.G) : null, cur = PS && PS[r];
+        if (cur && cur.rated) {
+            const w = cur.pts.slice().sort((p, q) => p.pct - q.pct || p.i - q.i)[0];
+            if (w && w.pct < 100) sum.textContent += ' · أضعف نقطة: «' + w.short + '» (' + w.ok + '/' + cur.rated + ')';
+        }
         if (SS && !SS.final && (SS.a.rated || SS.b.rated)) sum.textContent += ' — يلزم ' + E().MIN_SAMPLE + ' طلبةٍ في القراءة ليُقترح منها';
+        updateGuideLive();
+    }
+
+    // ── دليل المعلّم (js/lesson-guide.js) ──
+    // الدليل من الصفّ وعنوان الدرس في النموذج — يُعاد حين يتغيّران، ويبقى اختيار المشرف ما دامت الحصة نفسها
+    const guideOn = () => (S.guide && S.guide.on && LG() ? LG().byId(S.guide.id) : null);
+    function detectGuide() {
+        if (!LG()) { S.guide = null; return; }
+        const I = info(), key = I.cls + '|' + I.topic;
+        if (S.guide && S.gkey === key) return;
+        S.gkey = key;
+        const r = LG().find({ cls: I.cls, topic: I.topic });
+        S.guide = r ? { id: r.guide.id, skills: r.skills.slice(), sure: r.sure, on: r.sure, min: false } : null;
+    }
+    function guideSkill(id) {
+        const G = guideOn();
+        if (!G) return;
+        const set = new Set(S.guide.skills);
+        if (set.has(id)) set.delete(id); else set.add(id);
+        S.guide.skills = G.skills.map(x => x.id).filter(k => set.has(k));       // بترتيب الدليل
+        guideChanged();
+    }
+    // تغيّر الدليل أو مهارته: البطاقة والعيّنة، والكلام حيّاً، وبعد الرصد يُعاد التحليل والاقتراح
+    function guideChanged() {
+        renderGuide();
+        renderSample();
+        if (S.running && S.sp) S.sp.dirty = true;
+        const d = S.result;
+        if (!d || S.running) return;
+        const G = guideOn();
+        const prev = d.guide;
+        d.guide = G ? { id: G.id, skills: S.guide.skills.slice() } : null;
+        if (d.M) {
+            const segs = d.sp && Array.isArray(d.sp.seg) ? d.sp.seg : [];
+            const same = prev && d.guide && prev.id === d.guide.id && prev.skills.join() === d.guide.skills.join();
+            if (G && segs.length) d.M.gspeech = LG().speechCoverage(segs, G, S.guide.skills);
+            else if (!same) d.M.gspeech = null;      // حُذف النصّ: لا يُعاد عدّه لمهارةٍ أخرى
+        }
+        resuggest();
+    }
+    function renderGuide() {
+        const box = $('eyeGuide');
+        if (!box) return;
+        const G = S.guide && LG() ? LG().byId(S.guide.id) : null;
+        if (!G) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+        box.classList.remove('hidden');
+        const gname = 'الصف ' + (GRADE_NAME[G.grade] || G.grade);
+        const sel = new Set(S.guide.skills || []);
+        if (!S.guide.on) {
+            box.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-sm text-slate-700"><i class="fa-solid fa-book-open ml-1.5 text-slate-500" aria-hidden="true"></i>دليل المعلّم متاحٌ لـ${esc(gname)}: <b>${esc(G.topic)}</b></span>
+                <button type="button" data-gopen class="svf-btn svf-btn-secondary svf-btn-sm">استعمله في هذه الحصة</button></div>`;
+            return;
+        }
+        const chosen = G.skills.filter(sk => sel.has(sk.id));
+        const head = `<div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="font-bold text-slate-900"><i class="fa-solid fa-book-open ml-1.5 text-slate-500" aria-hidden="true"></i>دليل المعلّم — ${esc(G.topic)} · ${esc(gname)}</h2>
+                <span class="flex items-center gap-2 text-xs text-slate-500">${esc(G.sessions)} حصة · نموذجٌ تجريبيّ
+                    <button type="button" data-gmin class="svf-btn svf-btn-ghost svf-btn-sm" aria-expanded="${S.guide.min ? 'false' : 'true'}">${S.guide.min ? 'عرض' : 'طيّ'}</button></span></div>`;
+        if (S.guide.min) {
+            box.innerHTML = head + `<p class="text-sm text-slate-600 mt-1">مهارة الحصة: ${chosen.length ? esc(chosen.map(x => x.short).join('، ')) : 'لم تُختر'}</p>`;
+            return;
+        }
+        const chips = `<div class="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="مهارة الحصة">
+                <span class="text-xs text-slate-600 ml-1">مهارة الحصة:</span>
+                ${G.skills.map(sk => { const on = sel.has(sk.id); return `<button type="button" data-gskill="${esc(sk.id)}" aria-pressed="${on}" class="svf-btn svf-btn-sm ${on ? 'svf-btn-primary' : 'svf-btn-secondary'}">${esc(sk.short)}</button>`; }).join('')}</div>`;
+        const withPts = chosen.filter(sk => sk.points && sk.points.length);
+        const blocks = withPts.length ? `<div class="mt-3 grid gap-3${withPts.length > 1 ? ' md:grid-cols-2' : ''}">${withPts.map(sk => `<div class="rounded-xl border border-slate-200 p-3 min-w-0${withPts.length === 1 ? ' max-w-3xl' : ''}">
+                <div class="flex flex-wrap items-baseline justify-between gap-2"><b class="text-sm text-slate-900">${esc(sk.name)}</b>
+                    <span class="text-[11px] text-slate-500">${sk.knowledge ? 'معرفيّة — في الكلام والأسئلة' : 'النقاط الفنّيّة'}</span></div>
+                <ol class="mt-1.5 space-y-1.5">${sk.points.map((p, i) => `<li class="flex items-start gap-2 text-sm">
+                    <span class="flex-none w-5 h-5 mt-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center tabular-nums">${i + 1}</span>
+                    <span class="flex-1 min-w-0 text-slate-800 leading-6">${esc(p.text)}</span>
+                    <span class="flex-none flex flex-wrap justify-end gap-1" data-gp="${esc(sk.id)}:${i}"></span></li>`).join('')}</ol>
+                ${sk.tips && sk.tips.length ? `<p class="text-xs text-slate-500 mt-1.5 leading-5">${esc(sk.tips.join(' · '))}</p>` : ''}</div>`).join('')}</div>`
+            : chosen.length ? `<p class="text-sm text-slate-600 mt-2 leading-6">${chosen.some(x => x.id === 'play') ? 'المنافسات والمباريات: تتابعها الكاميرا (الحركة والانتظار والتشكيل)، وتعديل القواعد لقدرات المرحلة أدناه.' : ''}</p>`
+            : '<p class="text-sm text-slate-600 mt-2 leading-6">اختر مهارة الحصة لتظهر نقاطها الفنّيّة، وتصير «عيّنة الطلبة» استمارة ملاحظتها، ويتابع «فهم الكلام» ذكرها.</p>';
+        const FORM = LG().FORM;
+        const drills = LG().drillsFor(G, S.guide.skills);
+        const perTxt = n => (n === 1 ? 'كرةٌ لكلّ طالب' : n === 2 ? 'كرةٌ لكلّ طالبين' : n ? 'كرةٌ لكلّ (' + n + ') طلبة' : '');
+        const drillsHtml = drills.length ? `<details class="text-sm rounded-xl border border-slate-200 px-3 py-2"><summary class="cursor-pointer text-slate-700 font-semibold">تدريبات المهارة وأنشطتها في الدليل (${drills.length})</summary>
+                <ul class="mt-2 space-y-2">${drills.map(d => `<li class="leading-6"><div class="flex flex-wrap items-center gap-1.5"><b class="text-slate-900">${esc(d.name)}</b>
+                    <span class="text-[11px] rounded bg-slate-100 text-slate-700 px-1.5">${esc(FORM[d.form] || '')}</span>${d.per ? `<span class="text-[11px] rounded bg-slate-100 text-slate-700 px-1.5">${esc(perTxt(d.per))}</span>` : ''}
+                    <span class="text-[11px] text-slate-500">${d.kind === 'apply' ? 'نشاطٌ تطبيقيّ' : 'تدريبٌ للمهارة'}</span></div>
+                    <p class="text-slate-700">${esc(d.desc)}</p>${d.dev && d.dev.length ? `<p class="text-xs text-slate-500">تطوير النشاط: ${esc(d.dev.join('، '))}</p>` : ''}</li>`).join('')}</ul></details>` : '';
+        const moreHtml = `<details class="text-sm rounded-xl border border-slate-200 px-3 py-2"><summary class="cursor-pointer text-slate-700 font-semibold">أسئلة التقويم ومخرجات الموضوع</summary>
+                <div class="mt-2 space-y-2 leading-6">
+                    <div><div class="text-xs font-bold text-slate-500">أسئلة التقويم — يتابعها «فهم الكلام»</div>${(G.assess || []).map((q, i) => `<div class="flex items-start gap-2"><span class="flex-1 text-slate-700">${esc(q.text)}</span><span class="flex-none" data-ga="${i}"></span></div>`).join('')}
+                        ${G.assessGame ? `<p class="text-slate-700">${esc(G.assessGame)}</p>` : ''}</div>
+                    <div><div class="text-xs font-bold text-slate-500">المخرجات التعليميّة</div><p class="text-slate-700">${esc(G.outcomes.join('؛ '))}</p></div>
+                    <div><div class="text-xs font-bold text-slate-500">المفاهيم · الأدوات</div><p class="text-slate-700">${esc(G.concepts.join('، '))} · ${esc(G.tools.join('، '))}</p></div>
+                    ${G.adapt && G.adapt.length ? `<div><div class="text-xs font-bold text-slate-500">تعديل القواعد لقدرات المرحلة</div><p class="text-slate-700">${esc(G.adapt.join('؛ '))}</p></div>` : ''}
+                    ${G.note ? `<p class="text-xs text-slate-500">${esc(G.note)}</p>` : ''}
+                </div></details>`;
+        box.innerHTML = head + chips + blocks + `<div class="grid md:grid-cols-2 gap-2 mt-3">${drillsHtml}${moreHtml}</div>`;
+        updateGuideLive();
+    }
+    // المؤشّرات بجانب كلّ نقطة: ذُكرت في كلام المعلّم (حيّاً أو من المحفوظ)، ومن حقّقها في العيّنة (القراءة الجارية)
+    function updateGuideLive() {
+        const box = $('eyeGuide'), G = guideOn();
+        if (!box || !G || box.classList.contains('hidden')) return;
+        const C = S.running ? (S.sp && S.sp.G) : (S.result && S.result.M && S.result.M.gspeech);
+        const cov = C && C.id === G.id ? C : null;
+        const r = S.sampleRound === 'b' ? 'b' : 'a';
+        const PS = S.sample && S.sample.sk ? LG().pointStats(S.sample, G) : null;
+        const badge = (txt, on, ttl) => `<span class="text-[11px] rounded px-1.5 py-0.5 border ${on ? 'bg-green-50 text-green-800 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'}" title="${esc(ttl)}">${esc(txt)}</span>`;
+        box.querySelectorAll('[data-gp]').forEach(el => {
+            const [sid, si] = el.dataset.gp.split(':'), i = +si;
+            const bits = [];
+            const cs = cov && cov.skills.find(x => x.id === sid);
+            if (cs && cs.points[i]) bits.push(badge(cs.points[i].n ? 'ذُكرت' + (cs.points[i].n > 1 ? ' ×' + cs.points[i].n : '') : 'لم تُذكر', cs.points[i].n > 0, 'في كلام المعلّم'));
+            const rr = PS && PS.skill === sid ? PS[r] : null;
+            if (rr && rr.rated) bits.push(badge('العيّنة ' + rr.pts[i].ok + '/' + rr.rated, rr.pts[i].pct >= 75, (r === 'b' ? 'آخر الحصة' : 'أوّل التطبيق') + ': من حقّقها'));
+            el.innerHTML = bits.join('');
+        });
+        box.querySelectorAll('[data-ga]').forEach(el => {
+            const q = cov && cov.assess[+el.dataset.ga];
+            el.innerHTML = q ? badge(q.n ? 'سُئل' : 'لم يُسأل', q.n > 0, 'في كلام المعلّم') : '';
+        });
     }
 
     // ── تركيز هذه الحصة: أهداف الزيارة السابقة للمعلّم نفسه (قبل الرصد وأثناءه) ──
@@ -1049,7 +1255,13 @@
         if (last) tx.appendChild(document.createTextNode('«' + last.x + '»'));
         if (sp.interim) { const i = document.createElement('span'); i.className = 'text-slate-400'; i.textContent = ' ' + sp.interim; tx.appendChild(i); }
         if (!last && !sp.interim) tx.textContent = 'ينتظر كلام المعلّم…';
-        if (sp.dirty && SX()) { sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: now() }); sp.dirty = false; }
+        if (sp.dirty && SX()) {
+            sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: now() });
+            const G = guideOn();
+            sp.G = G ? LG().speechCoverage(sp.segs, G, S.guide.skills) : null;      // نقاط المهارة وأسئلة التقويم كما تُسمع
+            sp.dirty = false;
+            updateGuideLive();
+        }
         const A = sp.A;
         const chips = A ? [['تعزيز', A.praise.n], ['تصحيح', A.corr.n], ['أسئلة', A.q.n], ['تحقّق من الفهم', A.check.n], ['سلامة', A.safe.n]] : [];
         $('eyeSpeechCounts').innerHTML = chips.map(([k, v]) => `<span class="text-xs rounded-lg border border-slate-200 px-2 py-1 text-slate-700">${esc(k)} <b class="tabular-nums text-slate-900">${v}</b></span>`).join('');
@@ -1406,7 +1618,7 @@
         S.tl = null;
         S.consent = src !== 'none' || !!S.audio || checked('eyeSpeech') ? checked('eyeConsent') : false;
         S.sp = null;
-        S.sample = null; S.sampleRound = 'a'; S.marks = [];
+        S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
         S.teacher = null; S.pickTeacher = false;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
         renderCounts();
@@ -1931,6 +2143,9 @@
         keep.rec = recPref();                          // الزمن الموصى به للعناصر (اختيار المشرف) يُحفظ مع النتيجة
         // كلام المعلّم: تحليله يدخل M فيُقترح منه ويُعاد الاقتراح عليه، والنصّ نفسه في data.sp
         if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: M.seconds });
+        // دليل المعلّم: الدليل ومهارة الحصة يُحفظان، وما سُمع من نقاطها الفنّيّة وأسئلة تقويمها
+        const GD = guideOn();
+        if (GD && sp) keep.gspeech = LG().speechCoverage(sp.segs, GD, S.guide.skills);
         const LS = E().live(recNow(), M).series;
         const packed = (ser, k, sc) => { const t = E().pack(ser, k, sc); return /[0-9]/.test(t) ? t : ''; };
         const data = {
@@ -1949,7 +2164,8 @@
             cx: S.ctxEvents.map(e => [e.t, e.k]),
             outAuto, dishAuto,
             sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]) } : null,
-            sample: hasSample(S.sample) ? Object.assign({}, S.sample) : null,
+            sample: hasSample(S.sample) ? JSON.parse(JSON.stringify(S.sample)) : null,
+            guide: GD ? { id: GD.id, skills: S.guide.skills.slice() } : null,
             marks: S.marks.map(m => [m.t, m.note || '']),
             targets: [],
             applied: []
@@ -2188,6 +2404,69 @@
             </div>`;
         }
 
+        // مطابقة دليل المعلّم: نقاط المهارة في العيّنة وفي الكلام، وأسئلة التقويم، والتشكيل والكرات، وبدائل الدليل
+        let guideHtml = '';
+        const GDd = data.guide && LG() ? LG().byId(data.guide.id) : null;
+        if (GDd) {
+            const ids = data.guide.skills || [];
+            const names = GDd.skills.filter(x => ids.includes(x.id)).map(x => x.short);
+            const PS = LG().pointStats(data.sample, GDd);
+            const C = M.gspeech && M.gspeech.id === GDd.id ? M.gspeech : null;
+            const GX = LG().guideCtx(data) || {};
+            const pct = (a, b) => (b ? Math.round(100 * a / b) : 0);
+            const barRow = (label, ok, rated, extra) => {
+                const p = pct(ok, rated), col = p >= 75 ? '#1d6b45' : p >= 50 ? '#9a6f24' : '#b5452f';
+                return `<div><div class="flex flex-wrap items-baseline justify-between gap-2 text-sm"><span class="text-slate-800">${esc(label)}</span>
+                    <span class="text-xs text-slate-600 tabular-nums">${ok} من ${rated}${extra ? ' · ' + esc(extra) : ''}</span></div>
+                    <div class="h-2.5 bg-slate-100 rounded mt-1"><div class="h-2.5 rounded" style="width:${p}%;background:${col}"></div></div></div>`;
+            };
+            let sampleBlock = '';
+            const rd = PS && (PS.final || (PS.b.rated ? PS.b : PS.a.rated ? PS.a : null));
+            if (rd && rd.rated) {
+                const tag = PS.final ? (PS.finalRound === 'b' ? 'آخر الحصة' : 'أوّل التطبيق') : 'أقلّ من ' + E().MIN_SAMPLE + ' طلبة';
+                sampleBlock = `<div><div class="text-xs font-bold text-slate-500 mb-2">النقاط الفنّيّة لـ«${esc(PS.name)}» في العيّنة — ${esc(tag)}</div>
+                    <div class="space-y-2.5">${rd.pts.map((x, i) => barRow((i + 1) + '. ' + x.short, x.ok, rd.rated,
+                        PS.gain && PS.gain[i].from != null && PS.gain[i].to != null ? 'أوّل التطبيق ' + PS.gain[i].from + '% ← ' + PS.gain[i].to + '%' : '')).join('')}</div></div>`;
+            } else if (ids.some(k => LG().observable(LG().skillOf(GDd, k)))) {
+                sampleBlock = '<p class="text-sm text-slate-600 leading-6">لم تُقيَّم العيّنة بنقاط المهارة — «عيّنة الطلبة» صارت استمارة ملاحظتها، فقيّم خمسة طلبةٍ فأكثر.</p>';
+            }
+            let speechBlock = '';
+            if (C && C.total) {
+                speechBlock = `<div><div class="text-xs font-bold text-slate-500 mb-2">في كلام ${female() ? 'المعلمة' : 'المعلم'}: ذُكر (${C.said}) من (${C.total}) نقاط</div>
+                    <ul class="space-y-1.5">${C.skills.map(cs => { const sk = LG().skillOf(GDd, cs.id); return cs.points.map((pt, i) => `<li class="text-sm leading-6 flex gap-2">
+                        <i class="fa-solid ${pt.n ? 'fa-check text-green-700' : 'fa-minus text-slate-400'} mt-1.5 text-xs" aria-hidden="true"></i>
+                        <span class="min-w-0"><span class="${pt.n ? 'text-slate-800' : 'text-slate-500'}">${esc(sk ? sk.points[i].short : '')}</span>${pt.n > 1 ? ` <span class="text-xs text-slate-500">×${pt.n}</span>` : ''}
+                        ${pt.ex ? `<span class="block text-xs text-slate-500"><span class="tabular-nums">${mmss(pt.ex[0])}</span> «${esc(pt.ex[1])}»</span>` : ''}</span></li>`).join(''); }).join('')}</ul></div>`;
+            }
+            let assessBlock = '';
+            if (C && GDd.assess && GDd.assess.length) {
+                assessBlock = `<div><div class="text-xs font-bold text-slate-500 mb-2">أسئلة التقويم في الدليل: سُئل (${C.asked}) من (${GDd.assess.length})</div>
+                    <ul class="space-y-1.5">${GDd.assess.map((q, i) => { const a = C.assess[i] || {}; return `<li class="text-sm leading-6 flex gap-2">
+                        <i class="fa-solid ${a.n ? 'fa-check text-green-700' : 'fa-minus text-slate-400'} mt-1.5 text-xs" aria-hidden="true"></i>
+                        <span class="min-w-0"><span class="${a.n ? 'text-slate-800' : 'text-slate-500'}">${esc(q.short)}</span>
+                        ${a.ex ? `<span class="block text-xs text-slate-500"><span class="tabular-nums">${mmss(a.ex[0])}</span> «${esc(a.ex[1])}»</span>` : ''}</span></li>`; }).join('')}</ul></div>`;
+            }
+            const ratio = E().ballRatio(M);
+            const perT = n => (n === 1 ? 'طالب' : n === 2 ? 'طالبين' : '(' + n + ') طلبة');
+            const orgBits = [];
+            if (GX.formsText && GX.formsText.length) orgBits.push('تدريبات المهارة في الدليل: <b>' + esc(GX.formsText.join('، ')) + '</b>' + (GX.applyText && GX.applyText.length ? '، وأنشطتها التطبيقيّة: ' + esc(GX.applyText.join('، ')) : ''));
+            if (F && F.types && F.types.length) orgBits.push('ورُصد: <b>' + esc(F.types.map(t => E().FORMS[t]).join('، ')) + '</b>' + (F.maxLine > E().LONG_LINE ? ' — أطول قاطرة ' + F.maxLine + ' طلبة' : ''));
+            if (GX.per) orgBits.push('الكرات: الدليل يبني تدريبات المهارة على كرةٍ لكلّ ' + perT(GX.per) + (ratio ? '، ورُصدت كرةٌ لكلّ <b>' + esc(perT(ratio)) + '</b>' : ''));
+            const devs = LG().drillsFor(GDd, ids).filter(d => d.dev && d.dev.length);
+            const altBlock = devs.length || (GX.game && GDd.adapt) ? `<details class="text-sm mt-3"><summary class="cursor-pointer text-slate-600">بدائل من الدليل للمداولة (تطوير النشاط${GX.game ? ' وتعديل قواعد المباراة' : ''})</summary>
+                    <ul class="mt-2 space-y-1 leading-6">${devs.map(d => `<li class="text-slate-700"><b class="text-slate-800">${esc(d.name)}:</b> ${esc(d.dev.join('، '))}</li>`).join('')}
+                    ${GX.game && GDd.adapt ? `<li class="text-slate-700"><b class="text-slate-800">قواعد المباراة لقدرات المرحلة:</b> ${esc(GDd.adapt.join('، '))}</li>` : ''}</ul></details>` : '';
+            const body = [sampleBlock, speechBlock, assessBlock].filter(Boolean);
+            guideHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">مطابقة دليل المعلّم</h2>
+                    <span class="text-xs text-slate-500">${esc(GDd.topic)} · الصف ${esc(GRADE_NAME[GDd.grade] || String(GDd.grade))}${names.length ? ' — ' + esc(names.join('، ')) : ''}</span></div>
+                ${ids.length ? '' : '<p class="text-sm text-slate-600 mt-2">اختر مهارة الحصة في بطاقة «دليل المعلّم» أعلاه لتُقارن بها الحصة.</p>'}
+                ${body.length ? `<div class="grid md:grid-cols-${Math.min(3, body.length)} gap-5 mt-3">${body.join('')}</div>` : ''}
+                ${orgBits.length ? `<p class="text-sm text-slate-700 mt-3 pt-3 border-t border-slate-100 leading-7">${orgBits.join(' · ')}</p>` : ''}
+                ${altBlock}
+            </div>`;
+        }
+
         // للمداولة وللمعلّم: ما يُعزَّز وما يُسأل عنه، والنموّ منذ الرصد السابق، والبطاقة
         const dp = E().debriefPrompts(M, data.counts || {}, ctxOf(data));
         const prev = prevEye(), grow = growthLines(data, prev);
@@ -2301,6 +2580,7 @@
             ${partsHtml}
             ${formsHtml}
             ${speechHtml}
+            ${guideHtml}
             ${talkHtml}
             ${targetsHtml}
             <div class="bg-white rounded-2xl border border-slate-200 p-5">
@@ -2328,6 +2608,7 @@
         if (data.heat) { S.savedHeat = data.heat.split('').map(Number); drawHeat(S.savedHeat); }
         renderKpis(Object.assign({ states: [] }, M), M.seconds);
         renderMonitorDone(data);
+        updateGuideLive();
         $('eyeApply') && $('eyeApply').addEventListener('click', apply);
         $('eyeToNotes') && $('eyeToNotes').addEventListener('click', () => toNotes(data.summary));
         $('eyeNew').addEventListener('click', reset);
@@ -2353,6 +2634,7 @@
             if (!ok) return;
             if (S.result.sp) { S.result.sp.seg = []; S.result.sp.purged = true; }
             if (S.result.M && S.result.M.speech && SX()) S.result.M.speech = SX().stripExamples(S.result.M.speech);
+            if (S.result.M && S.result.M.gspeech && LG()) LG().stripExamples(S.result.M.gspeech);
             save(S.result);
             renderResult(S.result);
             toast('حُذف النصّ — احفظ التقرير ليُحذف من نسخته المحفوظة');
@@ -2529,8 +2811,7 @@
         if (data) { data.applied = Array.from(new Set((data.applied || []).concat(picks.map(p => p.id)))); save(data); }
         if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('form-view');
         const cards = picks.map(p => document.getElementById('item-' + p.id)).filter(Boolean);
-        cards.forEach(c => c.classList.add('ring-2', 'ring-amber-400'));
-        setTimeout(() => cards.forEach(c => c.classList.remove('ring-2', 'ring-amber-400')), 2600);
+        cards.forEach(c => flash(c, '#f0b44a', 2600));
         if (cards[0]) cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
         toast('طُبّق التقييم المقترح على ' + done + (done === 1 ? ' بند' : done === 2 ? ' بندين' : ' بنود') + ' — راجعه في النموذج');
     }
@@ -2550,8 +2831,11 @@
         S.secs = []; S.grid = null; S.events = []; S.counts = {}; S.result = null; S.tl = null; S.savedHeat = null;
         S.ctxEvents = []; S.ctxCur = null; S.pSnap = null; S.src = null; S.consent = false; S.hadAudio = false; S.classMax = 0;
         S.sp = null; S.speechConsent = false;
-        S.sample = null; S.sampleRound = 'a'; S.marks = [];
+        S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
         S.via = null; S.lostSec = 0; S.phoneCams = null;
+        S.guide = null; S.gkey = '';
+        detectGuide();
+        renderGuide();
         renderCounts();
         renderCtx();
         renderSample();
@@ -2639,9 +2923,14 @@
         renderPatterns();
         decorate();
         drawView();
-        if (S.running) { drawTimeline(); renderFocus(); return; }
+        if (S.running) { drawTimeline(); renderFocus(); renderGuide(); return; }
         const saved = ($('eyeData') && $('eyeData').value) || '';
-        if (saved === S.written) { if (S.result) { drawTimeline(); drawHeat(S.savedHeat); } renderFocus(); return; }
+        if (saved === S.written) {
+            if (S.result) { drawTimeline(); drawHeat(S.savedHeat); }
+            if (!(S.result && S.result.guide)) detectGuide();
+            renderGuide(); renderSample(); renderFocus();
+            return;
+        }
         // تقريرٌ آخر فُتح أو صُفّر النموذج: تُعرض نتيجته المحفوظة أو تبدأ الشاشة من جديد
         reset();
         S.written = saved;
@@ -2651,8 +2940,14 @@
             S.result = data;
             S.counts = Object.assign({}, data.counts || {});
             S.events = (data.ev || []).map(e => ({ t: e[0], k: e[1] }));
-            S.sample = data.sample ? Object.assign({}, data.sample) : null;
+            S.sample = data.sample ? JSON.parse(JSON.stringify(data.sample)) : null;
             S.marks = (data.marks || []).map(m => ({ t: m[0], note: m[1] || '' }));
+            if (data.guide && LG() && LG().byId(data.guide.id)) {
+                const I = info();
+                S.guide = { id: data.guide.id, skills: (data.guide.skills || []).slice(), sure: true, on: true, min: false };
+                S.gkey = I.cls + '|' + I.topic;
+                renderGuide();
+            }
             renderCounts();
             renderSample();
             renderMarks();

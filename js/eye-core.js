@@ -900,6 +900,9 @@
         return parts.length ? 'سُمع في كلام {المعلم|المعلمة}: ' + parts.join('، و') : 'لم يُسمع في كلام {المعلم|المعلمة} تصحيحٌ لأداء الطلبة ولا أسئلة';
     }
 
+    // من دليل المعلّم: كم نقطةً فنّيّةً للمهارة سُمعت في كلامه (lesson-guide.js: speechCoverage)
+    const coverText = GD => (GD && GD.cover && GD.cover.total ? '، و{ذكر|ذكرت} من النقاط الفنّيّة لمهارة الدرس (' + GD.cover.said + ') من (' + GD.cover.total + ')' : '');
+
     // الاستجابة للصفّارة حين تكفي (ثلاث إشاراتٍ قيست)، والمعلّم حين رُصد خمس دقائق
     const respOf = M => { const R = M && M.resp; return R && R.med != null && R.list.filter(x => x[2] >= 0).length >= 3 ? R : null; };
     const teacherOf = M => { const T = M && M.people && M.people.teacher; return T && T.secs >= 300 ? T : null; };
@@ -925,10 +928,13 @@
 
         // ١ التحصيل — من «عيّنة الطلبة»: إتقانهم للمهارة في آخر قراءة (السلّم بكمّيّات الاستمارة: جميع/معظم/أغلب/قليل/نادر)
         const SS = sampleStats(ctx.sample);
+        const GD = ctx.guide || null;                   // دليل المعلّم (lesson-guide.js: guideCtx) — المهارة ونقاطها الفنّيّة
         if (SS && SS.final) {
             const f = SS.final, late = SS.finalRound === 'b' && SS.a.rated > 0;
+            const sk = GD && GD.skill ? 'مهارة «' + GD.skill + '»' : 'المهارة';
             add(1, quantScore(f.pct), 'sample',
-                'في عيّنةٍ من ' + pupilsN(f.rated) + (late ? ' في آخر الحصة' : '') + ': أتقن المهارة (' + f.ok + ')، وأدّاها جزئيّاً (' + f.part + ')، ولم يتقنها (' + f.no + ') — نسبة الإتقان (' + f.pct + '%).',
+                'في عيّنةٍ من ' + pupilsN(f.rated) + (late ? ' في آخر الحصة' : '') + ': أتقن ' + sk + ' (' + f.ok + ')، وأدّاها جزئيّاً (' + f.part + ')، ولم يتقنها (' + f.no + ') — نسبة الإتقان (' + f.pct + '%)'
+                + (GD && GD.weak ? '، وأضعف نقاطها الفنّيّة «' + GD.weak.short + '» (' + GD.weak.ok + ' من ' + GD.weak.rated + ')' : '') + '.',
                 nConf(f.rated));
         }
 
@@ -1037,7 +1043,7 @@
             // من كلامه وحده: التصحيح والتحقّق من الفهم، والأسئلة بنصف وزن — وأدناه «غير ملائم» (المحوِّل قد يفوته كلام)
             const r = per10(SP, SP.corr.n + SP.check.n) + per10(SP, SP.q.n) / 2;
             const top = SP.corr.spec >= 8 && SP.check.n >= 2 && SP.q.hi >= 2;
-            add(10, r >= 6 ? (top ? 1 : 2) : r >= 3 ? 3 : 4, 'speech', speechFbText(SP) + '.');
+            add(10, r >= 6 ? (top ? 1 : 2) : r >= 3 ? 3 : 4, 'speech', speechFbText(SP) + coverText(GD) + '.');
         }
         if (fbTotal || c('fbMiss')) {
             let s = !fbTotal ? 4 : fbTotal >= 8 && kinds >= 3 ? 1 : fbTotal >= 6 && kinds >= 2 ? 2 : fbTotal >= 3 ? 3 : 4;
@@ -1063,7 +1069,7 @@
                 const r = per10(SP, SP.corr.n + SP.check.n) + per10(SP, SP.q.n) / 2;
                 const ss = r >= 6 ? 2 : r >= 3 ? 3 : 4;
                 if (ss < s) s--; else if (ss > s + 1) s++;
-                e += '، و' + speechFbText(SP);
+                e += '، و' + speechFbText(SP) + coverText(GD);
                 basis = 'both';
             }
             add(10, s, basis, e + '.');
@@ -1249,8 +1255,11 @@
             if (!det.some(r => r.verdict === 'missing') && m.parts && m.parts.orderOk !== false) good.push('اشتملت الحصة على عناصرها الخمسة بترتيبها.');
         }
         const FM = m.forms;
+        const GD = ctx.guide || null;
         if (FM && FM.longLineSec >= 60 && FM.maxLine > LONG_LINE)
-            ask.push('وقفت قاطرةٌ من ' + pupilsN(FM.maxLine) + ' مدّة ' + dur(FM.longLineSec) + '. كيف {تعيد|تعيدين} تنظيمها ليقلّ زمن الانتظار؟');
+            ask.push('وقفت قاطرةٌ من ' + pupilsN(FM.maxLine) + ' مدّة ' + dur(FM.longLineSec) + '.'
+                + (GD && GD.formsText && GD.formsText.length && !(GD.forms || []).includes('lines') ? ' وتدريبات المهارة في دليل المعلّم: ' + list(GD.formsText) + '.' : '')
+                + ' كيف {تعيد|تعيدين} تنظيمها ليقلّ زمن الانتظار؟');
         if (FM && FM.count === 1 && FM.segments[0]) ask.push('استُعمل تشكيلٌ واحد («' + FORMS[FM.segments[0].type] + '») طوال الحصة. أيّ تشكيلٍ آخر يناسب المهارة؟');
         if (FM && FM.types && FM.types.length >= 3) good.push('{نوّع المعلم|نوّعت المعلمة} التشكيلات: ' + list(FM.types.map(t => FORMS[t])) + '.');
         if (c('dish')) ask.push('شارك ' + pupilsN(c('dish')) + ' بغير الزيّ الرياضيّ. ما الإجراء المتّفق عليه مع الإدارة وأولياء الأمور؟');
@@ -1287,8 +1296,10 @@
             if (vg != null && vg >= 25) good.push('كان (' + vg + '%) من زمن الطلبة جرياً أو نشاطاً شديداً.');
             if (PP.crowdPct != null && PP.crowdPct >= CROWD_BAD) ask.push('تزاحم الطلبة أثناء الحركة (' + PP.crowdPct + '%). كيف {توزّع|توزّعين} المساحة ليعمل كلٌّ في مسافةٍ آمنة؟');
             const ratio = ballRatio(m);
-            if (ratio && ratio > 4) ask.push('كانت كرةٌ لكلّ ' + perPupils(ratio) + '. كيف {تزيد|تزيدين} الكرات أو المحطّات ليلمس كلّ طالبٍ الكرة أكثر؟');
-            else if (ratio && ratio <= 2) good.push('كانت كرةٌ لكلّ ' + perPupils(ratio) + ' — فرص ممارسةٍ وافرة.');
+            const want = GD && GD.per ? GD.per : 0;   // الدليل يبني تدريبات المهارة على كرةٍ لكلّ (want)
+            if (ratio && want && ratio > 2 * want) ask.push('تدريبات المهارة في دليل المعلّم بكرةٍ لكلّ ' + perPupils(want) + '، وكانت كرةٌ لكلّ ' + perPupils(ratio) + '. كيف {تزيد|تزيدين} الكرات أو المحطّات ليقترب منه؟');
+            else if (ratio && !want && ratio > 4) ask.push('كانت كرةٌ لكلّ ' + perPupils(ratio) + '. كيف {تزيد|تزيدين} الكرات أو المحطّات ليلمس كلّ طالبٍ الكرة أكثر؟');
+            else if (ratio && ratio <= Math.max(2, want)) good.push('كانت كرةٌ لكلّ ' + perPupils(ratio) + ' — فرص ممارسةٍ وافرة' + (want ? ' كما يقترح دليل المعلّم' : '') + '.');
             const TS = teacherOf(m);
             if (TS && TS.edgePct != null && TS.edgePct < 35) ask.push('{وقفت|وقفتِ} في وسط الطلبة أغلب الوقت (على أطرافهم ' + TS.edgePct + '% فقط). من كان خلفك؟ وأين {تقف|تقفين} لترى الجميع؟');
             else if (TS && TS.edgePct >= 60 && (TS.cover == null || TS.cover >= 50)) good.push('{وقفت|وقفتِ} على أطراف الطلبة و{تنقّلت|تنقّلتِ} بينهم — إشرافٌ نشط يرى الجميع.');
@@ -1303,6 +1314,27 @@
         if (SS && SS.both >= MIN_SAMPLE) {
             if (SS.improved >= Math.ceil(SS.both / 2)) good.push('تقدّم (' + SS.improved + ') من ' + pupilsN(SS.both) + ' في العيّنة بين أوّل التطبيق وآخره.');
             else if (!SS.improved) ask.push('لم يتقدّم أحدٌ من العيّنة بين أوّل التطبيق وآخره. ما الذي {تغيّره|تغيّرينه} في الممارسة أو التغذية الراجعة؟');
+        }
+        // دليل المعلّم: نقاط المهارة الفنّيّة في العيّنة وفي كلام المعلّم، وأسئلة التقويم، وتعديل قواعد المباراة لقدرات المرحلة
+        if (GD) {
+            const miss = GD.cover ? GD.cover.missing : [];
+            if (GD.weak) ask.push('أقلّ النقاط الفنّيّة تحقّقاً في العيّنة: «' + GD.weak.short + '» (' + GD.weak.ok + ' من ' + GD.weak.rated + ')'
+                + (miss.includes(GD.weak.short) ? '، ولم تُسمع في كلامك' : '') + '. أيّ تدريبٍ أو تلميحٍ يركّز عليها؟');
+            if (GD.best && !(GD.weak && GD.weak.short === GD.best.short)) good.push('حقّق (' + GD.best.ok + ') من ' + pupilsN(GD.best.rated) + ' في العيّنة نقطة «' + GD.best.short + '».');
+            if (GD.cover && GD.cover.total) {
+                if (GD.cover.said >= GD.cover.total) good.push('{ذكرت|ذكرتِ} في شرحك وتغذيتك الراجعة النقاط الفنّيّة للمهارة كلّها (' + GD.cover.total + ').');
+                else {
+                    const rest = miss.filter(x => !(GD.weak && x === GD.weak.short));
+                    if (rest.length) ask.push('لم ' + (rest.length === 1 ? 'تُسمع في كلامك نقطة' : 'تُسمع في كلامك نقاط') + ' «' + rest.join('»، «') + '» من دليل المعلّم. كيف {توصلها|توصلينها} للطلبة في الشرح والتغذية الراجعة؟');
+                }
+            }
+            if (GD.assess && GD.assess.total) {
+                if (GD.assess.asked) good.push('{طرحت|طرحتِ} من أسئلة التقويم في الدليل (' + GD.assess.asked + ') من (' + GD.assess.total + ').');
+                else if (GD.cover) ask.push('لم يُسمع سؤالٌ من أسئلة التقويم في الدليل (' + GD.assess.missing[0] + '…). متى {تطرحها|تطرحينها} في الحصة؟');
+            }
+            const mvg = movingOf(m), Q = m.people && m.people.detSecs >= MIN_OBSERVE / 2 ? m.people.queuePct : null;
+            if (GD.game && GD.adapt && GD.adapt.length && ((mvg != null && mvg < MVPA_GOAL) || (Q != null && Q >= 40)))
+                ask.push('في المباريات يقترح دليل المعلّم تعديل القواعد لقدرات المرحلة، مثل: ' + list(GD.adapt.slice(0, 2)) + '. أيّها يرفع زمن ممارسة صفّك؟');
         }
         // أهداف الزيارة السابقة
         (ctx.follow || []).forEach(f => {

@@ -609,8 +609,9 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const UI = read('js/eye.js'), RP = read('js/eye-report.js'), DB = read('js/debrief.js');
     check('wiring: العلامة أثناء الرصد وحده، بوقتها، وملاحظتها مهروبة', /function addMark\(\) \{\s*\n\s*if \(!S\.running\)/.test(UI) && /S\.marks\.push\(\{ t: Math\.round\(now\(\)\), note: '' \}\)/.test(UI)
           && /value="\$\{esc\(m\.note \|\| ''\)\}"/.test(UI) && /\$\{esc\(x\.text \|\| 'بلا ملاحظة'\)\}/.test(UI));
-    check('wiring: العيّنة والعلامات تُحفظ مع الرصد وتُستعاد، وتُصفَّر مع رصدٍ جديد', /sample: hasSample\(S\.sample\) \? Object\.assign\(\{\}, S\.sample\) : null,\s*\n\s*marks: S\.marks\.map\(m => \[m\.t, m\.note \|\| ''\]\)/.test(UI)
-          && /S\.sample = data\.sample \? Object\.assign\(\{\}, data\.sample\) : null;\s*\n\s*S\.marks = \(data\.marks \|\| \[\]\)/.test(UI) && (UI.match(/S\.sample = null; S\.sampleRound = 'a'; S\.marks = \[\];/g) || []).length === 2);
+    // نسخةٌ عميقة: العيّنة بنقاط المهارة فيها مصفوفات (pa/pb) — نسخةٌ سطحيّة كانت ستشارك الحالة الحيّة
+    check('wiring: العيّنة والعلامات تُحفظ مع الرصد وتُستعاد، وتُصفَّر مع رصدٍ جديد', /sample: hasSample\(S\.sample\) \? JSON\.parse\(JSON\.stringify\(S\.sample\)\) : null,\s*\n\s*guide: GD \? \{ id: GD\.id, skills: S\.guide\.skills\.slice\(\) \} : null,\s*\n\s*marks: S\.marks\.map\(m => \[m\.t, m\.note \|\| ''\]\)/.test(UI)
+          && /S\.sample = data\.sample \? JSON\.parse\(JSON\.stringify\(data\.sample\)\) : null;\s*\n\s*S\.marks = \(data\.marks \|\| \[\]\)/.test(UI) && (UI.match(/S\.sample = null; S\.sampleRound = 'a'; S\.marks = \[\]; S\.samplePick = -1;/g) || []).length === 2);
     check('wiring: أهداف الزيارة السابقة (الرصد السابق للمعلّم نفسه) تُقاس على رصد اليوم، ثمّ يُقترح بها', /const prev = prevEye\(\);\s*\n\s*if \(prev && Array\.isArray\(prev\.d\.targets\)[\s\S]{0,200}targetCheck\(t, data\)[\s\S]{0,120}data\.sugg = E\(\)\.suggest\(keep, data\.counts, ctxOf\(data\)\);\s*\n\s*data\.summary = E\(\)\.summaryText\(keep, ctxOf\(data\)\)/.test(UI)
           && /if \(d\.follow && Array\.isArray\(d\.follow\.targets\)\) d\.follow\.list = d\.follow\.targets\.map\(t => E\(\)\.targetCheck\(t, d\)\)/.test(UI));
     check('wiring: «تركيز هذه الحصة» قبل الرصد وأثناءه، ويختفي حين تظهر المتابعة', /function renderFocus\(\) \{[\s\S]{0,200}const prev = S\.result \? null : prevEye\(\);/.test(UI) && /renderFocus\(\);\s*\n\s*\}\s*\n\s*\n\s*\/\/ علامات المشرف/.test(UI));
@@ -814,6 +815,91 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: الرصد الجديد يصفّر اللوحة', /renderFocus\(\);\s*\n\s*resetMonitor\(\);/.test(UI) && /renderKpis\(null\);\s*\n\s*resetMonitor\(\);/.test(UI));
     check('wiring: لوحة النقاط مخفيّةٌ بعد الإيقاف (لا نقاط لقطةٍ أخيرة فوق الشاشة الفارغة)', /\$\('eyeView'\)\.style\.visibility = S\.running \? '' : 'hidden';/.test(UI.slice(UI.indexOf('function layout'), UI.indexOf('function placeBar'))));
     check('wiring: شريط الرصد معتمٌ لا زجاج (القشرة تجعل bg-white شفّافاً)', /id="eyeLiveBar" class="(?![^"]*bg-white)[^"]*" style="[^"]*background-color:#fff/.test(UI));
+}
+
+/* ── ٢٢) دليل المعلّم (2026-10-27): الدليل ومهارة الحصة، والعيّنة بالنقاط الفنّيّة، والنقاط وأسئلة التقويم في الكلام ── */
+{
+    const LG = require('../js/lesson-guide.js'), SX = require('../js/eye-speech.js');
+    const w = {}; new Function('window', read('js/lesson-guide-data.js'))(w); LG.setData(w.SVF_LESSON_GUIDE);
+    const G = LG.byId('g8-football');
+    const okData = G && G.grade === 8 && G.skills.every(sk => (sk.points || []).every(p => p.short && p.text && p.cues && p.cues.length))
+        && G.assess.every(q => q.any.length && q.with.length) && G.drills.every(d => LG.FORM[d.form] && d.skills.every(k => LG.skillOf(G, k)));
+    check('guide: بيانات كرة القدم للصف الثامن — لكلّ نقطةٍ ألفاظها، ولكلّ تدريبٍ تشكيله ومهاراتٌ موجودة', okData);
+    const f = (cls, topic) => { const r = LG.find({ cls, topic }); return r ? r.guide.id + ':' + r.skills.join(',') + ':' + r.sure : null; };
+    check('guide: من الصفّ وعنوان الدرس — المهارة تُعرف من العنوان، والموضوع وحده بلا مهارة',
+          f('8/3', 'التصويب بوجه القدم الخارجي') === 'g8-football:shoot:true' && f('ثامن/2', 'لعبة كرة القدم') === 'g8-football::true'
+          && f('8/1', 'ضرب الكرة بالرأس من الثبات') === 'g8-football:head:true' && f('8/1', 'المحاورة') === 'g8-football:dribbleSide,dribbleBack:true'
+          && f('8', 'مباراة تطبيقية') === 'g8-football:play:true', [f('8/3', 'التصويب بوجه القدم الخارجي'), f('8/1', 'المحاورة')].join(' | '));
+    check('guide: عنوانٌ فارغ ← اقتراحٌ لا تأكيد، وموضوعٌ آخر أو صفٌّ بلا دليل ← لا شيء (ألعاب القوى ليست كرة القدم)',
+          f('8', '') === 'g8-football::false' && f('ثامن/9', '') === 'g8-football::false' && f('8', 'ألعاب القوى') === null && f('9/1', 'كتم الكرة بأسفل القدم') === null && f('', 'التصويب') === null);
+
+    // العيّنة بالنقاط: القناع ← رمز الإتقان القديم، فيبقى sampleStats والبند ١ على حالهما
+    check('guide: رمز الإتقان من النقاط — كلّها أتقن، ونصفها فأكثر جزئيّاً، وأقلّ لم يتقن، و-1 لم يُقيَّم',
+          LG.codeOf(15, 4) === 3 && LG.codeOf(3, 4) === 2 && LG.codeOf(1, 4) === 1 && LG.codeOf(0, 4) === 1 && LG.codeOf(-1, 4) === 0 && LG.codeOf(3, 3) === 2 && LG.codeOf(1, 3) === 1);
+    const sm = { n: 8, sk: 'shoot', a: '', b: '' };
+    for (let i = 0; i < 6; i++) { LG.setPoint(sm, 'a', i, 0, true, 4); }
+    for (let i = 0; i < 6; i++) { LG.setPoint(sm, 'b', i, 0, true, 4); LG.setPoint(sm, 'b', i, 1, i % 2 === 0, 4); if (i < 2) LG.setPoint(sm, 'b', i, 'all', true, 4); }
+    LG.setPoint(sm, 'b', 7, 'none', true, 4); LG.clearPupil(sm, 'b', 7, 4);
+    const SS = E.sampleStats(sm), PS = LG.pointStats(sm, G);
+    check('guide: الأقنعة تكتب الرموز (a/b) فتُحسب العيّنة كما كانت', sm.b === '332121' && sm.a === '111111' && SS.final.rated === 6 && SS.final.ok === 2 && SS.final.part === 2 && SS.improved === 4, JSON.stringify([sm.a, sm.b, SS.final]));
+    check('guide: لكلّ نقطةٍ من حقّقها في القراءة الأخيرة، وأضعفها، والتقدّم من الأولى',
+          PS.finalRound === 'b' && PS.final.pts.map(p => p.ok).join() === '6,4,2,2' && PS.weakest.short === 'ميل الجذع والتوازن' && PS.gain[0].from === 100 && PS.gain[1].from === 0 && PS.gain[1].to === 67,
+          JSON.stringify(PS.final.pts));
+    check('guide: مهارةٌ معرفيّة (مراكز اللاعبين) أو بلا نقاط لا تصير استمارة ملاحظة', !LG.observable(LG.skillOf(G, 'positions')) && !LG.observable(LG.skillOf(G, 'play')) && LG.observable(LG.skillOf(G, 'head')));
+
+    // الكلام: النقطة بألفاظها لا باسم المهارة، والسؤال بلفظه ومعه موضوعه
+    const segs = [[10, 'اليوم بنتعلم التصويب بوجه القدم الخارجي'], [40, 'خل قدم الارتكاز جنب الكرة وخلفها'], [80, 'اثن الركبة وارجح رجلك للخلف'],
+                  [120, 'أحسنت يا محمد، ركبتك ممتازة'], [200, 'من يشرح لي كيف نركل الكرة بوجه القدم؟'], [230, 'اشرح لي ليش تأخرت'], [260, 'ما الفرق بين المدافع والمهاجم؟']];
+    const C = LG.speechCoverage(segs, G, ['shoot']);
+    check('guide: النقاط في كلام المعلّم — «نتعلّم التصويب بوجه القدم الخارجي» اسم المهارة لا نقطة المتابعة',
+          C.skills[0].points.map(p => p.n).join() === '1,2,0,0' && C.said === 2 && C.total === 4 && C.skills[0].points[0].ex[0] === 40, JSON.stringify(C.skills[0].points.map(p => p.n)));
+    check('guide: أسئلة التقويم — «اشرح» وحدها لا تكفي، ومعها المهارة تكفي؛ والمقارنة بين المراكز', C.assess.map(q => q.n).join() === '1,1,0' && C.asked === 2, JSON.stringify(C.assess));
+    LG.stripExamples(C);
+    check('guide: حذف النصّ يُبقي الأعداد ويمحو الأمثلة', C.said === 2 && C.skills[0].points.every(p => p.ex === null) && C.assess.every(q => q.ex === null));
+
+    // ما يُمرَّر إلى الاقتراح والمداولة
+    const many = []; for (let i = 0; i < 40; i++) many.push([i * 18, i % 4 === 0 ? 'ثبت قدم الارتكاز جنب الكرة يا أحمد' : i % 4 === 1 ? 'ركز على ثني الركبة والمرجحة' : i % 4 === 2 ? 'أحسنت، مد القدم للمتابعة' : 'يلا الطابور الثاني ابدأ']);
+    const Cm = LG.speechCoverage(many, G, ['shoot']);
+    const d = { guide: { id: 'g8-football', skills: ['shoot'] }, sample: sm, M: { gspeech: Cm } };
+    const GX = LG.guideCtx(d);
+    check('guide: سياق الاقتراح — المهارة وأضعف نقطةٍ وأقواها، وما سُمع وما لم يُسمع، والكرة لكلّ طالبين، وتشكيلات تدريباتها',
+          GX.skill === 'التصويب بوجه القدم الخارجي' && GX.weak.short === 'ميل الجذع والتوازن' && GX.weak.ok === 2 && GX.weak.rated === 6 && GX.best.short === 'قدم الارتكاز'
+          && GX.cover.said === 3 && GX.cover.missing.join() === 'ميل الجذع والتوازن' && GX.assess.asked === 0 && GX.per === 2 && GX.forms.includes('pairs') && !GX.forms.includes('stations'),
+          JSON.stringify(GX));
+    check('guide: كلامٌ قليل (أقلّ من ١٥ جملة) لا يُحكم منه على ما لم يُذكر', !LG.guideCtx({ guide: d.guide, sample: null, M: { gspeech: LG.speechCoverage(segs, G, ['shoot']) } }).cover);
+
+    // eye-core: البند ١ والبند ١٠ والمداولة بالدليل
+    const sg1 = E.suggest({}, {}, { female: false, sample: sm, guide: GX }).find(x => x.id === 1);
+    check('guide→suggest: البند ١ باسم المهارة وأضعف نقاطها', sg1 && /أتقن مهارة «التصويب بوجه القدم الخارجي» \(2\)/.test(sg1.evidence) && /وأضعف نقاطها الفنّيّة «ميل الجذع والتوازن» \(2 من 6\)\.$/.test(sg1.evidence), sg1 && sg1.evidence);
+    const M10 = { speech: SX.analyze(many.map(([t, x]) => ({ t, x })), { seconds: 720 }), gspeech: Cm };
+    const sg10 = E.suggest(M10, {}, { female: true, guide: LG.guideCtx({ guide: d.guide, M: M10 }) }).find(x => x.id === 10);
+    check('guide→suggest: البند ١٠ من الكلام يذكر النقاط الفنّيّة المسموعة، بالجنس', sg10 && /وذكرت من النقاط الفنّيّة لمهارة الدرس \(3\) من \(4\)\.$/.test(sg10.evidence), sg10 && sg10.evidence);
+    const Mp = { people: { detSecs: 400, classSize: 24, balls: 4, movingAll: 55, inside: 24 }, forms: { longLineSec: 90, maxLine: 10, count: 2, types: ['L', 'S'], segments: [{ type: 'L', dur: 90 }, { type: 'S', dur: 200 }] } };
+    const dpG = E.debriefPrompts(Mp, {}, { female: false, sample: sm, guide: GX }), dp0 = E.debriefPrompts(Mp, {}, { female: false });
+    check('guide→debrief: أضعف نقطةٍ في العيّنة ولم تُسمع في الكلام — سؤالٌ واحد لا اثنان', dpG.ask.some(t => /أقلّ النقاط الفنّيّة تحقّقاً في العيّنة: «ميل الجذع والتوازن» \(2 من 6\)، ولم تُسمع في كلامك/.test(t))
+          && !dpG.ask.some(t => /لم تُسمع في كلامك نقطة/.test(t)) && dpG.good.some(t => /نقطة «قدم الارتكاز»/.test(t)), JSON.stringify(dpG.ask));
+    check('guide→debrief: الكرات بما يقترحه الدليل (كرةٌ لكلّ طالبين)، والقاطرة بتشكيلات تدريباته', dpG.ask.some(t => /في دليل المعلّم بكرةٍ لكلّ طالبين، وكانت كرةٌ لكلّ \(6\) طلبة/.test(t))
+          && dpG.ask.some(t => /وتدريبات المهارة في دليل المعلّم: .*ثنائيات/.test(t)) && dp0.ask.some(t => /^كانت كرةٌ لكلّ \(6\) طلبة/.test(t)) && !dp0.ask.some(t => /دليل/.test(t)));
+    check('guide→debrief: لم يُسأل من أسئلة التقويم شيء ← سؤالٌ عنها', dpG.ask.some(t => /لم يُسمع سؤالٌ من أسئلة التقويم في الدليل \(شرح طريقة أداء المهارة…\)/.test(t)));
+    const GXp = LG.guideCtx({ guide: { id: 'g8-football', skills: ['play'] }, M: {} });
+    const dpP = E.debriefPrompts({ people: { detSecs: 400, classSize: 24, movingAll: 30, queuePct: 10 } }, {}, { female: false, guide: GXp });
+    check('guide→debrief: مباراةٌ بحركةٍ قليلة ← تعديل القواعد لقدرات المرحلة من الدليل', dpP.ask.some(t => /تقليص عدد اللاعبين إلى \(7\) أو \(9\)/.test(t)), JSON.stringify(dpP.ask));
+
+    // التوصيل
+    const UI = read('js/eye.js'), RP = read('js/eye-report.js'), H = read('reports.html'), SW = read('sw.js');
+    check('wiring: الدليل وبياناته قبل eye.js، ويُخزَّنان للعمل بلا شبكة', H.indexOf('js/lesson-guide-data.js') > 0 && H.indexOf('js/lesson-guide-data.js') < H.indexOf('js/lesson-guide.js')
+          && H.indexOf('js/lesson-guide.js') < H.indexOf('<script src="js/eye.js">') && /lesson-guide-data\.js/.test(SW) && /lesson-guide\.js/.test(SW));
+    check('wiring: الاقتراح والمداولة والملخّص يأخذون الدليل من بيانات الرصد (ctxOf)', /guide: d && d\.guide && LG\(\) \? LG\(\)\.guideCtx\(d\) : null/.test(UI));
+    check('wiring: الإيقاف يحفظ الدليل ومهارته وما سُمع من نقاطها، والحذف يمحو أمثلتها',
+          /if \(GD && sp\) keep\.gspeech = LG\(\)\.speechCoverage\(sp\.segs, GD, S\.guide\.skills\);/.test(UI) && /LG\(\)\.stripExamples\(S\.result\.M\.gspeech\)/.test(UI));
+    check('wiring: تغيير المهارة بعد الرصد يعيد العدّ من النصّ المحفوظ ثمّ الاقتراح، ولا يعدّ لمهارةٍ أخرى بعد حذف النصّ',
+          /function guideChanged\(\) \{[\s\S]{0,900}d\.M\.gspeech = LG\(\)\.speechCoverage\(segs, G, S\.guide\.skills\);\s*\n\s*else if \(!same\) d\.M\.gspeech = null;[\s\S]{0,120}resuggest\(\);/.test(UI));
+    check('wiring: العيّنة بالنقاط — اللمسة تختار الطالب، ولوحة نقاطه، وعيّنةٌ قُيّمت تقديراً عامّاً تبقى كما هي',
+          /if \(sampleSkill\(\)\) \{ S\.samplePick = S\.samplePick === i \? -1 : i; renderSample\(\); return; \}/.test(UI) && /data-spt="\$\{k\}"/.test(UI) && /if \(hasSample\(sm\)\) return null;/.test(UI));
+    check('wiring: المؤشّرات الحيّة (ذُكرت / العيّنة) والنتيجة «مطابقة دليل المعلّم» نصٌّ مهروب', /sp\.G = G \? LG\(\)\.speechCoverage\(sp\.segs, G, S\.guide\.skills\) : null;/.test(UI)
+          && /مطابقة دليل المعلّم/.test(UI) && /«\$\{esc\(pt\.ex\[1\]\)\}»/.test(UI) && /\$\{esc\(p\.text\)\}/.test(UI));
+    check('wiring: تأكيد اللمسة والطالب المختار بإطارٍ خارجيّ (outline) — ring لا يظهر على bg-white تحت قاعدة الزجاج', !/ring-2/.test(UI) && /el\.style\.outline = '2px solid ' \+ color/.test(UI) && /style="outline:2px solid #0f4c81;outline-offset:2px"/.test(UI));
+    check('wiring: بطاقة المعلّم — نقاط المهارة في العيّنة وعدد ما سُمع منها (لا النصّ)', /LGm\.pointStats\(data\.sample, GG\)/.test(RP) && /M\.gspeech && M\.gspeech\.total/.test(RP) && !/ex\[1\]/.test(RP));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

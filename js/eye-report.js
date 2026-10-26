@@ -207,6 +207,12 @@
             });
             g.textAlign = 'right';
             y += 160;
+            // ونقاط المهارة الفنّيّة من دليل المعلّم كما سُمعت (عددها لا نصّها)
+            const GC = M.gspeech && M.gspeech.total ? M.gspeech : null;
+            if (GC) {
+                g.font = font(400, 24); g.fillStyle = C.muted;
+                y = wrap(g, 'ذُكر من النقاط الفنّيّة للمهارة في الدليل (' + GC.said + ') من (' + GC.total + ')، ومن أسئلة التقويم (' + GC.asked + ') من (' + GC.assess.length + ').', W - PAD, y + 4, W - 2 * PAD, 34);
+            }
         }
 
         // ٥ج) عيّنة الطلبة — إتقان المهارة وتقدّمهم بين أوّل التطبيق وآخره
@@ -217,6 +223,26 @@
             let t = P('أتقن المهارة (' + SS.final.ok + ') من (' + SS.final.rated + ')، وأدّاها جزئيّاً (' + SS.final.part + ') — نسبة الإتقان (' + SS.final.pct + '%)');
             if (SS.both >= Y.MIN_SAMPLE) t += P('، وتقدّم (' + SS.improved + ') بين أوّل التطبيق وآخره (' + SS.a.pct + '% ← ' + SS.b.pct + '%)');
             y = wrap(g, t + '.', W - PAD, y + 6, W - 2 * PAD, 38);
+            // النقاط الفنّيّة للمهارة (دليل المعلّم): من حقّق كلّ نقطةٍ في القراءة الأخيرة
+            const LGm = root.SvfLessonGuide, GG = LGm && data.guide ? LGm.byId(data.guide.id) : null;
+            const PSg = GG ? LGm.pointStats(data.sample, GG) : null;
+            if (PSg && PSg.final) {
+                g.font = font(600, 24); g.fillStyle = C.muted;
+                g.fillText('النقاط الفنّيّة لـ«' + PSg.name + '» — دليل المعلّم', W - PAD, y + 12);
+                y += 30;
+                const labW = 330, barX0 = PAD + 110, barX1 = W - PAD - labW, barW = barX1 - barX0;
+                PSg.final.pts.forEach((pt, i) => {
+                    const p = PSg.final.rated ? pt.ok / PSg.final.rated : 0;
+                    g.fillStyle = C.text; g.font = font(400, 24); g.textAlign = 'right';
+                    g.fillText((i + 1) + '. ' + pt.short, W - PAD, y + 26);
+                    rrect(g, barX0, y + 6, barW, 26, 8, C.track);
+                    if (p > 0) rrect(g, barX1 - barW * p, y + 6, Math.max(6, barW * p), 26, 8, p >= 0.75 ? C.ok : p >= 0.5 ? C.warn : C.bad);
+                    g.textAlign = 'left'; g.fillStyle = C.muted; g.font = font(600, 22);
+                    g.fillText(pt.ok + ' من ' + PSg.final.rated, PAD, y + 26);      // «٥ / ٦» تنقلبه اللوحة RTL إلى «٦ / ٥»
+                    g.textAlign = 'right';
+                    y += 48;
+                });
+            }
         }
 
         // ٥د) متابعة أهداف الزيارة السابقة، وأهدافنا للزيارة القادمة

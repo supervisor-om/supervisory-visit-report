@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v43';
+const VERSION = 'v44';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -38,6 +38,7 @@ const ASSETS = [
     './js/debrief-core.js',
     './js/debrief.js',
     './js/eye-core.js', './js/eye-speech.js',
+    './js/lesson-guide-data.js', './js/lesson-guide.js',
     './js/eye-link.js',
     './js/eye.js',
     './cam.html',
