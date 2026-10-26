@@ -22,6 +22,9 @@
 // المتصفّح (SpeechRecognition): داخل الجهاز إن أتاحه (Chrome على الحاسوب بحزمة اللغة)، وإلّا عبر خدمة المتصفّح — في Chrome
 // على الجوّال يُرسَل الصوت إلى Google لتحويله نصّاً. لا يُحفظ صوت؛ النصّ وتحليله (js/eye-speech.js) يُحفظان مع التقرير،
 // ويُحذف النصّ بزرٍّ بعد التحليل فتبقى الأرقام.
+//
+// كاميرا الهاتف (2026-10-26): «كاميرا الهاتف» يعرض رمز QR يفتحه الـiPhone على الحامل (cam.html)، فتصل صورته مباشرةً إلى هذا الجهاز
+// (js/eye-link.js — WebRTC على نقطة الاتّصال) وتُحلَّل هنا؛ والصوت وفهم الكلام من ميكروفون هذا الجهاز. الثواني بلا صورةٍ لا تُحسب.
 // =========================================================================
 (function (root) {
     'use strict';
@@ -46,13 +49,17 @@
         ctxEvents: [], ctxCur: null, pSnap: null, pSnapAt: -1, runId: 0, classMax: 0,
         sp: null, speechConsent: false,
         sample: null, sampleRound: 'a', marks: [],         // عيّنة الطلبة، وعلامات المشرف بأوقاتها
-        teacher: null, pickTeacher: false                  // المعلّم يُحدَّد بلمسة: يُستثنى من الطلبة ويُرصد موضعه
+        teacher: null, pickTeacher: false,                 // المعلّم يُحدَّد بلمسة: يُستثنى من الطلبة ويُرصد موضعه
+        // كاميرا الهاتف (js/eye-link.js): الصورة من الـiPhone، والصوت والكلام من ميكروفون هذا الجهاز
+        via: null, link: null, linkGen: 0, linkSup: '', linkDown: false, lastFrameAt: 0, rvfc: false, frameTok: null,
+        lostSec: 0, phoneCams: null, wantSpeech: false
     };
+    const IDLE_TEXT = 'ضع الجهاز أفقيّاً على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.';
     const SR = () => root.SpeechRecognition || root.webkitSpeechRecognition || null;
     const SX = () => root.SvfEyeSpeech;
     const AI = { human: null, loading: null, ok: false, busy: false, fail: 0, T: null, prevG: null, prevKey: '', canvas: null, cx: null,
                  timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5 };
-    const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false });
+    const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false, lost: false });
 
     // ── سياق الزيارة المفتوحة ──
     const female = () => { try { return typeof getSupervisoryGender === 'function' && getSupervisoryGender() === 1; } catch (e) { return false; } };
@@ -106,6 +113,7 @@
             <section class="bg-white rounded-2xl border border-slate-200 p-3 space-y-3">
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" id="eyeStartCam" class="svf-btn svf-btn-primary"><i class="fa-solid fa-video" aria-hidden="true"></i>تشغيل الكاميرا</button>
+                    <button type="button" id="eyeStartPhone" class="svf-btn svf-btn-secondary" title="كاميرا الـiPhone على حاملٍ في الملعب، والتحليل والتقييم على هذا الجهاز"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i>كاميرا الهاتف</button>
                     <label for="eyeFile" id="eyeFileBtn" class="svf-btn svf-btn-secondary" role="button" tabindex="0"><i class="fa-solid fa-film" aria-hidden="true"></i>تحليل مقطع مصوَّر</label>
                     <input type="file" id="eyeFile" accept="video/*" class="hidden">
                     <button type="button" id="eyeStartNoCam" class="svf-btn svf-btn-ghost"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i>رصد بلا كاميرا</button>
@@ -127,6 +135,26 @@
                     </span>
                 </div>
             </section>
+            <section id="eyePair" class="hidden bg-white rounded-2xl border border-slate-200 p-4" aria-live="polite">
+                <div class="flex flex-wrap items-start gap-4">
+                    <div id="eyePairQr" class="flex-none w-44 h-44 rounded-xl border border-slate-200 bg-white p-1 flex items-center justify-center text-xs text-slate-500 text-center"></div>
+                    <div class="flex-1 min-w-0 space-y-2" style="min-width:min(100%,16rem)">
+                        <h2 class="font-bold text-slate-900">ربط كاميرا الهاتف</h2>
+                        <ol class="text-sm text-slate-700 leading-7 list-decimal pr-5">
+                            <li>الجهازان على شبكةٍ واحدة: شغّل «نقطة الاتّصال الشخصيّة» في الـiPhone واربط هذا الجهاز بها.</li>
+                            <li>وجّه كاميرا الـiPhone إلى الرمز وافتح الرابط في Safari.</li>
+                            <li>اضغط «تشغيل الكاميرا» هناك، وضع الهاتف <b>أفقيّاً</b> على الحامل — تُختار العدسة العريضة تلقائيّاً.</li>
+                        </ol>
+                        <p id="eyePairState" class="text-sm font-semibold text-slate-900"></p>
+                        <p id="eyePairMic" class="text-xs text-slate-600 leading-5"></p>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" id="eyePairCopy" class="svf-btn svf-btn-ghost svf-btn-sm">نسخ الرابط</button>
+                            <button type="button" id="eyePairNew" class="hidden svf-btn svf-btn-secondary svf-btn-sm">رمز جديد</button>
+                            <button type="button" id="eyePairCancel" class="svf-btn svf-btn-ghost svf-btn-sm">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
             <section id="eyeFocus" class="hidden bg-white rounded-2xl border border-slate-200 border-r-4 p-4" style="border-right-color:#f0b44a" aria-live="polite"></section>
             <p id="eyeMsg" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm" role="alert"></p>
 
@@ -136,8 +164,7 @@
                         <video id="eyeVideo" playsinline muted class="absolute inset-0 w-full h-full object-contain" style="opacity:0"></video>
                         <canvas id="eyeView" class="absolute inset-0 w-full h-full" style="pointer-events:none;touch-action:none"></canvas>
                         <canvas id="eyeHeat" class="absolute inset-0 w-full h-full pointer-events-none hidden"></canvas>
-                        <div id="eyeIdle" class="absolute inset-0 flex items-center justify-center text-center p-8 text-slate-300 text-sm leading-7">
-                            ضع الجهاز أفقيّاً على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.</div>
+                        <div id="eyeIdle" class="absolute inset-0 flex items-center justify-center text-center p-8 text-slate-300 text-sm leading-7">${esc(IDLE_TEXT)}</div>
                         <div id="eyeRoiHint" class="hidden pointer-events-none absolute top-3 inset-x-3 text-center text-sm text-white bg-slate-900/85 rounded-lg px-3 py-2"></div>
                         <div id="eyeStatus" class="hidden pointer-events-none absolute bottom-3 right-3 flex items-center gap-2 bg-slate-900/80 text-white text-sm rounded-lg px-3 py-1.5" aria-live="polite">
                             <span class="w-2 h-2 rounded-full bg-red-500"></span><span id="eyeClock" class="tabular-nums">00:00</span><span class="opacity-60">|</span><span id="eyeState">—</span>
@@ -151,13 +178,21 @@
                         <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
                         <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
                     </div>
+                    <div id="eyeLensRow" class="hidden flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                        <span class="font-semibold text-slate-800">عدسة الهاتف</span>
+                        <span id="eyeLens" class="flex flex-wrap gap-1.5"></span>
+                        <label id="eyeZoomLbl" class="hidden flex items-center gap-1.5">التقريب <input type="range" id="eyeZoom" class="w-28"></label>
+                        <span class="flex-1"></span>
+                        <button type="button" id="eyeRelink" class="hidden svf-btn svf-btn-moe svf-btn-sm"><i class="fa-solid fa-link" aria-hidden="true"></i>إعادة ربط الهاتف</button>
+                    </div>
                     <p class="text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
                     <p id="eyeSpeechNote" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-5"></p>
 
                     <div id="eyeSpeechLive" class="hidden bg-white rounded-2xl border border-slate-200 p-4" aria-live="polite">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <b class="text-sm text-slate-900">كلام المعلّم</b>
-                            <span id="eyeSpeechState" class="text-xs text-slate-500"></span>
+                            <span class="flex items-center gap-2"><span id="eyeSpeechState" class="text-xs text-slate-500"></span>
+                                <button type="button" id="eyeSpeechRetry" class="hidden svf-btn svf-btn-secondary svf-btn-sm">تشغيل فهم الكلام</button></span>
                         </div>
                         <p id="eyeSpeechText" class="text-sm text-slate-800 leading-7 mt-2 min-h-[1.75rem]"></p>
                         <div id="eyeSpeechCounts" class="flex flex-wrap gap-1.5 mt-2"></div>
@@ -252,6 +287,14 @@
 
         $('eyeStartCam').addEventListener('click', startCamera);
         $('eyeStartNoCam').addEventListener('click', startNoCam);
+        $('eyeStartPhone').addEventListener('click', startPhone);
+        $('eyePairCancel').addEventListener('click', cancelPhone);
+        $('eyePairNew').addEventListener('click', () => { if (S.linkSup) openLink(S.linkSup); });
+        $('eyeRelink').addEventListener('click', () => { if (S.running && S.via === 'phone' && S.linkSup) openLink(S.linkSup); });
+        $('eyePairCopy').addEventListener('click', copyPairUrl);
+        $('eyeLens').addEventListener('click', e => { const b = e.target.closest('[data-lens]'); if (b) phoneLens(b.dataset.lens); });
+        $('eyeZoom').addEventListener('change', () => phoneZoom($('eyeZoom').value));
+        $('eyeSpeechRetry').addEventListener('click', () => { const sp = S.sp; if (sp && S.running && !sp.on) { sp.on = true; sp.err = ''; speechRun(sp); renderSpeechLive(); } });
         $('eyeFile').addEventListener('click', e => { if (!needConsent(true)) e.preventDefault(); });
         $('eyeFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) startFile(f); });
         $('eyeFileBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('eyeFile').click(); } });
@@ -698,6 +741,8 @@
         const st = $('eyeSpeechState');
         st.textContent = sp.err || ((sp.mode === 'local' ? 'داخل الجهاز' : 'عبر خدمة المتصفّح') + ' · ' + sp.segs.length + ' عبارة');
         st.className = 'text-xs ' + (sp.err ? 'text-red-700 font-bold' : 'text-slate-500');
+        // توقّف التعرّف (إذنٌ يُطلب بلمسة — كأن بدأ الرصد بوصول صورة الهاتف لا بضغطة): يُعاد بلمسة
+        $('eyeSpeechRetry').classList.toggle('hidden', !(sp.err && !sp.on));
         const last = sp.segs[sp.segs.length - 1];
         const tx = $('eyeSpeechText');
         tx.textContent = '';
@@ -782,6 +827,243 @@
         if (wantSpeech) speechStart(S.stream ? (S.stream.getAudioTracks()[0] || null) : null);
     }
 
+    // ── كاميرا الهاتف (2026-10-26) ──
+    // الـiPhone على الحامل يرسل صورته مباشرةً إلى هذا الجهاز (WebRTC على نقطة الاتّصال)، وهنا يجري التحليل كلّه؛ والصوت
+    // وفهم الكلام من ميكروفون هذا الجهاز — المستقبِل اللاسلكيّ لميكروفون المعلّم موصولٌ به. الثواني التي لا تصل فيها صورةٌ
+    // (انقطاعٌ، قفل شاشة الهاتف، تبديل العدسة) «غير محسوبة» لا انتظار، وتُذكر مدّتها في النتيجة.
+    const LK = () => root.SvfEyeLink;
+    function linkSup() {
+        try { if (root.SupervisorCloud && SupervisorCloud.bucket) { const b = SupervisorCloud.bucket(); if (b) return b; } } catch (e) { /* التالي */ }
+        try {
+            const s = root.SupervisorGate && SupervisorGate.session();
+            const b = s ? (s.admin ? 'admin' : s.id) : '';
+            if (/^[a-z][a-z0-9-]{1,30}$/.test(b)) return b;
+        } catch (e) { /* بلا جلسة */ }
+        return '';
+    }
+    let qrLoading = null;
+    function loadQr() {
+        if (typeof root.qrcode === 'function') return Promise.resolve(root.qrcode);
+        if (!qrLoading) qrLoading = new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = new URL('vendor/qrcode/qrcode.js', document.baseURI).href;
+            s.onload = () => (typeof root.qrcode === 'function' ? res(root.qrcode) : rej(new Error('qr')));
+            s.onerror = () => { qrLoading = null; rej(new Error('qr')); };
+            document.head.appendChild(s);
+        });
+        return qrLoading;
+    }
+    async function drawQr(url) {
+        const box = $('eyePairQr');
+        box.textContent = '…';
+        try {
+            const q = (await loadQr())(0, 'M');
+            q.addData(url);
+            q.make();
+            box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 8, scalable: true, title: 'رمز ربط كاميرا الهاتف' });
+            const svg = box.querySelector('svg');
+            if (svg) { svg.style.width = '100%'; svg.style.height = '100%'; }
+        } catch (e) { box.textContent = 'تعذّر رسم الرمز — انسخ الرابط وافتحه في الهاتف.'; }
+    }
+    const startBtns = ['eyeStartCam', 'eyeStartPhone', 'eyeFileBtn', 'eyeStartNoCam', 'eyeTapsOnly'];
+    function pairUi(on, text) {
+        const box = $('eyePair');
+        if (!box) return;
+        box.classList.toggle('hidden', !on);
+        if (text != null) $('eyePairState').textContent = text;
+        if (!S.running) {
+            startBtns.forEach(id => $(id).classList.toggle('hidden', !!on));
+            $('eyeIdle').textContent = on ? 'ينتظر كاميرا الهاتف — امسح الرمز بكاميرا الـiPhone.' : IDLE_TEXT;
+        }
+        const micEl = $('eyePairMic');
+        if (on && micEl) {
+            micEl.textContent = S.audio
+                ? 'الصوت' + (S.wantSpeech ? ' وفهم الكلام' : '') + ' من ميكروفون هذا الجهاز' + (checked('eyeTeacherMic') ? ' (على المعلّم).' : ' — إن كان مستقبِل ميكروفون المعلّم موصولاً به فعلّم «على المعلّم» في المرّة القادمة قبل البدء.')
+                : 'بلا صوت: الصورة وحدها من الهاتف.';
+        }
+    }
+    function copyPairUrl() {
+        const url = S.link && S.link.url;
+        if (!url) return;
+        const done = () => toast('نُسخ الرابط — افتحه في Safari على الـiPhone');
+        try { navigator.clipboard.writeText(url).then(done, () => root.prompt('انسخ الرابط:', url)); }
+        catch (e) { root.prompt('انسخ الرابط:', url); }
+    }
+    async function startPhone() {
+        if (S.running || S.link) return;
+        message('');
+        if (!needConsent(true)) return;
+        const wantSpeech = speechConsent();
+        if (!root.RTCPeerConnection || !LK()) { message('هذا المتصفّح لا يتيح الاتّصال المباشر بالهاتف. استعمل Safari أو Chrome حديثاً.'); return; }
+        const sup = linkSup();
+        if (!sup) { message('«كاميرا الهاتف» تحتاج الدخول برمزك (الربط بقاعدة المعلمين): به يُنشأ رمز الربط في مسارك.'); return; }
+        // الميكروفون يُفتح الآن داخل الضغطة (iOS لا يبدأ تحليل الصوت إلّا بلمسة)، ويبدأ عدّه حين تصل الصورة
+        if (checked('eyeMic') && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                S.stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints() });
+                refreshMics();
+                startAudio(ctx => ctx.createMediaStreamSource(S.stream), false);
+            } catch (e) { toast('الميكروفون غير متاح — تُحلَّل صورة الهاتف وحدها', 'info'); }
+        }
+        S.wantSpeech = wantSpeech;
+        await openLink(sup);
+    }
+    // رمزٌ جديد: أوّل الرصد، أو إعادة الربط أثناءه (والرابط السابق يُغلق)
+    async function openLink(sup) {
+        const gen = ++S.linkGen;
+        if (S.link) { const old = S.link; S.link = null; try { old.close(); } catch (e) { /* أُغلق */ } }
+        S.linkSup = sup;
+        S.linkFailed = false;
+        $('eyePairNew').classList.add('hidden');
+        $('eyeRelink').classList.add('hidden');
+        $('eyePairQr').textContent = '…';
+        pairUi(true, 'جاري إنشاء رمز الربط…');
+        let link;
+        try {
+            link = await LK().host({
+                sup,
+                onStream: st => { if (gen === S.linkGen) phoneStream(st); },
+                onState: st => { if (gen === S.linkGen) phoneState(st); },
+                onMessage: m => { if (gen === S.linkGen) phoneMsg(m); }
+            });
+        } catch (e) {
+            if (gen !== S.linkGen) return;
+            pairUi(true, 'تعذّر إنشاء رمز الربط — تحقّق من اتّصال هذا الجهاز بالإنترنت (نقطة الاتّصال)، ثمّ «رمز جديد».');
+            $('eyePairNew').classList.remove('hidden');
+            return;
+        }
+        if (gen !== S.linkGen) { link.close(); return; }
+        S.link = link;
+        drawQr(link.url);
+        pairUi(true, 'ينتظر الهاتف… الرمز صالحٌ ربع ساعة.');
+    }
+    function cancelPhone() {
+        S.linkGen++;
+        if (S.link) { const l = S.link; S.link = null; try { l.close(); } catch (e) { /* أُغلق */ } }
+        pairUi(false);
+        if (S.running) { S.linkDown = true; $('eyeRelink').classList.remove('hidden'); return; }
+        // لم يبدأ الرصد: يُغلق الميكروفون ويعود كلّ شيء
+        if (S.stream) { S.stream.getTracks().forEach(t => t.stop()); S.stream = null; }
+        if (S.audio) { try { S.audio.ctx.close(); } catch (e) { /* أُغلق */ } S.audio = null; }
+        S.wantSpeech = false;
+    }
+    // تتبّع وصول الإطارات: صورةٌ متجمّدةٌ (انقطاع) لا تُقارَن بنفسها فتُعدّ «انتظاراً». إشارتان: نداء كلّ إطارٍ معروض
+    // (requestVideoFrameCallback) وعدّاد الإطارات (getVideoPlaybackQuality — يُقرأ متزامناً فلا يخدعه انشغال الصفحة)
+    function watchFrames(v) {
+        const tok = S.frameTok = {};
+        S.lastFrameAt = 0; S.frameCount = 0; S.lastTickAt = 0; S.vpqOk = false; S.linkAt = performance.now();
+        S.rvfc = !!(v && typeof v.requestVideoFrameCallback === 'function');
+        S.vpq = !!(v && typeof v.getVideoPlaybackQuality === 'function');
+        if (!S.rvfc) return;
+        const cb = () => {
+            if (tok !== S.frameTok || !S.running || S.video !== v) return;
+            S.lastFrameAt = performance.now();
+            v.requestVideoFrameCallback(cb);
+        };
+        v.requestVideoFrameCallback(cb);
+    }
+    // في كلّ نبضة: عدّاد الإطارات تقدّم ← وصل إطار؛ ونبضةٌ تأخّرت لانشغال الصفحة (الكشف على جهازٍ بطيء) لا تُعدّ انقطاعاً
+    function phoneTick(v) {
+        const t = performance.now();
+        if (S.vpq) {
+            // يُعتمد العدّاد حين يتحرّك مرّةً (بعض المتصفّحات تتركه صفراً لصورة الاتّصال المباشر)
+            try { const n = v.getVideoPlaybackQuality().totalVideoFrames; if (n && n !== S.frameCount) { S.frameCount = n; S.lastFrameAt = t; S.vpqOk = true; } }
+            catch (e) { S.vpq = false; }
+        }
+        if (S.lastTickAt && t - S.lastTickAt > 1500 && S.lastFrameAt) S.lastFrameAt = Math.max(S.lastFrameAt, t - 1000);
+        S.lastTickAt = t;
+    }
+    const phoneFrozen = () => S.via === 'phone' && (S.linkDown || ((S.rvfc || S.vpqOk) && performance.now() - S.lastFrameAt > 2000));
+    function phoneStream(stream) {
+        pairUi(false);
+        $('eyeRelink').classList.add('hidden');
+        S.linkDown = false; S.linkFailed = false;
+        if (S.running && S.via === 'phone') {              // عاد الهاتف أثناء الرصد
+            S.video.srcObject = stream;
+            S.video.play().catch(() => {});
+            S.prev = null; AI.prevG = null;
+            watchFrames(S.video);
+            toast('عاد الاتّصال بكاميرا الهاتف');
+            return;
+        }
+        if (S.running) return;
+        const v = freshVideo();
+        v.srcObject = stream;
+        v.muted = true;
+        v.play().catch(() => {});
+        begin('camera', v, 'phone');
+        watchFrames(v);
+        lensUi();
+        if (S.wantSpeech) speechStart(S.stream ? (S.stream.getAudioTracks()[0] || null) : null);
+    }
+    function phoneState(st) {
+        if (st === 'channel' || st === 'connected') {
+            S.linkDown = false;
+            if (st === 'channel' && S.link) S.link.send({ type: 'hello' });
+            if (!S.running) pairUi(true, 'الهاتف متّصل — تصل الصورة…');
+        } else if (st === 'connecting') {
+            if (!S.running) pairUi(true, 'وُجد الهاتف — جاري الاتّصال…');
+        } else if (st === 'disconnected') {
+            S.linkDown = true;
+        } else if (st === 'failed' || st === 'closed') {
+            S.linkDown = true;
+            if (S.running) { S.linkFailed = true; $('eyeRelink').classList.remove('hidden'); toast('انقطع الاتّصال بكاميرا الهاتف — الثواني بلا صورة لا تُحسب', 'info'); }
+            else { pairUi(true, 'تعذّر الاتّصال بالهاتف. تأكّد أنّ الجهازين على نقطة الاتّصال نفسها، ثمّ «رمز جديد».'); $('eyePairNew').classList.remove('hidden'); }
+        } else if (st === 'expired') {
+            pairUi(true, 'انتهت صلاحيّة الرمز — اضغط «رمز جديد».');
+            $('eyePairNew').classList.remove('hidden');
+        }
+    }
+    function phoneMsg(m) {
+        if (!m || typeof m !== 'object') return;
+        if (m.type === 'cams') {
+            const list = (Array.isArray(m.list) ? m.list : []).filter(c => c && typeof c.id === 'string' && c.id.length <= 200).slice(0, 8)
+                .map(c => ({ id: c.id, label: String(c.label || '').slice(0, 60), ultra: !!c.ultra }));
+            const z = m.zoom && typeof m.zoom === 'object' && isFinite(m.zoom.min) && isFinite(m.zoom.max) && m.zoom.max > m.zoom.min
+                ? { min: +m.zoom.min, max: +m.zoom.max, step: +m.zoom.step || 0.1, v: isFinite(m.zoom.v) ? +m.zoom.v : +m.zoom.min } : null;
+            const was = S.phoneCams && S.phoneCams.cur;
+            S.phoneCams = { cur: typeof m.cur === 'string' ? m.cur : '', list, zoom: z };
+            if (was && was !== S.phoneCams.cur) lensChanged();
+            lensUi();
+        } else if (m.type === 'bye') {
+            S.linkDown = true;
+            if (S.running) { S.linkFailed = true; $('eyeRelink').classList.remove('hidden'); toast('أُغلقت كاميرا الهاتف — «إعادة ربط الهاتف» لإعادتها، أو «إيقاف وتحليل»', 'info'); }
+        }
+    }
+    function lensUi() {
+        const row = $('eyeLensRow');
+        if (!row) return;
+        const on = S.running && S.via === 'phone';
+        row.classList.toggle('hidden', !on);
+        if (!on) return;
+        const c = S.phoneCams || { list: [] };
+        $('eyeLens').innerHTML = c.list.length
+            ? c.list.map(x => `<button type="button" class="svf-btn svf-btn-sm ${x.id === c.cur ? 'svf-btn-primary' : 'svf-btn-secondary'}" data-lens="${esc(x.id)}" aria-pressed="${x.id === c.cur}">${esc(LK().lensLabel(x.label, x.ultra))}</button>`).join('')
+            : '<span class="text-slate-500">ينتظر قائمة العدسات…</span>';
+        const z = c.zoom, zl = $('eyeZoomLbl'), zi = $('eyeZoom');
+        zl.classList.toggle('hidden', !z);
+        if (z) { zi.min = z.min; zi.max = z.max; zi.step = z.step; zi.value = z.v; }
+    }
+    // العدسة أو التقريب يغيّران هندسة الصورة: منطقة الصفّ والمعلّم والمتتبَّعون يُعادون
+    function lensChanged() {
+        if (!S.running) return;
+        setRoi(null);
+        S.teacher = null; S.pickTeacher = false;
+        if (AI.T) AI.T = E().newTracker();
+        S.prev = null; AI.prevG = null;
+        teacherUi();
+        toast('تغيّرت صورة الهاتف — حدّد منطقة الصف' + (checked('eyeAI') ? ' والمعلّم' : '') + ' من جديد', 'info');
+    }
+    function phoneLens(id) {
+        if (!S.link || !S.phoneCams || id === S.phoneCams.cur) return;
+        S.link.send({ type: 'lens', id });
+    }
+    function phoneZoom(v) {
+        if (!S.link) return;
+        S.link.send({ type: 'zoom', v: Number(v) });
+        lensChanged();
+    }
+
     function startAudio(makeSource, audible) {
         try {
             const AC = root.AudioContext || root.webkitAudioContext;
@@ -799,10 +1081,12 @@
         } catch (e) { S.audio = null; }
     }
 
-    function begin(src, video) {
+    function begin(src, video, via) {
         S.running = true;
         S.runId++;
         S.src = src;
+        S.via = via || null;              // 'phone' ← الصورة من كاميرا الهاتف
+        S.lostSec = 0;
         S.video = video;
         S.prev = null;
         S.secs = [];
@@ -834,7 +1118,7 @@
         $('eyeIdle').classList.toggle('hidden', src !== 'none');
         if (src === 'none') $('eyeIdle').textContent = 'رصدٌ بلا كاميرا: المس «عناصر الحصة» حين يبدأ كلٌّ منها، والوسوم كلّما رأيتها' + (S.audio ? '، والصوت يُحلَّل' : '') + (checked('eyeSpeech') && S.speechConsent ? '، وكلام المعلّم يصير نصّاً.' : '.');
         $('eyeStatus').classList.remove('hidden');
-        ['eyeStartCam', 'eyeFileBtn', 'eyeStartNoCam', 'eyeTapsOnly'].forEach(id => $(id).classList.add('hidden'));
+        startBtns.forEach(id => $(id).classList.add('hidden'));
         $('eyeStop').classList.remove('hidden');
         ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI', 'eyeSpeech'].forEach(id => { $(id).disabled = true; });
         $('eyeRoiBtn').disabled = src === 'none';
@@ -846,7 +1130,8 @@
         S.timers.push(setInterval(liveTick, 1000));
         if (video && checked('eyeAI')) startAI(r);
         if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(w => { S.wake = w; }).catch(() => {});
-        toast(src === 'file' ? 'بدأ تحليل المقطع' : src === 'none' ? 'بدأ الرصد بلا كاميرا' : 'بدأ الرصد — حدّد منطقة الصف، والمس السياق والوسوم طوال الحصة');
+        toast(src === 'file' ? 'بدأ تحليل المقطع' : src === 'none' ? 'بدأ الرصد بلا كاميرا'
+            : (S.via === 'phone' ? 'وصلت صورة الهاتف — ' : 'بدأ الرصد — ') + 'حدّد منطقة الصف، والمس السياق والوسوم طوال الحصة');
         drawView();
     }
 
@@ -907,7 +1192,7 @@
     }
     async function detTick() {
         const v = S.video;
-        if (!S.running || !AI.ok || AI.busy || !v || v.readyState < 2 || !v.videoWidth) return;
+        if (!S.running || !AI.ok || AI.busy || !v || v.readyState < 2 || !v.videoWidth || phoneFrozen()) return;
         AI.busy = true;
         const id = S.runId, t0 = performance.now();
         try {
@@ -994,6 +1279,7 @@
                 p: p ? Object.assign({ n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d, vg: p.vg, cr: p.cr, b: p.b },
                     p.tc ? { t: [p.tc.x, p.tc.y, p.tc.mv ? 1 : 0, p.tc.edge == null ? -1 : p.tc.edge ? 1 : 0] } : {}) : null
             });
+            if (a.lost && a.bad >= a.n) S.lostSec++;            // ثانيةٌ بلا صورةٍ من الهاتف
             S.acc = freshAcc();
             S.lastSec++;
         }
@@ -1001,7 +1287,16 @@
 
     function frameTick() {
         const v = S.video;
-        if (!S.running || !v || v.readyState < 2 || !v.videoWidth) return;
+        if (!S.running || !v) return;
+        if (S.via === 'phone') phoneTick(v);
+        // صورة الهاتف لا تصل (انقطاعٌ، أو قُفلت شاشته، أو تتبدّل العدسة): الثانية «غير محسوبة» — الصورة المتجمّدة ليست انتظاراً
+        if (S.via === 'phone' && (phoneFrozen() || v.readyState < 2 || !v.videoWidth)) {
+            flushTo(Math.floor(now()));
+            S.acc.bad++; S.acc.lost = true;
+            S.prev = null;
+            return;
+        }
+        if (v.readyState < 2 || !v.videoWidth) return;
         flushTo(Math.floor(now()));
         const h = Math.max(36, Math.round(W * v.videoHeight / v.videoWidth));
         if (h !== S.h) { S.h = h; S.canvas.height = h; S.prev = null; if (S.roi) S.mask = E().roiMask(S.roi, W, h); fitStage(); }
@@ -1037,7 +1332,12 @@
         const last = M.states.slice(-3);
         const k = last.length ? last[last.length - 1] : 'x';
         const ctxL = S.ctxCur ? E().CONTEXTS.find(c => c.k === S.ctxCur).label : '';
-        $('eyeState').textContent = S.src === 'none' ? (ctxL || 'رصد') : (k === 'a' ? 'نشاط' : k === 'i' ? 'انتظار' : 'الكاميرا تتحرّك') + (ctxL ? ' · ' + ctxL : '');
+        $('eyeState').textContent = S.src === 'none' ? (ctxL || 'رصد')
+            : phoneFrozen() ? 'لا صورة من الهاتف'
+            : (k === 'a' ? 'نشاط' : k === 'i' ? 'انتظار' : 'الكاميرا تتحرّك') + (ctxL ? ' · ' + ctxL : '');
+        // بلا صورةٍ من الهاتف عشر ثوانٍ: زرّ إعادة الربط ظاهر
+        if (S.via === 'phone') $('eyeRelink').classList.toggle('hidden', !($('eyePair').classList.contains('hidden')
+            && (!S.link || S.linkFailed || (phoneFrozen() && performance.now() - Math.max(S.lastFrameAt, S.linkAt || 0) > 10000))));
         drawTimeline(M.timeline);
         drawHeat();
         drawView();
@@ -1211,6 +1511,16 @@
         if (S.audio) { try { S.audio.ctx.close(); } catch (e) {} S.audio = null; }
         if (S.wake) { S.wake.release().catch(() => {}); S.wake = null; }
         if (S.video) { try { S.video.pause(); } catch (e) {} }
+        // كاميرا الهاتف: يُبلَّغ الهاتف فيُطفئ كاميرته، ثمّ يُغلق الاتّصال
+        S.linkGen++;
+        S.frameTok = null;
+        if (S.link) {
+            const l = S.link;
+            S.link = null;
+            try { l.send({ type: 'bye' }); } catch (e) { /* أُغلق */ }
+            setTimeout(() => { try { l.close(); } catch (e) { /* أُغلق */ } }, 400);
+        }
+        pairUi(false);
         S.prev = null;
         AI.prevG = null;
     }
@@ -1228,10 +1538,12 @@
         $('eyeStatus').classList.add('hidden');
         $('eyeStop').classList.add('hidden');
         $('eyeIdle').classList.remove('hidden');
-        ['eyeStartCam', 'eyeFileBtn', 'eyeStartNoCam', 'eyeTapsOnly'].forEach(id => $(id).classList.remove('hidden'));
+        startBtns.forEach(id => $(id).classList.remove('hidden'));
         ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI', 'eyeSpeech'].forEach(id => { $(id).disabled = id === 'eyeSpeech' && !SR(); });
         $('eyeRoiBtn').disabled = true;
         $('eyeRoiClear').classList.add('hidden');
+        $('eyeRelink').classList.add('hidden');
+        lensUi();
         teacherUi();
         renderSpeechLive();
         applyVideoVisibility();
@@ -1284,6 +1596,8 @@
             targets: [],
             applied: []
         };
+        // الصورة من كاميرا الهاتف، وكم ثانيةً لم تصل فيها (استُبعدت)
+        if (S.via === 'phone' && M.observed) { data.via = 'phone'; data.lost = S.lostSec || 0; }
         // أهداف الزيارة السابقة للمعلّم نفسه تُقاس على رصد اليوم (والبند ١١ منها)
         const prev = prevEye();
         if (prev && Array.isArray(prev.d.targets) && prev.d.targets.length)
@@ -1372,7 +1686,9 @@
         const noAudio = '<span class="text-slate-500 font-normal">لم يُحلَّل الصوت</span>';
         const rows = [];
         if (M.observed) {
-            rows.push(row('زمن الرصد', esc(D(M.observed)) + (M.excludedSec >= 30 ? small('(استُبعد ' + esc(D(M.excludedSec)) + ' لحركة الكاميرا)') : '')));
+            const lost = data.via === 'phone' ? Math.min(data.lost || 0, M.excludedSec || 0) : 0;
+            rows.push(row('زمن الرصد', esc(D(M.observed)) + (M.excludedSec >= 30
+                ? small('(استُبعد ' + esc(D(M.excludedSec)) + (lost >= 5 ? (lost >= M.excludedSec - 5 ? ' لانقطاع صورة الهاتف' : '، منها ' + esc(D(lost)) + ' لانقطاع صورة الهاتف') : ' لحركة الكاميرا') + ')') : '')));
             rows.push(row('منطقة الصف', data.roi ? 'محدّدة' : '<span class="text-slate-500 font-normal">الإطار كلّه</span>'));
             if (P) {
                 rows.push(row('عدد الطلبة', `<input type="number" id="eyeClassSize" min="1" max="80" value="${esc(String(P.classSize || P.inside))}" class="w-16 text-center border border-slate-300 rounded-md py-0.5" aria-label="عدد طلبة الصف">`
@@ -1611,7 +1927,7 @@
             <div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
                     <h2 class="text-lg font-bold text-slate-900">نتيجة الرصد</h2>
-                    <span class="text-xs text-slate-500">${esc(when)}${data.src === 'file' ? ' — من مقطعٍ مصوَّر' : data.src === 'none' ? ' — بلا كاميرا' : ''}</span>
+                    <span class="text-xs text-slate-500">${esc(when)}${data.src === 'file' ? ' — من مقطعٍ مصوَّر' : data.src === 'none' ? ' — بلا كاميرا' : data.via === 'phone' ? ' — من كاميرا الهاتف' : ''}</span>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8">
                     <dl class="text-sm">${metrics}</dl>
@@ -1869,10 +2185,12 @@
 
     function reset() {
         if (S.running) return;
+        if (S.link || !$('eyePair').classList.contains('hidden')) cancelPhone();   // ربطٌ معلَّقٌ لزيارةٍ أخرى
         S.secs = []; S.grid = null; S.events = []; S.counts = {}; S.result = null; S.tl = null; S.savedHeat = null;
         S.ctxEvents = []; S.ctxCur = null; S.pSnap = null; S.src = null; S.consent = false; S.hadAudio = false; S.classMax = 0;
         S.sp = null; S.speechConsent = false;
         S.sample = null; S.sampleRound = 'a'; S.marks = [];
+        S.via = null; S.lostSec = 0; S.phoneCams = null;
         renderCounts();
         renderCtx();
         renderSample();

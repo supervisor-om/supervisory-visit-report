@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>كاميرا الحصة — منظومة الإشراف التربوي</title>
+<meta name="description" content="كاميرا الهاتف لعين المشرف: ترسل صورة الحصة إلى جهاز المشرف مباشرةً، بلا تسجيلٍ ولا حفظ.">
+<meta name="theme-color" content="#082742">
+<meta name="author" content="أسعد الخصيبي">
+<meta name="copyright" content="© 2026 أسعد الخصيبي — تصميم وتطوير">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  كاميرا الهاتف لعين المشرف (منذ 2026-10-26) — تُفتح من رمز QR في «كاميرا الهاتف» على الـiPad.
+  الرابط يحمل مسار المشرف ورمزاً عشوائيّاً صالحاً ربع ساعة (#asad.k3m9…)، فلا دخول هنا: الصفحة لا تعرض تقريراً
+  ولا تقرأ شيئاً، وإنّما ترسل صورة كاميرتها إلى الجهاز الذي أنشأ الرمز — مباشرةً عبر WebRTC (js/eye-link.js).
+  لا صوت (الميكروفون على الـiPad)، ولا تسجيل ولا حفظ: لا MediaRecorder ولا toDataURL ولا canvas.
+-->
+<style>
+:root{
+  --navy:#082742; --action:#0f4c81; --gold:#f0b44a; --ok:#1d6b45; --bad:#b5452f;
+  --ink:#f7f5ee; --mute:rgba(247,245,238,.66); --line:rgba(247,245,238,.16); --panel:rgba(8,39,66,.82);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#020a12;color:var(--ink);
+  font-family:'IBM Plex Sans Arabic','Segoe UI',Tahoma,system-ui,sans-serif;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;min-height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button{font:inherit}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--navy);border-bottom:1px solid var(--line)}
+.bar h1{font-size:16px;margin:0;font-weight:700}
+.bar p{margin:0;font-size:12px;color:var(--mute)}
+.bar .grow{flex:1;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block}
+.pill[data-s="live"] i{background:#22c55e}
+.pill[data-s="wait"] i{background:var(--gold)}
+.pill[data-s="bad"] i{background:#ef4444}
+.stage{position:relative;flex:1;min-height:200px;background:#000;overflow:hidden}
+.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.note{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;
+  color:var(--mute);font-size:15px;line-height:1.9}
+.note b{color:var(--ink)}
+.rotate{position:absolute;top:12px;inset-inline:12px;text-align:center;font-size:13px;background:rgba(2,10,18,.8);
+  border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:none}
+@media (orientation:portrait){ body[data-live] .rotate{display:block} }
+.tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px;background:var(--navy);border-top:1px solid var(--line)}
+.tools .grow{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:700;
+  border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);cursor:pointer;min-height:44px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-moe{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+.btn-bad{border-color:rgba(239,68,68,.55);color:#ffb4a2}
+.lens{display:flex;flex-wrap:wrap;gap:6px}
+.lens button{border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;border:1px solid var(--line);background:transparent;color:var(--ink);min-height:36px}
+.lens button[aria-pressed="true"]{background:var(--ink);color:var(--navy);border-color:var(--ink)}
+.dim{position:fixed;inset:0;z-index:20;background:#000;display:none;align-items:flex-end;justify-content:center;padding:28px;
+  color:rgba(247,245,238,.35);font-size:13px;text-align:center}
+.dim[data-on]{display:flex}
+.hidden{display:none!important}
+.privacy{font-size:11px;color:var(--mute);padding:6px 16px 10px;background:var(--navy);margin:0;line-height:1.7}
+</style>
+</head>
+<body>
+  <header class="bar">
+    <div class="grow">
+      <h1>كاميرا الحصة</h1>
+      <p>ترسل الصورة إلى عين المشرف مباشرةً — لا تُسجَّل ولا تُحفظ</p>
+    </div>
+    <span class="pill" id="camState" data-s="idle" role="status" aria-live="polite"><i></i><span>لم تبدأ</span></span>
+  </header>
+
+  <main class="stage" id="camStage">
+    <video id="camVideo" playsinline muted autoplay></video>
+    <div class="note" id="camNote"><div>جاري التحقّق من الرابط…</div></div>
+    <div class="rotate">أدِر الهاتف أفقيّاً على الحامل: الملعب عريضٌ والصورة الأفقيّة تراه كلّه.</div>
+  </main>
+
+  <div class="tools">
+    <button type="button" class="btn btn-moe" id="camStart" disabled>تشغيل الكاميرا</button>
+    <div class="lens" id="camLens" role="group" aria-label="العدسة"></div>
+    <span class="grow"></span>
+    <button type="button" class="btn hidden" id="camDim">تعتيم الشاشة</button>
+    <button type="button" class="btn btn-bad hidden" id="camStop">إنهاء</button>
+  </div>
+  <p class="privacy">الصورة تذهب إلى جهاز المشرف وحده عبر الشبكة المحلّيّة، مشفّرة، ولا تمرّ بخادم. الصوت لا يُرسَل من هنا.
+    أبقِ هذه الصفحة مفتوحةً والهاتف موصولاً بالشاحن إن أمكن؛ قفل الشاشة يوقف الكاميرا.</p>
+
+  <div class="dim" id="camDimLayer" role="button" tabindex="0" aria-label="إظهار الشاشة">الكاميرا تعمل — المس الشاشة لإظهارها</div>
+
+<script src="js/identity.js"></script>
+<script src="js/eye-link.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const L = window.SvfEyeLink;
+  const target = L.parseHash(location.hash);
+  const C = { stream: null, link: null, cams: [], cur: '', wake: null, ended: false, zoom: null };
+
+  function state(text, s) {
+    $('camState').dataset.s = s || 'idle';
+    $('camState').lastElementChild.textContent = text;
+  }
+  function note(html) {
+    const n = $('camNote');
+    if (!html) { n.classList.add('hidden'); return; }
+    n.innerHTML = '<div>' + html + '</div>';
+    n.classList.remove('hidden');
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  if (!target) {
+    state('رابط غير صالح', 'bad');
+    note('افتح هذه الصفحة من <b>رمز QR</b> الذي يظهر في «عين المشرف» على الـiPad بعد الضغط على <b>«كاميرا الهاتف»</b>.');
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.RTCPeerConnection) {
+    state('غير مدعوم', 'bad');
+    note('هذا المتصفّح لا يتيح الكاميرا أو الاتّصال المباشر. افتح الرابط في <b>Safari</b> على الـiPhone.');
+    return;
+  }
+  note('ضع الهاتف <b>أفقيّاً</b> على الحامل في موضعٍ مرتفعٍ يرى الملعب كلّه، ثمّ اضغط <b>«تشغيل الكاميرا»</b>.<br>تُختار العدسة العريضة تلقائيّاً، ويمكن تغييرها من هنا أو من الـiPad.');
+  $('camStart').disabled = false;
+
+  const videoFor = id => ({
+    deviceId: id ? { exact: id } : undefined,
+    facingMode: id ? undefined : { ideal: 'environment' },
+    width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 24, max: 30 }
+  });
+  async function open(id) {
+    const s = await navigator.mediaDevices.getUserMedia({ video: videoFor(id), audio: false });
+    const tr = s.getVideoTracks()[0];
+    try { tr.contentHint = 'detail'; } catch (e) { /* الدقّة أولى من سلاسة الحركة لكشف الطلبة */ }
+    // يُعتدّ بالمسار الجاري وحده: تبديل العدسة يُنهي السابق (iOS لا يفتح كاميرتين معاً)
+    tr.addEventListener('ended', () => { if (!C.ended && C.stream && C.stream.getVideoTracks()[0] === tr) lost(); });
+    return s;
+  }
+  function zoomCaps(tr) {
+    try {
+      const c = tr.getCapabilities ? tr.getCapabilities() : {};
+      if (!c.zoom || c.zoom.max <= c.zoom.min) return null;
+      const st = tr.getSettings ? tr.getSettings() : {};
+      return { min: c.zoom.min, max: Math.min(c.zoom.max, c.zoom.min * 6), step: c.zoom.step || 0.1, v: st.zoom || c.zoom.min };
+    } catch (e) { return null; }
+  }
+  function camsMsg() {
+    return { type: 'cams', cur: C.cur, list: C.cams.filter(c => !c.front).map(c => ({ id: c.id, label: c.label, ultra: c.ultra })), zoom: C.zoom };
+  }
+  function renderLens() {
+    const box = $('camLens');
+    const back = C.cams.filter(c => !c.front);
+    box.innerHTML = back.length > 1 ? back.map(c => '<button type="button" data-id="' + esc(c.id) + '" aria-pressed="' + (c.id === C.cur) + '">'
+      + esc(L.lensLabel(c.label, c.ultra)) + '</button>').join('') : '';
+  }
+  async function lens(id) {
+    if (!C.stream || !id || id === C.cur || C.switching) return;
+    C.switching = true;
+    const prevId = C.cur;
+    // iOS لا يفتح كاميرتين معاً: تُغلق الحاليّة أوّلاً (ثانيةٌ بلا صورة يستبعدها الـiPad)، وإن فشلت الجديدة عادت السابقة
+    C.stream.getTracks().forEach(t => t.stop());
+    let s;
+    try { s = await open(id); C.cur = id; }
+    catch (e) {
+      try { s = await open(prevId); } catch (e2) { C.switching = false; lost(); return; }
+      state('تعذّر تغيير العدسة', 'wait');
+    }
+    C.stream = s;
+    $('camVideo').srcObject = s;
+    if (C.link) { try { await C.link.replaceTrack(s.getVideoTracks()[0]); } catch (e) { /* يعيده الربط */ } }
+    C.switching = false;
+    C.zoom = zoomCaps(s.getVideoTracks()[0]);
+    renderLens();
+    if (C.link) C.link.send(camsMsg());
+  }
+  async function zoom(v) {
+    const tr = C.stream && C.stream.getVideoTracks()[0];
+    if (!tr || !C.zoom) return;
+    const z = Math.max(C.zoom.min, Math.min(C.zoom.max, Number(v) || C.zoom.min));
+    try { await tr.applyConstraints({ advanced: [{ zoom: z }] }); C.zoom.v = z; } catch (e) { /* العدسة لا تقبل التقريب */ }
+    if (C.link) C.link.send(camsMsg());
+  }
+  function onMessage(m) {
+    if (!m || typeof m !== 'object') return;
+    if (m.type === 'lens' && typeof m.id === 'string') lens(m.id);
+    else if (m.type === 'zoom') zoom(m.v);
+    else if (m.type === 'hello' && C.link) C.link.send(camsMsg());
+    else if (m.type === 'bye') finish('أنهى المشرف الرصد — شكراً.');
+  }
+  function onState(s) {
+    if (C.ended) return;
+    if (s === 'connected' || s === 'channel') { state('متّصل بالـiPad', 'live'); note(''); if (C.link) C.link.send(camsMsg()); }
+    else if (s === 'connecting') state('جاري الاتّصال…', 'wait');
+    else if (s === 'disconnected') state('الاتّصال ضعيف…', 'wait');
+    else if (s === 'failed') {
+      state('انقطع الاتّصال', 'bad');
+      note('انقطع الاتّصال بالـiPad. تأكّد أنّ الجهازين على <b>نقطة الاتّصال نفسها</b>، ثمّ اضغط <b>«إعادة ربط الهاتف»</b> في الـiPad وامسح الرمز الجديد.');
+    }
+  }
+  async function wake() {
+    try { if (navigator.wakeLock && navigator.wakeLock.request) C.wake = await navigator.wakeLock.request('screen'); } catch (e) { C.wake = null; }
+  }
+  function lost() {
+    state('توقّفت الكاميرا', 'bad');
+    note('توقّفت الكاميرا (قُفلت الشاشة أو فُتح تطبيقٌ آخر). اضغط <b>«تشغيل الكاميرا»</b> لإعادتها — يكمل الـiPad الرصد.');
+    $('camStart').classList.remove('hidden');
+    $('camStart').disabled = false;
+  }
+  function finish(text) {
+    C.ended = true;
+    if (C.stream) C.stream.getTracks().forEach(t => t.stop());
+    C.stream = null;
+    if (C.link) { try { C.link.close(); } catch (e) {} C.link = null; }
+    if (C.wake) { C.wake.release().catch(() => {}); C.wake = null; }
+    $('camVideo').srcObject = null;
+    document.body.removeAttribute('data-live');
+    ['camStop', 'camDim', 'camStart'].forEach(id => $(id).classList.add('hidden'));
+    $('camLens').innerHTML = '';
+    $('camDimLayer').removeAttribute('data-on');
+    state('انتهى', 'idle');
+    note(esc(text || 'أُغلقت الكاميرا.'));
+  }
+
+  $('camStart').addEventListener('click', async () => {
+    $('camStart').disabled = true;
+    state('تشغيل الكاميرا…', 'wait');
+    try {
+      // عودةٌ بعد توقّف الكاميرا: مسارٌ جديدٌ للرابط نفسه
+      if (C.link && C.cur) {
+        const s = await open(C.cur);
+        const old = C.stream; C.stream = s;
+        $('camVideo').srcObject = s;
+        await C.link.replaceTrack(s.getVideoTracks()[0]);
+        if (old) old.getTracks().forEach(t => t.stop());
+        $('camStart').classList.add('hidden');
+        state('متّصل بالـiPad', 'live'); note('');
+        wake();
+        return;
+      }
+      // أوّل فتحٍ يكشف أسماء العدسات (لا تظهر قبل الإذن)، ثمّ تُختار العريضة جدّاً
+      let s = await open('');
+      C.cams = L.rankCams(await navigator.mediaDevices.enumerateDevices());
+      const pick = L.pickLens(C.cams.map(c => ({ kind: 'videoinput', deviceId: c.id, label: c.label })));
+      const curId = (s.getVideoTracks()[0].getSettings() || {}).deviceId || '';
+      if (pick && pick.id && pick.id !== curId) {
+        s.getTracks().forEach(t => t.stop());
+        try { s = await open(pick.id); C.cur = pick.id; } catch (e) { s = await open(''); C.cur = curId; }
+      } else C.cur = curId || (pick && pick.id) || '';
+      C.stream = s;
+      C.zoom = zoomCaps(s.getVideoTracks()[0]);
+      $('camVideo').srcObject = s;
+      $('camVideo').play().catch(() => {});
+      renderLens();
+      document.body.setAttribute('data-live', '');
+      state('جاري الربط بالـiPad…', 'wait');
+      note('');
+      C.link = await L.join({ sup: target.sup, code: target.code, stream: s, onState, onMessage });
+      $('camStart').classList.add('hidden');
+      ['camStop', 'camDim'].forEach(id => $(id).classList.remove('hidden'));
+      wake();
+    } catch (e) {
+      const n = e && e.name;
+      state('تعذّر', 'bad');
+      note(n === 'NotAllowedError' ? 'رُفض الإذن بالكاميرا. اسمح بها لهذا الموقع من إعدادات Safari، ثمّ أعد المحاولة.'
+        : esc((e && e.message) || 'تعذّر التشغيل.'));
+      if (C.stream) { C.stream.getTracks().forEach(t => t.stop()); C.stream = null; }
+      if (C.link) { try { C.link.close(); } catch (x) {} C.link = null; }
+      $('camVideo').srcObject = null;
+      document.body.removeAttribute('data-live');
+      $('camStart').disabled = false;
+    }
+  });
+  $('camLens').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) lens(b.dataset.id); });
+  $('camStop').addEventListener('click', () => {
+    if (C.link) C.link.send({ type: 'bye' });
+    finish('أُغلقت الكاميرا. يكمل المشرف الرصد على الـiPad بما سبق.');
+  });
+  $('camDim').addEventListener('click', () => $('camDimLayer').setAttribute('data-on', ''));
+  $('camDimLayer').addEventListener('click', () => $('camDimLayer').removeAttribute('data-on'));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && C.stream && !C.ended) wake(); });
+})();
+</script>
+</body>
+</html>

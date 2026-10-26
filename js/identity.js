@@ -159,7 +159,9 @@
                 collection: fs.collection, getDocs: fs.getDocs, query: fs.query, where: fs.where,
                 // الكتابة للنسخة السحابيّة للتقارير (js/cloud.js) — أمّا قاعدة
                 // المعلمين نفسها فهذا الموقع لا يكتب فيها
-                doc: fs.doc, setDoc: fs.setDoc
+                doc: fs.doc, setDoc: fs.setDoc,
+                // ربط كاميرا الهاتف بعين المشرف (js/eye-link.js) — قراءة وثيقة الربط
+                getDoc: fs.getDoc
             })).catch(err => { sdkPromise = null; throw err; });
         }
         return sdkPromise;

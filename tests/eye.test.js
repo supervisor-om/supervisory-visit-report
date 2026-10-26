@@ -713,5 +713,62 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('moments: أبطأ استجابةٍ للصفّارة لحظةٌ بوقتها', AM.some(x => x.k === 'resp' && x.t === 900 && /لم يستجب الطلبة لإشارة الصفّارة/.test(x.text)), JSON.stringify(AM));
 }
 
+/* ── ٢٠) كاميرا الهاتف (2026-10-26): الـiPhone على الحامل يرسل صورته إلى الـiPad، والتحليل والصوت هنا ── */
+{
+    const L = require('../js/eye-link.js');
+    const codes = Array.from({ length: 200 }, () => L.newCode());
+    check('link: الرمز عشرة أحرفٍ بلا ملتبسٍ (l/1/o/0) ولا يتكرّر', codes.every(c => /^[a-km-np-z2-9]{10}$/.test(c)) && new Set(codes).size === 200, codes[0]);
+    check('link: الرابط إلى cam.html بجانب الصفحة، بالمشرف والرمز في الـhash', L.linkUrl('https://supervisor-mct.com/reports.html?x=1#form', 'asad', 'abcdefghjk') === 'https://supervisor-mct.com/cam.html#asad.abcdefghjk');
+    check('link: الـhash يُقرأ، والمسار بقاعدة firestore.rules', JSON.stringify(L.parseHash('#asad.abcdefghjk')) === '{"sup":"asad","code":"abcdefghjk"}'
+          && L.parseHash('#A.abcdefghjk') === null && L.parseHash('#asad.short') === null && L.parseHash('#../x.abcdefghjk') === null && L.parseHash('') === null);
+    // الوثيقة بشكل التقرير الذي تقبله القواعد المنشورة (reports/<sup>/items) — بلا تعديلٍ فيها
+    const RULES = (() => { try { return fs.readFileSync(path.join(ROOT, '..', 'teacher-data-collection', 'firestore.rules'), 'utf8'); } catch (e) { return ''; } })();
+    const doc = L.signalDoc('abcdefghjk', { offer: 'v=0\r\n'.repeat(400), at: 1 });
+    const allowed = ['key', 'kind', 'supervisor', 'updatedAt', 'json', 'deleted'];
+    check('link: وثيقة الربط بمفاتيح التقرير وأنواعه وحدها', Object.keys(doc).every(k => allowed.includes(k)) && doc.kind === 'supervision' && typeof doc.updatedAt === 'number'
+          && doc.key === 'svf_eyelink_abcdefghjk' && doc.json.length < 300000);
+    if (RULES) check('link: والقواعد تقبل هذا الشكل نفسه (hasOnly)', /hasOnly\(\['key', 'kind', 'supervisor', 'updatedAt', 'json', 'deleted'\]\)/.test(RULES) && /d\(\)\.kind in \['supervision', 'school'\]/.test(RULES));
+    const tomb = L.tombstone('abcdefghjk');
+    check('link: بعد الاتّصال تُفرَّغ وتُعلَّم محذوفة (القواعد تمنع الحذف)', tomb.deleted === true && tomb.json === '' && Object.keys(tomb).every(k => allowed.includes(k)) && L.readSignal(tomb) === null);
+    check('link: قراءة الوصف، والتالف لا يُقرأ', L.readSignal(doc).offer.length === 2000 && L.readSignal({ json: '{x' }) === null && L.readSignal(null) === null);
+    // المزامنة السحابيّة لا ترى وثيقة الربط تقريراً (لا تنزل إلى الأرشيف ولا تُرفع)
+    const CL = read('js/cloud.js');
+    const prefixes = (CL.match(/KIND_PREFIX\s*=\s*\{([^}]+)\}/) || [])[1] || '';
+    check('link: مفتاحها خارج بادئتي التقارير فتتجاهله المزامنة', /supervision_v6_visit_/.test(prefixes) && !/svf_eyelink_/.test(prefixes) && !prefixes.split(/['"]/).some(p => p && 'svf_eyelink_x'.indexOf(p) === 0));
+
+    // العدسة العريضة جدّاً تُختار — بأسماء iOS الإنجليزيّة والعربيّة
+    const dev = (deviceId, label) => ({ kind: 'videoinput', deviceId, label });
+    const iosEn = [dev('f', 'Front Camera'), dev('b', 'Back Camera'), dev('d', 'Back Dual Wide Camera'), dev('t', 'Back Triple Camera'), dev('u', 'Back Ultra Wide Camera'), dev('z', 'Back Telephoto Camera')];
+    check('lens: العريضة جدّاً أوّلاً (iOS بالإنجليزيّة)', L.pickLens(iosEn).id === 'u' && L.rankCams(iosEn)[0].id === 'u' && L.rankCams(iosEn).pop().id === 'f');
+    check('lens: «Dual Wide» ليست العريضة جدّاً', L.rankCams(iosEn).filter(c => c.ultra).map(c => c.id).join() === 'u');
+    check('lens: وبالعربيّة', L.pickLens([dev('f', 'الكاميرا الأمامية'), dev('b', 'الكاميرا الخلفية'), dev('u', 'الكاميرا الخلفية فائقة الاتساع')]).id === 'u'
+          && L.pickLens([dev('b', 'الكاميرا الخلفية'), dev('u', 'كاميرا خلفية واسعة جدًا')]).id === 'u');
+    check('lens: بلا عريضةٍ ← الخلفيّة لا الأماميّة، وبلا أسماءٍ ← الأولى', L.pickLens([dev('f', 'Front Camera'), dev('b', 'Back Camera')]).id === 'b' && L.pickLens([dev('a', ''), dev('c', '')]).id === 'a' && L.pickLens([]) === null);
+    check('lens: أسماءٌ قصيرة للأزرار', L.lensLabel('Back Ultra Wide Camera') === 'العريضة جدّاً' && L.lensLabel('Back Telephoto Camera') === 'المقرّبة'
+          && L.lensLabel('Back Camera') === 'العاديّة (×1)' && L.lensLabel('Back Triple Camera') === 'الثلاثيّة (تلقائيّ)' && L.lensLabel('x', true) === 'العريضة جدّاً');
+
+    // التوصيل
+    const UI = read('js/eye.js'), CAM = read('cam.html').replace(/<!--[\s\S]*?-->/g, ''), LK = read('js/eye-link.js'), ID = read('js/identity.js'), RH = read('reports.html'), SW = read('sw.js');
+    check('wiring: getDoc في وحدة Firebase (لقراءة وثيقة الربط)', /getDoc: fs\.getDoc/.test(ID));
+    check('wiring: eye-link.js قبل eye.js في التقارير، وفي ذاكرة عامل الخدمة مع cam.html (والـQR في vendor لا يُخزَّن مسبقاً)',
+          RH.indexOf('<script src="js/eye-link.js"') > 0 && RH.indexOf('<script src="js/eye-link.js"') < RH.indexOf('<script src="js/eye.js"') && /'\.\/js\/eye-link\.js'/.test(SW) && /'\.\/cam\.html'/.test(SW) && !/vendor\/qrcode/.test(SW));
+    check('wiring: الهاتف لا يسجّل ولا يرسل صوتاً', !/MediaRecorder|toDataURL|getImageData|<canvas/.test(CAM) && /audio: false/.test(CAM) && !/MediaRecorder|toDataURL/.test(LK));
+    check('wiring: الهاتف يقرأ الرابط وحده بلا دخول — لا تقارير ولا هويّة', !/gate\.js/.test(CAM) && !/localStorage/.test(CAM) && /L\.parseHash\(location\.hash\)/.test(CAM));
+    check('wiring: الربط بالمسار نفسه للمشرف، والتحليل يبدأ بوصول الصورة', /begin\('camera', v, 'phone'\)/.test(UI) && /LK\(\)\.host\(\{/.test(UI) && /SupervisorCloud\.bucket\(\)/.test(UI));
+    check('wiring: الميكروفون يُفتح داخل ضغطة «كاميرا الهاتف» (iOS) لا عند وصول الصورة',
+          /async function startPhone\(\)[\s\S]{0,1600}getUserMedia\(\{ audio: audioConstraints\(\) \}\)[\s\S]{0,300}startAudio\([\s\S]{0,400}await openLink\(sup\);/.test(UI));
+    check('wiring: صورةٌ لا تصل ← الثانية غير محسوبة لا انتظار، ولا كشف عليها',
+          /if \(S\.via === 'phone' && \(phoneFrozen\(\) \|\| v\.readyState < 2 \|\| !v\.videoWidth\)\) \{[\s\S]{0,120}S\.acc\.bad\+\+; S\.acc\.lost = true;/.test(UI)
+          && /v\.readyState < 2 \|\| !v\.videoWidth \|\| phoneFrozen\(\)\) return;/.test(UI) && /if \(a\.lost && a\.bad >= a\.n\) S\.lostSec\+\+;/.test(UI));
+    check('wiring: وصول الإطارات بعدّادٍ متزامن ونداء الإطار، والنبضة المتأخّرة لا تُعدّ انقطاعاً',
+          /getVideoPlaybackQuality\(\)\.totalVideoFrames/.test(UI) && /requestVideoFrameCallback\(cb\)/.test(UI) && /t - S\.lastTickAt > 1500/.test(UI));
+    check('wiring: تبديل العدسة أو التقريب يمسح المنطقة والمعلّم والمتتبَّعين', /function lensChanged\(\)[\s\S]{0,200}setRoi\(null\);[\s\S]{0,80}S\.teacher = null;[\s\S]{0,80}E\(\)\.newTracker\(\)/.test(UI));
+    check('wiring: أسماء العدسات من الهاتف تُهرَّب', /data-lens="\$\{esc\(x\.id\)\}"[\s\S]{0,140}\$\{esc\(LK\(\)\.lensLabel\(x\.label, x\.ultra\)\)\}/.test(UI));
+    check('wiring: الإيقاف يودّع الهاتف ويُغلق الاتّصال، والنتيجة تُعلَّم بمصدرها وثواني الانقطاع',
+          /l\.send\(\{ type: 'bye' \}\)/.test(UI) && /data\.via = 'phone'; data\.lost = S\.lostSec \|\| 0;/.test(UI) && /' — من كاميرا الهاتف'/.test(UI));
+    check('wiring: الهاتف يغلق كاميرته بوداع المشرف، ويُبدَّل مساره دون إعادة الربط', /m\.type === 'bye'\) finish\(/.test(CAM) && /replaceTrack\(s\.getVideoTracks\(\)\[0\]\)/.test(CAM) && /contentHint = 'detail'/.test(CAM));
+    check('wiring: رمز QR محلّيّ (vendor) بلا خدمةٍ خارجيّة', /vendor\/qrcode\/qrcode\.js/.test(UI) && fs.existsSync(path.join(ROOT, 'vendor/qrcode/qrcode.js')) && /Licensed under the MIT license/.test(read('vendor/qrcode/qrcode.js')) && !/api\.qrserver|chart\.googleapis/.test(UI));
+}
+
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);
