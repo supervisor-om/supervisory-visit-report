@@ -1,1 +1,3 @@
 app.js.old
+__pycache__/
+*.pyc
