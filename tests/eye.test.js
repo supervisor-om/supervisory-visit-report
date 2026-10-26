@@ -425,10 +425,11 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: عامل الخدمة — vendor بالذاكرة أوّلاً ولا يُخزَّن مسبقاً', /url\.pathname\.indexOf\('\/vendor\/'\) !== -1/.test(SW) && !/'\.\/vendor\//.test(SW) && /const VERSION = 'v(3[5-9]|[4-9]\d)'/.test(SW));
     const hook = S.indexOf('svfEyeBeforeSave()'), rd = S.indexOf('const reportData = {', S.indexOf('function savePermanentReport'));
     check('wiring: الدرجات المعتمدة تُكتب قبل جمع حقول التقرير', hook > 0 && hook < rd && /typeof svfEyeBeforeSave === 'function'/.test(S));
-    check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && UI.includes('id="eyeTeacherMic"') && /enumerateDevices/.test(UI));
+    check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && /chk\('eyeTeacherMic'/.test(UI) && /enumerateDevices/.test(UI));
     check('wiring: أزرار عناصر الحصة الخمسة والعدّادات تُنقص', /E\(\)\.PARTS\.map/.test(UI) && /data-dec="\$\{k\}"/.test(UI) && /function resuggest\(\)/.test(UI));
     check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
-          && (UI.match(/localStorage\.setItem\(/g) || []).length === 2 && /localStorage\.setItem\('svf_eye_show'/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI));
+          && (UI.match(/localStorage\.setItem\(/g) || []).length === 3 && /localStorage\.setItem\('svf_eye_show'/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI)
+          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech'\];/.test(UI));
 }
 
 /* ── ١٦) التوصيل — العناصر والبطاقة والمداولة والنموذج ── */
@@ -768,6 +769,51 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           /l\.send\(\{ type: 'bye' \}\)/.test(UI) && /data\.via = 'phone'; data\.lost = S\.lostSec \|\| 0;/.test(UI) && /' — من كاميرا الهاتف'/.test(UI));
     check('wiring: الهاتف يغلق كاميرته بوداع المشرف، ويُبدَّل مساره دون إعادة الربط', /m\.type === 'bye'\) finish\(/.test(CAM) && /replaceTrack\(s\.getVideoTracks\(\)\[0\]\)/.test(CAM) && /contentHint = 'detail'/.test(CAM));
     check('wiring: رمز QR محلّيّ (vendor) بلا خدمةٍ خارجيّة', /vendor\/qrcode\/qrcode\.js/.test(UI) && fs.existsSync(path.join(ROOT, 'vendor/qrcode/qrcode.js')) && /Licensed under the MIT license/.test(read('vendor/qrcode/qrcode.js')) && !/api\.qrserver|chart\.googleapis/.test(UI));
+}
+
+/* ── ٢١) المتابعة الحيّة (2026-10-26): سلسلةٌ لكلّ عشر ثوانٍ، و«الآن»، والتنبيهات ── */
+{
+    const mk = (n, f) => Array.from({ length: n }, (_, t) => f(t));
+    // ٢٠٠ ث نشاط (١٢ من ٢٠ يتحرّكون) ثمّ ٢٠٠ ث انتظار؛ والقاطرة من ٣٣٠، وأربعةٌ خارج المنطقة في الأخير
+    const secs = mk(400, t => ({ m: t < 200 ? 0.05 : 0.003, v: t % 3 === 0, w: t === 150, p: t % 3 ? null : { n: 20, mv: t < 200 ? 12 : 2, o: t > 380 ? 4 : 0, r: true, ln: t > 330 ? 9 : 0 } }));
+    const rec = { secs, sens: 'medium', ctx: [{ t: 0, k: 'warm' }, { t: 60, k: 'apply' }] };
+    const M = E.summarize(rec), L = E.live(rec, M, { camera: true, ai: true, roi: true });
+    check('live: مقطعٌ لكلّ عشر ثوانٍ بحالته وحركة الطلبة وكلام المعلّم والصفّارة والعنصر', L.series.length === 40 && L.series[0].k === 'a' && L.series[0].mv === 60 && L.series[39].mv === 10
+          && L.series[15].w === 1 && L.series[0].c === 'warm' && L.series[10].c === 'apply' && Math.abs(L.series[0].talk - 0.4) < 0.01, JSON.stringify(L.series[0]));
+    check('live: الآن — انتظارٌ ومدّته، والعنصر الجاري وزمنه، وحركة آخر ١٥ ث', L.state === 'i' && L.run >= 180 && L.part === 'apply' && L.partSec === 340 && L.now === 10, JSON.stringify([L.state, L.run, L.part, L.partSec, L.now]));
+    check('live: زمن كلّ عنصرٍ مقابل الموصى به بالثواني (دقائق حصّة ٤٠)', L.parts.find(x => x.k === 'warm').sec === 60 && L.parts.find(x => x.k === 'warm').rec === 300
+          && L.parts.find(x => x.k === 'apply').cur && E.live(rec, M, { rec: { warm: 8 } }).parts[0].rec === 480);
+    check('live: التنبيهات بالأهمّيّة — الانتظار أحمر بعد دقيقتين، والقاطرة، ولا يتكرّر «الحركة ضعيفة» مع الانتظار',
+          L.alerts[0].k === 'idle' && L.alerts[0].level === 'bad' && L.alerts.some(a => a.k === 'line' && /\(9\) طلبة/.test(a.text)) && !L.alerts.some(a => a.k === 'move') && L.alerts.length <= 3,
+          JSON.stringify(L.alerts));
+    check('live: قاطرةٌ مستمرّة بزمنها وطولها، وخارج المنطقة الآن', L.line && L.line.n === 9 && L.line.sec >= 60 && L.outside === 4 && L.pupilsNow === 24);
+    // حركةٌ ضعيفةٌ في عنصرٍ نشطٍ (بلا انتظار) ← تنبيه؛ وبلا عنصرٍ بعد دقيقتين ← تلميح؛ وبلا منطقةٍ ← تلميح
+    const low = { secs: mk(200, t => ({ m: 0.05, v: false, w: false, p: t % 2 ? null : { n: 20, mv: 6, o: 0, r: false, ln: 0 } })), sens: 'medium', ctx: [{ t: 0, k: 'apply' }] };
+    const L2 = E.live(low, E.summarize(low), {});
+    check('live: «حركة الطلبة ٣٠٪ في الأنشطة التطبيقيّة» حين يقلّ النشاط في عنصرٍ نشط', L2.alerts.some(a => a.k === 'move' && /حركة الطلبة 30% في «الأنشطة التطبيقية»/.test(a.text)), JSON.stringify(L2.alerts));
+    const bare = { secs: mk(130, () => ({ m: 0.05, v: null, w: false, p: null })), sens: 'medium', ctx: [] };
+    const L3 = E.live(bare, E.summarize(bare), { camera: true, ai: true, roi: false });
+    check('live: تلميحا «المس العنصر الجاري» و«حدّد منطقة الصف»، والثقيل قبلهما', L3.alerts.map(a => a.k).join() === 'parts,roi' && L3.now === null && L3.part === null);
+    const shake = { secs: mk(60, t => ({ m: t < 40 ? 0.05 : null, v: null, w: false })), sens: 'medium' };
+    check('live: الكاميرا تتحرّك (إلّا كاميرا الهاتف: انقطاعها غير محسوبٍ لا اهتزاز)', E.live(shake, E.summarize(shake), {}).alerts.some(a => a.k === 'shake')
+          && !E.live(shake, E.summarize(shake), { phone: true }).alerts.some(a => a.k === 'shake'));
+    check('live: السلسلة تُحفظ رقماً لكلّ مقطع (٠–٩ و«-»)', E.pack([{ mv: 63 }, { mv: null }, { mv: 100 }], 'mv', 0.1) === '6-9' && E.pack([{ talk: 0.42 }], 'talk', 10) === '4');
+    const UI = read('js/eye.js');
+    check('wiring: الإعداد قبل الرصد (أربعة مصادر وإعداداتٌ مطويّة تُذكر)، ومساحة الرصد أثناءه وبعده', /id="eyeSetup"/.test(UI) && /<details id="eyeSettings"/.test(UI)
+          && /\$\('eyeSetup'\)\.classList\.toggle\('hidden', S\.running \|\| pairing\)/.test(UI) && /\$\('eyeWork'\)\.classList\.toggle\('hidden', !\(S\.running \|\| S\.result\)\)/.test(UI)
+          && ['eyeStartCam', 'eyeStartPhone', 'eyeFileBtn', 'eyeStartNoCam'].every(id => UI.includes("card('" + id + "'")));
+    check('wiring: شريط الرصد اللاصق فيه الساعة والعنصر و«علامة» و«إيقاف»', /id="eyeLiveBar" class="hidden sticky/.test(UI) && /id="eyeLiveClock"/.test(UI) && /id="eyeMark"/.test(UI) && /id="eyeStop"/.test(UI));
+    check('wiring: كلّ ثانيةٍ تُحسب المتابعة الحيّة وتُرسم (الرقم الكبير، الخطّ، العناصر، التنبيهات، المجرى)', /const L = S\.live = E\(\)\.live\(recNow\(\), M,/.test(UI)
+          && /drawTimeline\(L\.series\.map\(liveItem\)\);\s*\n\s*renderMonitor\(L, M\);\s*\n\s*drawSpark\(\);/.test(UI));
+    check('wiring: التنبيهات والتلميح نصٌّ مهروب', /\$\{esc\(a\.text\)\}/.test(UI) && /d\.textContent = t;/.test(UI));
+    check('wiring: مجرى الحصة بعد الرصد من السلسلة المحفوظة (tm/tt)', /tm: packed\(LS, 'mv', 0\.1\), tt: packed\(LS, 'talk', 10\)/.test(UI) && /mv: dig\(data\.tm, i, 10\), talk: dig\(data\.tt, i, 0\.1\)/.test(UI));
+    check('wiring: الوسوم تبويباتٌ بمجموعاتها', /class="eye-gtab/.test(UI) && /data-gpanel="\$\{i\}"/.test(UI));
+    // بعد الرصد: اللوحة «ملخّص الرصد» بأرقام الحصة كلّها، ويبدأ الرصد التالي من لوحةٍ فارغة
+    check('wiring: ملخّص الرصد بعد الإيقاف وعند فتح تقريرٍ محفوظ', /renderKpis\(Object\.assign\(\{ states: \[\] \}, M\), M\.seconds\);\s*\n\s*renderMonitorDone\(data\);/.test(UI)
+          && /'ملخّص الرصد'/.test(UI) && /E\(\)\.partsDetail\(M, M\.rec\)/.test(UI.slice(UI.indexOf('function renderMonitorDone'))));
+    check('wiring: الرصد الجديد يصفّر اللوحة', /renderFocus\(\);\s*\n\s*resetMonitor\(\);/.test(UI) && /renderKpis\(null\);\s*\n\s*resetMonitor\(\);/.test(UI));
+    check('wiring: لوحة النقاط مخفيّةٌ بعد الإيقاف (لا نقاط لقطةٍ أخيرة فوق الشاشة الفارغة)', /\$\('eyeView'\)\.style\.visibility = S\.running \? '' : 'hidden';/.test(UI.slice(UI.indexOf('function layout'), UI.indexOf('function placeBar'))));
+    check('wiring: شريط الرصد معتمٌ لا زجاج (القشرة تجعل bg-white شفّافاً)', /id="eyeLiveBar" class="(?![^"]*bg-white)[^"]*" style="[^"]*background-color:#fff/.test(UI));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

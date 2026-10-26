@@ -1591,7 +1591,94 @@
         };
     }
 
+    // ── شاشة المتابعة الحيّة (2026-10-26) ──
+    // طلب المشرف: «التحليل في الوقت الفعليّ برسومٍ دقيقةٍ تُقرأ بسهولة». من سجلّ الثواني والحالات (summarize) يُبنى:
+    //   • سلسلةٌ لكلّ عشر ثوانٍ: الحالة الغالبة، وحركة الطلبة٪ (من الكشف) أو مستوى حركة الصورة، وكلام المعلّم، والصفّارة، والعنصر
+    //   • «الآن»: الحالة ومدّتها، وحركة الطلبة في آخر ١٥ ث وفي آخر دقيقتين، والعنصر الجاري وزمنه مقابل الموصى به (بدقائق حصّة ٤٠)
+    //   • تنبيهاتٌ قليلةٌ مرتّبة بالأهمّيّة — ما يحتاج تدخّلاً الآن، لا كلّ رقم
+    const LIVE_STEP = 10;
+    const ALERT_IDLE = 60, ALERT_IDLE_BAD = 120;  // انتظارٌ جارٍ: تنبيهٌ بعد دقيقة، وأحمر بعد دقيقتين
+    const ALERT_MOVE = 40;                        // حركة الطلبة في عنصرٍ نشطٍ دون ٤٠٪ آخر دقيقتين
+    const ALERT_LINE = 30;                        // قاطرةٌ طويلةٌ مستمرّةٌ ٣٠ ث
+    function live(rec, M, opts) {
+        const o = opts || {};
+        const secs = (rec && rec.secs) || [], st = (M && M.states) || [], n = st.length;
+        const sens = SENS[rec && rec.sens] || SENS.medium;
+        const ctx = ctxSeries(rec && rec.ctx, n);
+        const recMin = k => (o.rec && o.rec[k] > 0 ? Number(o.rec[k]) : PART[k].min);
+        const mode = arr => { const c = {}; arr.forEach(x => { if (x) c[x] = (c[x] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || null; };
+        const series = [];
+        for (let t = 0; t < n; t += LIVE_STEP) {
+            let mvN = 0, mvD = 0, tY = 0, tN = 0, w = 0, a = 0, i = 0, x = 0;
+            const act = [];
+            for (let j = t; j < Math.min(n, t + LIVE_STEP); j++) {
+                const s = secs[j], k = st[j];
+                if (k === 'a') a++; else if (k === 'i') i++; else x++;
+                if (!s) continue;
+                if (s.p && s.p.n) { mvN += s.p.mv; mvD += s.p.n; }
+                if (s.m != null) act.push(s.m);
+                if (s.v != null) { tN++; if (s.v) tY++; }
+                if (s.w) w++;
+            }
+            series.push({
+                t, k: x > a + i ? 'x' : a >= i ? 'a' : 'i',
+                mv: mvD ? Math.round(100 * mvN / mvD) : null,
+                act: act.length ? Math.min(1, act.reduce((s, v) => s + v, 0) / act.length / (sens.active * 3)) : null,
+                talk: tN ? Math.round(100 * tY / tN) / 100 : null, w, c: mode(ctx.slice(t, t + LIVE_STEP))
+            });
+        }
+        // الحالة الآن ومدّتها
+        const state = n ? st[n - 1] : null;
+        let run = 0;
+        for (let j = n - 1; j >= 0 && st[j] === state; j--) run++;
+        // حركة الطلبة في نافذةٍ أخيرة (من لقطات الكشف)
+        const mvIn = (from, keep) => {
+            let a = 0, b = 0;
+            for (let j = Math.max(0, from); j < n; j++) { const s = secs[j]; if (s && s.p && s.p.n && (!keep || keep(j))) { a += s.p.mv; b += s.p.n; } }
+            return b ? { pct: Math.round(100 * a / b), n: b } : null;
+        };
+        const now15 = mvIn(n - 15), all = mvIn(0);
+        // العنصر الجاري وزمنه، وزمن كلّ عنصرٍ مقابل الموصى به
+        const part = n && ctx[n - 1] ? ctx[n - 1] : null;
+        let since = n;
+        if (part) { since = n - 1; while (since > 0 && ctx[since - 1] === part) since--; }
+        const parts = PARTS.map(x => ({ k: x.k, label: x.label, short: x.short, sec: ctx.filter(c => c === x.k).length, rec: recMin(x.k) * 60, cur: x.k === part }));
+        const recent = part && ACTIVE_PARTS.includes(part) ? mvIn(n - 120, j => ctx[j] === part) : null;
+        // قاطرةٌ طويلةٌ مستمرّة: من آخر اللقطات رجوعاً، والفجوة بين لقطتين حتّى ٨ ث لا تقطعها
+        let lineFrom = null, lineLen = 0, last = n;
+        for (let j = n - 1; j >= 0 && last - j <= 8; j--) {
+            const p = secs[j] && secs[j].p;
+            if (!p) continue;
+            if (p.ln > LONG_LINE) { lineFrom = j; lineLen = Math.max(lineLen, p.ln); last = j; } else break;
+        }
+        const lineSec = lineFrom == null ? 0 : n - lineFrom;
+        let lastP = null;
+        for (let j = n - 1; j >= Math.max(0, n - 6); j--) if (secs[j] && secs[j].p) { lastP = secs[j].p; break; }
+
+        const alerts = [];
+        const add = (k, level, text) => alerts.push({ k, level, text });
+        if (state === 'i' && run >= ALERT_IDLE) add('idle', run >= ALERT_IDLE_BAD ? 'bad' : 'warn', 'انتظارٌ منذ ' + dur(run) + ' — الطلبة بلا نشاط');
+        if (state === 'x' && run >= 10 && !o.phone) add('shake', 'warn', 'الكاميرا تتحرّك — ثبّتها على الحامل؛ هذه الثواني لا تُحسب');
+        if (recent && recent.n >= 30 && recent.pct < ALERT_MOVE && n - since >= 60 && !(state === 'i' && run >= ALERT_IDLE)) add('move', 'warn', 'حركة الطلبة ' + recent.pct + '% في «' + PART[part].label + '» (آخر دقيقتين)');
+        if (lineSec >= ALERT_LINE) add('line', 'warn', 'قاطرةٌ من ' + pupilsN(lineLen) + ' منذ ' + dur(lineSec) + ' — قسّمها');
+        if (lastP && lastP.r && lastP.o >= 3) add('out', 'warn', pupilsN(lastP.o) + ' خارج منطقة النشاط');
+        if (part && n - since > recMin(part) * 60 + 120) add('over', 'info', '«' + PART[part].label + '» ' + dur(n - since) + ' — الموصى به ' + recMin(part) + ' د');
+        if (!part && n >= 120) add('parts', 'hint', 'المس عنصر الحصة الجاري ليُقاس زمنه وحركة الطلبة فيه');
+        if (o.camera && o.ai && !o.roi && n >= 60) add('roi', 'hint', 'حدّد منطقة الصف ليُعدّ من هم خارجها وتدقّ الأرقام');
+        const rank = { bad: 0, warn: 1, info: 2, hint: 3 };
+        alerts.sort((a, b) => rank[a.level] - rank[b.level]);
+        return {
+            series, seconds: n, state, run, part, partSec: part ? n - since : 0, parts,
+            now: now15 ? now15.pct : null, avg: all ? all.pct : null, recent: recent ? recent.pct : null,
+            line: lineSec ? { n: lineLen, sec: lineSec } : null, outside: lastP && lastP.r ? lastP.o : null,
+            pupilsNow: lastP ? lastP.n + (lastP.o || 0) : null, alerts: alerts.slice(0, 3)
+        };
+    }
+    // سلسلةٌ محفوظةٌ مع النتيجة: رقمٌ لكلّ عشر ثوانٍ (٠–٩ = عُشر النسبة، و«-» بلا قياس) — لمجرى الحصة بعد الرصد
+    const pack = (series, key, scale) => series.map(b => (b[key] == null ? '-' : String(Math.min(9, Math.round(b[key] * scale))))).join('');
+
     const api = {
+        LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
         PARTS, PART, ACTIVE_PARTS, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
         PERSON_MIN_SCORE, MOVE_SPEED, BOX_ACT,

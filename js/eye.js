@@ -97,42 +97,60 @@
                         <button type="button" class="eye-dec hidden flex-none w-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-slate-400" data-dec="${k}" aria-label="إنقاص ${esc(t.label)}">−</button>
                     </div>`;
         };
-        const sel = (id, label, opts) => `<label class="flex items-center gap-1.5 text-sm text-slate-600">${label}
+        const sel = (id, label, opts) => `<label class="flex items-center justify-between gap-2 text-sm text-slate-700">${label}
                     <select id="${id}" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm">${opts}</select></label>`;
-        const kpi = (id, label, cls) => `<div class="px-4 py-3 ${cls}"><div class="text-2xl font-bold text-slate-900 tabular-nums" id="${id}">—</div><div class="text-xs text-slate-600 mt-0.5" id="${id}L">${label}</div></div>`;
+        const chk = (id, label, on, title) => `<label class="flex items-center gap-2 text-sm text-slate-700"${title ? ` title="${title}"` : ''}><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${label}</label>`;
+        const kpi = (id, label) => `<div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 min-w-0">
+                    <div class="text-xs text-slate-600 truncate" id="${id}L">${label}</div><div class="text-lg font-bold text-slate-900 tabular-nums truncate" id="${id}">—</div></div>`;
+        const card = (id, icon, name, sub, tag) => `<${tag === 'label' ? 'label for="eyeFile" role="button" tabindex="0"' : 'button type="button"'} id="${id}"
+                    class="eye-src flex flex-col items-start gap-1 text-right rounded-xl border border-slate-200 bg-white p-4 min-w-0 cursor-pointer transition-colors hover:border-blue-500">
+                    <i class="fa-solid ${icon} text-xl text-blue-800" aria-hidden="true"></i>
+                    <span class="font-bold text-slate-900">${name}</span><span class="text-xs text-slate-500 leading-5">${sub}</span></${tag === 'label' ? 'label' : 'button'}>`;
 
         body.innerHTML = `
             <div class="svf-head" style="margin-bottom:0">
                 <div>
                     <h1>عين المشرف</h1>
-                    <p>تحليلٌ حيٌّ للحصة داخل جهازك: الطلبة في الملعب ومن يتحرّك منهم ومن هو خارج النشاط، والانتظار والانتقالات، وتوزيع زمن الحصة،
-                       ومن الصوت زمن الشرح والتوجيه والصفّارة. وما لا تراه الكاميرا تسجّله بلمسة، ثمّ يُقترح تقييمٌ لكلّ بندٍ عليه شاهد.</p>
+                    <p>تحليلٌ حيٌّ للحصة داخل جهازك: حركة الطلبة والانتظار وزمن عناصر الحصة والصفّارة وكلام المعلّم — تُتابَع لحظةً بلحظة،
+                       ثمّ يُقترح تقييمٌ لكلّ بندٍ عليه شاهد.</p>
                 </div>
             </div>
 
-            <section class="bg-white rounded-2xl border border-slate-200 p-3 space-y-3">
-                <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" id="eyeStartCam" class="svf-btn svf-btn-primary"><i class="fa-solid fa-video" aria-hidden="true"></i>تشغيل الكاميرا</button>
-                    <button type="button" id="eyeStartPhone" class="svf-btn svf-btn-secondary" title="كاميرا الـiPhone على حاملٍ في الملعب، والتحليل والتقييم على هذا الجهاز"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i>كاميرا الهاتف</button>
-                    <label for="eyeFile" id="eyeFileBtn" class="svf-btn svf-btn-secondary" role="button" tabindex="0"><i class="fa-solid fa-film" aria-hidden="true"></i>تحليل مقطع مصوَّر</label>
-                    <input type="file" id="eyeFile" accept="video/*" class="hidden">
-                    <button type="button" id="eyeStartNoCam" class="svf-btn svf-btn-ghost"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i>رصد بلا كاميرا</button>
-                    <button type="button" id="eyeStop" class="hidden svf-btn svf-btn-primary"><i class="fa-solid fa-stop" aria-hidden="true"></i>إيقاف وتحليل</button>
-                    <span class="flex-1"></span>
+            <section id="eyeSetup" class="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 class="font-bold text-slate-900">ابدأ الرصد</h2>
+                    <span class="text-xs text-slate-500">من أين الصورة؟</span>
+                </div>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    ${card('eyeStartCam', 'fa-video', 'كاميرا هذا الجهاز', 'على حاملٍ مرتفعٍ يرى الملعب كلّه')}
+                    ${card('eyeStartPhone', 'fa-mobile-screen', 'كاميرا الهاتف', 'الـiPhone على الحامل، والمتابعة من هنا')}
+                    ${card('eyeFileBtn', 'fa-film', 'مقطع مصوَّر', 'تحليل فيديو محفوظ في الجهاز', 'label')}
+                    ${card('eyeStartNoCam', 'fa-stopwatch', 'بلا كاميرا', 'عناصر الحصة واللمسات والصوت')}
+                </div>
+                <input type="file" id="eyeFile" accept="video/*" class="hidden">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3">
                     <label class="flex items-center gap-2 text-sm font-semibold text-slate-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                         <input type="checkbox" id="eyeConsent"> أُبلغ المعلّم بالرصد</label>
-                </div>
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 border-t border-slate-100">
-                    ${sel('eyeFacing', 'الكاميرا', '<option value="environment">الخلفية</option><option value="user">الأمامية</option>')}
-                    ${sel('eyeSens', 'الحساسية', '<option value="high">عالية</option><option value="medium" selected>متوسطة</option><option value="low">منخفضة</option>')}
-                    ${sel('eyeRate', 'سرعة المقطع', '<option value="1">×1</option><option value="2">×2</option><option value="4">×4</option>')}
-                    <label class="flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" id="eyeAI" checked> كشف الطلبة</label>
-                    <span class="flex items-center gap-2">
-                        <label class="flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" id="eyeMic" checked> الصوت</label>
-                        <select id="eyeMicDev" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm max-w-[12rem]" aria-label="الميكروفون"><option value="">الميكروفون الافتراضي</option></select>
-                        <label class="flex items-center gap-1.5 text-sm text-slate-600" title="ميكروفونٌ لاسلكيٌّ على ياقة المعلّم: يصير الكلام المرصود كلامه"><input type="checkbox" id="eyeTeacherMic"> على المعلّم</label>
-                        <label id="eyeSpeechLbl" class="flex items-center gap-1.5 text-sm text-slate-600" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech"> فهم الكلام</label>
-                    </span>
+                    <details id="eyeSettings" class="flex-1 min-w-0">
+                        <summary class="cursor-pointer select-none text-sm text-slate-700 flex items-center gap-2 py-1"><i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                            <b class="font-semibold">الإعدادات</b><span id="eyeSetSum" class="text-xs text-slate-500 truncate min-w-0"></span></summary>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 pt-3">
+                            <div class="space-y-2">
+                                <div class="text-xs font-bold text-slate-500">الصورة</div>
+                                ${sel('eyeFacing', 'الكاميرا', '<option value="environment">الخلفية</option><option value="user">الأمامية</option>')}
+                                ${sel('eyeSens', 'الحساسية', '<option value="high">عالية</option><option value="medium" selected>متوسطة</option><option value="low">منخفضة</option>')}
+                                ${sel('eyeRate', 'سرعة المقطع', '<option value="1">×1</option><option value="2">×2</option><option value="4">×4</option>')}
+                                ${chk('eyeAI', 'كشف الطلبة (نموذجٌ داخل الجهاز)', true)}
+                            </div>
+                            <div class="space-y-2">
+                                <div class="text-xs font-bold text-slate-500">الصوت</div>
+                                ${chk('eyeMic', 'تحليل الصوت: الكلام والصفّارة', true)}
+                                <select id="eyeMicDev" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" aria-label="الميكروفون"><option value="">الميكروفون الافتراضي</option></select>
+                                ${chk('eyeTeacherMic', 'الميكروفون على المعلّم (لاسلكيّ)', false, 'ميكروفونٌ لاسلكيٌّ على ياقة المعلّم: يصير الكلام المرصود كلامه')}
+                                <label id="eyeSpeechLbl" class="flex items-center gap-2 text-sm text-slate-700" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech"> فهم الكلام (بإذن المعلّم)</label>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </section>
             <section id="eyePair" class="hidden bg-white rounded-2xl border border-slate-200 p-4" aria-live="polite">
@@ -158,123 +176,150 @@
             <section id="eyeFocus" class="hidden bg-white rounded-2xl border border-slate-200 border-r-4 p-4" style="border-right-color:#f0b44a" aria-live="polite"></section>
             <p id="eyeMsg" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm" role="alert"></p>
 
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
-                <section class="lg:col-span-3 space-y-3 min-w-0">
-                    <div id="eyeStage" class="relative rounded-2xl overflow-hidden bg-slate-900" style="aspect-ratio:16/9">
-                        <video id="eyeVideo" playsinline muted class="absolute inset-0 w-full h-full object-contain" style="opacity:0"></video>
-                        <canvas id="eyeView" class="absolute inset-0 w-full h-full" style="pointer-events:none;touch-action:none"></canvas>
-                        <canvas id="eyeHeat" class="absolute inset-0 w-full h-full pointer-events-none hidden"></canvas>
-                        <div id="eyeIdle" class="absolute inset-0 flex items-center justify-center text-center p-8 text-slate-300 text-sm leading-7">${esc(IDLE_TEXT)}</div>
-                        <div id="eyeRoiHint" class="hidden pointer-events-none absolute top-3 inset-x-3 text-center text-sm text-white bg-slate-900/85 rounded-lg px-3 py-2"></div>
-                        <div id="eyeStatus" class="hidden pointer-events-none absolute bottom-3 right-3 flex items-center gap-2 bg-slate-900/80 text-white text-sm rounded-lg px-3 py-1.5" aria-live="polite">
-                            <span class="w-2 h-2 rounded-full bg-red-500"></span><span id="eyeClock" class="tabular-nums">00:00</span><span class="opacity-60">|</span><span id="eyeState">—</span>
-                            <span id="eyeAiState" class="hidden opacity-80 text-xs border-r border-white/30 pr-2 mr-1"></span></div>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                        <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
-                        <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
-                        <button type="button" id="eyeTeacherBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
-                        <span class="flex-1"></span>
-                        <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
-                        <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
-                    </div>
-                    <div id="eyeLensRow" class="hidden flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                        <span class="font-semibold text-slate-800">عدسة الهاتف</span>
-                        <span id="eyeLens" class="flex flex-wrap gap-1.5"></span>
-                        <label id="eyeZoomLbl" class="hidden flex items-center gap-1.5">التقريب <input type="range" id="eyeZoom" class="w-28"></label>
-                        <span class="flex-1"></span>
-                        <button type="button" id="eyeRelink" class="hidden svf-btn svf-btn-moe svf-btn-sm"><i class="fa-solid fa-link" aria-hidden="true"></i>إعادة ربط الهاتف</button>
-                    </div>
-                    <p class="text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
-                    <p id="eyeSpeechNote" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-5"></p>
-
-                    <div id="eyeSpeechLive" class="hidden bg-white rounded-2xl border border-slate-200 p-4" aria-live="polite">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <b class="text-sm text-slate-900">كلام المعلّم</b>
-                            <span class="flex items-center gap-2"><span id="eyeSpeechState" class="text-xs text-slate-500"></span>
-                                <button type="button" id="eyeSpeechRetry" class="hidden svf-btn svf-btn-secondary svf-btn-sm">تشغيل فهم الكلام</button></span>
-                        </div>
-                        <p id="eyeSpeechText" class="text-sm text-slate-800 leading-7 mt-2 min-h-[1.75rem]"></p>
-                        <div id="eyeSpeechCounts" class="flex flex-wrap gap-1.5 mt-2"></div>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200 p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                            <b class="text-sm text-slate-900">عناصر الحصة</b>
-                            <span class="text-xs text-slate-500">المس العنصر حين يبدأ — يُقاس زمنه والحركة والشرح والانتظار فيه</span>
-                        </div>
-                        <div class="grid grid-cols-5 gap-1.5" role="group" aria-label="عناصر الحصة">
-                            ${E().PARTS.map(c => `<button type="button" class="eye-ctx svf-btn svf-btn-secondary flex-col !gap-1 !px-1 !py-2 text-xs leading-4 text-center" data-ctx="${c.k}" aria-pressed="false" title="${esc(c.label)}">
-                                <i class="inline-block w-full h-1 rounded-sm" style="background:${CTX_COLOR[c.c]}" aria-hidden="true"></i>${esc(c.short)}</button>`).join('')}
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200 p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <b class="text-sm text-slate-900">لحظات للمداولة</b>
-                            <button type="button" id="eyeMark" class="svf-btn svf-btn-secondary svf-btn-sm"><i class="fa-solid fa-bookmark" aria-hidden="true"></i>علامة الآن</button>
-                        </div>
-                        <p class="text-xs text-slate-500 mt-1 leading-5">المس «علامة» حين ترى ما تريد مناقشته مع المعلّم: يُحفظ وقته وعنصر الحصة، واكتب ملاحظةً قصيرة إن شئت.</p>
-                        <ul id="eyeMarks" class="mt-2 space-y-1.5"></ul>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200 p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                            <b class="text-sm text-slate-900">مجرى الحصة</b>
-                            <span class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                                <span class="flex items-center gap-1"><i class="inline-block w-3 h-3 rounded-sm" style="background:#0f4c81"></i>نشاط</span>
-                                <span class="flex items-center gap-1"><i class="inline-block w-3 h-3 rounded-sm" style="background:#cbd5e1"></i>انتظار أو شرح</span>
-                                <span class="flex items-center gap-1"><i class="inline-block w-3 h-3 rounded-sm border border-slate-300" style="background:#f1f5f9"></i>غير محسوب</span>
-                                <span class="flex items-center gap-1"><i class="inline-block w-1 h-3" style="background:#b5452f"></i>لمسة</span>
-                                <span class="flex items-center gap-1"><i class="inline-block w-2 h-3" style="background:#f0b44a"></i>علامة</span>
-                            </span>
-                        </div>
-                        <canvas id="eyeTimeline" class="w-full block" style="height:72px"></canvas>
-                        <div class="flex justify-between text-[11px] text-slate-500 mt-1"><span>البداية</span><span id="eyeTlEnd">الآن</span></div>
-                    </div>
+            <div id="eyeWork" class="hidden space-y-5">
+                <section id="eyeLiveBar" class="hidden sticky z-30 rounded-2xl border border-slate-200 px-3 py-2 flex items-center gap-2 sm:gap-3" style="top:5rem;background-color:#fff;box-shadow:0 6px 18px rgba(8,39,66,.10)">
+                    <span class="flex items-center gap-2"><i class="eye-rec inline-block w-2.5 h-2.5 rounded-full bg-red-600" aria-hidden="true"></i>
+                        <b id="eyeLiveClock" class="text-xl tabular-nums text-slate-900">00:00</b></span>
+                    <span id="eyeLivePart" class="flex-1 text-sm text-slate-700 min-w-0 truncate"></span>
+                    <span id="eyeLiveSrc" class="hidden md:inline text-xs text-slate-500"></span>
+                    <button type="button" id="eyeMark" class="svf-btn svf-btn-secondary" aria-label="علامة الآن"><i class="fa-solid fa-bookmark" aria-hidden="true"></i><span class="hidden sm:inline">علامة</span></button>
+                    <button type="button" id="eyeStop" class="hidden svf-btn svf-btn-primary"><i class="fa-solid fa-stop" aria-hidden="true"></i>إيقاف وتحليل</button>
                 </section>
 
-                <aside class="lg:col-span-2 space-y-4 min-w-0">
-                    <section class="bg-white rounded-2xl border border-slate-200 grid grid-cols-2">
-                        ${kpi('eyeKpiTime', 'زمن الرصد', 'border-l border-b border-slate-200')}
-                        ${kpi('eyeKpiActive', 'النشاط الحركي', 'border-b border-slate-200')}
-                        ${kpi('eyeKpiPupils', 'عدد الطلبة (الأكبر)', 'border-l border-b border-slate-200')}
-                        ${kpi('eyeKpiOut', 'خارج المنطقة', 'border-b border-slate-200')}
-                        ${kpi('eyeKpiForm', 'التشكيل', 'border-l border-b border-slate-200')}
-                        ${kpi('eyeKpiDish', 'بغير الزي (تقديري)', 'border-b border-slate-200')}
-                        ${kpi('eyeKpiWaits', 'فترات الانتظار', 'border-l border-slate-200')}
-                        ${kpi('eyeKpiWhistle', 'الصفّارة', '')}
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+                    <section class="lg:col-span-3 space-y-3 min-w-0">
+                        <div id="eyeStage" class="relative rounded-2xl overflow-hidden bg-slate-900" style="aspect-ratio:16/9">
+                            <video id="eyeVideo" playsinline muted class="absolute inset-0 w-full h-full object-contain" style="opacity:0"></video>
+                            <canvas id="eyeView" class="absolute inset-0 w-full h-full" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;touch-action:none"></canvas>
+                            <canvas id="eyeHeat" class="absolute inset-0 w-full h-full pointer-events-none hidden" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+                            <div id="eyeIdle" class="absolute inset-0 flex items-center justify-center text-center p-8 text-slate-300 text-sm leading-7">${esc(IDLE_TEXT)}</div>
+                            <div id="eyeRoiHint" class="hidden pointer-events-none absolute top-3 inset-x-3 text-center text-sm text-white bg-slate-900/85 rounded-lg px-3 py-2"></div>
+                            <div id="eyeStatus" class="hidden pointer-events-none absolute bottom-3 right-3 flex items-center gap-2 bg-slate-900/80 text-white text-sm rounded-lg px-3 py-1.5" aria-live="polite">
+                                <span class="w-2 h-2 rounded-full bg-red-500"></span><span id="eyeClock" class="tabular-nums">00:00</span><span class="opacity-60">|</span><span id="eyeState">—</span>
+                                <span id="eyeAiState" class="hidden opacity-80 text-xs border-r border-white/30 pr-2 mr-1"></span></div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                            <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
+                            <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
+                            <button type="button" id="eyeTeacherBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
+                            <span class="flex-1"></span>
+                            <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
+                            <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
+                        </div>
+                        <div id="eyeLensRow" class="hidden flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                            <span class="font-semibold text-slate-800">عدسة الهاتف</span>
+                            <span id="eyeLens" class="flex flex-wrap gap-1.5"></span>
+                            <label id="eyeZoomLbl" class="hidden flex items-center gap-1.5">التقريب <input type="range" id="eyeZoom" class="w-28"></label>
+                            <span class="flex-1"></span>
+                            <button type="button" id="eyeRelink" class="hidden svf-btn svf-btn-moe svf-btn-sm"><i class="fa-solid fa-link" aria-hidden="true"></i>إعادة ربط الهاتف</button>
+                        </div>
+
+                        <div class="bg-white rounded-2xl border border-slate-200 p-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <b class="text-sm text-slate-900">عناصر الحصة</b>
+                                <span class="text-xs text-slate-500">المس العنصر حين يبدأ</span>
+                            </div>
+                            <div class="grid grid-cols-5 gap-1.5" role="group" aria-label="عناصر الحصة">
+                                ${E().PARTS.map(c => `<button type="button" class="eye-ctx svf-btn svf-btn-secondary flex-col !gap-1 !px-1 !py-2.5 text-xs leading-4 text-center" data-ctx="${c.k}" aria-pressed="false" title="${esc(c.label)}">
+                                    <i class="inline-block w-full h-1 rounded-sm" style="background:${CTX_COLOR[c.c]}" aria-hidden="true"></i>${esc(c.short)}</button>`).join('')}
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
+                        <p id="eyeSpeechNote" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-5"></p>
+                        <div id="eyeSpeechLive" class="hidden bg-white rounded-2xl border border-slate-200 p-4" aria-live="polite">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <b class="text-sm text-slate-900">كلام المعلّم</b>
+                                <span class="flex items-center gap-2"><span id="eyeSpeechState" class="text-xs text-slate-500"></span>
+                                    <button type="button" id="eyeSpeechRetry" class="hidden svf-btn svf-btn-secondary svf-btn-sm">تشغيل فهم الكلام</button></span>
+                            </div>
+                            <p id="eyeSpeechText" class="text-sm text-slate-800 leading-7 mt-2 min-h-[1.75rem]"></p>
+                            <div id="eyeSpeechCounts" class="flex flex-wrap gap-1.5 mt-2"></div>
+                        </div>
                     </section>
 
+                    <aside class="lg:col-span-2 min-w-0">
+                        <section id="eyeMonitor" class="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
+                            <div class="flex items-center justify-between gap-2">
+                                <h2 id="eyeMonTitle" class="font-bold text-slate-900">المتابعة الحيّة</h2>
+                                <span id="eyeMonState" class="text-xs font-bold rounded-full px-2.5 py-1 bg-slate-100 text-slate-600">—</span>
+                            </div>
+                            <div>
+                                <div id="eyeMonLabel" class="text-sm text-slate-600">حركة الطلبة الآن</div>
+                                <b id="eyeMonNow" class="block text-5xl font-bold tabular-nums text-slate-900 leading-tight">—</b>
+                                <div id="eyeMonSub" class="text-xs text-slate-500 mt-1 leading-5"></div>
+                            </div>
+                            <div id="eyeSparkWrap">
+                                <div class="relative h-24"><canvas id="eyeSpark" class="absolute inset-0 w-full h-full" style="position:absolute;inset:0;width:100%;height:100%" role="img" aria-label="حركة الطلبة في آخر خمس دقائق"></canvas></div>
+                                <div class="flex justify-between text-[11px] text-slate-500 mt-1"><span>قبل ٥ دقائق</span><span>الآن</span></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${kpi('eyeKpiPupils', 'الطلبة (الأكبر)')}${kpi('eyeMonIdle', 'الانتظار')}
+                                ${kpi('eyeKpiForm', 'التشكيل')}${kpi('eyeKpiWhistle', 'الصفّارة')}
+                                ${kpi('eyeKpiOut', 'خارج المنطقة')}${kpi('eyeKpiDish', 'بغير الزيّ (تقديري)')}
+                            </div>
+                            <div>
+                                <div class="flex items-baseline justify-between gap-2 mb-2"><b class="text-sm text-slate-900">زمن عناصر الحصة</b><span class="text-[11px] text-slate-500">الخطّ: الموصى به</span></div>
+                                <div id="eyeMonParts" class="space-y-1.5"></div>
+                            </div>
+                            <div id="eyeAlerts" class="space-y-1.5" aria-live="polite"></div>
+                        </section>
+                    </aside>
+                </div>
+
+                <section class="bg-white rounded-2xl border border-slate-200 p-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <b class="text-sm text-slate-900">مجرى الحصة</b>
+                        <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                            <span class="flex items-center gap-1"><i class="inline-block w-3 h-3 rounded-sm" style="background:rgba(15,76,129,.25);border-top:2px solid #0f4c81"></i>حركة الطلبة</span>
+                            <span class="flex items-center gap-1"><i class="inline-block w-3 h-2 rounded-sm" style="background:#cbd5e1"></i>انتظار</span>
+                            <span class="flex items-center gap-1"><i class="inline-block w-3 h-2 rounded-sm" style="background:#d9a441"></i>كلام المعلّم</span>
+                            <span class="flex items-center gap-1"><i class="inline-block" style="width:0;height:0;border-inline:5px solid transparent;border-top:7px solid #082742"></i>صفّارة</span>
+                            <span class="flex items-center gap-1"><i class="inline-block w-1 h-3" style="background:#b5452f"></i>لمسة</span>
+                            <span class="flex items-center gap-1"><i class="inline-block w-2 h-3" style="background:#f0b44a"></i>علامة</span>
+                        </span>
+                    </div>
+                    <div class="relative">
+                        <canvas id="eyeTimeline" class="w-full block" style="width:100%;height:150px;display:block;touch-action:pan-y" role="img" aria-label="مجرى الحصة: حركة الطلبة والانتظار والعناصر وكلام المعلّم عبر الزمن"></canvas>
+                        <div id="eyeTlTip" class="hidden pointer-events-none absolute top-1 z-10 bg-slate-900 text-white text-xs rounded-lg px-2.5 py-1.5 leading-5 whitespace-nowrap"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-500 mt-1"><span>البداية</span><span id="eyeTlEnd">الآن</span></div>
+                </section>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <section class="bg-white rounded-2xl border border-slate-200 p-4">
                         <div class="flex items-center justify-between gap-2">
                             <h2 class="font-bold text-slate-900">ما لا تراه الكاميرا</h2>
-                            <button type="button" id="eyeUndo" class="svf-btn svf-btn-ghost svf-btn-sm" disabled>تراجع عن آخر لمسة</button>
+                            <button type="button" id="eyeUndo" class="svf-btn svf-btn-ghost svf-btn-sm" disabled>تراجع</button>
                         </div>
-                        <p class="text-xs text-slate-600 mt-1 mb-3 leading-5">المس الوسم كلّما رأيته في الحصة — مع الكاميرا أو بدونها — و«−» يصحّح العدد أثناء الحصة وبعدها.</p>
-                        <div class="space-y-3">
-                            ${E().GROUPS.map(gp => `<div><div class="text-xs font-bold text-slate-500 mb-1.5">${esc(gp.title)}</div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-1.5">${gp.keys.map(tagRow).join('')}</div></div>`).join('')}
+                        <p class="text-xs text-slate-600 mt-1 leading-5">المس الوسم كلّما رأيته، و«−» يصحّح العدد أثناء الحصة وبعدها.</p>
+                        <div class="flex gap-1 overflow-x-auto mt-3 pb-1" role="tablist" aria-label="مجموعات الوسوم">
+                            ${E().GROUPS.map((gp, i) => `<button type="button" role="tab" class="eye-gtab flex-none svf-btn svf-btn-sm ${i ? 'svf-btn-ghost' : 'svf-btn-secondary'}" data-gtab="${i}" aria-selected="${i ? 'false' : 'true'}">${esc(gp.title)}<b class="eye-gcount tabular-nums text-blue-800" data-gcount="${i}"></b></button>`).join('')}
                         </div>
+                        ${E().GROUPS.map((gp, i) => `<div class="eye-gpanel grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2${i ? ' hidden' : ''}" data-gpanel="${i}" role="tabpanel">${gp.keys.map(tagRow).join('')}</div>`).join('')}
                         <button type="button" id="eyeTapsOnly" class="svf-btn svf-btn-secondary svf-btn-sm w-full mt-4">اقترح التقييم من لمساتي وحدها</button>
                     </section>
-
-                    <section class="bg-white rounded-2xl border border-slate-200 p-4">
-                        <div class="flex items-center justify-between gap-2">
-                            <h2 class="font-bold text-slate-900">عيّنة الطلبة — إتقان المهارة</h2>
-                            <label class="flex items-center gap-1.5 text-xs text-slate-600">العدد
-                                <select id="eyeSampleN" class="bg-white border border-slate-300 rounded-lg px-1.5 py-1 text-sm">${[5, 6, 8, 10, 12].map(n => `<option value="${n}"${n === 8 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
-                        </div>
-                        <p class="text-xs text-slate-600 mt-1 mb-2 leading-5">اختر طلبةً متفاوتين واحفظ مواقعهم، وقيّمهم في أوّل التطبيق ثمّ في آخره. المس رقم الطالب ليتبدّل:
-                            لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ (التحصيل) و٢ (التقدّم).</p>
-                        <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="القراءة">
-                            <button type="button" class="eye-round svf-btn svf-btn-primary svf-btn-sm" data-round="a" aria-pressed="true">أوّل التطبيق</button>
-                            <button type="button" class="eye-round svf-btn svf-btn-secondary svf-btn-sm" data-round="b" aria-pressed="false">آخر الحصة</button>
-                        </div>
-                        <div id="eyeSampleChips" class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 xl:grid-cols-6 gap-1.5 mt-2"></div>
-                        <p id="eyeSampleSum" class="text-xs text-slate-600 mt-2 leading-5"></p>
-                    </section>
-                </aside>
+                    <div class="space-y-5 min-w-0">
+                        <section class="bg-white rounded-2xl border border-slate-200 p-4">
+                            <div class="flex items-center justify-between gap-2">
+                                <h2 class="font-bold text-slate-900">عيّنة الطلبة — إتقان المهارة</h2>
+                                <label class="flex items-center gap-1.5 text-xs text-slate-600">العدد
+                                    <select id="eyeSampleN" class="bg-white border border-slate-300 rounded-lg px-1.5 py-1 text-sm">${[5, 6, 8, 10, 12].map(n => `<option value="${n}"${n === 8 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-1 mb-2 leading-5">طلبةٌ متفاوتون تقيّمهم في أوّل التطبيق ثمّ في آخره: المس الرقم ليتبدّل لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ و٢.</p>
+                            <div class="grid grid-cols-2 gap-1.5" role="group" aria-label="القراءة">
+                                <button type="button" class="eye-round svf-btn svf-btn-primary svf-btn-sm" data-round="a" aria-pressed="true">أوّل التطبيق</button>
+                                <button type="button" class="eye-round svf-btn svf-btn-secondary svf-btn-sm" data-round="b" aria-pressed="false">آخر الحصة</button>
+                            </div>
+                            <div id="eyeSampleChips" class="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mt-2"></div>
+                            <p id="eyeSampleSum" class="text-xs text-slate-600 mt-2 leading-5"></p>
+                        </section>
+                        <section class="bg-white rounded-2xl border border-slate-200 p-4">
+                            <b class="text-sm text-slate-900">لحظات للمداولة</b>
+                            <p class="text-xs text-slate-500 mt-1 leading-5">«علامة» في شريط الرصد تحفظ اللحظة وعنصرها؛ اكتب ملاحظةً قصيرة إن شئت.</p>
+                            <ul id="eyeMarks" class="mt-2 space-y-1.5"></ul>
+                        </section>
+                    </div>
+                </div>
             </div>
 
             <section id="eyeResult" class="hidden space-y-4" aria-live="polite"></section>
@@ -301,7 +346,7 @@
         $('eyeStop').addEventListener('click', () => stop(true));
         $('eyeUndo').addEventListener('click', undo);
         $('eyeTapsOnly').addEventListener('click', () => { if (!S.running) finish(); });
-        $('eyeHeatToggle').addEventListener('change', () => { $('eyeHeat').classList.toggle('hidden', !$('eyeHeatToggle').checked); drawHeat(); });
+        $('eyeHeatToggle').addEventListener('change', () => { $('eyeHeat').classList.toggle('hidden', !$('eyeHeatToggle').checked); drawHeat(S.running ? undefined : S.savedHeat || undefined); if (!S.running) layout(); });
         // الصورة طبيعيّةٌ افتراضاً (طلب المشرف 2026-10-26)، وإخفاؤها اختيارٌ يُذكر في هذا المتصفّح
         try { if (localStorage.getItem('svf_eye_show') === '0') $('eyeShowVideo').checked = false; } catch (e) { /* يبقى الافتراض */ }
         $('eyeShowVideo').addEventListener('change', () => {
@@ -326,13 +371,266 @@
         body.querySelectorAll('.eye-round').forEach(b => b.addEventListener('click', () => { S.sampleRound = b.dataset.round; renderSample(); }));
         $('eyeSampleChips').addEventListener('click', e => { const b = e.target.closest('[data-pupil]'); if (b) sampleTap(+b.dataset.pupil); });
         $('eyeSampleN').addEventListener('change', () => { const sm = S.sample || freshSample(); sm.n = +$('eyeSampleN').value || 8; S.sample = sm; renderSample(); sampleChanged(); });
-        root.addEventListener('resize', () => { drawTimeline(); drawHeat(); drawView(); });
+        // مجموعات الوسوم تبويباتٌ — قائمةٌ قصيرةٌ بدل أربع مجموعاتٍ متتالية
+        body.querySelectorAll('.eye-gtab').forEach(b => b.addEventListener('click', () => {
+            body.querySelectorAll('.eye-gtab').forEach(x => { const on = x === b; x.classList.toggle('svf-btn-secondary', on); x.classList.toggle('svf-btn-ghost', !on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+            body.querySelectorAll('.eye-gpanel').forEach(p => p.classList.toggle('hidden', p.dataset.gpanel !== b.dataset.gtab));
+        }));
+        // الإعدادات تُذكر في هذا المتصفّح، فلا تُضبط في كلّ حصة
+        loadPrefs();
+        PREF_IDS.forEach(id => { const el = $(id); if (el) el.addEventListener('change', savePrefs); });
+        setSummary();
+        // مجرى الحصة: المرور (أو اللمس) يعرض وقت المقطع وعنصره وحالته وأرقامه
+        $('eyeTimeline').addEventListener('pointermove', tlTip);
+        $('eyeTimeline').addEventListener('pointerdown', tlTip);
+        $('eyeTimeline').addEventListener('pointerleave', () => $('eyeTlTip').classList.add('hidden'));
+        root.addEventListener('resize', () => { drawTimeline(); drawHeat(); drawView(); drawSpark(); });
         if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', refreshMics);
         refreshMics();
         renderKpis(null);
         renderSample();
         renderMarks();
         S.bound = true;
+        layout();
+    }
+
+    // ── الإعدادات المحفوظة ──
+    const PREF_KEY = 'svf_eye_prefs';
+    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech'];
+    function readPrefs() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); return p && typeof p === 'object' ? p : null; } catch (e) { return null; } }
+    function loadPrefs() {
+        const p = readPrefs();
+        if (!p) return;
+        PREF_IDS.forEach(id => {
+            const el = $(id);
+            if (!el || !(id in p) || el.disabled) return;
+            if (el.type === 'checkbox') el.checked = !!p[id];
+            else if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === String(p[id]))) return;   // الميكروفون يُستعاد حين تُسرد الأجهزة
+            else el.value = String(p[id]);
+        });
+        speechNote();
+    }
+    function savePrefs() {
+        const p = {};
+        PREF_IDS.forEach(id => { const el = $(id); if (el) p[id] = el.type === 'checkbox' ? el.checked : el.value; });
+        try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) { /* تُستعمل لهذه المرّة */ }
+        setSummary();
+    }
+    // سطرٌ واحد يلخّص الإعدادات الجارية بجانب «الإعدادات»
+    function setSummary() {
+        const el = $('eyeSetSum');
+        if (!el) return;
+        const mic = $('eyeMicDev'), micName = mic && mic.value ? (mic.selectedOptions[0] || {}).textContent : '';
+        el.textContent = '— ' + [
+            $('eyeFacing').value === 'user' ? 'الكاميرا الأماميّة' : 'الكاميرا الخلفيّة',
+            checked('eyeAI') ? 'كشف الطلبة' : 'بلا كشف الطلبة',
+            checked('eyeMic') ? 'الصوت' + (checked('eyeTeacherMic') ? ' من ميكروفون المعلّم' : micName ? ': ' + micName : '') : 'بلا صوت',
+            checked('eyeSpeech') ? 'فهم الكلام' : ''
+        ].filter(Boolean).join(' · ');
+    }
+
+    // ── ما يظهر: الإعداد قبل الرصد، ومساحة الرصد أثناءه وبعده ──
+    function layout() {
+        if (!$('eyeSetup')) return;
+        const pairing = !$('eyePair').classList.contains('hidden');
+        $('eyeSetup').classList.toggle('hidden', S.running || pairing);
+        $('eyeWork').classList.toggle('hidden', !(S.running || S.result));
+        $('eyeLiveBar').classList.toggle('hidden', !S.running);
+        if (S.running) placeBar();
+        else {
+            // بعد الرصد: الشاشة فارغة (لا يُحفظ فيديو) — يُقال ذلك بدل تعليمات التركيب، وتُمسح أيّ نقاطٍ بقيت
+            if (S.result) $('eyeIdle').textContent = 'انتهى الرصد — لا يُحفظ فيديو ولا صورة.' + (S.result.heat ? ' «خريطة الحركة» تُظهر أين تحرّك الطلبة.' : '');
+            $('eyeIdle').classList.toggle('hidden', !!(S.result && S.result.heat) && checked('eyeHeatToggle'));
+            drawView();
+        }
+        // لوحة النقاط لا تُرى إلّا أثناء الرصد: مسحُها بعد الإيقاف لم يكفِ — بقيت نقاط آخر لقطةٍ أحياناً حين انتهى المقطع وحده (فحص Chromium)
+        $('eyeView').style.visibility = S.running ? '' : 'hidden';
+    }
+    // شريط الرصد يلتصق تحت شريط التبويبات (وهو لاصقٌ أيضاً) فلا يختفي «إيقاف» و«علامة» عند التمرير
+    function placeBar() {
+        const bar = $('eyeLiveBar'), head = document.querySelector('#supervisoryVisitsApp header');
+        let top = 8;
+        try { if (head && getComputedStyle(head).position === 'sticky') top = (parseFloat(getComputedStyle(head).top) || 0) + head.offsetHeight + 8; } catch (e) { /* الافتراض */ }
+        bar.style.top = top + 'px';
+    }
+
+    // ── المتابعة الحيّة ──
+    const MV_COLOR = v => (v == null ? 'text-slate-900' : v >= 55 ? 'text-green-700' : v >= 40 ? 'text-slate-900' : v >= 25 ? 'text-amber-700' : 'text-red-700');
+    const lessonMin = () => { const r = recPref(); return E().PARTS.reduce((s, x) => s + (r && r[x.k] > 0 ? Number(r[x.k]) : x.min), 0); };
+    // زمن العناصر: الفعليّ مقابل الموصى به (الخطّ عند ثلثي الشريط)، والجاري بارز — {k, short, label, sec, rec (ثوانٍ), cur}
+    const recMin = s => String(Math.round(s / 6) / 10);
+    function partsBars(list) {
+        return list.map(x => {
+            const scale = 1.5 * x.rec, w = scale ? Math.min(100, 100 * x.sec / scale) : 0, over = x.over != null ? x.over : x.sec > x.rec + 120;
+            return `<div class="flex items-center gap-2 text-xs">
+                <span class="w-[4.5rem] flex-none truncate ${x.cur ? 'font-bold text-slate-900' : 'text-slate-600'}">${esc(x.short)}</span>
+                <span class="relative flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden" title="${esc(x.label + ': ' + mmss(x.sec) + ' من ' + recMin(x.rec) + ' د')}">
+                    <i class="absolute inset-y-0 right-0 rounded-full" style="width:${w}%;background:${CTX_COLOR[E().PART[x.k].c]}${x.cur ? '' : ';opacity:.85'}"></i>
+                    <i class="absolute inset-y-0 w-0.5 bg-slate-600" style="right:${(100 / 1.5).toFixed(1)}%"></i></span>
+                <span class="w-[4.5rem] flex-none text-left tabular-nums ${over ? 'text-red-700 font-bold' : x.cur ? 'text-slate-900 font-bold' : 'text-slate-500'}">${mmss(x.sec)} / ${esc(recMin(x.rec))} د</span></div>`;
+        }).join('');
+    }
+    // بعد الرصد (أو عند فتح تقريرٍ محفوظ) تصير اللوحة «ملخّص الرصد»: أرقام الحصة كلّها لا آخر لحظة، ولا تنبيهات
+    function renderMonitorDone(data) {
+        if (!$('eyeMonitor') || !data) return;
+        const M = data.M || {};
+        const P = M.people && M.people.movingAll != null && M.people.detSecs >= 60 ? M.people : null;
+        $('eyeMonTitle').textContent = 'ملخّص الرصد';
+        const badge = $('eyeMonState');
+        badge.textContent = 'انتهى · ' + mmss(M.seconds || 0);
+        badge.className = 'text-xs font-bold rounded-full px-2.5 py-1 bg-slate-100 text-slate-700';
+        const hero = $('eyeMonNow'), lbl = $('eyeMonLabel'), sub = $('eyeMonSub');
+        let v = null;
+        if (P) {
+            v = P.movingPlay != null ? P.movingPlay : P.movingAll;
+            lbl.textContent = 'حركة الطلبة في الحصة';
+            sub.textContent = [P.movingPlay != null ? 'في العناصر النشطة · الحصة كلّها ' + P.movingAll + '%' : 'من زمن الرصد', 'المعيار ٥٠٪'].join(' · ');
+        } else if (M.observed >= 20) {
+            v = M.activePct;
+            lbl.textContent = 'النشاط الحركيّ في الحصة';
+            sub.textContent = 'من حركة الصورة';
+        } else {
+            lbl.textContent = 'زمن الرصد';
+            sub.textContent = data.audio ? 'كلام المعلّم ' + (M.talkPct || 0) + '% من الوقت' : '';
+        }
+        hero.textContent = v != null ? v + '%' : mmss(M.seconds || 0);
+        hero.className = 'block text-5xl font-bold tabular-nums leading-tight ' + MV_COLOR(v);
+        $('eyeSparkWrap').classList.add('hidden');            // مجرى الحصة كلّها تحت اللوحة
+        const idle = $('eyeMonIdle');
+        idle.textContent = M.longestIdle ? mmss(M.longestIdle) : M.observed ? 'لا انتظار' : '—';
+        idle.className = 'text-lg font-bold tabular-nums truncate text-slate-900';
+        $('eyeMonIdleL').textContent = M.longestIdle ? 'أطول انتظار (' + M.waits + ')' : 'الانتظار';
+        const det = M.ctx && M.ctx.covered ? E().partsDetail(M, M.rec) : null;
+        $('eyeMonParts').innerHTML = det ? partsBars(det.map(x => ({ k: x.k, short: x.short, label: x.label, sec: x.sec, rec: Math.round(x.rec * 60), cur: false, over: x.verdict === 'long' })))
+            : '<p class="text-xs text-slate-500">لم تُلمس عناصر الحصة في هذا الرصد.</p>';
+        $('eyeAlerts').innerHTML = '<button type="button" id="eyeToResult" class="svf-btn svf-btn-secondary svf-btn-sm w-full"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>التحليل والتقييم المقترح</button>';
+        $('eyeToResult').addEventListener('click', () => $('eyeResult').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+    function resetMonitor() {
+        if (!$('eyeMonitor')) return;
+        $('eyeMonTitle').textContent = 'المتابعة الحيّة';
+        $('eyeMonState').textContent = 'يبدأ…';
+        $('eyeMonState').className = 'text-xs font-bold rounded-full px-2.5 py-1 bg-slate-100 text-slate-600';
+        $('eyeMonLabel').textContent = 'حركة الطلبة الآن';
+        $('eyeMonNow').textContent = '—';
+        $('eyeMonNow').className = 'block text-5xl font-bold tabular-nums leading-tight text-slate-900';
+        $('eyeMonSub').textContent = '';
+        $('eyeMonIdle').textContent = '—'; $('eyeMonIdleL').textContent = 'الانتظار';
+        $('eyeSparkWrap').classList.remove('hidden');
+        $('eyeMonParts').innerHTML = ''; $('eyeAlerts').innerHTML = '';
+        drawSpark();
+    }
+    function renderMonitor(L, M) {
+        if (!$('eyeMonitor') || !L) return;
+        $('eyeMonTitle').textContent = 'المتابعة الحيّة';
+        $('eyeSparkWrap').classList.remove('hidden');
+        const P = M.people && M.people.movingAll != null && M.people.detSecs >= 30 ? M.people : null;
+        const frozen = phoneFrozen();
+        // الحالة الآن
+        const st = S.src === 'none' ? ['رصد بلا كاميرا', 'bg-slate-100 text-slate-700']
+            : frozen ? ['لا صورة من الهاتف', 'bg-red-50 text-red-800']
+            : L.state === 'a' ? ['نشاط', 'bg-green-50 text-green-800']
+            : L.state === 'i' ? ['انتظار ' + mmss(L.run), 'bg-amber-50 text-amber-900']
+            : L.state === 'x' ? ['الكاميرا تتحرّك', 'bg-slate-100 text-slate-700'] : ['يبدأ…', 'bg-slate-100 text-slate-600'];
+        const badge = $('eyeMonState');
+        badge.textContent = st[0];
+        badge.className = 'text-xs font-bold rounded-full px-2.5 py-1 ' + st[1];
+        // الرقم الكبير: حركة الطلبة الآن (الكشف)، وإلّا النشاط الحركيّ للصورة، وبلا كاميرا زمن العنصر الجاري
+        const hero = $('eyeMonNow'), lbl = $('eyeMonLabel'), sub = $('eyeMonSub');
+        const avg = P ? (P.movingPlay != null ? P.movingPlay : P.movingAll) : M.observed >= 20 ? M.activePct : null;
+        if (S.src === 'none') {
+            lbl.textContent = L.part ? 'زمن «' + E().PART[L.part].label + '»' : 'زمن الرصد';
+            hero.textContent = mmss(L.part ? L.partSec : L.seconds);
+            hero.className = 'block text-5xl font-bold tabular-nums leading-tight text-slate-900';
+            sub.textContent = S.audio ? 'كلام المعلّم ' + (M.talkPct || 0) + '% من الوقت' : '';
+        } else if (L.now != null && !frozen) {
+            lbl.textContent = 'حركة الطلبة الآن';
+            hero.textContent = L.now + '%';
+            hero.className = 'block text-5xl font-bold tabular-nums leading-tight ' + MV_COLOR(L.now);
+            // المتوسّط من لقطات الكشف نفسها (لا من حركة الصورة) فيُقرأ الرقمان معاً
+            const mAvg = P ? avg : L.avg;
+            sub.textContent = [mAvg != null ? 'متوسّط الحصة ' + mAvg + '%' : '', L.recent != null && L.part ? 'آخر دقيقتين في «' + E().PART[L.part].short + '» ' + L.recent + '%' : '', 'المعيار ٥٠٪'].filter(Boolean).join(' · ');
+        } else {
+            lbl.textContent = 'النشاط الحركيّ في الحصة';
+            hero.textContent = avg != null ? avg + '%' : '—';
+            hero.className = 'block text-5xl font-bold tabular-nums leading-tight ' + MV_COLOR(avg);
+            sub.textContent = checked('eyeAI') && S.src !== 'none' ? (AI.ok ? 'كشف الطلبة يبدأ مع أوّل لقطات…' : 'من حركة الصورة — كشف الطلبة غير متاح') : 'من حركة الصورة';
+        }
+        // الانتظار: الجاري الآن، وإلّا أطول انتظارٍ بين نشاطين
+        const idle = $('eyeMonIdle'), idleL = $('eyeMonIdleL');
+        if (L.state === 'i' && !frozen && S.src !== 'none') { idle.textContent = mmss(L.run); idleL.textContent = 'انتظارٌ الآن'; idle.className = 'text-lg font-bold tabular-nums truncate ' + (L.run >= E().ALERT_IDLE ? 'text-amber-700' : 'text-slate-900'); }
+        else { idle.textContent = M.longestIdle ? mmss(M.longestIdle) : S.src === 'none' ? '—' : 'لا انتظار'; idleL.textContent = M.longestIdle ? 'أطول انتظار (' + M.waits + ')' : 'الانتظار'; idle.className = 'text-lg font-bold tabular-nums truncate text-slate-900'; }
+        $('eyeMonParts').innerHTML = partsBars(L.parts);
+        // التنبيهات
+        const IC = { bad: ['fa-circle-exclamation', 'border-red-200 bg-red-50 text-red-800'], warn: ['fa-triangle-exclamation', 'border-amber-200 bg-amber-50 text-amber-900'],
+                     info: ['fa-clock', 'border-slate-200 bg-slate-50 text-slate-700'], hint: ['fa-lightbulb', 'border-blue-200 bg-blue-50 text-blue-800'] };
+        $('eyeAlerts').innerHTML = L.alerts.length ? L.alerts.map(a => `<div class="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm leading-6 ${IC[a.level][1]}">
+                <i class="fa-solid ${IC[a.level][0]} mt-1.5 text-xs" aria-hidden="true"></i><span class="min-w-0">${esc(a.text)}</span></div>`).join('')
+            : '<p class="text-xs text-slate-500">لا تنبيهات — الحصة تسير.</p>';
+        // شريط الرصد (ويُعاد حساب موضعه: شريط التبويبات قد يتغيّر ارتفاعه بتدوير الجهاز)
+        placeBar();
+        $('eyeLiveClock').textContent = mmss(L.seconds);
+        const lp = $('eyeLivePart');
+        lp.textContent = L.part ? E().PART[L.part].label + ' · ' + mmss(L.partSec) : 'المس عنصر الحصة الجاري';
+        lp.className = 'flex-1 text-sm min-w-0 truncate ' + (L.part ? 'text-slate-800 font-semibold' : 'text-amber-800');
+        $('eyeLiveSrc').textContent = [S.via === 'phone' ? 'كاميرا الهاتف' : S.src === 'file' ? 'مقطع مصوَّر' : S.src === 'none' ? 'بلا كاميرا' : 'كاميرا الجهاز',
+            S.audio ? (S.mic === 'teacher' ? 'ميكروفون المعلّم' : 'الصوت') : '', S.sp ? 'فهم الكلام' : ''].filter(Boolean).join(' · ');
+    }
+
+    // خطّ آخر خمس دقائق: حركة الطلبة٪ (أو مستوى حركة الصورة)، والقديم يميناً والآن يساراً — كمجرى الحصة
+    function drawSpark() {
+        const c = $('eyeSpark');
+        if (!c) return;
+        const dpr = root.devicePixelRatio || 1, Wc = c.clientWidth, Hc = c.clientHeight;
+        if (!Wc || !Hc) return;
+        c.width = Math.round(Wc * dpr); c.height = Math.round(Hc * dpr);
+        const g = c.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, Wc, Hc);
+        const all = S.tl || [], N = 30, items = all.slice(-N);
+        const useMv = items.some(b => b.mv != null);
+        const val = b => (useMv ? b.mv : b.v != null ? b.v * 100 : null);
+        const top = 4, bot = Hc - 4, H = bot - top;
+        const Y = v => bot - (Math.max(0, Math.min(100, v)) / 100) * H;
+        const step = Wc / (N - 1);
+        const X = i => Wc - (i + (N - items.length)) * step;      // أحدث مقطعٍ عند الحافّة اليسرى
+        g.strokeStyle = 'rgba(15,23,42,.08)'; g.lineWidth = 1;
+        [0, 50, 100].forEach(v => { g.beginPath(); g.moveTo(0, Y(v) + 0.5); g.lineTo(Wc, Y(v) + 0.5); g.stroke(); });
+        if (useMv) { g.setLineDash([5, 4]); g.strokeStyle = '#94a3b8'; g.beginPath(); g.moveTo(0, Y(50)); g.lineTo(Wc, Y(50)); g.stroke(); g.setLineDash([]); }
+        items.forEach((b, i) => { if (b.k === 'i') { g.fillStyle = 'rgba(203,213,225,.55)'; g.fillRect(X(i) - step / 2, top, step, H); } });
+        const pts = items.map((b, i) => [X(i), val(b)]).filter(p => p[1] != null);
+        if (pts.length < 2) return;
+        g.beginPath();
+        pts.forEach((p, i) => (i ? g.lineTo(p[0], Y(p[1])) : g.moveTo(p[0], Y(p[1]))));
+        g.lineTo(pts[pts.length - 1][0], bot); g.lineTo(pts[0][0], bot); g.closePath();
+        g.fillStyle = 'rgba(15,76,129,.14)'; g.fill();
+        g.beginPath();
+        pts.forEach((p, i) => (i ? g.lineTo(p[0], Y(p[1])) : g.moveTo(p[0], Y(p[1]))));
+        g.strokeStyle = '#0f4c81'; g.lineWidth = 2; g.lineJoin = 'round'; g.lineCap = 'round'; g.stroke();
+        const last = pts[pts.length - 1];
+        g.beginPath(); g.arc(last[0], Y(last[1]), 4, 0, Math.PI * 2); g.fillStyle = '#0f4c81'; g.fill();
+        g.lineWidth = 2; g.strokeStyle = '#ffffff'; g.stroke();
+    }
+
+    // تلميح مجرى الحصة: المقطع تحت المؤشّر
+    function tlTip(e) {
+        const c = $('eyeTimeline'), tip = $('eyeTlTip'), items = S.tl || [];
+        if (!items.length) { tip.classList.add('hidden'); return; }
+        const r = c.getBoundingClientRect(), x = e.clientX - r.left;
+        const n = Math.max(items.length, Math.round(lessonMin() * 6)), bw = r.width / n;
+        const i = Math.floor((r.width - x) / bw);
+        const b = items[i];
+        if (!b) { tip.classList.add('hidden'); return; }
+        const part = b.c && b.c !== '-' ? (E().PARTS.find(p => p.c === b.c) || {}).label : '';
+        tip.textContent = '';
+        const line = t => { const d = document.createElement('div'); d.textContent = t; tip.appendChild(d); };
+        line(mmss(i * 10) + ' – ' + mmss(i * 10 + 10) + (part ? ' · ' + part : ''));
+        line(b.k === 'a' ? 'نشاط' : b.k === 'i' ? 'انتظار' : 'غير محسوب');
+        if (b.mv != null) line('حركة الطلبة ' + b.mv + '%');
+        if (b.talk != null) line('كلام المعلّم ' + Math.round(b.talk * 100) + '%');
+        tip.classList.remove('hidden');
+        const w = tip.offsetWidth;
+        tip.style.left = Math.max(0, Math.min(r.width - w, x - w / 2)) + 'px';
     }
 
     function message(text) {
@@ -360,9 +658,11 @@
         if (!sel || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
         try {
             const list = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
-            const cur = sel.value;
+            const pref = readPrefs();
+            const cur = sel.value || (pref && pref.eyeMicDev) || '';      // الميكروفون المحفوظ يُستعاد حين تُسرد الأجهزة
             sel.innerHTML = '<option value="">الميكروفون الافتراضي</option>' + list.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || ('ميكروفون ' + (i + 1)))}</option>`).join('');
             if (cur && list.some(d => d.deviceId === cur)) sel.value = cur;
+            setSummary();
         } catch (e) { /* القائمة تبقى بالافتراضيّ */ }
     }
     const audioConstraints = () => {
@@ -875,6 +1175,7 @@
             startBtns.forEach(id => $(id).classList.toggle('hidden', !!on));
             $('eyeIdle').textContent = on ? 'ينتظر كاميرا الهاتف — امسح الرمز بكاميرا الـiPhone.' : IDLE_TEXT;
         }
+        layout();
         const micEl = $('eyePairMic');
         if (on && micEl) {
             micEl.textContent = S.audio
@@ -1113,6 +1414,7 @@
         renderSample();
         renderMarks();
         renderFocus();
+        resetMonitor();
         applyVideoVisibility();
         $('eyeResult').classList.add('hidden');
         $('eyeIdle').classList.toggle('hidden', src !== 'none');
@@ -1130,6 +1432,7 @@
         S.timers.push(setInterval(liveTick, 1000));
         if (video && checked('eyeAI')) startAI(r);
         if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(w => { S.wake = w; }).catch(() => {});
+        layout();
         toast(src === 'file' ? 'بدأ تحليل المقطع' : src === 'none' ? 'بدأ الرصد بلا كاميرا'
             : (S.via === 'phone' ? 'وصلت صورة الهاتف — ' : 'بدأ الرصد — ') + 'حدّد منطقة الصف، والمس السياق والوسوم طوال الحصة');
         drawView();
@@ -1338,11 +1641,17 @@
         // بلا صورةٍ من الهاتف عشر ثوانٍ: زرّ إعادة الربط ظاهر
         if (S.via === 'phone') $('eyeRelink').classList.toggle('hidden', !($('eyePair').classList.contains('hidden')
             && (!S.link || S.linkFailed || (phoneFrozen() && performance.now() - Math.max(S.lastFrameAt, S.linkAt || 0) > 10000))));
-        drawTimeline(M.timeline);
+        // المتابعة الحيّة: سلسلةٌ لكلّ عشر ثوانٍ و«الآن» والتنبيهات (eye-core: live)
+        const L = S.live = E().live(recNow(), M, { rec: recPref(), phone: S.via === 'phone', camera: S.src !== 'none', ai: checked('eyeAI') && AI.ok, roi: !!S.roi });
+        drawTimeline(L.series.map(liveItem));
+        renderMonitor(L, M);
+        drawSpark();
         drawHeat();
         drawView();
         renderSpeechLive();
     }
+    // مقطع السلسلة الحيّة بشكل مجرى الحصة (والمحفوظ مثله: tl/tv/tc/tm/tt)
+    const liveItem = b => ({ k: b.k, v: b.act != null ? b.act : 0, c: b.c ? E().PART[b.c].c : '-', mv: b.mv, talk: b.talk, w: b.w });
 
     function renderKpis(M, sec) {
         const set = (id, v, label) => { const el = $(id); if (el) el.textContent = v; if (label && $(id + 'L')) $(id + 'L').textContent = label; };
@@ -1358,57 +1667,101 @@
         const snap = S.running ? S.pSnap : null;
         // عدد الطلبة = أكبر عددٍ رُصد (لا يعود إلى عددٍ أقلّ حين يتداخل الطلبة أثناء الحركة)
         const big = S.running ? S.classMax : P ? P.classSize : 0;
-        set('eyeKpiPupils', big ? String(big) : '—', snap ? 'عدد الطلبة (الأكبر) · الآن ' + (snap.n + snap.o) : 'عدد الطلبة (الأكبر)');
+        set('eyeKpiPupils', big ? String(big) : '—', snap ? 'الطلبة (الأكبر) · الآن ' + (snap.n + snap.o) : 'الطلبة (الأكبر)');
         set('eyeKpiOut', snap && snap.r ? String(snap.o) : P && P.roi ? String(P.outsideMed) : '—');
         set('eyeKpiForm', snap && snap.fm && snap.fm !== '-' ? E().FORMS[snap.fm] : M.forms && M.forms.count ? String(M.forms.count) + ' تشكيلات' : '—');
         set('eyeKpiDish', snap ? String(snap.d || 0) : P ? String(P.dishEst || 0) : '—');
         set('eyeKpiWaits', M.observed >= 20 ? String(M.waits) : '—');
-        set('eyeKpiWhistle', S.running ? (S.audio ? String(M.whistles) : 'بلا صوت') : String(M.whistles || 0));
+        const resp = M.resp && M.resp.med != null ? ' · ' + M.resp.med + ' ث' : '';
+        set('eyeKpiWhistle', S.running ? (S.audio ? String(M.whistles) + resp : 'بلا صوت') : String(M.whistles || 0) + resp, resp ? 'الصفّارة · الاستجابة' : 'الصفّارة');
     }
 
     // ── الرسم ──
+    // مجرى الحصة: من اليمين (البداية) إلى اليسار، على طول الحصة الموصى به (٤٠ د) فيمتلئ حيّاً.
+    //   شريط العناصر بألوانها · حركة الطلبة٪ مساحةً (وبلا كشفٍ مستوى حركة الصورة أعمدةً) وخطّ ٥٠٪ · شريط الحالة (نشاط/انتظار/غير محسوب)
+    //   · كلام المعلّم · الصفّارة مثلّثات · اللمسات · علامات المشرف · ودقائقُ على المحور
     function drawTimeline(tl) {
         const c = $('eyeTimeline');
         if (!c) return;
         if (tl) S.tl = tl;
         const items = S.tl || [];
-        const dpr = root.devicePixelRatio || 1, Wc = c.clientWidth || 600, Hc = c.clientHeight || 72;
+        const dpr = root.devicePixelRatio || 1, Wc = c.clientWidth || 600, Hc = c.clientHeight || 150;
         c.width = Math.round(Wc * dpr); c.height = Math.round(Hc * dpr);
         const g = c.getContext('2d');
         g.setTransform(dpr, 0, 0, dpr, 0, 0);
         g.clearRect(0, 0, Wc, Hc);
-        g.fillStyle = '#f1f5f9';
-        g.fillRect(0, Hc - 2, Wc, 2);
+        const n = Math.max(items.length, Math.round(lessonMin() * 6), 24);
+        const bw = Wc / n, X = i => Wc - (i + 1) * bw;
+        const P0 = 0, P1 = 6, M0 = 14, M1 = Hc - 44, S0 = M1 + 5, S1 = M1 + 11, T0 = M1 + 14, T1 = M1 + 19, AX = Hc - 4;
+        const Y = v => M1 - (Math.max(0, Math.min(100, v)) / 100) * (M1 - M0);
+        // الشبكة والمحور: كلّ خمس دقائق، والنسب ٠/٥٠/١٠٠
+        g.font = '10px ' + "'IBM Plex Sans Arabic', Tahoma, sans-serif";
+        g.fillStyle = '#94a3b8'; g.textAlign = 'center';
+        for (let m = 0; m * 6 <= n; m += 5) {
+            const x = Wc - m * 6 * bw;
+            g.fillStyle = 'rgba(15,23,42,.06)'; g.fillRect(Math.round(x), M0, 1, T1 - M0);
+            g.fillStyle = '#94a3b8'; if (m) g.fillText(m + ' د', Math.max(12, Math.min(Wc - 12, x)), AX);
+        }
+        const useMv = items.some(b => b.mv != null);
+        g.fillStyle = 'rgba(15,23,42,.08)';
+        [0, 100].forEach(v => g.fillRect(0, Math.round(Y(v)), Wc, 1));
+        if (useMv) { g.setLineDash([5, 4]); g.strokeStyle = '#94a3b8'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, Y(50) + 0.5); g.lineTo(Wc, Y(50) + 0.5); g.stroke(); g.setLineDash([]); }
         if (!items.length) return;
-        const n = Math.max(items.length, 24);            // الحصة القصيرة لا تُمدّ على العرض كلّه
-        const bw = Wc / n, top = 8, bar = Hc - top - 6;
         items.forEach((it, i) => {
-            const x = Wc - (i + 1) * bw;                  // الزمن من اليمين إلى اليسار
-            if (it.c && it.c !== '-') { g.fillStyle = CTX_COLOR[it.c] || '#94a3b8'; g.fillRect(x, 0, Math.max(1, bw), 5); }
-            const hh = it.k === 'a' ? 12 + it.v * (bar - 12) : it.k === 'i' ? 8 : bar;
-            g.fillStyle = it.k === 'a' ? '#0f4c81' : it.k === 'i' ? '#cbd5e1' : '#f1f5f9';
-            g.fillRect(x + 0.5, top + bar - hh, Math.max(1, bw - 1), hh);
+            const x = X(i), w = Math.max(1, bw);
+            if (it.c && it.c !== '-') { g.fillStyle = CTX_COLOR[it.c] || '#94a3b8'; g.fillRect(x, P0, w, P1 - P0); }
+            // الحالة: نشاطٌ كحليّ، وانتظارٌ رماديّ، وغير المحسوب مخطّطٌ فاتح
+            g.fillStyle = it.k === 'a' ? '#0f4c81' : it.k === 'i' ? '#cbd5e1' : '#eef2f7';
+            g.fillRect(x, S0, w, S1 - S0);
+            if (it.k === 'i') { g.fillStyle = 'rgba(203,213,225,.35)'; g.fillRect(x, M0, w, M1 - M0); }
+            if (it.talk != null && it.talk > 0) { g.fillStyle = 'rgba(217,164,65,' + (0.25 + 0.75 * it.talk).toFixed(2) + ')'; g.fillRect(x, T0, w, T1 - T0); }
+            if (!useMv && it.k !== 'x') {
+                const v = it.k === 'a' ? 12 + it.v * 88 : 6;
+                g.fillStyle = it.k === 'a' ? '#0f4c81' : '#cbd5e1';
+                g.fillRect(x + 0.5, Y(v), Math.max(1, bw - 1), M1 - Y(v));
+            }
         });
-        // اللمسات بأوقاتها: خطٌّ رفيعٌ أسفل الشريط (الأحمر للسلبيّ)
+        if (useMv) {
+            // مساحة حركة الطلبة وخطّها — الفجوات (بلا قياس) تقطع الخطّ ولا تُوصل
+            const runs = [];
+            let cur = null;
+            items.forEach((it, i) => { if (it.mv == null) { cur = null; return; } if (!cur) runs.push(cur = []); cur.push([X(i) + bw / 2, Y(it.mv)]); });
+            runs.forEach(r => {
+                if (r.length === 1) r = [[r[0][0] + bw / 2, r[0][1]], [r[0][0] - bw / 2, r[0][1]]];
+                g.beginPath(); r.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])));
+                g.lineTo(r[r.length - 1][0], M1); g.lineTo(r[0][0], M1); g.closePath();
+                g.fillStyle = 'rgba(15,76,129,.18)'; g.fill();
+                g.beginPath(); r.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])));
+                g.strokeStyle = '#0f4c81'; g.lineWidth = 2; g.lineJoin = 'round'; g.stroke();
+            });
+        }
+        // الصفّارة: مثلّثٌ أعلى المساحة (حيّاً من المقاطع، وبعد الرصد من أوقاتها المحفوظة)
+        const wh = S.running ? items.map((it, i) => (it.w ? i * 10 + 5 : null)).filter(v => v != null)
+            : ((S.result && S.result.M && S.result.M.resp && S.result.M.resp.list) || []).map(r => r[0]);
+        g.fillStyle = '#082742';
+        wh.forEach(t => { const x = Wc - (t / 10) * bw; g.beginPath(); g.moveTo(x - 4, M0 - 6); g.lineTo(x + 4, M0 - 6); g.lineTo(x, M0); g.closePath(); g.fill(); });
+        // اللمسات بأوقاتها: خطٌّ رفيعٌ أسفل المساحة (الأحمر للسلبيّ)
         const evs = S.running ? S.events : ((S.result && S.result.ev) || []).map(e => ({ t: e[0], k: e[1] }));
         evs.forEach(e => {
             if (e.t == null || !E().TAG[e.k]) return;
             const x = Wc - (e.t / 10 + 0.5) * bw;
             g.fillStyle = E().TAG[e.k].neg ? '#b5452f' : '#b98a32';
-            g.fillRect(x, Hc - 6, 2, 6);
+            g.fillRect(x, M1 - 7, 2, 7);
         });
-        // علامات المشرف: خطٌّ ذهبيّ بطول الشريط ومثلّثٌ أعلاه — ولحظات الرصد نقطةٌ كحليّة أعلاه
+        // علامات المشرف: خطٌّ ذهبيّ بطول المساحة ومثلّثٌ أعلاه — ولحظات الرصد نقطةٌ كحليّة
         const marks = S.running || !S.result ? S.marks.map(m => m.t) : (S.result.marks || []).map(m => m[0]);
         marks.forEach(t => {
             const x = Wc - (t / 10 + 0.5) * bw;
             g.fillStyle = '#f0b44a';
-            g.fillRect(x - 1, 6, 2, Hc - 12);
-            g.beginPath(); g.moveTo(x - 5, 0); g.lineTo(x + 5, 0); g.lineTo(x, 7); g.closePath(); g.fill();
+            g.fillRect(x - 1, M0, 2, M1 - M0);
+            g.beginPath(); g.moveTo(x - 5, M0 - 7); g.lineTo(x + 5, M0 - 7); g.lineTo(x, M0); g.closePath(); g.fill();
         });
         if (!S.running && S.result) E().autoMoments(S.result.M || {}).forEach(m => {
             const x = Wc - (m.t / 10 + 0.5) * bw;
-            g.fillStyle = '#082742'; g.beginPath(); g.arc(x, 4, 3.5, 0, Math.PI * 2); g.fill();
+            g.fillStyle = '#082742'; g.beginPath(); g.arc(x, M0 + 4, 3.5, 0, Math.PI * 2); g.fill();
         });
+        // «الآن»: خطٌّ رفيعٌ عند آخر مقطعٍ أثناء الرصد
+        if (S.running) { const x = X(items.length - 1); g.fillStyle = '#b5452f'; g.fillRect(Math.round(x) - 1, M0, 1.5, S1 - M0); }
     }
 
     function drawHeat(digits) {
@@ -1549,6 +1902,7 @@
         applyVideoVisibility();
         fitStage();
         drawView();
+        layout();
         // آخر عبارةٍ يُسلّمها التعرّف على الكلام بعد الإيقاف بلحظة — تُنتظر قبل التحليل
         if (analyze) { if (S.sp) setTimeout(finish, 900); else finish(); }
     }
@@ -1577,6 +1931,8 @@
         keep.rec = recPref();                          // الزمن الموصى به للعناصر (اختيار المشرف) يُحفظ مع النتيجة
         // كلام المعلّم: تحليله يدخل M فيُقترح منه ويُعاد الاقتراح عليه، والنصّ نفسه في data.sp
         if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: M.seconds });
+        const LS = E().live(recNow(), M).series;
+        const packed = (ser, k, sc) => { const t = E().pack(ser, k, sc); return /[0-9]/.test(t) ? t : ''; };
         const data = {
             v: 2, at: new Date().toISOString(), src: M.observed ? S.src : (S.src === 'none' || M.ctx.covered ? 'none' : 'taps'), sens: sens(),
             audio: !!S.hadAudio, mic: S.mic || 'device', consent: !!S.consent,
@@ -1585,6 +1941,8 @@
             tl: M.timeline.map(t => t.k).join(''),
             tv: M.timeline.map(t => Math.round(t.v * 9)).join(''),
             tc: M.timeline.map(t => t.c).join(''),
+            // حركة الطلبة وكلام المعلّم لكلّ عشر ثوانٍ — لمجرى الحصة بعد الرصد (رقمٌ ٠–٩، و«-» بلا قياس)
+            tm: packed(LS, 'mv', 0.1), tt: packed(LS, 'talk', 10),
             heat: S.grid && M.observed ? E().heatDigits(S.grid).join('') : '',
             counts: Object.assign({}, S.counts),
             ev: S.events.filter(e => e.t != null).slice(-300).map(e => [e.t, e.k]),
@@ -1615,6 +1973,7 @@
         S.written = JSON.stringify(data);
         if (ta) ta.value = S.written;
         decorate();
+        layout();
     }
 
     // ── النتيجة ──
@@ -1961,12 +2320,14 @@
         box.classList.remove('hidden');
 
         if (data.tl) {
-            S.tl = data.tl.split('').map((k, i) => ({ k, v: Number((data.tv || '')[i] || 0) / 9, c: (data.tc || '')[i] || '-' }));
+            const dig = (str, i, k) => { const ch = (str || '')[i]; return ch && ch !== '-' ? Number(ch) * k : null; };
+            S.tl = data.tl.split('').map((k, i) => ({ k, v: Number((data.tv || '')[i] || 0) / 9, c: (data.tc || '')[i] || '-', mv: dig(data.tm, i, 10), talk: dig(data.tt, i, 0.1) }));
             drawTimeline();
             $('eyeTlEnd').textContent = 'النهاية';
         }
         if (data.heat) { S.savedHeat = data.heat.split('').map(Number); drawHeat(S.savedHeat); }
         renderKpis(Object.assign({ states: [] }, M), M.seconds);
+        renderMonitorDone(data);
         $('eyeApply') && $('eyeApply').addEventListener('click', apply);
         $('eyeToNotes') && $('eyeToNotes').addEventListener('click', () => toNotes(data.summary));
         $('eyeNew').addEventListener('click', reset);
@@ -2200,9 +2561,11 @@
         $('eyeIdle').classList.remove('hidden');
         $('eyeTlEnd').textContent = 'الآن';
         renderKpis(null);
+        resetMonitor();
         drawTimeline([]);
         message('');
         renderFocus();
+        layout();
     }
 
     // ── اتّفاق العين معك (من التقارير المحفوظة) ──
@@ -2295,6 +2658,7 @@
             renderMarks();
             renderResult(data);
         } catch (e) { /* بياناتٌ تالفة: تبقى الشاشة فارغة */ }
+        layout();
     };
     root.svfEyeStop = function () { stop(false); };
     // نموذج التقييم يستدعيها عند ظهوره (toggleSupervisoryView) وبعد التصفير: الشاهد تحت البنود أو إزالته
