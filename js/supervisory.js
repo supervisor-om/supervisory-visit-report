@@ -588,6 +588,8 @@
             if (editing) {
                 try { previous = JSON.parse(localStorage.getItem(reportId)); } catch (e) {}
             }
+            // عين المشرف: تُكتب الدرجات المعتمدة للبنود التي اقترحتها، فيُقاس اتّفاقها مع المشرف
+            if (typeof svfEyeBeforeSave === 'function') { try { svfEyeBeforeSave(); } catch (e) { console.warn(e); } }
             const reportData = { 
                 id: reportId, 
                 teacherName, 

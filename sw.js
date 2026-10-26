@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v34';
+const VERSION = 'v35';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -99,6 +99,17 @@ self.addEventListener('fetch', event => {
     if (url.hostname === 'firestore.googleapis.com') return;
 
     const sameOrigin = url.origin === self.location.origin;
+
+    // نموذج كشف الطلبة (vendor/ — ملفّاتٌ ثابتةٌ كبيرة لا تتغيّر إلّا بإصدار): الذاكرة أولاً،
+    // فيُجلب مرّةً عند أوّل استعمالٍ لعين المشرف ثمّ يعمل بلا شبكة. لا يُخزَّن مسبقاً: يحتاجه صاحبها وحده.
+    if (sameOrigin && url.pathname.indexOf('/vendor/') !== -1) {
+        event.respondWith(
+            caches.match(request).then(cached =>
+                cached || fetch(request).then(response => putInCache(request, response))
+            )
+        );
+        return;
+    }
 
     // ملفات التطبيق: الشبكة أولاً
     if (request.mode === 'navigate' || sameOrigin) {

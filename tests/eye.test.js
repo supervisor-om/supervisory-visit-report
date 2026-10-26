@@ -183,5 +183,183 @@ const M = E.summarize({ secs: lesson, grid, sens: 'medium' });
     check('wiring: التطبيق يمرّ بأزرار التقييم نفسها', /\.rating-btn\[data-score="/.test(UI) && /\.click\(\)/.test(UI));
 }
 
+/* ══ المرحلة الأولى (2026-10-26) ══ */
+
+/* ── ٩) منطقة الصفّ ── */
+{
+    const sq = [[0.5, 0], [1, 0], [1, 1], [0.5, 1]];                  // النصف الأيسر من الصورة (x ≥ ٠٫٥)
+    check('roi: نقطةٌ داخلها وخارجها', E.inPoly(0.75, 0.5, sq) && !E.inPoly(0.25, 0.5, sq));
+    check('roi: بلا منطقةٍ كلّ شيءٍ داخل', E.inPoly(0.1, 0.1, null) && E.roiMask(null, 10, 10) === null);
+    const w = 24, h = 18, n = w * h;
+    const mask = E.roiMask(sq, w, h);
+    check('roi: القناع نصف الصورة', mask.reduce((a, v) => a + v, 0) === n / 2);
+    const base = new Uint8Array(n).fill(100);
+    const moved = base.slice();
+    for (let y = 0; y < 6; y++) for (let x = 0; x < 6; x++) moved[y * w + x] = 220;       // حركةٌ في الربع الأيمن العلويّ (خارج المنطقة)
+    check('roi: الحركة خارج المنطقة لا تُحسب', E.frameDiff(base, moved, w, h, 20, null, mask).m === 0 && E.frameDiff(base, moved, w, h, 20).m > 0);
+    const inside = base.slice();
+    for (let y = 0; y < 6; y++) for (let x = 18; x < 24; x++) inside[y * w + x] = 220;
+    const r = E.frameDiff(base, inside, w, h, 20, null, mask);
+    check('roi: والحركة داخلها نسبتُها من مساحة المنطقة لا من الصورة', Math.abs(r.m - 36 / (n / 2)) < 1e-9, r.m);
+    const cells = E.roiCells(sq);
+    check('roi: خلايا الشبكة داخل المنطقة', cells.length === E.GRID_W * E.GRID_H && cells[0] === 0 && cells[E.GRID_W - 1] === 1);
+    const pb = E.polyBox([[0.2, 0.3], [0.6, 0.3], [0.6, 0.9], [0.2, 0.9]], 0.05);
+    check('roi: صندوق القصّ بهامش', Math.abs(pb.x - 0.15) < 1e-9 && Math.abs(pb.w - 0.5) < 1e-9 && Math.abs(pb.y + pb.h - 0.95) < 1e-9, JSON.stringify(pb));
+    const grid = Array(E.GRID_W * E.GRID_H).fill(0).map((v, i) => (i % E.GRID_W >= E.GRID_W / 2 ? 50 : 0));
+    const Mr = E.summarize({ secs: [{ m: 0.05 }], grid, cells, sens: 'medium' });
+    check('roi: استثمار المساحة من منطقة الصفّ وحدها', Mr.space.coverage === 100, JSON.stringify(Mr.space));
+}
+
+/* ── ١٠) حركة الطالب في مكانه ── */
+{
+    const w = 40, h = 30, n = w * h;
+    const a = new Uint8Array(n).fill(90), b = a.slice();
+    for (let y = 10; y < 20; y++) for (let x = 10; x < 15; x++) b[y * w + x] = 200;
+    const box = { x: 10 / w, y: 10 / h, w: 10 / w, h: 10 / h };
+    check('boxMotion: نصف الصندوق تغيّر', Math.abs(E.boxMotion(a, b, w, h, box, 20, 0) - 0.5) < 0.01);
+    check('boxMotion: صندوقٌ ساكن', E.boxMotion(a, b, w, h, { x: 0.8, y: 0.1, w: 0.1, h: 0.2 }, 20, 0) === 0);
+    check('boxMotion: بلا إطارٍ سابقٍ صفر', E.boxMotion(null, b, w, h, box, 20, 0) === 0);
+}
+
+/* ── ١١) تتبّع الطلبة ── */
+const H = 0.2;                                              // طول الجسم خُمس الإطار
+const person = (x, y, extra) => Object.assign({ x, y, w: 0.06, h: H, score: 0.8 }, extra);
+{
+    const T = E.newTracker();
+    // طالبٌ يجري يميناً، وطالبٌ ساكن، وثالثٌ خارج المنطقة
+    for (let k = 0; k <= 6; k++) {
+        const t = k * 0.5;
+        E.trackStep(T, [person(0.1 + 0.06 * k, 0.5), person(0.6, 0.4), person(0.9, 0.05, { score: 0.9 })], t, 16 / 9);
+    }
+    const roi = [[0, 0.3], [0.8, 0.3], [0.8, 1], [0, 1]];
+    const snap = E.peopleSnapshot(T, 3, roi);
+    check('track: ثلاثة أشخاصٍ بثلاثة معرّفاتٍ ثابتة', T.tracks.length === 3 && T.next === 4, T.tracks.length + ' / ' + T.next);
+    check('track: داخل المنطقة اثنان، وخارجها واحد', snap.n === 2 && snap.o === 1 && snap.r, JSON.stringify(snap));
+    check('track: الجاري يتحرّك والساكن لا', snap.mv === 1 && snap.dots.filter(d => d.mv).length === 1);
+    const weak = E.newTracker();
+    E.trackStep(weak, [person(0.3, 0.3, { score: 0.2 })], 0, 1);
+    check('track: الكشف الضعيف (أقلّ من ٠٫٣) يُهمل', weak.tracks.length === 0);
+    E.trackStep(T, [], 10, 16 / 9);
+    check('track: من غاب أكثر من ثانيتين ونصف يُنسى', T.tracks.length === 0);
+
+    const Q = E.newTracker();
+    const still = [person(0.3, 0.5), person(0.33, 0.5), person(0.36, 0.5), person(0.8, 0.5, { act: 0.3 })];
+    for (let k = 0; k <= 4; k++) E.trackStep(Q, still, k * 0.5, 16 / 9);
+    const q = E.peopleSnapshot(Q, 2, null);
+    check('track: ثلاثةٌ واقفون متقاربون ← انتظار دور', q.q === 3 && q.n === 4, JSON.stringify({ n: q.n, mv: q.mv, q: q.q }));
+    check('track: الحركة في المكان (تمرين) تُعدّ حركة', q.mv === 1);
+}
+
+/* ── ١٢) الطلبة وسياق الحصة عبر الحصة ── */
+// ٣٠ دقيقة: شرح ٥ د، تنظيم ٥ د، تطبيق ١٥ د، لعب ٥ د — ٢٠ طالباً، اثنان خارج المنطقة، ونصف المتدرّبين يتحرّك
+const ctxEv = [{ t: 0, k: 'explain' }, { t: 300, k: 'organize' }, { t: 600, k: 'practice' }, { t: 1500, k: 'play' }];
+const lesson2 = [];
+for (let t = 0; t < 1800; t++) {
+    const play = t >= 600;
+    lesson2.push({ m: play ? 0.05 : 0.004, v: t < 300 ? true : play ? t % 4 === 0 : false, w: false,
+                   p: { n: 20, mv: play ? (t >= 1500 ? 16 : 10) : 2, o: 2, q: play && t < 1500 ? 6 : 0, r: true } });
+}
+const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: ctxEv, mic: 'teacher' });
+{
+    const s = E.ctxSeries(ctxEv, 1800);
+    check('ctx: قبل أوّل لمسةٍ لا سياق، وبعدها يمتدّ', E.ctxSeries([{ t: 5, k: 'play' }], 8).join() === ',,,,,play,play,play' && s[599] === 'organize' && s[600] === 'practice');
+    check('ctx: توزيع الزمن', M2.ctx.covered === 1800 && M2.ctx.pct.explain === 17 && M2.ctx.pct.practice === 50 && M2.ctx.pct.play === 17, JSON.stringify(M2.ctx.pct));
+    const P = M2.people;
+    check('people: الطلبة في الملعب وخارجه', P.inside === 20 && P.pupils === 22 && P.outsideMed === 2 && P.roi, JSON.stringify(P));
+    check('people: حركة الطلبة في التطبيق واللعب وحدهما', P.movingPlay === Math.round(100 * (900 * 10 + 300 * 16) / (1200 * 20)), P.movingPlay);
+    check('people: وفي الحصة كلّها أقلّ', P.movingAll < P.movingPlay, P.movingAll + ' / ' + P.movingPlay);
+    check('people: انتظار الدور أثناء التطبيق', P.queuePct === Math.round(100 * 900 * 6 / (1200 * 20)), P.queuePct);
+    check('mic: كلام المعلّم أثناء التطبيق واللعب', M2.mic === 'teacher' && M2.coachPct === 25 && M2.talkPct > 25, M2.coachPct + ' / ' + M2.talkPct);
+    check('timeline: سياق كلّ عشر ثوانٍ', M2.timeline[0].c === 'e' && M2.timeline[30].c === 'o' && M2.timeline[60].c === 'p' && M2.timeline[150].c === 'g');
+    check('people: بلا كشفٍ لا أرقام', E.summarize({ secs: lesson }).people === null);
+}
+
+/* ── ١٣) الاقتراح من المرحلة الأولى ── */
+{
+    const sg = E.suggest(M2, { out: 2 }, { female: true });
+    const by = id => sg.find(s => s.id === id);
+    check('suggest ٧: من حركة الطلبة أنفسهم (كشف الطلبة)', by(7) && by(7).basis === 'ai' && /تحرّك الطلبة \(58%\) من زمن التطبيق واللعب/.test(by(7).evidence), JSON.stringify(by(7)));
+    check('suggest ٧: ٥٨٪ في التطبيق ← جيد، والتنظيم ١٧٪ لا ينقصها', by(7).score === 2, by(7).score);
+    check('suggest ٦: من سياق الحصة', by(6) && by(6).basis === 'ctx' && by(6).score === 2 && /الشرح \(17%\)، والتنظيم \(17%\)، والتطبيق \(50%\)، واللعب \(17%\)/.test(by(6).evidence), JSON.stringify(by(6)));
+    check('suggest ٢: طالبان خارج النشاط ← ملائم', by(2) && by(2).score === 3 && /ظلّ طالبان خارج النشاط/.test(by(2).evidence), JSON.stringify(by(2)));
+    check('suggest ٩: انتظار الدور من الكاميرا وحده لا يكفي تحت ٤٠٪', !by(9));
+    const longOrg = Object.assign({}, M2, { ctx: { covered: 1800, pct: { explain: 20, organize: 30, practice: 40, play: 10 } } });
+    const s7 = E.suggest(longOrg, {}, {}).find(s => s.id === 7);
+    check('suggest ٧: تنظيمٌ طويل (٣٠٪) ينزل درجة', s7.score === 3 && /التنظيم \(30%\)/.test(s7.evidence), JSON.stringify(s7));
+    const s6 = E.suggest(longOrg, {}, {}).find(s => s.id === 6);
+    check('suggest ٦: تنظيمٌ طويل ← أقلّ من «جيد»', s6.score === 3 && /وطال التنظيم/.test(s6.evidence), JSON.stringify(s6));
+    const longExp = Object.assign({}, M2, { ctx: { covered: 1800, pct: { explain: 40, organize: 10, practice: 40, play: 10 } } });
+    const s8 = E.suggest(longExp, { demo: 1, groups: 1, games: 1 }, {}).find(s => s.id === 8);
+    check('suggest ٨: الشرح فوق ٣٥٪ من السياق ينقص الاستراتيجيّات', s8.score === 3 && s8.basis === 'both' && /\(40%\) من زمن الحصة/.test(s8.evidence), JSON.stringify(s8));
+    const one = E.suggest(M2, { demo: 1 }, {}).find(s => s.id === 8);
+    check('suggest ٨: استراتيجيّةٌ واحدة تُصاغ «وظّف» لا «نوّع بين»', /^وظّف المعلم: عرض نموذجي/.test(one.evidence), one.evidence);
+
+    const qM = Object.assign({}, M2, { people: Object.assign({}, M2.people, { queuePct: 60 }) });
+    const s9 = E.suggest(qM, {}, {}).find(s => s.id === 9);
+    check('suggest ٩: انتظار الدور ٦٠٪ ← غير ملائم من كشف الطلبة', s9 && s9.score === 4 && s9.basis === 'ai' && /\(60%\) من الطلبة ينتظرون دورهم/.test(s9.evidence), JSON.stringify(s9));
+    const s9b = E.suggest(Object.assign({}, qM, { people: Object.assign({}, qM.people, { queuePct: 45 }) }), { tools: 1 }, {}).find(s => s.id === 9);
+    check('suggest ٩: ومع لمسة «أدوات كافية» يُعطف ولا ينزل عن «ملائم»', s9b.score === 3 && s9b.basis === 'both' && /^وُظّفت أدواتٌ كافية ومتنوعة، ووقف/.test(s9b.evidence), JSON.stringify(s9b));
+
+    const out3 = E.suggest(M2, { out: 3, include: 1 }, {}).find(s => s.id === 2);
+    check('suggest ٢: ثلاثةٌ خارج النشاط ← غير ملائم ولو رُوعيت الفروق', out3.score === 4 && /، وظلّ \(3\) طلبة خارج النشاط/.test(out3.evidence), JSON.stringify(out3));
+
+    const miss = E.suggest(M2, { fbMiss: 2 }, {}).find(s => s.id === 10);
+    check('suggest ١٠: أخطاءٌ لم تُصحَّح وحدها ← غير ملائم', miss.score === 4 && /^رُصد خطأٌ في الأداء لم يُصحَّح مرّتين/.test(miss.evidence), JSON.stringify(miss));
+    const fbM = E.suggest(M2, { fbInd: 3, ask: 1 }, { female: true }).find(s => s.id === 10);
+    check('suggest ١٠: ميكروفون المعلّمة — توجيهٌ أثناء النشاط ٢٥٪ يرفع درجة', fbM.score === 2 && fbM.basis === 'both' && /وتحدّثت إلى الطلبة أثناء النشاط \(25%\)/.test(fbM.evidence), JSON.stringify(fbM));
+    const silent = E.suggest(Object.assign({}, M2, { coachPct: 2 }), { fbInd: 3, ask: 1 }, {}).find(s => s.id === 10);
+    check('suggest ١٠: وصمته أثناء النشاط ينزل درجة', silent.score === 4, silent.score);
+    const devMic = E.suggest(Object.assign({}, M2, { mic: 'device' }), { fbInd: 3, ask: 1 }, {}).find(s => s.id === 10);
+    check('suggest ١٠: ميكروفون الجهاز لا يُنسب كلامه إلى المعلّم', devMic.score === 3 && devMic.basis === 'taps');
+
+    check('confidence: كلّ اقتراحٍ بدرجة ثقة', sg.every(s => ['high', 'medium', 'low'].includes(s.conf)));
+    check('confidence: كشف الطلبة ثلاثين دقيقة ← عالية، والسياق الكامل ← عالية', by(7).conf === 'high' && by(6).conf === 'high');
+    check('confidence: لمسةٌ واحدة ← منخفضة، وأربعٌ ← عالية',
+          E.confidence({ id: 3, basis: 'taps' }, M, { lead: 1 }) === 'low' && E.confidence({ id: 10, basis: 'taps' }, M, { fbInd: 3, ask: 1 }) === 'high');
+    check('confidence: كاميرا عشر دقائق ← منخفضة', E.confidence({ id: 7, basis: 'camera' }, { observed: 600, excludedSec: 0 }, {}) === 'low');
+
+    const st = E.summaryText(M2, {});
+    check('summaryText: حركة الطلبة وتوزيع الزمن', /تحرّك الطلبة \(58%\) من زمن التطبيق واللعب/.test(st) && /وتوزّع زمن الحصة بين الشرح/.test(st) && st.length < 400, st);
+    const noCam = E.summarize({ secs: Array(1500).fill(0).map(() => ({ m: null, v: false })), ctx: [{ t: 0, k: 'practice' }], mic: 'teacher' });
+    check('بلا كاميرا: السياق وحده يكفي للملخّص وبنية الحصة', noCam.observed === 0 && noCam.ctx.covered === 1500 && /^رُصدت الحصة بعين المشرف \(25\) دقيقة/.test(E.summaryText(noCam, {}))
+          && E.suggest(noCam, {}, {}).some(s => s.id === 6 && s.basis === 'ctx') && !E.suggest(noCam, {}, {}).some(s => s.id === 7));
+}
+
+/* ── ١٤) اتّفاق العين مع المشرف ── */
+{
+    const A = E.agreement([
+        { sugg: [{ id: 7, score: 2 }, { id: 8, score: 3 }], final: { 7: 2, 8: 4 } },
+        { sugg: [{ id: 7, score: 1 }], final: { 7: 3 } },
+        { sugg: [{ id: 7, score: 2 }], final: {} },                    // لم يُعتمد شيء
+        { sugg: [{ id: 9, score: 2 }] },                                // لم يُحفظ بعد
+        null
+    ]);
+    check('agreement: الحصص والاقتراحات', A.lessons === 2 && A.n === 3, JSON.stringify(A));
+    check('agreement: التطابق التامّ وفي حدود درجة', A.exact === 33 && A.near === 67, A.exact + ' / ' + A.near);
+    const i7 = A.items.find(i => i.id === 7);
+    check('agreement: الميل لكلّ بند (موجبٌ = العين أكرم)', i7.n === 2 && i7.exact === 50 && i7.bias === 1 && A.items.find(i => i.id === 8).bias === 1, JSON.stringify(A.items));
+    check('agreement: بلا بياناتٍ أصفار', E.agreement([]).n === 0 && E.agreement(null).exact === 0);
+}
+
+/* ── ١٥) التوصيل — المرحلة الأولى ── */
+{
+    const UI = read('js/eye.js'), S = read('js/supervisory.js'), SW = read('sw.js');
+    check('wiring: «أُبلغ المعلّم» شرطٌ قبل الكاميرا والمقطع والميكروفون',
+          /async function startCamera\(\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
+          && /function startFile\(file\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
+          && /if \(!needConsent\(wantMic\)\) return;/.test(UI) && UI.includes('id="eyeConsent"'));
+    check('wiring: الصورة مخفيّةٌ افتراضاً (النقاط بدلها)', /id="eyeVideo"[^>]*style="opacity:0"/.test(UI) && /<input type="checkbox" id="eyeShowVideo">/.test(UI));
+    check('wiring: خلفيّة الخصوصيّة أربعون بكسلاً رماديّة', /const pw = 40/.test(UI) && /imageSmoothingEnabled = false/.test(UI));
+    check('wiring: النموذج محلّيٌّ ويُحمَّل عند الحاجة', /new URL\('vendor\/human\/', document\.baseURI\)/.test(UI) && /await import\(base \+ 'human\.esm\.js'\)/.test(UI)
+          && ['human.esm.js', 'centernet.json', 'centernet.bin', 'LICENSE'].every(f => fs.existsSync(path.join(ROOT, 'vendor/human', f))));
+    check('wiring: الكشف على منطقة الصفّ مقصوصةً، وبالعتبة نفسها', /E\(\)\.polyBox\(S\.roi, 0\.04\)/.test(UI) && /o\.score >= E\(\)\.PERSON_MIN_SCORE/.test(UI));
+    check('wiring: عامل الخدمة — vendor بالذاكرة أوّلاً ولا يُخزَّن مسبقاً', /url\.pathname\.indexOf\('\/vendor\/'\) !== -1/.test(SW) && !/'\.\/vendor\//.test(SW) && /const VERSION = 'v35'/.test(SW));
+    const hook = S.indexOf('svfEyeBeforeSave()'), rd = S.indexOf('const reportData = {', S.indexOf('function savePermanentReport'));
+    check('wiring: الدرجات المعتمدة تُكتب قبل جمع حقول التقرير', hook > 0 && hook < rd && /typeof svfEyeBeforeSave === 'function'/.test(S));
+    check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && UI.includes('id="eyeTeacherMic"') && /enumerateDevices/.test(UI));
+    check('wiring: أزرار السياق الأربعة والعدّادات تُنقص', /E\(\)\.CONTEXTS\.map/.test(UI) && /data-dec="\$\{k\}"/.test(UI) && /function resuggest\(\)/.test(UI));
+    check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob|localStorage\.setItem/.test(UI));
+}
+
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);
