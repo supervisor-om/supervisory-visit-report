@@ -238,6 +238,8 @@
               <div><div class="text-xs font-bold text-amber-700 mb-1">محور التطوير (بندٌ أو بندان)</div><div class="flex flex-wrap gap-1.5">${v.items.filter(x => x.score >= 3).sort((a, b) => b.score - a.score).map(x => chip(x, plan.focus.some(f => f.id === x.id), 'focus')).join('') || '<span class="text-xs text-slate-400">لا بنود دون «جيد»</span>'}</div></div>
               <div><div class="text-xs font-bold text-emerald-700 mb-1">جوانب الإجادة للتعزيز</div><div class="flex flex-wrap gap-1.5">${v.items.filter(x => x.score <= 2).sort((a, b) => a.score - b.score).map(x => chip(x, plan.strengths.some(f => f.id === x.id), 'strength')).join('') || '<span class="text-xs text-slate-400">لا بنود «متميز» أو «جيد»</span>'}</div></div>
             </div></div>`;
+        // من عين المشرف (js/eye.js): أرقام الرصد وأسئلته للحوار، وبطاقة التحليل للمعلّم
+        if (typeof root.svfEyeDebriefHtml === 'function') { try { h += root.svfEyeDebriefHtml(); } catch (e) { /* بلا رصد */ } }
 
         plan.stages.forEach((s, i) => {
             h += `<div class="bg-white rounded-2xl border border-slate-200 p-5 debrief-stage">
@@ -313,7 +315,9 @@
             else if (b.id === 'debriefWhatsApp') {
                 const P = root.__svfDebriefPlan;
                 if (!P || !D().formatWhatsAppMessage) return;
-                const msg = D().formatWhatsAppMessage(P.plan, readState(), P.v);
+                let msg = D().formatWhatsAppMessage(P.plan, readState(), P.v);
+                // وسطورٌ من عين المشرف إن رُصدت الحصة
+                try { const eye = typeof root.svfEyeTeacherLines === 'function' ? root.svfEyeTeacherLines() : ''; if (eye) msg += '\n\n' + pupil(eye); } catch (e) { /* بلا رصد */ }
                 if (navigator.clipboard) {
                     navigator.clipboard.writeText(msg).catch(() => {});
                 }
@@ -337,6 +341,7 @@
                     () => root.showToast && showToast('تعذّر النسخ', 'error'));
             }
             else if (b.id === 'debriefWord') exportWord();
+            else if (b.id === 'debriefEyeCard') { if (typeof root.svfEyeShareCard === 'function') root.svfEyeShareCard(); }
             else if (b.id === 'debriefToRecs') toRecs();
             else if (b.id === 'debriefBig') { box.classList.toggle('debrief-big'); render(); }
         });

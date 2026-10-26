@@ -250,79 +250,145 @@ const person = (x, y, extra) => Object.assign({ x, y, w: 0.06, h: H, score: 0.8 
     check('track: الحركة في المكان (تمرين) تُعدّ حركة', q.mv === 1);
 }
 
-/* ── ١٢) الطلبة وسياق الحصة عبر الحصة ── */
-// ٣٠ دقيقة: شرح ٥ د، تنظيم ٥ د، تطبيق ١٥ د، لعب ٥ د — ٢٠ طالباً، اثنان خارج المنطقة، ونصف المتدرّبين يتحرّك
-const ctxEv = [{ t: 0, k: 'explain' }, { t: 300, k: 'organize' }, { t: 600, k: 'practice' }, { t: 1500, k: 'play' }];
+/* ── ١٢) عناصر الحصة الخمسة، وعدد الطلبة، والتشكيلات عبر الحصة ── */
+// ٣٠ دقيقة: إحماء ٥ د (انتشار حرّ)، إعداد بدني ٥ د (قاطرة من ٨)، تعليميّة ١٠ د (مجموعات، ٦ د نشاط ثمّ ٤ د شرح)،
+// تطبيقيّة ٧٫٥ د (قاطرات من ٥)، ختام ٢٫٥ د (دائرة، هدوء) — ٢٠ طالباً واثنان خارج المنطقة، وثلاثةٌ بغير الزيّ
+const partEv = [{ t: 0, k: 'warm' }, { t: 300, k: 'fit' }, { t: 600, k: 'teach' }, { t: 1200, k: 'apply' }, { t: 1650, k: 'close' }];
+const PLAN = t => t < 300 ? ['warm', 14, 'S', 0] : t < 600 ? ['fit', 12, 'L', 8] : t < 1200 ? ['teach', 8, 'G', 0] : t < 1650 ? ['apply', 14, 'L', 5] : ['close', 2, 'C', 0];
 const lesson2 = [];
 for (let t = 0; t < 1800; t++) {
-    const play = t >= 600;
-    lesson2.push({ m: play ? 0.05 : 0.004, v: t < 300 ? true : play ? t % 4 === 0 : false, w: false,
-                   p: { n: 20, mv: play ? (t >= 1500 ? 16 : 10) : 2, o: 2, q: play && t < 1500 ? 6 : 0, r: true } });
+    const [k, mv, fm, ln] = PLAN(t);
+    const idle = k === 'close' || (k === 'teach' && t >= 960);
+    lesson2.push({ m: idle ? 0.004 : 0.05, v: (k === 'teach' && idle) || ((k === 'warm' || k === 'apply') && t % 4 === 0), w: false,
+                   p: { n: t === 1300 ? 28 : 20, mv, o: 2, q: k === 'teach' ? 6 : 0, r: true, fm, ln, d: 3 } });
 }
-const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: ctxEv, mic: 'teacher' });
+const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, mic: 'teacher' });
 {
-    const s = E.ctxSeries(ctxEv, 1800);
-    check('ctx: قبل أوّل لمسةٍ لا سياق، وبعدها يمتدّ', E.ctxSeries([{ t: 5, k: 'play' }], 8).join() === ',,,,,play,play,play' && s[599] === 'organize' && s[600] === 'practice');
-    check('ctx: توزيع الزمن', M2.ctx.covered === 1800 && M2.ctx.pct.explain === 17 && M2.ctx.pct.practice === 50 && M2.ctx.pct.play === 17, JSON.stringify(M2.ctx.pct));
+    const s = E.ctxSeries(partEv, 1800);
+    check('parts: قبل أوّل لمسةٍ لا عنصر، وبعدها يمتدّ، والمفاتيح القديمة تُهمل',
+          E.ctxSeries([{ t: 5, k: 'apply' }, { t: 6, k: 'practice' }], 8).join() === ',,,,,apply,apply,apply' && s[599] === 'fit' && s[600] === 'teach');
+    check('parts: توزيع الزمن', M2.ctx.covered === 1800 && M2.ctx.pct.warm === 17 && M2.ctx.pct.teach === 33 && M2.ctx.pct.apply === 25 && M2.ctx.pct.close === 8, JSON.stringify(M2.ctx.pct));
+    const T = M2.parts.list.find(r => r.k === 'teach');
+    check('parts: في كلّ عنصرٍ زمن الحركة والشرح والانتظار وحركة الطلبة', T.sec === 600 && T.activePct >= 59 && T.activePct <= 62 && T.explainSec >= 230 && T.explainSec <= 240 && T.waitSec === 0 && T.moving === 40, JSON.stringify(T));
+    check('parts: الترتيب صحيح', M2.parts.orderOk && M2.parts.order.join() === 'warm,fit,teach,apply,close');
+    const D = E.partsDetail(M2);
+    check('parts: الموصى به بنسبة زمن الحصة (٣٠ د من ٤٠)', D.find(r => r.k === 'warm').rec === 3.8 && D.find(r => r.k === 'teach').rec === 9 && D.every(r => r.verdict === 'ok'), JSON.stringify(D.map(r => r.k + ':' + r.rec + ':' + r.verdict)));
+    const D2 = E.partsDetail(M2, { warm: 2, fit: 7, teach: 15, apply: 12, close: 4 });
+    check('parts: الموصى به من اختيار المشرف', D2.find(r => r.k === 'warm').verdict === 'long', JSON.stringify(D2.find(r => r.k === 'warm')));
     const P = M2.people;
-    check('people: الطلبة في الملعب وخارجه', P.inside === 20 && P.pupils === 22 && P.outsideMed === 2 && P.roi, JSON.stringify(P));
-    check('people: حركة الطلبة في التطبيق واللعب وحدهما', P.movingPlay === Math.round(100 * (900 * 10 + 300 * 16) / (1200 * 20)), P.movingPlay);
-    check('people: وفي الحصة كلّها أقلّ', P.movingAll < P.movingPlay, P.movingAll + ' / ' + P.movingPlay);
-    check('people: انتظار الدور أثناء التطبيق', P.queuePct === Math.round(100 * 900 * 6 / (1200 * 20)), P.queuePct);
-    check('mic: كلام المعلّم أثناء التطبيق واللعب', M2.mic === 'teacher' && M2.coachPct === 25 && M2.talkPct > 25, M2.coachPct + ' / ' + M2.talkPct);
-    check('timeline: سياق كلّ عشر ثوانٍ', M2.timeline[0].c === 'e' && M2.timeline[30].c === 'o' && M2.timeline[60].c === 'p' && M2.timeline[150].c === 'g');
-    check('people: بلا كشفٍ لا أرقام', E.summarize({ secs: lesson }).people === null);
+    check('people: عدد الطلبة = أكبر عددٍ رُصد ولو في لقطةٍ واحدة (طلب المشرف)', P.classSize === 30 && P.inside === 20, JSON.stringify(P));
+    check('people: حركة الطلبة في العناصر النشطة (بلا الختام)', P.movingPlay === Math.round(100 * (300 * 14 + 300 * 12 + 600 * 8 + 450 * 14) / (1650 * 20 + 8)) && P.movingAll < P.movingPlay, P.movingPlay + ' / ' + P.movingAll);
+    check('people: انتظار الدور في العناصر النشطة', P.queuePct === Math.round(100 * 600 * 6 / (1650 * 20 + 8)), P.queuePct);
+    check('people: بغير الزيّ ما ثبت في اللقطات', P.dishEst === 3 && P.outsideMed === 2);
+    const F = M2.forms;
+    check('forms: خمسة تشكيلاتٍ من أربعة أنواع بترتيبها', F.count === 5 && F.segments.map(x => x.type).join('') === 'SLGLC' && F.types.length === 4, JSON.stringify(F.segments));
+    check('forms: القاطرة الطويلة (> ٦) وزمنها', F.maxLine === 8 && F.longLineSec === 300 && F.byType.L.count === 2 && F.byType.L.sec === 750, JSON.stringify(F.byType));
+    check('mic: كلام المعلّم في العناصر النشطة', M2.mic === 'teacher' && M2.coachPct >= 20 && M2.coachPct <= 30, M2.coachPct);
+    check('timeline: عنصر كلّ عشر ثوانٍ', M2.timeline[0].c === 'w' && M2.timeline[30].c === 'f' && M2.timeline[60].c === 't' && M2.timeline[120].c === 'a' && M2.timeline[170].c === 'c');
+    check('people: بلا كشفٍ لا أرقام ولا تشكيلات', E.summarize({ secs: lesson }).people === null && E.summarize({ secs: lesson }).forms === null);
 }
 
-/* ── ١٣) الاقتراح من المرحلة الأولى ── */
+/* ── ١٣) الاقتراح من عناصر الحصة والتشكيلات والزيّ ── */
 {
-    const sg = E.suggest(M2, { out: 2 }, { female: true });
+    const sg = E.suggest(M2, { out: 2, dish: 3 }, { female: false });
     const by = id => sg.find(s => s.id === id);
-    check('suggest ٧: من حركة الطلبة أنفسهم (كشف الطلبة)', by(7) && by(7).basis === 'ai' && /تحرّك الطلبة \(58%\) من زمن التطبيق واللعب/.test(by(7).evidence), JSON.stringify(by(7)));
-    check('suggest ٧: ٥٨٪ في التطبيق ← جيد، والتنظيم ١٧٪ لا ينقصها', by(7).score === 2, by(7).score);
-    check('suggest ٦: من سياق الحصة', by(6) && by(6).basis === 'ctx' && by(6).score === 2 && /الشرح \(17%\)، والتنظيم \(17%\)، والتطبيق \(50%\)، واللعب \(17%\)/.test(by(6).evidence), JSON.stringify(by(6)));
+    check('suggest ٧: من حركة الطلبة وعددهم الأكبر', by(7) && by(7).basis === 'ai' && /تحرّك الطلبة \(57%\) من زمن الإحماء والإعداد البدني والأنشطة/.test(by(7).evidence) && /وعددهم \(30\) طالباً/.test(by(7).evidence), JSON.stringify(by(7)));
+    check('suggest ٧: ٥٧٪ ← جيد، والقاطرة الطويلة (٨ طلبة، ٥ دقائق) تنزلها إلى ملائم', by(7).score === 3 && /ووقفت قاطراتٌ طويلةٌ \(حتّى \(8\) طلبة\) مدّة \(5\) دقائق/.test(by(7).evidence), by(7).evidence);
+    check('suggest ٦: من عناصر الحصة الخمسة', by(6) && by(6).basis === 'ctx' && by(6).score === 2
+          && /^اشتملت الحصة على عناصرها الخمسة: الإحماء \(5\) دقائق، والإعداد البدني \(5\) دقائق، والأنشطة التعليمية \(10\) دقائق/.test(by(6).evidence), JSON.stringify(by(6)));
+    check('suggest ٥: ثلاثةٌ بالدشداشة من ثلاثين ← ملائم', by(5) && by(5).score === 3 && /شارك \(3\) طلبة من \(30\) طالباً بالدشداشة بدل الزيّ الرياضيّ/.test(by(5).evidence), JSON.stringify(by(5)));
+    const fem5 = E.suggest(M2, { dish: 6 }, { female: true }).find(s => s.id === 5);
+    check('suggest ٥: معلّمة ← «بغير الزيّ الرياضيّ»، وستّةٌ ← غير ملائم', fem5.score === 4 && /بغير الزيّ الرياضيّ/.test(fem5.evidence) && !/دشداشة/.test(fem5.evidence), JSON.stringify(fem5));
     check('suggest ٢: طالبان خارج النشاط ← ملائم', by(2) && by(2).score === 3 && /ظلّ طالبان خارج النشاط/.test(by(2).evidence), JSON.stringify(by(2)));
-    check('suggest ٩: انتظار الدور من الكاميرا وحده لا يكفي تحت ٤٠٪', !by(9));
-    const longOrg = Object.assign({}, M2, { ctx: { covered: 1800, pct: { explain: 20, organize: 30, practice: 40, play: 10 } } });
-    const s7 = E.suggest(longOrg, {}, {}).find(s => s.id === 7);
-    check('suggest ٧: تنظيمٌ طويل (٣٠٪) ينزل درجة', s7.score === 3 && /التنظيم \(30%\)/.test(s7.evidence), JSON.stringify(s7));
-    const s6 = E.suggest(longOrg, {}, {}).find(s => s.id === 6);
-    check('suggest ٦: تنظيمٌ طويل ← أقلّ من «جيد»', s6.score === 3 && /وطال التنظيم/.test(s6.evidence), JSON.stringify(s6));
-    const longExp = Object.assign({}, M2, { ctx: { covered: 1800, pct: { explain: 40, organize: 10, practice: 40, play: 10 } } });
-    const s8 = E.suggest(longExp, { demo: 1, groups: 1, games: 1 }, {}).find(s => s.id === 8);
-    check('suggest ٨: الشرح فوق ٣٥٪ من السياق ينقص الاستراتيجيّات', s8.score === 3 && s8.basis === 'both' && /\(40%\) من زمن الحصة/.test(s8.evidence), JSON.stringify(s8));
+    check('suggest ٩: انتظار الدور تحت ٤٠٪ لا يكفي', !by(9));
+
+    const longWarm = E.summarize({ secs: lesson2, grid: [], ctx: [{ t: 0, k: 'warm' }, { t: 900, k: 'teach' }, { t: 1200, k: 'apply' }, { t: 1650, k: 'close' }] });
+    const s6 = E.suggest(longWarm, {}, {}).find(s => s.id === 6);
+    check('suggest ٦: إحماءٌ طويل وغياب الإعداد البدني ← غير ملائم', s6.score === 4 && /من عناصرها الخمسة/.test(s6.evidence) && /وغاب عنها الإعداد البدني/.test(s6.evidence) && /وطال الإحماء/.test(s6.evidence), JSON.stringify(s6));
+    const swapped = E.summarize({ secs: lesson2, grid: [], ctx: [{ t: 0, k: 'fit' }, { t: 300, k: 'warm' }, { t: 600, k: 'teach' }, { t: 1200, k: 'apply' }, { t: 1650, k: 'close' }] });
+    const s6b = E.suggest(swapped, {}, {}).find(s => s.id === 6);
+    check('suggest ٦: عناصرُ بغير ترتيبها ← ملائم', !swapped.parts.orderOk && s6b.score === 3 && /ولم تأتِ العناصر بترتيبها/.test(s6b.evidence), JSON.stringify(s6b));
+
     const one = E.suggest(M2, { demo: 1 }, {}).find(s => s.id === 8);
     check('suggest ٨: استراتيجيّةٌ واحدة تُصاغ «وظّف» لا «نوّع بين»', /^وظّف المعلم: عرض نموذجي/.test(one.evidence), one.evidence);
-
     const qM = Object.assign({}, M2, { people: Object.assign({}, M2.people, { queuePct: 60 }) });
     const s9 = E.suggest(qM, {}, {}).find(s => s.id === 9);
     check('suggest ٩: انتظار الدور ٦٠٪ ← غير ملائم من كشف الطلبة', s9 && s9.score === 4 && s9.basis === 'ai' && /\(60%\) من الطلبة ينتظرون دورهم/.test(s9.evidence), JSON.stringify(s9));
     const s9b = E.suggest(Object.assign({}, qM, { people: Object.assign({}, qM.people, { queuePct: 45 }) }), { tools: 1 }, {}).find(s => s.id === 9);
     check('suggest ٩: ومع لمسة «أدوات كافية» يُعطف ولا ينزل عن «ملائم»', s9b.score === 3 && s9b.basis === 'both' && /^وُظّفت أدواتٌ كافية ومتنوعة، ووقف/.test(s9b.evidence), JSON.stringify(s9b));
-
     const out3 = E.suggest(M2, { out: 3, include: 1 }, {}).find(s => s.id === 2);
     check('suggest ٢: ثلاثةٌ خارج النشاط ← غير ملائم ولو رُوعيت الفروق', out3.score === 4 && /، وظلّ \(3\) طلبة خارج النشاط/.test(out3.evidence), JSON.stringify(out3));
-
     const miss = E.suggest(M2, { fbMiss: 2 }, {}).find(s => s.id === 10);
     check('suggest ١٠: أخطاءٌ لم تُصحَّح وحدها ← غير ملائم', miss.score === 4 && /^رُصد خطأٌ في الأداء لم يُصحَّح مرّتين/.test(miss.evidence), JSON.stringify(miss));
     const fbM = E.suggest(M2, { fbInd: 3, ask: 1 }, { female: true }).find(s => s.id === 10);
-    check('suggest ١٠: ميكروفون المعلّمة — توجيهٌ أثناء النشاط ٢٥٪ يرفع درجة', fbM.score === 2 && fbM.basis === 'both' && /وتحدّثت إلى الطلبة أثناء النشاط \(25%\)/.test(fbM.evidence), JSON.stringify(fbM));
+    check('suggest ١٠: ميكروفون المعلّمة — توجيهٌ أثناء النشاط فوق ٢٠٪ يرفع درجة', fbM.score === 2 && fbM.basis === 'both' && /وتحدّثت إلى الطلبة أثناء النشاط \(\d+%\)/.test(fbM.evidence), JSON.stringify(fbM));
     const silent = E.suggest(Object.assign({}, M2, { coachPct: 2 }), { fbInd: 3, ask: 1 }, {}).find(s => s.id === 10);
     check('suggest ١٠: وصمته أثناء النشاط ينزل درجة', silent.score === 4, silent.score);
     const devMic = E.suggest(Object.assign({}, M2, { mic: 'device' }), { fbInd: 3, ask: 1 }, {}).find(s => s.id === 10);
     check('suggest ١٠: ميكروفون الجهاز لا يُنسب كلامه إلى المعلّم', devMic.score === 3 && devMic.basis === 'taps');
 
     check('confidence: كلّ اقتراحٍ بدرجة ثقة', sg.every(s => ['high', 'medium', 'low'].includes(s.conf)));
-    check('confidence: كشف الطلبة ثلاثين دقيقة ← عالية، والسياق الكامل ← عالية', by(7).conf === 'high' && by(6).conf === 'high');
+    check('confidence: كشف الطلبة ثلاثين دقيقة ← عالية، والعناصر كاملة ← عالية', by(7).conf === 'high' && by(6).conf === 'high');
     check('confidence: لمسةٌ واحدة ← منخفضة، وأربعٌ ← عالية',
           E.confidence({ id: 3, basis: 'taps' }, M, { lead: 1 }) === 'low' && E.confidence({ id: 10, basis: 'taps' }, M, { fbInd: 3, ask: 1 }) === 'high');
     check('confidence: كاميرا عشر دقائق ← منخفضة', E.confidence({ id: 7, basis: 'camera' }, { observed: 600, excludedSec: 0 }, {}) === 'low');
 
     const st = E.summaryText(M2, {});
-    check('summaryText: حركة الطلبة وتوزيع الزمن', /تحرّك الطلبة \(58%\) من زمن التطبيق واللعب/.test(st) && /وتوزّع زمن الحصة بين الشرح/.test(st) && st.length < 400, st);
-    const noCam = E.summarize({ secs: Array(1500).fill(0).map(() => ({ m: null, v: false })), ctx: [{ t: 0, k: 'practice' }], mic: 'teacher' });
-    check('بلا كاميرا: السياق وحده يكفي للملخّص وبنية الحصة', noCam.observed === 0 && noCam.ctx.covered === 1500 && /^رُصدت الحصة بعين المشرف \(25\) دقيقة/.test(E.summaryText(noCam, {}))
+    check('summaryText: العدد والحركة والعناصر والتشكيلات', /شارك فيها \(30\) طالباً، وتحرّكوا \(57%\)/.test(st) && /وتوزّع زمنها: الإحماء \(5\) دقائق/.test(st) && /واستُعمل \(5\) تشكيلات/.test(st) && st.length < 400, st.length + ' ' + st);
+    const noCam = E.summarize({ secs: Array(1500).fill(0).map(() => ({ m: null, v: false })), ctx: [{ t: 0, k: 'apply' }], mic: 'teacher' });
+    check('بلا كاميرا: العناصر وحدها تكفي للملخّص وبنية الحصة', noCam.observed === 0 && noCam.ctx.covered === 1500 && /^رُصدت الحصة بعين المشرف \(25\) دقيقة/.test(E.summaryText(noCam, {}))
           && E.suggest(noCam, {}, {}).some(s => s.id === 6 && s.basis === 'ctx') && !E.suggest(noCam, {}, {}).some(s => s.id === 7));
+
+    const dp = E.debriefPrompts(M2, { dish: 3, out: 2 }, { female: true });
+    check('debrief: الإجادة من الرصد', dp.good.some(t => /اشتملت الحصة على عناصرها الخمسة بترتيبها/.test(t)) && dp.good.some(t => /نوّعت المعلمة التشكيلات/.test(t)) && dp.good.some(t => /بلغت حركة الطلبة \(70%\)/.test(t)), JSON.stringify(dp.good));
+    check('debrief: أسئلةٌ من القاطرة الطويلة والزيّ ومن هم خارج النشاط، بصيغة المخاطَبة', dp.ask.some(t => /قاطرةٌ من \(8\) طلبة مدّة \(5\) دقائق\. كيف تعيدين/.test(t))
+          && dp.ask.some(t => /بغير الزيّ الرياضيّ/.test(t)) && dp.ask.some(t => /تشركينهم/.test(t)), JSON.stringify(dp.ask));
+    const dpW = E.debriefPrompts(longWarm, {}, {});
+    check('debrief: عنصرٌ طويل وآخر غائب', dpW.ask.some(t => /^استغرق الإحماء \(15\) دقيقة، والموصى به نحو/.test(t) && /تختصره/.test(t)) && dpW.ask.some(t => /لم يظهر «الإعداد البدني»/.test(t)), JSON.stringify(dpW.ask));
+}
+
+/* ── ١٣ب) التشكيلات والزيّ في لقطةٍ واحدة ── */
+{
+    const pts = arr => arr.map(([x, y]) => ({ fx: x * 0.2, fy: y * 0.2, h: 0.2 }));    // الوحدة = طول الجسم
+    const line = E.formations(pts([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map(x => [x, 0])));
+    check('formations: ثمانيةٌ على خطٍّ ← قاطرة من ٨', line.dom === 'L' && line.maxLine === 8, JSON.stringify(line));
+    const ring = [];
+    for (let i = 0; i < 10; i++) { const a = 2 * Math.PI * i / 10; ring.push([5 + 2 * Math.cos(a), 5 + 1 * Math.sin(a)]); }   // دائرةٌ مائلةٌ بالمنظور
+    const circ = E.formations(pts(ring));
+    check('formations: عشرةٌ على حلقةٍ مائلة ← دائرة', circ.dom === 'C' && circ.circles === 1, JSON.stringify(circ));
+    const spread = E.formations(pts([[0, 0], [3, 0], [6, 0], [0, 3], [3, 3], [6, 3], [0, 6], [3, 6], [6, 6]]));
+    check('formations: متباعدون ← انتشار حرّ', spread.dom === 'S' && spread.maxLine === 0, JSON.stringify(spread));
+    const groups = E.formations(pts([[0, 0], [0.6, 0], [0, 0.6], [0.6, 0.6], [5, 0], [5.6, 0], [5, 0.6], [5.6, 0.6], [10, 0], [10.6, 0], [10, 0.6], [10.6, 0.6]]));
+    check('formations: ثلاث مجموعاتٍ صغيرة ← مجموعات', groups.dom === 'G' && groups.groups === 3, JSON.stringify(groups));
+    const blob = E.formations(pts([[0, 0], [0.8, 0], [1.6, 0], [0, 0.8], [0.8, 0.8], [1.6, 0.8], [0, 1.6], [0.8, 1.6], [1.6, 1.6]]));
+    check('formations: تجمّعٌ ممتلئ ليس دائرة', blob.dom === 'G' && blob.circles === 0, JSON.stringify(blob));
+    check('formations: لا أحد ← لا تشكيل', E.formations([]).dom === '-');
+
+    // الزيّ: صورةٌ ٤٠×٦٠ أرضيّتها خضراء، وطالبٌ صندوقه ١٠×٥٠
+    const W = 40, Hh = 60, box = { x: 15 / W, y: 5 / Hh, w: 10 / W, h: 50 / Hh };
+    const img = (bg, body) => {
+        const a = new Uint8ClampedArray(W * Hh * 4);
+        for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+            const inBox = x >= 15 && x < 25 && y >= 5 && y < 55;
+            const c = inBox ? body(x - 15, y - 5) : bg;
+            const i = (y * W + x) * 4; a[i] = c[0]; a[i + 1] = c[1]; a[i + 2] = c[2]; a[i + 3] = 255;
+        }
+        return a;
+    };
+    const green = [60, 140, 60], white = [240, 240, 236], navy = [20, 40, 90], skin = [190, 140, 100];
+    const robe = img(green, (x, y) => (y > 10 ? white : navy));
+    const shorts = img(green, (x, y) => (y < 25 ? white : y < 35 ? navy : (x === 3 || x === 6) ? skin : green));
+    const onWhite = img([235, 235, 230], () => white);
+    check('garment: ثوبٌ أبيض طويل على أرضٍ خضراء ← دشداشة', E.isDishdasha(E.garmentScore(robe, W, Hh, box)), JSON.stringify(E.garmentScore(robe, W, Hh, box)));
+    check('garment: قميصٌ أبيض وسروالٌ قصير وساقان ← زيٌّ رياضيّ', !E.isDishdasha(E.garmentScore(shorts, W, Hh, box)), JSON.stringify(E.garmentScore(shorts, W, Hh, box)));
+    check('garment: أبيضُ على أرضٍ بيضاء ← لا يُحكم بالدشداشة', !E.isDishdasha(E.garmentScore(onWhite, W, Hh, box)));
+    check('garment: الصندوق الصغير لا يُحكم عليه', E.garmentScore(robe, W, Hh, { x: 0.4, y: 0.1, w: 0.1, h: 0.3 }) === null);
+
+    const T = E.newTracker();
+    for (let k = 0; k <= 3; k++) E.trackStep(T, [person(0.3, 0.5, { dish: true }), person(0.6, 0.5, { dish: false }), person(0.8, 0.5, { dish: k === 0 })], k * 0.5, 16 / 9);
+    const sn = E.peopleSnapshot(T, 1.5, null);
+    check('garment: الحكم بأغلبيّة اللقطات لكلّ طالب', sn.d === 1 && sn.dots.filter(d => d.dish).length === 1, JSON.stringify({ d: sn.d }));
+    check('snapshot: التشكيل وأطول قاطرةٍ في اللقطة', typeof sn.fm === 'string' && sn.ln >= 0);
 }
 
 /* ── ١٤) اتّفاق العين مع المشرف ── */
@@ -344,6 +410,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: ctxEv, mi
 /* ── ١٥) التوصيل — المرحلة الأولى ── */
 {
     const UI = read('js/eye.js'), S = read('js/supervisory.js'), SW = read('sw.js');
+    check('wiring: «أُبلغ المعلّم» يُسأل عنه مباشرةً إن لم يُعلَّم', /root\.confirm\('هل أبلغت المعلّم بالرصد؟/.test(UI) && /if \(ok\) \{ \$\('eyeConsent'\)\.checked = true;/.test(UI));
     check('wiring: «أُبلغ المعلّم» شرطٌ قبل الكاميرا والمقطع والميكروفون',
           /async function startCamera\(\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
           && /function startFile\(file\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
@@ -355,13 +422,28 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: ctxEv, mi
     check('wiring: النموذج محلّيٌّ ويُحمَّل عند الحاجة', /new URL\('vendor\/human\/', document\.baseURI\)/.test(UI) && /await import\(base \+ 'human\.esm\.js'\)/.test(UI)
           && ['human.esm.js', 'centernet.json', 'centernet.bin', 'LICENSE'].every(f => fs.existsSync(path.join(ROOT, 'vendor/human', f))));
     check('wiring: الكشف على منطقة الصفّ مقصوصةً، وبالعتبة نفسها', /E\(\)\.polyBox\(S\.roi, 0\.04\)/.test(UI) && /o\.score >= E\(\)\.PERSON_MIN_SCORE/.test(UI));
-    check('wiring: عامل الخدمة — vendor بالذاكرة أوّلاً ولا يُخزَّن مسبقاً', /url\.pathname\.indexOf\('\/vendor\/'\) !== -1/.test(SW) && !/'\.\/vendor\//.test(SW) && /const VERSION = 'v35'/.test(SW));
+    check('wiring: عامل الخدمة — vendor بالذاكرة أوّلاً ولا يُخزَّن مسبقاً', /url\.pathname\.indexOf\('\/vendor\/'\) !== -1/.test(SW) && !/'\.\/vendor\//.test(SW) && /const VERSION = 'v3[5-9]'/.test(SW));
     const hook = S.indexOf('svfEyeBeforeSave()'), rd = S.indexOf('const reportData = {', S.indexOf('function savePermanentReport'));
     check('wiring: الدرجات المعتمدة تُكتب قبل جمع حقول التقرير', hook > 0 && hook < rd && /typeof svfEyeBeforeSave === 'function'/.test(S));
     check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && UI.includes('id="eyeTeacherMic"') && /enumerateDevices/.test(UI));
-    check('wiring: أزرار السياق الأربعة والعدّادات تُنقص', /E\(\)\.CONTEXTS\.map/.test(UI) && /data-dec="\$\{k\}"/.test(UI) && /function resuggest\(\)/.test(UI));
+    check('wiring: أزرار عناصر الحصة الخمسة والعدّادات تُنقص', /E\(\)\.PARTS\.map/.test(UI) && /data-dec="\$\{k\}"/.test(UI) && /function resuggest\(\)/.test(UI));
     check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
-          && (UI.match(/localStorage\.setItem\(/g) || []).length === 1 && /localStorage\.setItem\('svf_eye_show'/.test(UI));
+          && (UI.match(/localStorage\.setItem\(/g) || []).length === 2 && /localStorage\.setItem\('svf_eye_show'/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI));
+}
+
+/* ── ١٦) التوصيل — العناصر والبطاقة والمداولة والنموذج ── */
+{
+    const UI = read('js/eye.js'), RP = read('js/eye-report.js'), H = read('reports.html'), SW = read('sw.js'), S = read('js/supervisory.js'), DB = read('js/debrief.js');
+    check('wiring: البطاقة بعد eye.js وفي عامل الخدمة', /js\/eye\.js[\s\S]*js\/eye-report\.js[\s\S]*init\.js/.test(H.slice(H.indexOf('js/debrief.js'))) && SW.includes("'./js/eye-report.js'") && /const VERSION = 'v36'/.test(SW));
+    check('wiring: البطاقة لا تقرأ الكاميرا (أرقامٌ لا صور)', !/video|getUserMedia|eyeVideo|eyeView/i.test(RP) && /canvas\.toBlob|cv\.toBlob/.test(RP));
+    check('wiring: البطاقة تُشارَك أو تُنزَّل أو تُطبع', /navigator\.canShare/.test(RP) && /navigator\.share\(/.test(RP) && /window\.print\(\)/.test(RP) && /root\.open\('', '_blank'\)/.test(RP));
+    check('wiring: عدد الطلبة الأكبر حيّاً، وكشف الزيّ لكلّ طالب', /S\.classMax = Math\.max\(S\.classMax \|\| 0, S\.pSnap\.n \+ S\.pSnap\.o\)/.test(UI) && /E\(\)\.garmentScore\(rgba, cw, ch,/.test(UI));
+    check('wiring: الثانية المهتزّة لا تُحسب فيها حركة الطلبة', /const shaky = a\.bad > 0 && a\.bad >= a\.n;/.test(UI) && /const p = !shaky && S\.pSnap/.test(UI));
+    check('wiring: عدد الطلبة والزمن الموصى به يُعدَّلان فيُعاد الاقتراح', /id="eyeClassSize"/.test(UI) && /S\.result\.M\.people\.classSize = v;\s*resuggest\(\)/.test(UI) && /data-rec="\$\{x\.k\}"/.test(UI));
+    check('wiring: الشاهد تحت البنود في النموذج (عند ظهوره وبعد التصفير)', /viewId === 'form-view' && typeof svfEyeDecorate === 'function'/.test(S)
+          && (S.match(/svfEyeDecorate\(\)/g) || []).length >= 2 && /b\.textContent = ''/.test(UI) && /document\.createTextNode\(ev/.test(UI));
+    check('wiring: المداولة تعرض لوحة العين وبطاقتها وتضيف سطورها لرسالة المعلّم', /root\.svfEyeDebriefHtml\(\)/.test(DB) && /debriefEyeCard/.test(DB) && /svfEyeTeacherLines/.test(DB));
+    check('wiring: نصوص لوحة المداولة مهروبة', /\$\{esc\(t\)\}/.test(UI.slice(UI.indexOf('root.svfEyeDebriefHtml'))) && /\$\{esc\(r\.short\)\}/.test(UI));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

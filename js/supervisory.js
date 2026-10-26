@@ -323,6 +323,8 @@
             if (viewId === 'debrief-view' && typeof svfDebriefOpen === 'function') { try { svfDebriefOpen(); } catch (e) { console.warn(e); } }
             // عين المشرف تُبنى أوّل فتحٍ وتعرض نتيجة التقرير المفتوح (js/eye.js)
             if (viewId === 'eye-view' && typeof svfEyeOpen === 'function') { try { svfEyeOpen(); } catch (e) { console.warn(e); } }
+            // ونموذج التقييم يعرض شاهدها تحت البنود (أو يزيله إن تغيّرت الزيارة)
+            if (viewId === 'form-view' && typeof svfEyeDecorate === 'function') { try { svfEyeDecorate(); } catch (e) { console.warn(e); } }
 
             if (viewId === 'saved-reports-view') {
                 renderSavedReports();
@@ -567,6 +569,8 @@
             // التصفير يمسح الحقول كلّها، واسم الزائر يُعاد من الهويّة
             try { if (typeof svfFillVisitor === 'function') svfFillVisitor(); } catch (e) {}
             try { if (typeof svfTeacherBriefRender === 'function') svfTeacherBriefRender(); } catch (e) {}
+            // شاهد عين المشرف تحت البنود يزول مع التصفير
+            try { if (typeof svfEyeDecorate === 'function') svfEyeDecorate(); } catch (e) {}
             showToast('تم إعادة تعيين النموذج');
         }
 
