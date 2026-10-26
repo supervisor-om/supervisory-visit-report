@@ -414,7 +414,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: «أُبلغ المعلّم» شرطٌ قبل الكاميرا والمقطع والميكروفون',
           /async function startCamera\(\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
           && /function startFile\(file\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
-          && /if \(!needConsent\(wantMic\)\) return;/.test(UI) && UI.includes('id="eyeConsent"'));
+          && /if \(!needConsent\(wantMic \|\| checked\('eyeSpeech'\)\)\) return;/.test(UI) && UI.includes('id="eyeConsent"'));
     check('wiring: الصورة طبيعيّةٌ افتراضاً (طلب المشرف)، وإخفاؤها اختيارٌ يُذكر', /<input type="checkbox" id="eyeShowVideo" checked>/.test(UI)
           && /localStorage\.getItem\('svf_eye_show'\) === '0'/.test(UI) && /v\.style\.opacity = S\.running && checked\('eyeShowVideo'\)/.test(UI));
     check('wiring: المسرح يأخذ شكل الصورة العموديّة', /function fitStage\(\)/.test(UI) && /v\.videoHeight > v\.videoWidth/.test(UI));
@@ -444,6 +444,80 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && (S.match(/svfEyeDecorate\(\)/g) || []).length >= 2 && /b\.textContent = ''/.test(UI) && /document\.createTextNode\(ev/.test(UI));
     check('wiring: المداولة تعرض لوحة العين وبطاقتها وتضيف سطورها لرسالة المعلّم', /root\.svfEyeDebriefHtml\(\)/.test(DB) && /debriefEyeCard/.test(DB) && /svfEyeTeacherLines/.test(DB));
     check('wiring: نصوص لوحة المداولة مهروبة', /\$\{esc\(t\)\}/.test(UI.slice(UI.indexOf('root.svfEyeDebriefHtml'))) && /\$\{esc\(r\.short\)\}/.test(UI));
+}
+
+
+/* ── ١٧) فهم كلام المعلّم (2026-10-26، بإذن المعلّم) ── */
+{
+    const SX = require('../js/eye-speech.js');
+    const ctx = [{ t: 0, k: 'warm' }, { t: 180, k: 'teach' }, { t: 580, k: 'apply' }];
+    const A = SX.analyze([
+        { t: 30, x: 'يلا يا شباب اصطفوا في قاطرتين' },
+        { t: 60, x: 'السلام عليكم كيف حالكم' },
+        { t: 200, x: 'أحسنت يا محمد ركبتك مثنية زين' },
+        { t: 230, x: 'لا لا ارفع الذراع أكثر عند الدفع' },
+        { t: 260, x: 'ليش نثني الركبة قبل الدفع؟' },
+        { t: 300, x: 'فهمتم' },
+        { t: 320, x: 'انتبهوا المسافة بينكم' },
+        { t: 400, x: 'تعاونوا مع زملائكم في الفريق' },
+        { t: 420, x: 'خلوا الكرات تحت' },
+        { t: 430, x: 'حطوا الجلة على الأرض' },
+        { t: 450, x: 'ممتاز' },
+        { t: 470, x: 'يا غبي اسكت' },
+        { t: 500, x: 'من يعرف ما الفرق بين التمريرة القصيرة والطويلة' },
+        { t: 520, x: 'عيدها مرة ثانية' },
+        { t: 640, x: 'برافو عليك الدفع كان قوي' },
+        { t: 700, x: 'اشربوا ماء' }
+    ], { topic: 'دفع الجلة بطريقة الزحف', ctx, seconds: 720 });
+    check('speech: التعزيز ٣ منها اثنان محدّدان بالأداء (الركبة، الدفع)', A.praise.n === 3 && A.praise.spec === 2, JSON.stringify([A.praise.n, A.praise.spec]));
+    check('speech: التصحيح ٢ — «خلّوا الكرات تحت» و«حطّوا الجلة على الأرض» تعليمٌ لا تصحيح', A.corr.n === 2 && A.corr.spec === 1 && !A.corr.ex.some(e => /الكرات|الارض|الأرض/.test(e[1])), JSON.stringify(A.corr.ex));
+    check('speech: سؤالان كلاهما يستثير التفكير، والتحيّة «كيف حالكم» ليست سؤالاً', A.q.n === 2 && A.q.hi === 2, JSON.stringify(A.q));
+    check('speech: التحقّق من الفهم والسلامة (والماء) والقيم', A.check.n === 1 && A.safe.n === 2 && A.values.n === 1);
+    check('speech: «يا غبي اسكت» للمراجعة وحدها — لا تُحسب تعزيزاً ولا تصحيحاً', A.harsh.n === 1 && !A.praise.ex.some(e => /غبي/.test(e[1])));
+    check('speech: مصطلحات الدرس من عنوانه بلا «طريقة»', JSON.stringify(A.topic.terms) === '["دفع","جله","زحف"]' && A.topic.n === 4, JSON.stringify(A.topic));
+    check('speech: كلّ عبارةٍ في عنصرها', A.parts.warm.org === 1 && A.parts.teach.q === 2 && A.parts.apply.praise === 1, JSON.stringify(A.parts));
+    check('speech: التسوية — التشكيل والهمزات والتاء المربوطة', SX.norm('أَحْسَنْتَ يا بطلة') === 'احسنت يا بطله');
+    const B = SX.stripExamples(A);
+    check('speech: حذف النصّ يُبقي الأرقام ويمحو الأمثلة', B.praise.n === 3 && !B.praise.ex.length && !B.harsh.ex.length && !B.q.hiEx.length && A.praise.ex.length === 3);
+
+    // الاقتراح من الكلام وحده (حصةٌ بلا كاميرا ولا لمسات)
+    const lines = ['أحسنت يا محمد ركبتك مثنية', 'لا لا ارفع الذراع عند الدفع', 'ليش نثني الركبة قبل الدفع؟', 'فهمتم', 'انتبهوا المسافة بينكم',
+        'اصطفوا في قاطرتين بسرعة', 'ممتاز', 'عيدها مرة ثانية', 'كيف نحسن الدفع؟', 'برافو الدفع كان قوي', 'تعاونوا مع زملائكم', 'اشربوا ماء'];
+    const segs = Array.from({ length: 60 }, (_, i) => ({ t: i * 35, x: lines[i % lines.length] + ' يا شباب خلونا نكمل التمرين' }));
+    const SP = SX.analyze(segs, { topic: 'دفع الجلة بطريقة الزحف', ctx: [{ t: 0, k: 'warm' }, { t: 700, k: 'teach' }, { t: 1400, k: 'apply' }], seconds: 2100 });
+    const M = { seconds: 2100, observed: 0, speech: SP, mic: 'teacher', ctx: { covered: 0 } };
+    const sg = E.suggest(M, {}, { female: true });
+    const by = id => sg.find(x => x.id === id);
+    check('speech→suggest: البند ١٠ من كلامها (تصحيح وتحقّق وأسئلة) وأساسه «الكلام»', by(10) && by(10).basis === 'speech' && /سُمع في كلام المعلمة/.test(by(10).evidence), by(10) && by(10).evidence);
+    check('speech→suggest: البند ٣ من الأسئلة التي تستثير التفكير', by(3) && by(3).score === 2 && /طرحت المعلمة \(10\) أسئلة تستثير التفكير/.test(by(3).evidence), by(3) && by(3).evidence);
+    check('speech→suggest: البند ٤ من التعزيز المحدّد والقيم', by(4) && by(4).score === 1 && /بما أجاده الطالب تحديداً/.test(by(4).evidence));
+    check('speech→suggest: البند ٥ من التذكير بالسلامة', by(5) && by(5).score === 2 && by(5).basis === 'speech');
+    check('speech→suggest: الثقة من عدد الكلمات وميكروفون المعلّم', by(10).conf === 'medium' && E.confidence({ basis: 'speech' }, Object.assign({}, M, { mic: 'device' })) === 'low');
+    check('speech→suggest: كلامٌ قليل (أقلّ من ١٢٠ كلمة) لا يُقترح منه', !E.suggest({ seconds: 600, speech: SX.analyze(segs.slice(0, 5), {}) }, {}, {}).length);
+    // مع اللمسات: كلامه يقرّب الدرجة درجةً واحدة
+    const withTaps = E.suggest(M, { fbInd: 1 }, {}).find(x => x.id === 10);
+    check('speech→suggest: مع لمسةٍ واحدة (غير ملائم) يرفعها الكلام درجةً، وأساسها «اللمسات والرصد»', withTaps.score === 3 && withTaps.basis === 'both', JSON.stringify(withTaps));
+    const dp = E.debriefPrompts(Object.assign({}, M, { speech: Object.assign({}, SP, { harsh: { n: 2, ex: [[1, 'يا غبي']] } }) }), {}, { female: false });
+    check('speech→debrief: الإجادة بأمثلةٍ من نصّه', dp.good.some(t => /عزّزت الطلبة بما أجادوه تحديداً .*مثل: «أحسنت/.test(t)) && dp.good.some(t => /طرحت أسئلةً تستثير التفكير/.test(t)), JSON.stringify(dp.good));
+    check('speech→debrief: العبارات التي تحتاج مراجعةً لا تدخل المداولة', !JSON.stringify(dp).includes('غبي'));
+    const closed = E.debriefPrompts({ speech: SX.analyze(Array.from({ length: 30 }, (_, i) => ({ t: i * 20, x: 'هل جاهزين يا شباب نبدأ الحين أحسنت' })), {}) }, {}, {});
+    check('speech→debrief: أسئلةٌ مغلقة وتعزيزٌ عامّ ← سؤالان للتأمّل', closed.ask.some(t => /مغلقة/.test(t)) && closed.ask.some(t => /أغلب تعزيزك عامّ/.test(t)), JSON.stringify(closed.ask));
+    check('speech→summary: سطر الأرقام في الملخّص', /وسُمع في كلام المعلّم: تعزيزٌ \(\d+\)، وتصحيحٌ \(\d+\)، وأسئلةٌ \(\d+\)/.test(E.summaryText(Object.assign({}, M, { observed: 2100, activePct: 50, activeSec: 1000 }), {})));
+
+    // التوصيل
+    const UI = read('js/eye.js'), RP = read('js/eye-report.js'), H = read('reports.html'), SW = read('sw.js');
+    check('wiring: «فهم الكلام» يُسأل عنه سؤالاً مستقلّاً قبل تشغيله، ورفضه يطفئه', /function speechConsent\(\)[\s\S]{0,700}root\.confirm\([\s\S]{0,400}هل وافق المعلّم على ذلك؟[\s\S]{0,200}\$\('eyeSpeech'\)\.checked = false/.test(UI)
+          && /const wantSpeech = speechConsent\(\);[\s\S]{0,1600}begin\('camera', v\);\s*\n\s*if \(wantSpeech\) speechStart\(/.test(UI)
+          && /const wantSpeech = speechConsent\(\);[\s\S]{0,900}begin\('none', null\);\s*\n\s*if \(wantSpeech\) speechStart\(/.test(UI));
+    check('wiring: داخل الجهاز إن أتاحه المتصفّح (processLocally)، وإلّا خدمته — ويُذكر ذلك', /Ctor\.available\(\{ langs: \[sp\.lang\], processLocally: true \}\)/.test(UI) && /rec\.processLocally = true/.test(UI)
+          && /حُوِّل إلى نصٍّ داخل الجهاز/.test(UI) && /عبر خدمة Google/.test(UI));
+    check('wiring: مسار ميكروفون المعلّم نفسه إلى التعرّف حيث يقبله المتصفّح', /rec\.start\(sp\.track\)/.test(UI));
+    check('wiring: يُعاد التشغيل بعد الصمت ويتوقّف مع الرصد', /rec\.onend = \(\) => \{\s*\n\s*if \(!sp\.on \|\| !S\.running/.test(UI) && /function release\(\) \{\s*\n\s*speechStop\(\);/.test(UI));
+    check('wiring: لا يُحفظ صوت — النصّ وحده مع التقرير، ويُحذف بزرّ', !/MediaRecorder|toDataURL/.test(UI) && /sp: sp \? \{ mode: sp\.mode, lang: sp\.lang, consent: !!S\.speechConsent, seg:/.test(UI)
+          && /id="eyeSpeechPurge"/.test(UI) && /stripExamples\(S\.result\.M\.speech\)/.test(UI));
+    check('wiring: النصّ مهروبٌ في النتيجة والبثّ الحيّ نصٌّ لا HTML', /«\$\{esc\(x\)\}»/.test(UI) && /tx\.appendChild\(document\.createTextNode\('«' \+ last\.x \+ '»'\)\)/.test(UI));
+    check('wiring: البطاقة أرقام الكلام وأمثلة «ما يُعزَّز» وحدها — لا النصّ ولا عبارات المراجعة', /كلام المعلّم/.test(RP) && !/harsh|\.ex\b|specEx|hiEx|\.sp\b|\.seg\b/.test(RP));
+    check('wiring: الوحدة محمّلةٌ قبل الشاشة وفي عامل الخدمة', /eye-core\.js[\s\S]{0,80}eye-speech\.js[\s\S]*eye\.js/.test(H) && SW.includes("'./js/eye-speech.js'"));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

@@ -692,8 +692,27 @@
             const cov = ((m.ctx && m.ctx.covered) || 0) / Math.max(1, m.seconds || 0);
             return cov >= 0.85 ? 'high' : cov >= 0.6 ? 'medium' : 'low';
         }
+        if (s.basis === 'speech') {
+            // كلامٌ مسموعٌ كثيرٌ أوثق، وميكروفون الهاتف يلتقط غير المعلّم فتنزل الثقة درجة
+            const w = (m.speech && m.speech.words) || 0;
+            const lv = w >= 800 ? 2 : w >= 300 ? 1 : 0;
+            return ['low', 'medium', 'high'][Math.max(0, lv - (m.mic === 'teacher' ? 0 : 1))];
+        }
         const n = TAGS.filter(t => t.item === s.id).reduce((a, t) => a + ((counts && counts[t.k]) || 0), 0);
         return n >= 4 ? 'high' : n >= 2 ? 'medium' : 'low';
+    }
+
+    // ── كلام المعلّم (js/eye-speech.js) ──
+    // يُعتدّ به حين يُسمع ما يكفي: ١٢٠ كلمةً وخمس عشرة عبارة، والمعدّلات لكلّ عشر دقائق من الحصة
+    const speechOf = M => (M && M.speech && M.speech.words >= 120 && M.speech.clauses >= 15 ? M.speech : null);
+    const speechMin = SP => Math.max(5, (SP.lesson || 0) / 60);
+    const per10 = (SP, x) => Math.round(100 * x / speechMin(SP)) / 10;
+    function speechFbText(SP) {
+        const parts = [];
+        if (SP.corr.n) parts.push(count(SP.corr.n, 'تصحيحٌ واحد', 'تصحيحان', 'تصحيحات', 'تصحيحاً') + ' لأداء الطلبة' + (SP.corr.spec ? ' منها (' + SP.corr.spec + ') بالمهارة نفسها' : ''));
+        if (SP.check.n) parts.push('تحقّقٌ من فهمهم ' + times(SP.check.n));
+        if (SP.q.n) parts.push(count(SP.q.n, 'سؤالٌ واحد', 'سؤالان', 'أسئلة', 'سؤالاً') + (SP.q.hi ? ' منها (' + SP.q.hi + ') تستثير التفكير' : ''));
+        return parts.length ? 'سُمع في كلام {المعلم|المعلمة}: ' + parts.join('، و') : 'لم يُسمع في كلام {المعلم|المعلمة} تصحيحٌ لأداء الطلبة ولا أسئلة';
     }
 
     // M من summarize (أو المحفوظ منه)، counts {وسم: عدد}، ctx {female, pupil(text)}
@@ -737,6 +756,8 @@
                          : '، بلا فترات انتظار طويلة بين الأنشطة';
             if (FM && FM.longLineSec >= 60 && FM.maxLine > LONG_LINE) e += '، ووقفت قاطراتٌ طويلةٌ (حتّى ' + pupilsN(FM.maxLine) + ') مدّة ' + dur(FM.longLineSec);
             if (m.cued) e += '، ونُظّم ' + count(m.cued, 'انتقالٌ واحد', 'انتقالان', 'انتقالات', 'انتقالاً') + ' بالصفّارة';
+            const SP7 = speechOf(m);
+            if (SP7 && SP7.clauses >= 20 && SP7.orgShare >= 40) e += '، وكان (' + SP7.orgShare + '%) من كلام {المعلم|المعلمة} تعليماتٍ تنظيميّة';
             add(7, s, basis, e + '.');
         }
 
@@ -779,6 +800,13 @@
         // ١٠ أساليب التقويم — ومعها توجيه المعلّم أثناء النشاط من ميكروفونه
         const fb = ['fbInd', 'fbGrp', 'ask', 'peer'];
         const fbTotal = fb.reduce((s, k) => s + c(k), 0), kinds = fb.filter(k => c(k) > 0).length;
+        const SP = speechOf(m);
+        if (!fbTotal && !c('fbMiss') && SP && speechMin(SP) >= 10) {
+            // من كلامه وحده: التصحيح والتحقّق من الفهم، والأسئلة بنصف وزن — وأدناه «غير ملائم» (المحوِّل قد يفوته كلام)
+            const r = per10(SP, SP.corr.n + SP.check.n) + per10(SP, SP.q.n) / 2;
+            const top = SP.corr.spec >= 8 && SP.check.n >= 2 && SP.q.hi >= 2;
+            add(10, r >= 6 ? (top ? 1 : 2) : r >= 3 ? 3 : 4, 'speech', speechFbText(SP) + '.');
+        }
         if (fbTotal || c('fbMiss')) {
             let s = !fbTotal ? 4 : fbTotal >= 8 && kinds >= 3 ? 1 : fbTotal >= 6 && kinds >= 2 ? 2 : fbTotal >= 3 ? 3 : 4;
             const bits = [];
@@ -798,19 +826,55 @@
                 e += '، و{تحدّث|تحدّثت} إلى الطلبة أثناء النشاط (' + m.coachPct + '%) من زمنه';
                 basis = 'both';
             }
+            if (SP) {
+                // كلامه يقرّب درجة اللمسات درجةً واحدةً نحو شاهده
+                const r = per10(SP, SP.corr.n + SP.check.n) + per10(SP, SP.q.n) / 2;
+                const ss = r >= 6 ? 2 : r >= 3 ? 3 : 4;
+                if (ss < s) s--; else if (ss > s + 1) s++;
+                e += '، و' + speechFbText(SP);
+                basis = 'both';
+            }
             add(10, s, basis, e + '.');
         }
 
         // ٣ مهارات التعلّم
+        // ومن كلامه: الأسئلة التي تستثير التفكير (لماذا، كيف، ما الفرق) — أو أسئلةٌ مغلقةٌ كلّها
         const sk = ['lead', 'team', 'tactic'].filter(k => c(k) > 0);
-        if (sk.length) add(3, { 3: 1, 2: 2, 1: 3 }[sk.length], 'taps', 'ظهرت في الحصة مواقف: ' + list(sk.map(k => TAG[k].label)) + '.');
+        const spQ = SP && (SP.q.hi >= 1 || SP.q.n >= 5);
+        if (sk.length || spQ) {
+            let s = sk.length ? { 3: 1, 2: 2, 1: 3 }[sk.length] : null, basis = sk.length ? 'taps' : 'speech';
+            let e = sk.length ? 'ظهرت في الحصة مواقف: ' + list(sk.map(k => TAG[k].label)) : '';
+            if (spQ) {
+                const ss = SP.q.hi >= 4 ? 2 : SP.q.hi >= 1 ? 3 : 4;
+                if (s == null) s = ss; else { if (SP.q.hi >= 3) s--; basis = 'both'; }
+                e += (e ? '، و' : '') + (SP.q.hi ? '{طرح المعلم|طرحت المعلمة} ' + count(SP.q.hi, 'سؤالاً واحداً', 'سؤالين', 'أسئلة', 'سؤالاً') + ' تستثير التفكير (لماذا، كيف، ما الفرق)'
+                                                 : 'كانت أسئلة {المعلم|المعلمة} (' + SP.q.n + ') مغلقةً لا تستثير التفكير');
+            }
+            add(3, s, basis, e + '.');
+        }
 
         // ٤ القيم والروح الرياضيّة
-        if (c('praise') || c('misbehave')) {
+        // ومن كلامه: التعزيز اللفظيّ (المحدّد بما أجاده الطالب أقوى)، والحثّ على القيم، والربط بالصحّة
+        const spV = SP && (SP.praise.n || SP.values.n || SP.health.n || speechMin(SP) >= 15);
+        if (c('praise') || c('misbehave') || spV) {
             const p = c('praise'), n = c('misbehave');
-            const s = n >= 2 ? (p ? 4 : 5) : n === 1 ? (p ? 3 : 4) : (p >= 3 ? 1 : 2);
-            const negTxt = 'رُصد سلوكٌ سلبيّ لم يُعالَج ' + times(n);
-            add(4, s, 'taps', (p ? '{عزّز المعلم|عزّزت المعلمة} الروح الرياضية ' + times(p) + (n ? '، و' + negTxt : '') : negTxt) + '.');
+            let s = null, e = '', basis = 'taps';
+            if (p || n) {
+                s = n >= 2 ? (p ? 4 : 5) : n === 1 ? (p ? 3 : 4) : (p >= 3 ? 1 : 2);
+                const negTxt = 'رُصد سلوكٌ سلبيّ لم يُعالَج ' + times(n);
+                e = p ? '{عزّز المعلم|عزّزت المعلمة} الروح الرياضية ' + times(p) + (n ? '، و' + negTxt : '') : negTxt;
+            }
+            if (spV) {
+                const pr = per10(SP, SP.praise.n), v = SP.values.n + SP.health.n;
+                const ss = pr >= 3 && (SP.praise.spec >= 3 || v >= 2) ? 1 : pr >= 2 ? 2 : 3;
+                if (s == null) { s = ss; basis = 'speech'; } else { if (ss < s) s--; basis = 'both'; }
+                let t = SP.praise.n ? 'سُمع من {المعلم|المعلمة} تعزيزٌ لفظيّ ' + times(SP.praise.n) + (SP.praise.spec ? '، منه (' + SP.praise.spec + ') بما أجاده الطالب تحديداً' : '')
+                                    : 'لم يُسمع في كلام {المعلم|المعلمة} تعزيزٌ لفظيّ للطلبة';
+                if (SP.values.n) t += '، وحثٌّ على القيم والروح الرياضيّة ' + times(SP.values.n);
+                if (SP.health.n) t += '، وربطٌ بالصحّة ' + times(SP.health.n);
+                e += (e ? '، و' : '') + t;
+            }
+            add(4, s, basis, e + '.');
         }
 
         // ٢ الفروق الفرديّة والدمج — والطلبة خارج النشاط (عددهم من المشرف، وتقترحه الكاميرا)
@@ -841,7 +905,10 @@
                 bits.push((bits.length ? 'و' : '') + 'شارك ' + pupilsN(dishN) + (classN ? ' من ' + pupilsN(classN) : '') + (F ? ' بغير الزيّ الرياضيّ' : ' بالدشداشة بدل الزيّ الرياضيّ'));
             }
             if (m.space && m.space.concentration >= 60 && (m.observed || 0) >= MIN_OBSERVE) bits.push('وتركّزت الحركة في جزءٍ محدود من المساحة');
+            if (SP && SP.safe.n) bits.push('وذكّر {المعلم|المعلمة} الطلبة بالسلامة ' + times(SP.safe.n));
             add(5, s, 'taps', bits.join('، ') + '.');
+        } else if (SP && SP.safe.n >= 2) {
+            add(5, 2, 'speech', '{ذكّر المعلم|ذكّرت المعلمة} الطلبة بالسلامة ' + times(SP.safe.n) + ' أثناء الحصة.');
         }
 
         // ٩ المصادر والموارد — وانتظار الدور الذي تراه الكاميرا
@@ -894,6 +961,8 @@
         if (M.waits) bits.push('وتخلّلتها ' + count(M.waits, 'فترة انتظار واحدة', 'فترتا انتظار', 'فترات انتظار', 'فترة انتظار') + ' أطولها ' + dur(M.longestIdle));
         if (M.explainSec >= 60 && !det) bits.push('واستغرق الشرح والتوجيه ' + dur(M.explainSec));
         if (M.whistles) bits.push('واستُعملت الصفّارة ' + times(M.whistles));
+        const SP = speechOf(M);
+        if (SP) bits.push('وسُمع في كلام المعلّم: تعزيزٌ (' + SP.praise.n + ')، وتصحيحٌ (' + SP.corr.n + ')، وأسئلةٌ (' + SP.q.n + ')');
         if (!bits.length) return '';
         return P('رُصدت الحصة بعين المشرف ' + dur(span) + ': ' + bits.join('، ') + '.');
     }
@@ -923,6 +992,24 @@
         if (c('out')) ask.push('ظلّ ' + pupilsN(c('out')) + ' خارج النشاط. كيف {تشركهم|تشركينهم} ولو بدورٍ مساعد؟');
         if (m.waits && m.longestIdle >= 180) ask.push('أطول فترة انتظارٍ بين نشاطين بلغت ' + dur(m.longestIdle) + '. ما الذي كان يحدث فيها؟');
         if (m.cued >= 2) good.push('نُظّمت الانتقالات بالصفّارة (' + m.cued + ' مرّات).');
+        // من كلام المعلّم: أمثلةٌ بنصّه حين تُحفظ، والعبارات التي تحتاج مراجعةً **لا تدخل هنا** (للمشرف وحده)
+        const SP = m.speech && m.speech.clauses >= 10 ? m.speech : null;
+        if (SP) {
+            const ex = arr => (arr && arr[0] ? '، مثل: «' + arr[0][1] + '»' : '');
+            if (SP.praise.spec >= 2) good.push('{عزّزت|عزّزتِ} الطلبة بما أجادوه تحديداً ' + times(SP.praise.spec) + ex(SP.praise.specEx) + '.');
+            if (SP.q.hi >= 2) good.push('{طرحت|طرحتِ} أسئلةً تستثير التفكير' + ex(SP.q.hiEx) + '.');
+            if (SP.corr.spec >= 4) good.push('{صحّحت|صحّحتِ} الأداء بالمهارة نفسها ' + times(SP.corr.spec) + ex(SP.corr.specEx) + '.');
+            if (SP.check.n >= 2) good.push('{تحقّقت|تحقّقتِ} من فهم الطلبة ' + times(SP.check.n) + '.');
+            if (SP.praise.n >= 3 && SP.praise.spec / SP.praise.n < 0.3)
+                ask.push('أغلب تعزيزك عامّ («أحسنت»، «ممتاز»). كيف {تجعله|تجعلينه} يذكر ما أجاده الطالب بالضبط؟');
+            if (!SP.praise.n && SP.words >= 300) ask.push('لم يُسمع تعزيزٌ لفظيّ في الحصة. متى {تعزّز|تعزّزين} أداء الطلبة أثناء الممارسة؟');
+            if (SP.q.n >= 3 && !SP.q.hi) ask.push('{طرحت|طرحتِ} ' + count(SP.q.n, 'سؤالاً', 'سؤالين', 'أسئلة', 'سؤالاً') + ' مغلقة. ما سؤالٌ مفتوح («لماذا؟»، «كيف؟») كان سيجعل الطلبة يفكّرون في المهارة؟');
+            if (!SP.q.n && !SP.check.n && SP.words >= 300) ask.push('لم يُسمع سؤالٌ للطلبة ولا تحقّقٌ من فهمهم. كيف {تتأكّد|تتأكّدين} أنّهم فهموا قبل الانتقال إلى التطبيق؟');
+            if (SP.clauses >= 20 && SP.orgShare >= 50) ask.push('كان (' + SP.orgShare + '%) من كلامك تعليماتٍ تنظيميّة. كيف {تقلّل|تقلّلين} التعليمات لتزيد زمن الممارسة؟');
+            if (SP.corr.n >= 6 && SP.praise.n < SP.corr.n / 2) ask.push('غلب التصحيح (' + SP.corr.n + ') على التعزيز (' + SP.praise.n + '). ما أثر ذلك على دافعيّة الطلبة؟');
+            if (SP.topic && SP.topic.terms && SP.topic.terms.length && !SP.topic.n && SP.words >= 300)
+                ask.push('لم يُسمع مصطلح الدرس («' + SP.topic.terms[0] + '») في كلامك. كيف {توظّف|توظّفين} المصطلح الفنّي ليتعلّمه الطلبة؟');
+        }
         return { good: good.map(t => P(g(t, F))), ask: ask.map(t => P(g(t, F))) };
     }
 
@@ -970,7 +1057,7 @@
         inPoly, roiMask, roiCells, polyBox,
         toGray, frameDiff, grayShift, boxMotion,
         newTracker, trackStep, trackMotion, peopleSnapshot,
-        audioFrame, classify, runsOf, ctxSeries, ctxStats, summarizePeople, summarize,
+        audioFrame, classify, runsOf, ctxSeries, ctxStats, summarizePeople, summarize, speechOf,
         suggest, confidence, unsupported, summaryText, heatDigits, agreement, dur, count, g
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }

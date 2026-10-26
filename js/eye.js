@@ -17,6 +17,11 @@
 //
 // الخصوصيّة: لا يُسجَّل فيديو ولا صوت، ولا تُرسَل صورةٌ إلى أيّ مكان؛ الإطار يُقارَن بسابقه ثمّ يُنسى،
 // والكاميرا والميكروفون يُغلقان عند الإيقاف.
+//
+// فهم الكلام (2026-10-26، بإذن المعلّم — طلب المشرف): «فهم الكلام» اختيارٌ صريحٌ بسؤالٍ مستقلّ. التعرّف على الكلام في
+// المتصفّح (SpeechRecognition): داخل الجهاز إن أتاحه (Chrome على الحاسوب بحزمة اللغة)، وإلّا عبر خدمة المتصفّح — في Chrome
+// على الجوّال يُرسَل الصوت إلى Google لتحويله نصّاً. لا يُحفظ صوت؛ النصّ وتحليله (js/eye-speech.js) يُحفظان مع التقرير،
+// ويُحذف النصّ بزرٍّ بعد التحليل فتبقى الأرقام.
 // =========================================================================
 (function (root) {
     'use strict';
@@ -38,8 +43,11 @@
         grid: null, secs: [], acc: null, events: [], counts: {}, t0: 0, lastSec: 0, timers: [], audio: null, ast: {},
         wake: null, fileUrl: null, written: '', result: null,
         roi: null, roiDraft: null, roiMode: false, mask: null, cells: null,
-        ctxEvents: [], ctxCur: null, pSnap: null, pSnapAt: -1, runId: 0, classMax: 0
+        ctxEvents: [], ctxCur: null, pSnap: null, pSnapAt: -1, runId: 0, classMax: 0,
+        sp: null, speechConsent: false
     };
+    const SR = () => root.SpeechRecognition || root.webkitSpeechRecognition || null;
+    const SX = () => root.SvfEyeSpeech;
     const AI = { human: null, loading: null, ok: false, busy: false, fail: 0, T: null, prevG: null, prevKey: '', canvas: null, cx: null,
                  timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5 };
     const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false });
@@ -105,6 +113,7 @@
                         <label class="flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" id="eyeMic" checked> الصوت</label>
                         <select id="eyeMicDev" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm max-w-[12rem]" aria-label="الميكروفون"><option value="">الميكروفون الافتراضي</option></select>
                         <label class="flex items-center gap-1.5 text-sm text-slate-600" title="ميكروفونٌ لاسلكيٌّ على ياقة المعلّم: يصير الكلام المرصود كلامه"><input type="checkbox" id="eyeTeacherMic"> على المعلّم</label>
+                        <label id="eyeSpeechLbl" class="flex items-center gap-1.5 text-sm text-slate-600" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech"> فهم الكلام</label>
                     </span>
                 </div>
             </section>
@@ -131,6 +140,16 @@
                         <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
                     </div>
                     <p class="text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
+                    <p id="eyeSpeechNote" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-5"></p>
+
+                    <div id="eyeSpeechLive" class="hidden bg-white rounded-2xl border border-slate-200 p-4" aria-live="polite">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <b class="text-sm text-slate-900">كلام المعلّم</b>
+                            <span id="eyeSpeechState" class="text-xs text-slate-500"></span>
+                        </div>
+                        <p id="eyeSpeechText" class="text-sm text-slate-800 leading-7 mt-2 min-h-[1.75rem]"></p>
+                        <div id="eyeSpeechCounts" class="flex flex-wrap gap-1.5 mt-2"></div>
+                    </div>
 
                     <div class="bg-white rounded-2xl border border-slate-200 p-4">
                         <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -211,6 +230,9 @@
         $('eyeRoiClear').addEventListener('click', () => setRoi(null));
         $('eyeView').addEventListener('pointerdown', roiPoint);
         $('eyeConsent').addEventListener('change', () => { if (checked('eyeConsent')) message(''); });
+        // فهم الكلام: متاحٌ حيث يدعم المتصفّح التعرّف على الكلام (Chrome، Edge، Safari)
+        if (!SR()) { $('eyeSpeech').disabled = true; $('eyeSpeechLbl').title = 'هذا المتصفّح لا يدعم التعرّف على الكلام — استعمل Chrome'; $('eyeSpeechLbl').classList.add('opacity-50'); }
+        $('eyeSpeech').addEventListener('change', speechNote);
         body.querySelectorAll('.eye-tag').forEach(b => b.addEventListener('click', () => tap(b.dataset.tag, b)));
         body.querySelectorAll('.eye-dec').forEach(b => b.addEventListener('click', () => dec(b.dataset.dec)));
         body.querySelectorAll('.eye-ctx').forEach(b => b.addEventListener('click', () => setCtx(b.dataset.ctx)));
@@ -408,10 +430,121 @@
         return 'تعذّر التشغيل: ' + (e && e.message ? e.message : 'خطأ غير معروف');
     }
 
+    // ── فهم الكلام ──
+    function speechNote() {
+        const el = $('eyeSpeechNote');
+        if (!el) return;
+        el.textContent = checked('eyeSpeech') ? 'مع «فهم الكلام» يحوّل المتصفّح كلام المعلّم إلى نصّ: في Chrome على الجوّال عبر خدمة Google (يغادر الصوت الجهاز لهذا الغرض وحده)، '
+            + 'وفي الحاسوب داخل الجهاز إن توفّرت حزمة العربيّة. لا يُحفظ صوت؛ يُحفظ النصّ مع التقرير، ويُحذف بزرٍّ بعد التحليل.' : '';
+        el.classList.toggle('hidden', !checked('eyeSpeech'));
+    }
+    // سؤالٌ مستقلٌّ عن إذن المعلّم بتحويل كلامه إلى نصّ — داخل الضغطة نفسها
+    function speechConsent() {
+        if (!checked('eyeSpeech') || !SR()) return false;
+        let ok = false;
+        try {
+            ok = root.confirm('«فهم الكلام» يحوّل كلام المعلّم إلى نصٍّ ويحلّله (التعزيز والتصحيح والأسئلة والسلامة).\n'
+                + 'في Chrome على الجوّال يُرسَل الصوت إلى خدمة Google لتحويله نصّاً — لا يُحفظ صوت، ويُحفظ النصّ مع التقرير.\n\n'
+                + 'هل وافق المعلّم على ذلك؟');
+        } catch (e) { ok = false; }
+        if (!ok) { $('eyeSpeech').checked = false; speechNote(); toast('أُوقف «فهم الكلام» لهذه الحصة', 'info'); }
+        S.speechConsent = ok;
+        return ok;
+    }
+    async function speechStart(track) {
+        const Ctor = SR();
+        if (!Ctor || !S.running) return;
+        const runId = S.runId;
+        const sp = S.sp = { on: true, segs: [], mode: 'cloud', lang: 'ar-OM', restarts: [], interim: '', err: '', rec: null, track: track || null, dirty: true, A: null };
+        // داخل الجهاز إن كانت حزمة العربيّة مثبّتة (Chrome على الحاسوب)، وإلّا خدمة المتصفّح
+        try {
+            if (typeof Ctor.available === 'function') {
+                const st = await Ctor.available({ langs: [sp.lang], processLocally: true });
+                if (st === 'available') sp.mode = 'local';
+            }
+        } catch (e) { /* خدمة المتصفّح */ }
+        if (!S.running || S.runId !== runId || S.sp !== sp) return;
+        speechRun(sp);
+        renderSpeechLive();
+    }
+    function speechRun(sp) {
+        const Ctor = SR();
+        if (!Ctor) return;
+        let rec;
+        try { rec = new Ctor(); } catch (e) { sp.err = 'تعذّر تشغيل التعرّف على الكلام في هذا المتصفّح.'; renderSpeechLive(); return; }
+        rec.lang = sp.lang; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+        if (sp.mode === 'local') { try { rec.processLocally = true; } catch (e) { sp.mode = 'cloud'; } }
+        rec.onresult = e => {
+            let interim = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                const r = e.results[i], x = String((r[0] && r[0].transcript) || '').trim();
+                if (!x) continue;
+                if (r.isFinal) speechAdd(sp, x); else interim += ' ' + x;
+            }
+            sp.interim = interim.trim();
+            sp.err = '';
+            renderSpeechLive();
+        };
+        rec.onerror = e => {
+            const k = e && e.error;
+            if (k === 'not-allowed' || k === 'service-not-allowed') { sp.on = false; sp.err = 'رُفض إذن التعرّف على الكلام — اسمح بالميكروفون لهذا الموقع ثمّ أعد الرصد.'; }
+            else if (k === 'language-not-supported') { if (sp.mode === 'local') sp.mode = 'cloud'; else if (sp.lang !== 'ar-SA') sp.lang = 'ar-SA'; else { sp.on = false; sp.err = 'العربيّة غير متاحة للتعرّف على الكلام في هذا المتصفّح.'; } }
+            else if (k === 'network') sp.err = 'التعرّف على الكلام يحتاج اتّصالاً بالإنترنت — تُعاد المحاولة.';
+            else if (k === 'audio-capture') sp.err = 'تعذّر على خدمة الكلام الوصول إلى الميكروفون (قد يشغله تحليل الصوت). جرّب إطفاء «الصوت» وإبقاء «فهم الكلام».';
+            renderSpeechLive();
+        };
+        // التعرّف يتوقّف بعد الصمت (خاصّةً على الجوّال) — يُعاد تشغيله ما دام الرصد جارياً، بتمهّلٍ إن تكرّر كثيراً
+        rec.onend = () => {
+            if (!sp.on || !S.running || S.sp !== sp) return;
+            const t = Date.now();
+            sp.restarts = sp.restarts.filter(x => t - x < 60000);
+            sp.restarts.push(t);
+            setTimeout(() => { if (sp.on && S.running && S.sp === sp) speechRun(sp); }, sp.restarts.length > 12 ? 3000 : 250);
+        };
+        sp.rec = rec;
+        // مسار ميكروفون الرصد نفسه (ميكروفون المعلّم المختار) حيث يقبله المتصفّح، وإلّا الميكروفون الافتراضيّ
+        try { if (sp.track && sp.track.readyState === 'live') rec.start(sp.track); else rec.start(); }
+        catch (e) { try { rec.start(); } catch (e2) { sp.err = 'تعذّر بدء التعرّف على الكلام.'; renderSpeechLive(); } }
+    }
+    function speechAdd(sp, x) {
+        const t = Math.round(now());
+        const prev = sp.segs[sp.segs.length - 1];
+        if (prev && t - prev.t <= 6 && prev.x === x) return;                        // نتيجةٌ نهائيّةٌ مكرّرة (Chrome على أندرويد)
+        if (prev && t - prev.t <= 6 && x.indexOf(prev.x) === 0) { prev.x = x.slice(0, 300); sp.dirty = true; return; }   // تراكميّةٌ تحلّ محلّ سابقتها
+        if (sp.segs.length < 900) sp.segs.push({ t, x: x.slice(0, 300) });
+        sp.dirty = true;
+    }
+    function speechStop() {
+        const sp = S.sp;
+        if (!sp) return;
+        sp.on = false;
+        try { if (sp.rec) sp.rec.stop(); } catch (e) { /* انتهى أصلاً */ }
+    }
+    function renderSpeechLive() {
+        const box = $('eyeSpeechLive'), sp = S.sp;
+        if (!box) return;
+        box.classList.toggle('hidden', !(sp && S.running));
+        if (!sp || !S.running) return;
+        const st = $('eyeSpeechState');
+        st.textContent = sp.err || ((sp.mode === 'local' ? 'داخل الجهاز' : 'عبر خدمة المتصفّح') + ' · ' + sp.segs.length + ' عبارة');
+        st.className = 'text-xs ' + (sp.err ? 'text-red-700 font-bold' : 'text-slate-500');
+        const last = sp.segs[sp.segs.length - 1];
+        const tx = $('eyeSpeechText');
+        tx.textContent = '';
+        if (last) tx.appendChild(document.createTextNode('«' + last.x + '»'));
+        if (sp.interim) { const i = document.createElement('span'); i.className = 'text-slate-400'; i.textContent = ' ' + sp.interim; tx.appendChild(i); }
+        if (!last && !sp.interim) tx.textContent = 'ينتظر كلام المعلّم…';
+        if (sp.dirty && SX()) { sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: now() }); sp.dirty = false; }
+        const A = sp.A;
+        const chips = A ? [['تعزيز', A.praise.n], ['تصحيح', A.corr.n], ['أسئلة', A.q.n], ['تحقّق من الفهم', A.check.n], ['سلامة', A.safe.n]] : [];
+        $('eyeSpeechCounts').innerHTML = chips.map(([k, v]) => `<span class="text-xs rounded-lg border border-slate-200 px-2 py-1 text-slate-700">${esc(k)} <b class="tabular-nums text-slate-900">${v}</b></span>`).join('');
+    }
+
     async function startCamera() {
         if (S.running) return;
         message('');
         if (!needConsent(true)) return;
+        const wantSpeech = speechConsent();
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             message('هذا المتصفّح لا يتيح الكاميرا هنا. افتح الموقع عبر https في Chrome أو Safari أو Edge.');
             return;
@@ -437,12 +570,14 @@
         try { await v.play(); } catch (e) { /* يبدأ مع أوّل إطار */ }
         if (stream.getAudioTracks().length) startAudio(ctx => ctx.createMediaStreamSource(stream), false);
         begin('camera', v);
+        if (wantSpeech) speechStart(stream.getAudioTracks()[0] || null);
     }
 
     function startFile(file) {
         if (S.running) return;
         message('');
         if (!needConsent(true)) return;
+        if (checked('eyeSpeech')) toast('«فهم الكلام» للرصد الحيّ وحده — يُحلَّل المقطع بلا نصّ', 'info');
         const v = freshVideo();
         if (S.fileUrl) URL.revokeObjectURL(S.fileUrl);
         S.fileUrl = URL.createObjectURL(file);
@@ -463,7 +598,8 @@
         if (S.running) return;
         message('');
         const wantMic = checked('eyeMic');
-        if (!needConsent(wantMic)) return;
+        if (!needConsent(wantMic || checked('eyeSpeech'))) return;
+        const wantSpeech = speechConsent();
         if (wantMic && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints() });
@@ -473,6 +609,7 @@
             } catch (e) { toast('الميكروفون غير متاح — رصدٌ باللمسات وحدها', 'info'); }
         }
         begin('none', null);
+        if (wantSpeech) speechStart(S.stream ? (S.stream.getAudioTracks()[0] || null) : null);
     }
 
     function startAudio(makeSource, audible) {
@@ -512,18 +649,19 @@
         S.mic = checked('eyeTeacherMic') ? 'teacher' : 'device';
         S.pSnap = null; S.pSnapAt = -1; S.classMax = 0;
         S.tl = null;
-        S.consent = src !== 'none' || !!S.audio ? checked('eyeConsent') : false;
+        S.consent = src !== 'none' || !!S.audio || checked('eyeSpeech') ? checked('eyeConsent') : false;
+        S.sp = null;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
         renderCounts();
         renderCtx();
         applyVideoVisibility();
         $('eyeResult').classList.add('hidden');
         $('eyeIdle').classList.toggle('hidden', src !== 'none');
-        if (src === 'none') $('eyeIdle').textContent = 'رصدٌ بلا كاميرا: المس «عناصر الحصة» حين يبدأ كلٌّ منها، والوسوم كلّما رأيتها' + (S.audio ? '، والصوت يُحلَّل.' : '.');
+        if (src === 'none') $('eyeIdle').textContent = 'رصدٌ بلا كاميرا: المس «عناصر الحصة» حين يبدأ كلٌّ منها، والوسوم كلّما رأيتها' + (S.audio ? '، والصوت يُحلَّل' : '') + (checked('eyeSpeech') && S.speechConsent ? '، وكلام المعلّم يصير نصّاً.' : '.');
         $('eyeStatus').classList.remove('hidden');
         ['eyeStartCam', 'eyeFileBtn', 'eyeStartNoCam', 'eyeTapsOnly'].forEach(id => $(id).classList.add('hidden'));
         $('eyeStop').classList.remove('hidden');
-        ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI'].forEach(id => { $(id).disabled = true; });
+        ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI', 'eyeSpeech'].forEach(id => { $(id).disabled = true; });
         $('eyeRoiBtn').disabled = src === 'none';
         liveDot(true);
         const r = src === 'file' ? rate() : 1;
@@ -718,6 +856,7 @@
         drawTimeline(M.timeline);
         drawHeat();
         drawView();
+        renderSpeechLive();
     }
 
     function renderKpis(M, sec) {
@@ -862,6 +1001,7 @@
 
     // ── الإيقاف والتحليل ──
     function release() {
+        speechStop();
         S.timers.forEach(t => clearInterval(t));
         S.timers = [];
         if (AI.timer) { clearTimeout(AI.timer); AI.timer = null; }
@@ -887,19 +1027,22 @@
         $('eyeStop').classList.add('hidden');
         $('eyeIdle').classList.remove('hidden');
         ['eyeStartCam', 'eyeFileBtn', 'eyeStartNoCam', 'eyeTapsOnly'].forEach(id => $(id).classList.remove('hidden'));
-        ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI'].forEach(id => { $(id).disabled = false; });
+        ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI', 'eyeSpeech'].forEach(id => { $(id).disabled = id === 'eyeSpeech' && !SR(); });
         $('eyeRoiBtn').disabled = true;
         $('eyeRoiClear').classList.add('hidden');
+        renderSpeechLive();
         applyVideoVisibility();
         fitStage();
         drawView();
-        if (analyze) finish();
+        // آخر عبارةٍ يُسلّمها التعرّف على الكلام بعد الإيقاف بلحظة — تُنتظر قبل التحليل
+        if (analyze) { if (S.sp) setTimeout(finish, 900); else finish(); }
     }
 
     function finish() {
         const M = E().summarize(recNow());
         const hasTaps = S.events.length > 0 || Object.keys(S.counts).some(k => S.counts[k] > 0);
-        if (!M.observed && !M.ctx.covered && !hasTaps) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا أو المس «سياق الحصة» أو وسوم «ما لا تراه الكاميرا» أثناء الحصة.'); return; }
+        const sp = S.sp && S.sp.segs.length ? S.sp : null;
+        if (!M.observed && !M.ctx.covered && !hasTaps && !sp) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا أو المس «سياق الحصة» أو وسوم «ما لا تراه الكاميرا» أثناء الحصة.'); return; }
         // «طلبة خارج النشاط»: تقترحه الكاميرا من منطقة الصفّ، ويبقى عدد المشرف إن لمسه
         let outAuto = 0;
         if (M.people && M.people.roi && M.people.outsideMed > 0 && !(S.counts.out > 0)) {
@@ -917,6 +1060,8 @@
         const keep = Object.assign({}, M);
         delete keep.states; delete keep.timeline;
         keep.rec = recPref();                          // الزمن الموصى به للعناصر (اختيار المشرف) يُحفظ مع النتيجة
+        // كلام المعلّم: تحليله يدخل M فيُقترح منه ويُعاد الاقتراح عليه، والنصّ نفسه في data.sp
+        if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: M.seconds });
         const sugg = E().suggest(keep, S.counts, suggCtx());
         const data = {
             v: 2, at: new Date().toISOString(), src: M.observed ? S.src : (S.src === 'none' || M.ctx.covered ? 'none' : 'taps'), sens: sens(),
@@ -931,6 +1076,7 @@
             ev: S.events.filter(e => e.t != null).slice(-300).map(e => [e.t, e.k]),
             cx: S.ctxEvents.map(e => [e.t, e.k]),
             outAuto, dishAuto,
+            sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]) } : null,
             sugg,
             summary: E().summaryText(keep, suggCtx()),
             applied: []
@@ -952,7 +1098,7 @@
     function chip(score) {
         return `<span class="inline-block text-xs font-bold text-white rounded-md px-2 py-0.5" style="background:${RATING()[score]}">${esc(E().LEVELS[score])}</span>`;
     }
-    const basisText = { camera: 'من الكاميرا', ai: 'من كشف الطلبة', ctx: 'من سياق الحصة', taps: 'من لمساتك', both: 'من لمساتك والرصد' };
+    const basisText = { camera: 'من الكاميرا', ai: 'من كشف الطلبة', ctx: 'من سياق الحصة', taps: 'من لمساتك', both: 'من لمساتك والرصد', speech: 'من كلام المعلّم' };
     const confText = { high: 'ثقة عالية', medium: 'ثقة متوسطة', low: 'ثقة منخفضة' };
     const confColor = { high: '#1d6b45', medium: '#9a6f24', low: '#b5452f' };
 
@@ -1094,6 +1240,50 @@
             </div>`;
         }
 
+        // كلام المعلّم: الأرقام، وأمثلةٌ بنصّه وأوقاتها، وعباراتٌ للمراجعة (لا تدخل التقييم ولا البطاقة)، والنصّ الكامل وحذفه
+        let speechHtml = '';
+        const SPA = M.speech;
+        if (SPA && SPA.clauses) {
+            const segs = (data.sp && data.sp.seg) || [];
+            const cx = (data.cx || []).map(e => ({ t: e[0], k: e[1] }));
+            const partOf = t => { let k = null; cx.forEach(e => { if (e.t <= t) k = e.k; }); return k && E().PART[k] ? E().PART[k].short : ''; };
+            const box = (label, n, sub) => `<div class="rounded-xl border border-slate-200 px-3 py-2"><div class="text-xl font-bold text-slate-900 tabular-nums">${esc(String(n))}</div>
+                <div class="text-[11px] text-slate-600 leading-4">${esc(label)}${sub ? '<br><span class="text-slate-500">' + esc(sub) + '</span>' : ''}</div></div>`;
+            const exList = (ttl, arr) => (arr && arr.length ? `<div><div class="text-xs font-bold text-slate-500 mb-1">${esc(ttl)}</div>${arr.map(([t, x]) =>
+                `<p class="text-sm text-slate-700 leading-6"><span class="text-[11px] text-slate-500 tabular-nums ml-1">${mmss(t)}</span>«${esc(x)}»</p>`).join('')}</div>` : '');
+            const partRows = E().PARTS.filter(x => SPA.parts && SPA.parts[x.k]).map(x => {
+                const r = SPA.parts[x.k];
+                return `<tr class="border-t border-slate-100"><td class="py-1.5 text-slate-800"><i class="inline-block w-2 h-2 rounded-sm ml-1" style="background:${CTX_COLOR[x.c]}"></i>${esc(x.short)}</td>
+                    <td class="text-center tabular-nums">${r.words}</td><td class="text-center tabular-nums">${r.praise}</td><td class="text-center tabular-nums">${r.corr}</td><td class="text-center tabular-nums">${r.q}</td><td class="text-center tabular-nums">${r.org}</td></tr>`;
+            }).join('');
+            const terms = SPA.topic && SPA.topic.terms && SPA.topic.terms.length ? SPA.topic : null;
+            speechHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">كلام المعلّم</h2>
+                    <span class="text-xs text-slate-500">${data.sp && data.sp.mode === 'local' ? 'حُوِّل إلى نصٍّ داخل الجهاز' : 'حُوِّل إلى نصٍّ بخدمة المتصفّح'} · ${esc(String(SPA.words))} كلمة${SPA.wpm ? ' · ' + esc(String(SPA.wpm)) + ' في الدقيقة' : ''}${data.mic === 'teacher' ? '' : ' · ميكروفون الجهاز قد يلتقط غير المعلّم'}</span></div>
+                <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-3">
+                    ${box('تعزيز', SPA.praise.n, SPA.praise.spec ? 'محدّد ' + SPA.praise.spec : '')}${box('تصحيح للأداء', SPA.corr.n, SPA.corr.spec ? 'بالمهارة ' + SPA.corr.spec : '')}
+                    ${box('أسئلة', SPA.q.n, SPA.q.hi ? 'للتفكير ' + SPA.q.hi : '')}${box('تحقّق من الفهم', SPA.check.n)}
+                    ${box('تذكير بالسلامة', SPA.safe.n)}${box('تعليمات تنظيمية', SPA.orgShare + '%')}
+                </div>
+                <p class="text-sm text-slate-700 mt-3 leading-7">${terms ? 'مصطلحات الدرس (' + esc(terms.terms.join('، ')) + '): سُمعت <b>' + terms.n + '</b> ' + (terms.n === 1 ? 'مرّة' : 'مرّات') + ' · ' : ''}القيم والروح الرياضيّة: <b>${SPA.values.n}</b> · الربط بالصحّة: <b>${SPA.health.n}</b></p>
+                <div class="grid md:grid-cols-2 gap-4 mt-3">
+                    ${exList('تعزيزٌ محدّد', SPA.praise.specEx)}${exList('تصحيحٌ بالمهارة', SPA.corr.specEx)}
+                    ${exList('أسئلةٌ تستثير التفكير', SPA.q.hiEx)}${exList('تحقّقٌ من الفهم', SPA.check.ex)}
+                    ${exList('تذكيرٌ بالسلامة', SPA.safe.ex)}${exList('تعزيزٌ عامّ', (SPA.praise.ex || []).filter(e => !(SPA.praise.specEx || []).some(s => s[0] === e[0])))}
+                </div>
+                ${SPA.harsh && SPA.harsh.n ? `<div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3"><div class="text-sm font-bold text-red-800">عباراتٌ تحتاج مراجعتك (${SPA.harsh.n})</div>
+                    <p class="text-xs text-red-800 mt-0.5">لا تدخل التقييم ولا المداولة ولا بطاقة المعلّم — قد يخطئ المحوِّل في سماعها، فتحقّق منها بنفسك.</p>
+                    ${(SPA.harsh.ex || []).map(([t, x]) => `<p class="text-sm text-red-900 leading-6 mt-1"><span class="text-[11px] tabular-nums ml-1">${mmss(t)}</span>«${esc(x)}»</p>`).join('')}</div>` : ''}
+                ${partRows ? `<div class="overflow-x-auto mt-4"><table class="w-full text-sm"><thead><tr class="text-xs text-slate-500"><th class="text-right font-medium py-1">العنصر</th><th class="font-medium">كلمات</th><th class="font-medium">تعزيز</th><th class="font-medium">تصحيح</th><th class="font-medium">أسئلة</th><th class="font-medium">تنظيم</th></tr></thead><tbody>${partRows}</tbody></table></div>` : ''}
+                ${segs.length ? `<details class="mt-4 text-sm"><summary class="cursor-pointer text-slate-600">النصّ الكامل (${segs.length} عبارة)</summary>
+                    <div class="mt-2 max-h-80 overflow-y-auto space-y-1 pr-1">${segs.map(([t, x]) => `<p class="leading-6 text-slate-700"><span class="text-[11px] text-slate-500 tabular-nums ml-1">${mmss(t)}${partOf(t) ? ' · ' + esc(partOf(t)) : ''}</span>${esc(x)}</p>`).join('')}</div></details>` : ''}
+                <div class="flex flex-wrap items-center gap-2 mt-3">
+                    ${segs.length || (SPA.praise.ex || []).length ? '<button type="button" id="eyeSpeechPurge" class="svf-btn svf-btn-ghost svf-btn-sm">حذف النصّ والإبقاء على الأرقام</button>' : '<span class="text-xs text-slate-500">حُذف النصّ وبقيت الأرقام.</span>'}
+                </div>
+                <p class="text-xs text-slate-500 mt-2 leading-5">القاموس يعدّ ما يُسمع ولا يفهم السياق، والمحوِّل قد يخطئ في سماع الكلمة — راجع الأمثلة قبل اعتماد الاقتراح.</p>
+            </div>`;
+        }
+
         // للمداولة وللمعلّم: ما يُعزَّز وما يُسأل عنه، والنموّ منذ الرصد السابق، والبطاقة
         const dp = E().debriefPrompts(M, data.counts || {}, suggCtx());
         const prev = prevEye(), grow = growthLines(data, prev);
@@ -1148,6 +1338,7 @@
             </div>
             ${partsHtml}
             ${formsHtml}
+            ${speechHtml}
             ${talkHtml}
             <div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">التقييم المقترح</h2>
@@ -1183,6 +1374,17 @@
             if (!(v >= 1 && v <= 80) || !S.result || !S.result.M || !S.result.M.people) return;
             S.result.M.people.classSize = v;
             resuggest();
+        });
+        $('eyeSpeechPurge') && $('eyeSpeechPurge').addEventListener('click', () => {
+            if (!S.result) return;
+            let ok = false;
+            try { ok = root.confirm('يُحذف نصّ كلام المعلّم وأمثلته من هذه الزيارة، وتبقى الأرقام والتقييم المقترح. متابعة؟'); } catch (e) { ok = false; }
+            if (!ok) return;
+            if (S.result.sp) { S.result.sp.seg = []; S.result.sp.purged = true; }
+            if (S.result.M && S.result.M.speech && SX()) S.result.M.speech = SX().stripExamples(S.result.M.speech);
+            save(S.result);
+            renderResult(S.result);
+            toast('حُذف النصّ — احفظ التقرير ليُحذف من نسخته المحفوظة');
         });
         $('eyeRecSave') && $('eyeRecSave').addEventListener('click', () => {
             const rec = {};
@@ -1268,6 +1470,7 @@
         if (S.running) return;
         S.secs = []; S.grid = null; S.events = []; S.counts = {}; S.result = null; S.tl = null; S.savedHeat = null;
         S.ctxEvents = []; S.ctxCur = null; S.pSnap = null; S.src = null; S.consent = false; S.hadAudio = false; S.classMax = 0;
+        S.sp = null; S.speechConsent = false;
         renderCounts();
         renderCtx();
         $('eyeResult').classList.add('hidden');
@@ -1385,6 +1588,7 @@
                 ${kv('عدد الطلبة', P ? String(P.classSize || P.inside) : '—')}${kv('حركة الطلبة', mv != null ? mv + '%' : '—')}
                 ${kv('التشكيلات', M.forms ? String(M.forms.count) : '—')}${kv('بغير الزيّ', String((d.counts || {}).dish || 0))}
             </div>
+            ${M.speech && M.speech.clauses && SX() ? `<p class="text-sm text-slate-700 mt-3"><b class="text-slate-900">من كلامه:</b> ${esc(SX().line(M.speech))}</p>` : ''}
             ${det ? `<div class="flex flex-wrap gap-1.5 mt-3">${det.map(r => `<span class="text-xs rounded-lg border px-2 py-1 ${r.verdict === 'ok' ? 'border-green-200 text-green-800' : r.verdict === 'missing' ? 'border-red-200 text-red-800' : 'border-amber-200 text-amber-800'}">${esc(r.short)} ${r.minutes} د</span>`).join('')}</div>` : ''}
             ${dp.good.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-green-700 mb-1">ما يُعزَّز</div>${dp.good.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${dp.ask.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-amber-700 mb-1">أسئلةٌ من الرصد</div>${dp.ask.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}

@@ -164,6 +164,27 @@
                 : P('لا قاطرة تزيد على (' + Y.LONG_LINE + ') طلبة.'), W - PAD, y + 6, W - 2 * PAD, 34);
         }
 
+        // ٥ب) كلام المعلّم — أرقامٌ بلا نصّ (العبارات التي تحتاج مراجعةً لا تدخل البطاقة)
+        const SPA = M.speech;
+        if (SPA && SPA.clauses) {
+            y = heading(g, 'كلام المعلّم', y + 30) + 16;
+            const items = [['تعزيز', SPA.praise.n, SPA.praise.spec ? 'محدّد ' + SPA.praise.spec : ''],
+                           ['تصحيح للأداء', SPA.corr.n, SPA.corr.spec ? 'بالمهارة ' + SPA.corr.spec : ''],
+                           ['أسئلة', SPA.q.n, SPA.q.hi ? 'للتفكير ' + SPA.q.hi : ''],
+                           ['تحقّق من الفهم', SPA.check.n, '']];
+            const kw2 = (W - 2 * PAD - 3 * 20) / 4;
+            items.forEach((k, i) => {
+                const x = W - PAD - (i + 1) * kw2 - i * 20;
+                rrect(g, x, y, kw2, 132, 18, '#fff');
+                g.textAlign = 'center';
+                g.fillStyle = C.navy; g.font = font(700, 44); g.fillText(String(k[1]), x + kw2 / 2, y + 60);
+                g.fillStyle = C.muted; g.font = font(400, 22); g.fillText(k[0], x + kw2 / 2, y + 94);
+                if (k[2]) { g.font = font(400, 19); g.fillText(k[2], x + kw2 / 2, y + 120); }
+            });
+            g.textAlign = 'right';
+            y += 160;
+        }
+
         // ٦) ما يُعزَّز وما يُتأمَّل، والنموّ
         const dp = extra.prompts || { good: [], ask: [] };
         const list = (title, items, color) => {
