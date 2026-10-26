@@ -65,6 +65,11 @@ check('agreementRec', D.agreementRec(st) === '• (اتّفاق المداولة
 /* ── التطورات الجديدة: المجال والمرحلة ومتابعة الاتفاق السابق وWhatsApp ── */
 check('domain: كشف المجال الرياضي', D.detectDomain('الوثب العالي') === 'athletics' && D.detectDomain('كرة السلة') === 'games' && D.detectDomain('الدحرجة الأمامية') === 'gymnastics' && D.detectDomain('اللياقة القلبية') === 'fitness');
 check('grade: كشف المرحلة التعليمية', D.detectGradeLevel('3/2') === 'cycle1' && D.detectGradeLevel('8/1') === 'cycle2' && D.detectGradeLevel('11/3') === 'postBasic');
+check('grade: الشعبة بعد «/» لا تُقرأ صفّاً، و«ثاني عشر» ليست الحلقة الأولى',
+      D.detectGradeLevel('ثامن/3') === 'cycle2' && D.detectGradeLevel('ثاني عشر/1') === 'postBasic'
+      && D.detectGradeLevel('الحادي عشر') === 'postBasic' && D.detectGradeLevel('الصف الثاني') === 'cycle1'
+      && D.detectGradeLevel('اول/4') === 'cycle1' && D.detectGradeLevel('١٢/٢') === 'postBasic',
+      [D.detectGradeLevel('ثامن/3'), D.detectGradeLevel('ثاني عشر/1'), D.detectGradeLevel('الصف الثاني')].join(','));
 const pDeb = D.buildPlan({ teacher: 'علي', topic: 'كرة اليد', prevDebrief: { agree: { goal: 'تنويع التشكيلات', date: 'الزيارة القادمة' } } });
 check('continuity: متابعة اتفاق المداولة السابقة', /مداولة الزيارة السابقة اتّفقنا على: «تنويع التشكيلات»/.test(JSON.stringify(pDeb.stages[0].questions)));
 const prog = D.calcProgression([1, 2, 2, 2], [{ data: { formData: { 'score-1': 4, 'score-2': 4, 'score-3': 4, 'score-4': 4 }, visitDate: '2026-09-15' } }]);

@@ -19,13 +19,17 @@
         ['سادس', 6], ['سابع', 7], ['ثامن', 8], ['تاسع', 9], ['عاشر', 10]
     ];
 
-    // «12/5» و«ثاني عشر/14» و«الأول» و«١٠/٣» ← رقم الصفّ؛ وما لا يُفهم ← 0
+    // «12/5» و«ثاني عشر/14» و«الأول» و«١٠/٣» و«الصف الثامن» ← رقم الصفّ؛ وما لا يُفهم ← 0.
+    // الصفّ أوّل النصّ وحده — رقمٌ أو كلمة — وما بعد «/» شعبة. كان يُقبل رقمٌ بعد ستّة أحرفٍ
+    // أيّاً كانت، فـ«ثامن/5» يُقرأ الخامس فتظهر موضوعاته («لعبة كرة القدم للصغار») — 2026-10-26.
     function parseGrade(text) {
-        const s = String(text || '').replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660)).trim();
+        const s = String(text || '').replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+            .replace(/[إأآ]/g, 'ا').replace(/\s+/g, ' ').trim()
+            .replace(/^(ال)?صف\s*[:\-–]?\s*/, '');
         if (!s) return 0;
-        const num = s.match(/^\D{0,6}?(\d{1,2})(?!\d)/);
-        if (num && +num[1] >= 1 && +num[1] <= 12) return +num[1];
-        const words = s.replace(/^ال/, '').replace(/[إأآ]/g, 'ا');
+        const num = s.match(/^(\d{1,2})(?!\d)/);
+        if (num) return +num[1] >= 1 && +num[1] <= 12 ? +num[1] : 0;
+        const words = s.replace(/^ال/, '');
         for (const [w, n] of ORD) {
             const ww = w.replace(/^ال/, '').replace(/[إأآ]/g, 'ا');
             if (words.startsWith(ww)) return n;

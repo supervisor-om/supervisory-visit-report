@@ -12,6 +12,9 @@
 
     const SENT_KEY   = 'svf_sent_visits';     // حُفظت في البوّابة بتأكيد — "المعلّم|التاريخ"
     const QUEUED_KEY = 'svf_queued_visits';   // رُفعت من هنا — مفاتيح تقارير الأرشيف
+    // حُفظت في البوّابة — مفاتيح تقارير الأرشيف (منذ 2026-10-26). «المعلّم|التاريخ» لا يميّز زيارتين
+    // للمعلّم في اليوم نفسه؛ السكربت (v17.4) يكتب مفتاح التقرير الذي حفظه، والتأكيد اليدويّ كذلك
+    const SENT_REPORTS_KEY = 'svf_sent_reports';
     const PORTAL_URL = 'https://moe.gov.om/SMS/SupervisionVisits/SupervisionVisitsModule.aspx?VisitMode=1';
 
     /* ─── التحديد ─── */
@@ -52,7 +55,12 @@
         }
         return false;
     };
-    window.svfMarkSent = list => addToSet(SENT_KEY, list.map(v => v.teacher + '|' + v.date));
+    window.svfIsSentReport = key => !!key && readSet(SENT_REPORTS_KEY).has(key);
+    window.svfMarkSent = list => {
+        addToSet(SENT_KEY, list.map(v => v.teacher + '|' + v.date));
+        const keys = list.map(v => v && v.key).filter(Boolean);
+        if (keys.length) addToSet(SENT_REPORTS_KEY, keys);
+    };
 
     /* ─── تحويل تقريرٍ محفوظٍ إلى صيغة البوّابة ─── */
     // نفس بنية exportData في exportToMoe، لكن مصدرها الأرشيف لا الشاشة.
@@ -131,7 +139,8 @@
             const gaps = validate(v);
             const label = (v.teacher || 'بلا اسم') + ' (' + (v.date || 'بلا تاريخ') + ')';
             if (gaps.length) broken.push({ key, label, gaps });
-            else ready.push({ key, visit: v });
+            // مفتاح التقرير يصحب الزيارة فيُسجّل السكربت أيّها حُفظت (البوّابة لا تقرؤه)
+            else ready.push({ key, visit: Object.assign(v, { key }) });
         });
 
         // الأقدم أوّلاً — ترتيبٌ منطقيٌّ للإدخال في البوّابة

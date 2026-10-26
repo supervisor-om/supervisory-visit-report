@@ -44,7 +44,8 @@ const check = (name, ok, detail) => {
     const sch = fs.readFileSync(path.join(ROOT, 'js/school.js'), 'utf8').replace(/\r\n/g, '\n');
 
     check('export.js: confirm-sent-btn داخل الفرع "غير محفوظة" لا الفرع "محفوظة"',
-          /if \(window\.svfIsSent[\s\S]{0,300}\} else \{[\s\S]{0,900}confirm-sent-btn/.test(exp));
+          // منذ 2026-10-26 «محفوظة» = مفتاح التقرير نفسه، أو «المعلّم|التاريخ» لزيارةٍ وحيدةٍ في يومها
+          /const byTD = !!\(window\.svfIsSent[\s\S]{0,120}if \(byReport\(key\) \|\| \(byTD && twin\.n === 1\)\) \{[\s\S]{0,300}\} else \{[\s\S]{0,1600}confirm-sent-btn/.test(exp));
     check('export.js: الزرّ يحمل المعلّم والتاريخ نفسيهما اللذين تُبنى منهما svfIsSent',
           /data-teacher="\$\{attrTeacher\}" data-date="\$\{attrDate\}"/.test(exp)
           && /const attrTeacher = .*tName/.test(exp) && /const attrDate = .*portalDate/.test(exp));
@@ -62,7 +63,7 @@ const check = (name, ok, detail) => {
 
     check('init.js: نقر confirm-sent-btn يستدعي svfMarkSent بالمعلّم والتاريخ من data-* ثمّ يُعيد الرسم',
           /confirmBtn = e\.target\.closest\('\.confirm-sent-btn'\)/.test(init)
-          && /window\.svfMarkSent\(\[\{ teacher: confirmBtn\.dataset\.teacher, date: confirmBtn\.dataset\.date \}\]\);\n\s*renderSavedReports\(\);/.test(init));
+          && /window\.svfMarkSent\(\[\{ teacher: confirmBtn\.dataset\.teacher, date: confirmBtn\.dataset\.date, key: confirmBtn\.dataset\.key \}\]\);\n\s*renderSavedReports\(\);/.test(init));
 
     check('init.js: نقر confirm-sent-school-btn يستدعي svfSchoolMarkSent بالمدرسة والتاريخ من data-* ثمّ يُعيد الرسم',
           /confirmBtn = e\.target\.closest\('\.confirm-sent-school-btn'\)/.test(init)

@@ -16,7 +16,8 @@
                         try { archive = JSON.parse(localStorage.getItem(teacherArchiveKey)) || JSON.parse(localStorage.getItem(oldArchiveKey)) || []; } catch(e){}
                         
                         if(Array.isArray(archive)) {
-                            archive = archive.filter(visit => visit.date !== data.visitDate); 
+                            // قراءة هذا التقرير وحده (id) — زيارةٌ ثانيةٌ في اليوم نفسه تبقى؛ والقديمة بلا id بالتاريخ
+                            archive = archive.filter(visit => visit && (visit.id ? visit.id !== key : visit.date !== data.visitDate));
                             if (archive.length > 0) {
                                 localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); 
                             } else {

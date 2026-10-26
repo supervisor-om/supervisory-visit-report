@@ -187,6 +187,25 @@
         }
 
         // =========================================================================
+        // مفتاح التقرير المحفوظ الذي يعرضه النموذج — ما دام النموذج زيارته نفسها (المعلّم والتاريخ
+        // والحصة والصف كما حُفظت). يصحب التصدير فيسجّل السكربت أيّ زيارتَي اليوم حُفظت في البوّابة.
+        function svfFormReportKey() {
+            try {
+                const ek = typeof currentEditingKey !== 'undefined' ? currentEditingKey : null;
+                const saved = ek ? JSON.parse(localStorage.getItem(ek) || 'null') : null;
+                if (!saved || typeof supVisitChanges !== 'function') return '';
+                const q = sel => ((document.querySelector(sel) || {}).value || '').trim();
+                return supVisitChanges(saved, { teacherName: q('#teacherName'), visitDate: q('#visitDate'),
+                                                lesson: q('#lesson'), cls: q('#class') }).length ? '' : ek;
+            } catch (e) { return ''; }
+        }
+        // سكربت تامبر مانكي يعترض زرّ التصدير قبل exportToMoe ويقرأ النموذج بنفسه (لا يرى متغيّرات
+        // الصفحة)، فيُكتب المفتاح سمةً على الزرّ لحظة الضغط — المستند يلتقط قبل الزرّ
+        if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
+            const b = e.target && e.target.closest && e.target.closest('#exportToMoeBtn');
+            if (b) b.dataset.svfKey = svfFormReportKey();
+        }, true);
+
         function exportToMoe() {
             const strengths = document.querySelector('#strengthsContent')?.value?.trim() || '';
             const needsDev  = document.querySelector('#developmentContent')?.value?.trim() || '';
@@ -238,6 +257,9 @@
                 // تُكتب في خانة «الملاحظات» بالبوّابة (السكربت: TEXTS ← sup.notesGeneral)
                 notesGeneral:    q('#generalNotesContent')
             };
+            // مفتاح التقرير المحفوظ — إن كان النموذج زيارته نفسها — فيُعرف أيّ زيارتَي اليوم حُفظت
+            const formKey = svfFormReportKey();
+            if (formKey) exportData.key = formKey;
 
             // ما ترفضه البوّابة يُكشف هنا لا بعد فتحها: الطابور يتحقّق منذ v14.3
             // والتصدير المفرد كان يمضي بلا تحقّق فيقف السكربت عند «عنوان الدرس»
@@ -508,6 +530,20 @@
             // اسم المعلّم والمدرسة يدخلان HTML: المزامنة تجلبهما من أجهزةٍ أخرى
             const esc = s => (typeof svfEscapeHtml === 'function' ? svfEscapeHtml(s) : String(s == null ? '' : s));
 
+            // زيارتان للمعلّم في اليوم نفسه: «حُفظت» يُعرف لكلّ تقرير (svf_sent_reports)، وسجلّ
+            // «المعلّم|التاريخ» القديم لا يميّز بينهما — فلا يُعمَّم على التوأمين
+            const toPd = vd => String(vd || '').includes('-') ? String(vd).split('-').reverse().join('/') : String(vd || '');
+            const tdOf = (t, vd) => window.svfSentKey ? window.svfSentKey(t, toPd(vd)) : String(t || '').trim() + '|' + toPd(vd);
+            const byReport = key => !!(window.svfIsSentReport && window.svfIsSentReport(key));
+            const twins = new Map();
+            reports.forEach(({ key, data }) => {
+                if (!data) return;
+                const k = tdOf(data.teacherName, data.visitDate);
+                const g = twins.get(k) || { n: 0, keyed: false };
+                g.n++; if (byReport(key)) g.keyed = true;
+                twins.set(k, g);
+            });
+
             reports.forEach(({ key, data }) => {
                 if (!data) return;
                 const schoolName = data.school || '-';
@@ -535,18 +571,32 @@
                         ? visitDate.split('-').reverse().join('/') : visitDate;
                     let stateBadge = '';
                     let confirmSentBtn = '';
-                    if (window.svfIsSent && window.svfIsSent(tName, portalDate)) {
+                    const twin = twins.get(tdOf(tName, visitDate)) || { n: 1, keyed: false };
+                    const byTD = !!(window.svfIsSent && window.svfIsSent(tName, portalDate));
+                    if (byReport(key) || (byTD && twin.n === 1)) {
                         stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`;
                     } else {
-                        if (window.svfIsQueued && window.svfIsQueued(key)) {
+                        if (byTD && !twin.keyed) {
+                            // سجلٌّ قديمٌ يقول إنّ زيارةً لهذا المعلّم بهذا التاريخ حُفظت — ولا يقول أيّها
+                            stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full" title="للمعلم أكثر من زيارة في هذا اليوم، وحُفظت إحداها في البوابة ولا يُعرف أيّها — أكّد هذه إن كانت محفوظة">حُفظت إحدى زيارات اليوم</span>`;
+                        } else if (window.svfIsQueued && window.svfIsQueued(key)) {
                             stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
                         }
                         // تأكيدٌ يدويّ — الكشف التلقائيّ (سكربت تامبر مانكي) قد لا يصل أحياناً
                         // (جهازٌ آخر، أو سكربتٌ غير مثبَّت)؛ يكتب المفتاح نفسه الذي يكتبه الكشف التلقائيّ
                         const attrTeacher = esc(tName);
                         const attrDate = esc(portalDate);
-                        confirmSentBtn = `<button type="button" class="confirm-sent-btn text-[11px] font-bold text-slate-400 hover:text-emerald-700 hover:underline" data-teacher="${attrTeacher}" data-date="${attrDate}" title="اضغط إن كنت متأكّداً أنّ هذه الزيارة حُفظت فعلاً في البوابة">✓ تأكيد الحفظ يدويّاً</button>`;
+                        confirmSentBtn = `<button type="button" class="confirm-sent-btn text-[11px] font-bold text-slate-400 hover:text-emerald-700 hover:underline" data-teacher="${attrTeacher}" data-date="${attrDate}" data-key="${esc(key)}" title="اضغط إن كنت متأكّداً أنّ هذه الزيارة حُفظت فعلاً في البوابة">✓ تأكيد الحفظ يدويّاً</button>`;
                     }
+
+                    // الصف والحصة ورقم الزيارة: زيارتان للمعلّم في اليوم نفسه تُميَّزان في الأرشيف
+                    const fdv = (data.formData && typeof data.formData === 'object') ? data.formData : {};
+                    const fv = k => String(fdv[k] == null ? '' : fdv[k]).trim();
+                    const visitBits = [fv('class') && `الصف <bdi>${esc(fv('class'))}</bdi>`,
+                                       fv('lesson') && `الحصة <bdi>${esc(fv('lesson'))}</bdi>`,
+                                       fv('visitNumber') && `الزيارة رقم <bdi>${esc(fv('visitNumber'))}</bdi>`].filter(Boolean);
+                    const visitLine = visitBits.length
+                        ? `<span class="text-xs text-slate-600"><i class="fa-solid fa-chalkboard-user ml-1 text-slate-400"></i> ${visitBits.join(' · ')}</span>` : '';
 
                     const card = document.createElement('div');
                     card.className = 'bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between';
@@ -561,6 +611,7 @@
                             <div class="text-sm text-slate-500 mt-1 flex flex-col gap-1">
                                 <span><i class="fa-solid fa-school ml-1 text-slate-400"></i> ${esc(schoolName)}</span>
                                 <span><i class="fa-regular fa-calendar ml-1 text-slate-400"></i> ${visitDate || '-'}</span>
+                                ${visitLine}
                                 ${scoreLabel}
                             </div>
                         </div>

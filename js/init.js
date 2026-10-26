@@ -101,7 +101,13 @@
                         'سيُفرَّغ النموذج ويُحفظ ما تكتبه تقريراً جديداً، ويبقى التقرير المحفوظ كما هو.',
                         performReset);
                 });
-                
+
+                // حصةٌ أخرى للمعلّم نفسه: لا تُكتب فوق الأولى (بلاغ المشرف 2026-10-26)
+                const anotherVisitBtn = document.getElementById('anotherVisitBtn');
+                if (anotherVisitBtn) anotherVisitBtn.addEventListener('click', () => {
+                    if (typeof supStartAnotherVisit === 'function') supStartAnotherVisit();
+                });
+
                 const updateDashBtn = document.getElementById('updateDashboardViewBtn');
                 if(updateDashBtn) updateDashBtn.addEventListener('click', updateDashboardView);
                 
@@ -130,7 +136,7 @@
                         // التلقائيّ (سكربت تامبر مانكي على جهازٍ آخر، أو غير مثبَّت)
                         const confirmBtn = e.target.closest('.confirm-sent-btn');
                         if (confirmBtn && window.svfMarkSent) {
-                            window.svfMarkSent([{ teacher: confirmBtn.dataset.teacher, date: confirmBtn.dataset.date }]);
+                            window.svfMarkSent([{ teacher: confirmBtn.dataset.teacher, date: confirmBtn.dataset.date, key: confirmBtn.dataset.key }]);
                             renderSavedReports();
                         }
                     });

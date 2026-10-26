@@ -52,7 +52,7 @@
     const SDK = 'https://www.gstatic.com/firebasejs/11.6.1/';
 
     const state = { year: 0, month0: 0, rows: [], totals: null, overrides: {}, reasons: null,
-                    schoolReports: [], supReports: [], sentSchool: new Set(), sentSup: new Set(),
+                    schoolReports: [], supReports: [], sentSchool: new Set(), sentSup: new Set(), sentReports: new Set(),
                     plan: {}, events: {}, planStatus: '', template: null, templateName: '' };
 
     const readJSON = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
@@ -107,6 +107,8 @@
         const plain = v => String(v || '').replace(/\s+/g, ' ').trim();
         state.sentSchool = tolerant(readJSON('svf_sent_school_visits', []), ID && ID.normalize ? ID.normalize : plain);
         state.sentSup = tolerant(readJSON('svf_sent_visits', []), ID && ID.normName ? ID.normName : plain);
+        // مفاتيح التقارير المحفوظة في البوّابة — تميّز زيارتين للمعلّم في اليوم نفسه
+        state.sentReports = new Set([].concat(readJSON('svf_sent_reports', []) || []).filter(k => typeof k === 'string'));
     }
 
     // ───────────────────────────── الخطة المعتمدة (قراءة)
@@ -172,7 +174,7 @@
         state.rows = C.buildRows({
             year: state.year, month0: state.month0, plan: state.plan, events: state.events,
             schoolReports: state.schoolReports, supReports: state.supReports,
-            sentSchool: state.sentSchool, sentSup: state.sentSup, overrides: state.overrides
+            sentSchool: state.sentSchool, sentSup: state.sentSup, sentReports: state.sentReports, overrides: state.overrides
         });
         state.totals = C.totals(state.rows, state.reasons == null ? undefined : state.reasons);
         render();

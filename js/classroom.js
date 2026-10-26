@@ -93,23 +93,35 @@
     };
 
     // ── (٢) الموقف الصفّيّ ← تقرير زيارةٍ إشرافيّة ──
-    function supervisoryFor(teacher, date) {
+    // والموقف نفسه بحصّته وصفّه: معلّمٌ له موقفان في اليوم (حصّتان) كان الثاني يُعدّ «له تقرير
+    // إشرافي» بتقرير الأوّل فلا يظهر زرّه (2026-10-26). ما لم يُكتب في أحدهما لا يُفرّق.
+    const digits = s => clean(s).replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660));
+    const periodOf = s => (digits(s).match(/\d+/) || [digits(s)])[0];
+    const gradeOf = s => digits(s).replace(/\s+/g, '');
+    function supervisoryFor(teacher, date, cv) {
         const want = normName(teacher), d = clean(date);
         if (!want || !d) return null;
+        const wp = cv ? periodOf(cv.period) : '', wg = cv ? gradeOf(cv.grade) : '';
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
             if (!k || k.indexOf('supervision_v6_visit_') !== 0) continue;
             try {
                 const r = JSON.parse(localStorage.getItem(k));
-                if (r && clean(r.visitDate) === d && normName(r.teacherName) === want) return r;
+                if (!r || clean(r.visitDate) !== d || normName(r.teacherName) !== want) continue;
+                const fd = r.formData || {};
+                const hp = periodOf(fd.lesson), hg = gradeOf(fd['class']);
+                if (wp && hp && wp !== hp) continue;
+                if (wg && hg && wg !== hg) continue;
+                return r;
             } catch (e) {}
         }
         return null;
     }
+    window.svfSupervisoryFor = supervisoryFor;
 
     window.svfCvActions = function (visit, index) {
         const date = clean(el('schoolVisitDate') && el('schoolVisitDate').value);
-        if (supervisoryFor(visit && visit.teacher, date))
+        if (supervisoryFor(visit && visit.teacher, date, visit))
             return '<span class="text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full whitespace-nowrap">له تقرير إشرافي</span>';
         return '<button type="button" class="cv-sup-btn text-[11px] font-bold bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-100 px-2 py-0.5 rounded-full whitespace-nowrap"'
              + ' data-cv="' + index + '" title="يفتح نموذج الزيارة الإشرافية معبّأً بهذا الموقف">أنشئ تقرير إشرافي</button>';

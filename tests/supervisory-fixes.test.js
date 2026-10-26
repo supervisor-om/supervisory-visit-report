@@ -103,8 +103,10 @@ const UTILS = read('js/utils.js');
           /const reportId = editing \? currentEditingKey : `supervision_v6_visit_\$\{Date\.now\(\)\}`/.test(SUP));
     check('edit: لا حذف للتقرير قبل الكتابة عليه',
           !/localStorage\.removeItem\(currentEditingKey\)/.test(SUP), 'ما زال يُحذف أولاً');
+    // منذ 2026-10-26 قراءة الرسم لكلّ تقرير (id): تغيّر التاريخ يُحدّث قراءته في مكانها، وتغيّر الاسم يُزيلها من أرشيف الاسم القديم
     check('edit: تغيير الاسم أو التاريخ ينظّف أرشيف الرسوم القديم',
-          /oldName !== teacherName \|\| oldDate !== visitDate/.test(SUP));
+          /const mine = v => v && \(v\.id \? v\.id === reportId : \(editing && !!oldDate && v\.date === oldDate\)\)/.test(SUP)
+          && /if \(oldName && oldName !== teacherName\)[\s\S]{0,300}old\.filter\(v => v && !mine\(v\)\)/.test(SUP));
     check('edit: لافتة التعديل وزرّ «تقرير جديد» في الصفحة',
           HTML.includes('id="editingBanner"') && HTML.includes('id="newReportBtn"'));
     check('edit: زرّ «تقرير جديد» موصولٌ في init.js', /newReportBtn/.test(INIT));

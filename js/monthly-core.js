@@ -82,6 +82,7 @@
         const { year, month0 } = input;
         const plan = input.plan || {}, events = input.events || {};
         const sentSchool = input.sentSchool || new Set(), sentSup = input.sentSup || new Set();
+        const sentReports = input.sentReports || new Set();
         const overrides = input.overrides || {};
 
         return workingDays(year, month0).map(({ day, weekday }) => {
@@ -115,7 +116,23 @@
                 if (sentSup.has(t + '|' + pd)) g.sent = true;
                 byTeacher.set(t, g);
             }
-            const sup = [...byTeacher.values()].map(g => ({ ...g, first: firstName(g.teacher), attached: !g.sent }));
+            // «حُفظت» لكلّ تقرير (svf_sent_reports) حين يُعرف: زيارتان للمعلّم في اليوم وحُفظت
+            // إحداهما ← «(1) أ. علي + (1) أ. علي (مرفق)» ويُرفق ملفّ الأخرى وحدها. وبلا ذلك
+            // يبقى سجلّ «المعلّم|التاريخ» للمجموعة كلّها كما كان، مع تنبيهٍ إن كانت أكثر من زيارة
+            const sup = [];
+            for (const g of byTeacher.values()) {
+                const base = { ...g, first: firstName(g.teacher) };
+                const keyed = g.keys.filter(k => sentReports.has(k));
+                if (keyed.length) {
+                    const rest = g.keys.filter(k => !sentReports.has(k));
+                    sup.push({ ...base, count: keyed.length, keys: keyed, sent: true, attached: false });
+                    if (rest.length) sup.push({ ...base, count: rest.length, keys: rest, sent: false, attached: true });
+                } else {
+                    if (g.sent && g.count > 1)
+                        warnings.push(`لـأ. ${base.first} (${g.count}) زيارات بهذا التاريخ وحُفظت في البوابة إحداها على الأقل — لا يُعرف أيّها، فراجع «مرفق»`);
+                    sup.push({ ...base, attached: !g.sent });
+                }
+            }
             // مدرسةٌ واحدةٌ بين معلّمي اليوم ← لا لبس، فالاسم الأوّل يكفي («+» بينهم).
             // أكثر من مدرسةٍ ← يُضاف اسم مدرسة كلٍّ مختصراً، وسطرٌ مستقلٌّ لكلّ معلّم
             const supSchools = new Set(sup.map(p => p.school).filter(Boolean));

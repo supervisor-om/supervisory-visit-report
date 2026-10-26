@@ -29,6 +29,17 @@ check('data: خطّ التطويل بين موضوعين يصير « / »',
 const g = [['12/5', 12], ['ثاني عشر/14', 12], ['حادي عشر/5', 11], ['الحادي عشر', 11], ['اول', 1],
            ['الأول', 1], ['العاشر', 10], ['١٠/٣', 10], ['الصف 9', 9], ['5', 5], ['', 0], ['أ', 0]];
 g.forEach(([t, n]) => check('grade: «' + t + '» ← ' + n, parseGrade(t) === n, 'got ' + parseGrade(t)));
+// ما بعد «/» أو المسافة شعبة لا صفّ (بلاغ المشرف 2026-10-26: الثامن أظهر «لعبة كرة القدم للصغار»)
+const sec = [['ثامن/5', 8], ['ثامن/6', 8], ['ثامن 3', 8], ['الثامن/5', 8], ['اول/2', 1], ['عاشر/4', 10],
+             ['ثاني عشر/1', 12], ['الصف الثامن', 8], ['صف الثامن/2', 8], ['الصف: 8', 8], ['ص/5', 0], ['13', 0]];
+sec.forEach(([t, n]) => check('grade: «' + t + '» ← ' + n + ' (الشعبة لا تُقرأ صفّاً)', parseGrade(t) === n, 'got ' + parseGrade(t)));
+const eighth = suggestTitle(PLAN, 'ثامن/5', '2026-10-26', 'm');
+check('real: الثامن/5 في 26/10 ← موضوعات الثامن وحدها، بلا «للصغار»',
+      eighth.grade === 8 && eighth.options.length === 4 && eighth.options.includes('لعبة كرة القدم')
+      && !eighth.options.some(o => /للصغار/.test(o)), JSON.stringify(eighth));
+check('wiring: خانتا الدرس بلا اقتراحات المتصفّح القديمة (الخطة وحدها)',
+      /id="topic"[^>]*autocomplete="off"/.test(fs.readFileSync(path.join(ROOT, 'reports.html'), 'utf8'))
+      && /id="cvSubject"[^>]*autocomplete="off"/.test(fs.readFileSync(path.join(ROOT, 'reports.html'), 'utf8')));
 
 /* ── زيارات المشرف الحقيقيّة ── */
 check('real: الثاني عشر في 7/10 ← دفع الجلة بطريقة الزحف',

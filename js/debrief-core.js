@@ -123,16 +123,21 @@
         return 'general';
     }
 
+    // الصفّ أوّل النصّ وحده (رقمٌ أو كلمة) وما بعد «/» شعبة: كان أوّل رقمٍ في أيّ موضع يُقرأ صفّاً،
+    // فـ«ثامن/3» حلقةٌ أولى، و«ثاني عشر» تطابق «ثان» قبل «عشر» — 2026-10-26
     function detectGradeLevel(cls) {
-        const s = clean(cls);
-        const m = s.match(/\d+/);
-        const n = m ? parseInt(m[0], 10) : 0;
+        const s = clean(cls).replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+            .replace(/[إأآ]/g, 'ا').replace(/^(ال)?صف\s*[:\-–]?\s*/, '');
+        const m = s.match(/^(\d{1,2})(?!\d)/);
+        const n = m ? parseInt(m[1], 10) : 0;
         if (n >= 1 && n <= 4) return 'cycle1';
         if (n >= 5 && n <= 10) return 'cycle2';
         if (n >= 11 && n <= 12) return 'postBasic';
-        if (/أول|ثان|ثالث|رابع/.test(s)) return 'cycle1';
-        if (/خامس|سادس|سابع|ثامن|تاسع|عاشر/.test(s)) return 'cycle2';
-        if (/حادي|ثاني عشر/.test(s)) return 'postBasic';
+        if (m) return 'general';
+        const head = s.replace(/^ال/, '');
+        if (/^(حادي|ثاني) ?عشر/.test(head)) return 'postBasic';
+        if (/^(اول|ثاني|ثالث|رابع)/.test(head)) return 'cycle1';
+        if (/^(خامس|سادس|سابع|ثامن|تاسع|عاشر)/.test(head)) return 'cycle2';
         return 'general';
     }
 

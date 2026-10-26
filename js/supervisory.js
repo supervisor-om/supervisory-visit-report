@@ -548,6 +548,82 @@
             if (saveBtn) saveBtn.textContent = key ? 'حفظ التعديلات' : 'حفظ بالأرشيف';
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        //  زيارتان للمعلّم نفسه في اليوم نفسه (بلاغ المشرف 2026-10-26: «يسجّلها في
+        //  الزيارة الأولى»). بعد «حفظ بالأرشيف» يبقى النموذج مربوطاً بالتقرير المحفوظ
+        //  — وهذا مقصود: حفظٌ ثانٍ يصحّح الزيارة نفسها ولا يكرّرها. لكنّ من غيّر الحصة
+        //  أو الصفّ ليكتب حصةً أخرى كان يكتب فوق الأولى بلا علم. فإن تغيّر ما يميّز
+        //  الزيارة يُسأل: زيارةٌ جديدة أم تحديث؟ و«زيارة أخرى للمعلم نفسه» تبدأ الثانية
+        //  وتُبقي المعلّم والمدرسة والتاريخ.
+        // ─────────────────────────────────────────────────────────────────
+        // ما تغيّر ممّا يميّز الزيارة بين التقرير المحفوظ والنموذج. الحصة والصفّ يُعدّان
+        // تغيّراً إن كانا مكتوبين في الاثنين — إكمالُ خانةٍ كانت فارغةً تعديلٌ لا زيارةٌ أخرى.
+        function supVisitChanges(prev, cur) {
+            const fd = (prev && prev.formData) || {};
+            const t = s => String(s == null ? '' : s).replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+                .replace(/\s+/g, ' ').trim();
+            const nm = s => (typeof window !== 'undefined' && window.SupervisorIdentity && SupervisorIdentity.normName)
+                ? SupervisorIdentity.normName(s) : t(s);
+            const num = s => (t(s).match(/\d+/) || [t(s)])[0];
+            const out = [];
+            if (nm(prev && prev.teacherName || fd.teacherName) !== nm(cur.teacherName)) out.push('اسم المعلم');
+            if (t(prev && prev.visitDate || fd.visitDate) !== t(cur.visitDate)) out.push('التاريخ');
+            if (t(fd.lesson) && t(cur.lesson) && num(fd.lesson) !== num(cur.lesson)) out.push('الحصة');
+            if (t(fd['class']) && t(cur.cls) && t(fd['class']).replace(/\s/g, '') !== t(cur.cls).replace(/\s/g, '')) out.push('الصف');
+            return out;
+        }
+
+        function supAskNewOrUpdate(prev, changed) {
+            const modal = document.getElementById('svfVisitChoiceModal');
+            const fd = (prev && prev.formData) || {};
+            const iso = s => '⁨' + s + '⁩';   // التاريخ والأرقام لا ينقلبان داخل الجملة العربيّة
+            const parts = [];
+            if (fd.lesson) parts.push('الحصة ' + iso(fd.lesson));
+            if (fd['class']) parts.push('الصف ' + iso(fd['class']));
+            const msg = 'التقرير المفتوح محفوظٌ لزيارة «' + (prev.teacherName || '') + '» بتاريخ ' + iso(prev.visitDate || '')
+                + (parts.length ? ' — ' + parts.join('، ') : '') + '.\n'
+                + 'وتغيّر في النموذج: ' + changed.join('، ') + '.\n\n'
+                + 'إن كانت هذه حصةً أخرى فاحفظها زيارةً جديدة، وإن كنت تصحّح الزيارة نفسها فحدّثها.';
+            if (!modal) {   // احتياط: بلا النافذة لا يُكتب فوق زيارةٍ بلا سؤال
+                if (confirm(msg + '\n\nموافق: زيارة جديدة — إلغاء: لا شيء')) savePermanentReport({ svfMode: 'new' });
+                return;
+            }
+            document.getElementById('svfVisitChoiceMsg').textContent = msg;
+            const bind = (id, fn) => {
+                const old = document.getElementById(id);
+                const b = old.cloneNode(true);
+                old.parentNode.replaceChild(b, old);
+                b.addEventListener('click', () => { modal.classList.add('hidden'); if (fn) fn(); });
+                return b;
+            };
+            const first = bind('svfVisitChoiceNew', () => savePermanentReport({ svfMode: 'new' }));
+            bind('svfVisitChoiceUpdate', () => savePermanentReport({ svfMode: 'update' }));
+            bind('svfVisitChoiceCancel', null);
+            modal.classList.remove('hidden');
+            try { first.focus(); } catch (e) {}
+        }
+
+        // زيارةٌ ثانيةٌ للمعلّم نفسه: يُفرَّغ النموذج ويبقى المعلّم والمدرسة والتاريخ ومن زار
+        function supStartAnotherVisit() {
+            const v = id => ((document.getElementById(id) || {}).value || '').trim();
+            const keep = { teacherName: v('teacherName'), school: v('school'), fileNumber: v('fileNumber'), subject: v('subject'),
+                           visitDate: v('visitDate'), visitorName: v('visitorName'), visitorPosition: v('visitorPosition') };
+            if (!keep.teacherName) { showToast('اكتب اسم المعلم أولاً', 'error'); return; }
+            const g = document.querySelector('input[name="supervisoryTeacherGender"]:checked');
+            const gender = g ? g.value : '';
+            performReset();
+            Object.keys(keep).forEach(id => { const e = document.getElementById(id); if (e && keep[id]) e.value = keep[id]; });
+            const r = gender && document.querySelector('input[name="supervisoryTeacherGender"][value="' + gender + '"]');
+            if (r && !r.checked) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+            // رقم الزيارة يُقترح من جديد (الأولى صارت سابقة)، وملخّص المعلّم يتبع
+            const name = document.getElementById('teacherName');
+            if (name) name.dispatchEvent(new Event('change', { bubbles: true }));
+            try { suggestVisitNumber(); } catch (e) {}
+            try { if (typeof svfTeacherBriefRender === 'function') svfTeacherBriefRender(); } catch (e) {}
+            try { document.getElementById('class').focus(); } catch (e) {}
+            showToast('زيارة جديدة لـ' + keep.teacherName + ': اكتب الصف والحصة وقيّم البنود — السابقة محفوظة كما هي');
+        }
+
         function performReset() {
             document.querySelector('#evaluationForm').reset();
             // التفريغ محصورٌ في النموذج الإشرافيّ: الصفحة تحمل النظام المدرسيّ أيضاً،
@@ -574,24 +650,46 @@
             showToast('تم إعادة تعيين النموذج');
         }
 
-        function savePermanentReport() {
-            const teacherName = document.querySelector('#teacherName').value.trim(); 
-            const visitDate = document.querySelector('#visitDate').value; 
-            
-            if (!teacherName || !visitDate) { 
-                showToast('يرجى إدخال اسم المعلم والتاريخ', 'error'); 
-                return; 
+        // opts.svfMode: 'new' زيارةٌ جديدة وإن كان النموذج مربوطاً بتقرير، 'update' تحديثه بلا سؤال.
+        // يُستدعى من زرّ الحفظ بحدث النقر — فلا يُقرأ منه إلّا svfMode.
+        function savePermanentReport(opts) {
+            const mode = opts && typeof opts === 'object' && typeof opts.svfMode === 'string' ? opts.svfMode : '';
+            const teacherName = document.querySelector('#teacherName').value.trim();
+            const visitDate = document.querySelector('#visitDate').value;
+
+            if (!teacherName || !visitDate) {
+                showToast('يرجى إدخال اسم المعلم والتاريخ', 'error');
+                return;
             }
-            
+
             // تقريرٌ مفتوحٌ للتعديل ← يُكتب فوق مفتاحه. ولا يُحذف قبل الكتابة:
             // الكتابة على المفتاح نفسه تُغني عنه، وحذفٌ ثمّ كتابةٌ تفشل (تخزينٌ
             // ممتلئ) يضيّع الأصل.
-            const editing = !!currentEditingKey;
-            const reportId = editing ? currentEditingKey : `supervision_v6_visit_${Date.now()}`;
+            let editing = !!currentEditingKey;
             let previous = null;
             if (editing) {
-                try { previous = JSON.parse(localStorage.getItem(reportId)); } catch (e) {}
+                try { previous = JSON.parse(localStorage.getItem(currentEditingKey)); } catch (e) {}
             }
+            // تغيّر ما يميّز الزيارة (الحصة، الصف، المعلّم، التاريخ) ← يُسأل قبل الكتابة فوقها
+            if (editing && previous && !mode) {
+                const changed = supVisitChanges(previous, {
+                    teacherName, visitDate,
+                    lesson: (document.querySelector('#lesson') || {}).value,
+                    cls: (document.querySelector('#class') || {}).value
+                });
+                if (changed.length) { supAskNewOrUpdate(previous, changed); return; }
+            }
+            if (mode === 'new' && editing) {
+                const prevNo = String(((previous && previous.formData) || {}).visitNumber || '').trim();
+                editing = false; previous = null;
+                setEditingKey(null);
+                // رقم الزيارة المنسوخ من الأولى يُقترح من جديد
+                const vn = document.querySelector('#visitNumber');
+                if (vn && prevNo && vn.value.trim() === prevNo) {
+                    vn.value = ''; try { suggestVisitNumber(); } catch (e) {}
+                }
+            }
+            const reportId = editing ? currentEditingKey : `supervision_v6_visit_${Date.now()}`;
             // عين المشرف: تُكتب الدرجات المعتمدة للبنود التي اقترحتها، فيُقاس اتّفاقها مع المشرف
             if (typeof svfEyeBeforeSave === 'function') { try { svfEyeBeforeSave(); } catch (e) { console.warn(e); } }
             const reportData = { 
@@ -624,46 +722,43 @@
                 return;
             }
             
-            const visitDataForDashboard = { date: visitDate, scores: {} }; 
-            
+            // قراءةٌ لكلّ تقرير (id) لا لكلّ تاريخ: زيارتان للمعلّم في اليوم نفسه نقطتان في الرسم.
+            // القراءات القديمة بلا id كانت واحدةً لكلّ تاريخ، فتُستبدل عند تعديل تقريرها وحده.
+            const visitDataForDashboard = { id: reportId, date: visitDate, scores: {} };
+
             evaluationItems.forEach(item => {
                 visitDataForDashboard.scores[`item-${item.id}`] = parseInt(document.querySelector(`#score-${item.id}`).textContent) || 3;
             });
-            
-            const teacherArchiveKey = `supervision_v6_teacher_archive_${teacherName}`; 
+
+            const oldName = editing && previous ? String(previous.teacherName || '').trim() : '';
+            const oldDate = editing && previous ? String(previous.visitDate || '').trim() : '';
+            const mine = v => v && (v.id ? v.id === reportId : (editing && !!oldDate && v.date === oldDate));
+            const teacherArchiveKey = `supervision_v6_teacher_archive_${teacherName}`;
             let archive = [];
             try {
                 archive = JSON.parse(localStorage.getItem(teacherArchiveKey)) || [];
                 if(!Array.isArray(archive)) archive = [];
             } catch(e) { archive = []; }
-            
-            const existingVisitIndex = archive.findIndex(v => v.date === visitDate); 
-            if (existingVisitIndex > -1) {
-                archive[existingVisitIndex] = visitDataForDashboard; 
-            } else {
-                archive.push(visitDataForDashboard); 
-            }
-            
+
+            archive = archive.filter(v => v && !mine(v));
+            archive.push(visitDataForDashboard);
+
             archive.sort((a, b) => new Date(a.date) - new Date(b.date));
             // الأرشيف الرقميّ للرسوم البيانيّة: فشلُه لا يُبطل حفظ التقرير نفسه
             try { localStorage.setItem(teacherArchiveKey, JSON.stringify(archive)); } catch (e) {}
 
-            // تعديلٌ غيّر اسم المعلّم أو التاريخ: تُزال قراءة الزيارة القديمة من
-            // أرشيف الرسوم، وإلّا بقيت زيارةٌ لا تقرير لها
-            if (editing && previous) {
-                const oldName = String(previous.teacherName || '').trim();
-                const oldDate = String(previous.visitDate || '').trim();
-                if (oldName && oldDate && (oldName !== teacherName || oldDate !== visitDate)) {
-                    const oldKey = `supervision_v6_teacher_archive_${oldName}`;
-                    try {
-                        let old = JSON.parse(localStorage.getItem(oldKey));
-                        if (Array.isArray(old)) {
-                            old = old.filter(v => v && v.date !== oldDate);
-                            if (old.length) localStorage.setItem(oldKey, JSON.stringify(old));
-                            else localStorage.removeItem(oldKey);
-                        }
-                    } catch (e) {}
-                }
+            // تعديلٌ غيّر اسم المعلّم: تُزال قراءة الزيارة من أرشيف رسوم الاسم القديم،
+            // وإلّا بقيت زيارةٌ لا تقرير لها (تغيّر التاريخ وحده عولج أعلاه بالـid)
+            if (oldName && oldName !== teacherName) {
+                const oldKey = `supervision_v6_teacher_archive_${oldName}`;
+                try {
+                    let old = JSON.parse(localStorage.getItem(oldKey));
+                    if (Array.isArray(old)) {
+                        old = old.filter(v => v && !mine(v));
+                        if (old.length) localStorage.setItem(oldKey, JSON.stringify(old));
+                        else localStorage.removeItem(oldKey);
+                    }
+                } catch (e) {}
             }
 
             setEditingKey(reportId, reportData);   // يبقى مفتوحاً: حفظٌ ثانٍ يُحدّثه

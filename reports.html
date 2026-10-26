@@ -338,9 +338,15 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                         تعديل تقريرٍ محفوظ: <span id="editingBannerLabel" class="font-bold"></span>
                         <span class="text-amber-600 font-normal">— الحفظ يُحدّثه في مكانه</span>
                     </div>
-                    <button type="button" id="newReportBtn" class="text-xs bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg font-bold transition-colors">
-                        بدء تقرير جديد بدلاً منه
-                    </button>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- حصةٌ أخرى للمعلّم نفسه في اليوم نفسه: يبقى المعلّم والمدرسة والتاريخ، والسابقة كما هي -->
+                        <button type="button" id="anotherVisitBtn" class="text-xs bg-white hover:bg-amber-100 text-amber-800 border border-amber-400 px-3 py-1.5 rounded-lg font-bold transition-colors">
+                            زيارة أخرى للمعلم نفسه
+                        </button>
+                        <button type="button" id="newReportBtn" class="text-xs bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg font-bold transition-colors">
+                            بدء تقرير جديد بدلاً منه
+                        </button>
+                    </div>
                 </div>
 
                 <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -400,7 +406,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-slate-500 mb-1">الموضوع</label>
-                                    <input id="topic" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                                    <input id="topic" type="text" autocomplete="off" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
                                 </div>
                             </div>
                         </section>
@@ -795,7 +801,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                         <input type="text" id="cvTeacher" placeholder="اسم المعلم" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
                         <input type="text" id="cvGrade" placeholder="الصف" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
                         <input type="text" id="cvPeriod" placeholder="الحصة" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
-                        <input type="text" id="cvSubject" placeholder="المهارة/الدرس" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+                        <input type="text" id="cvSubject" placeholder="المهارة/الدرس" autocomplete="off" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
                         <select id="cvRating" class="bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
                             <option value="ممتاز">ممتاز</option><option value="جيد جداً">جيد جداً</option><option value="جيد">جيد</option><option value="متوسط">متوسط</option><option value="ضعيف">ضعيف</option>
                         </select>
@@ -892,6 +898,19 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                     <button id="supervisory-modal-confirm-btn" class="svf-btn flex-1 bg-red-600 hover:bg-red-700 text-white">تأكيد</button>
                     <button id="supervisory-modal-cancel-btn" class="svf-btn svf-btn-secondary flex-1">إلغاء</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- حفظٌ والنموذج مربوطٌ بزيارةٍ محفوظة، وقد تغيّرت الحصة أو الصف أو المعلّم أو التاريخ -->
+    <div id="svfVisitChoiceModal" class="modal-overlay fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[100] flex justify-center items-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" role="dialog" aria-modal="true" aria-labelledby="svfVisitChoiceTitle">
+            <h3 id="svfVisitChoiceTitle" class="text-lg font-bold text-slate-900 text-center">زيارة جديدة أم تحديث؟</h3>
+            <p id="svfVisitChoiceMsg" class="mt-3 text-sm text-slate-700 leading-7 whitespace-pre-line"></p>
+            <div class="mt-5 flex flex-col gap-2">
+                <button type="button" id="svfVisitChoiceNew" class="svf-btn svf-btn-primary">حفظها زيارةً جديدة — تبقى السابقة كما هي</button>
+                <button type="button" id="svfVisitChoiceUpdate" class="svf-btn svf-btn-secondary">تحديث الزيارة المحفوظة</button>
+                <button type="button" id="svfVisitChoiceCancel" class="svf-btn svf-btn-ghost">إلغاء</button>
             </div>
         </div>
     </div>
