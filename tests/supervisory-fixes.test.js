@@ -126,18 +126,16 @@ const UTILS = read('js/utils.js');
           /Number\.isFinite\(v\) \? v : 0/.test(SUP));
 })();
 
-/* ── ٥) الإحصائيات والرسوم ── */
+/* ── ٥) الإحصائيات والرسوم — صارت «لوحة المتابعة» و«ملف المعلم» (js/dash-core.js، اختبارها tests/dash.test.js) ── */
 (function testCharts() {
-    check('stats: توزيع التقييمات يقرأ الدرجات بالدالّة المشتركة',
-          /svfReportScores\(r\)\.forEach/.test(CHARTS));
-    check('stats: متوسط الأداء يقرؤها كذلك',
-          /\.map\(r => \(\{ r, sc: svfReportScores\(r\) \}\)\)/.test(CHARTS));
-    check('stats: لم يبقَ اعتمادٌ على مصفوفة الجذر وحدها',
-          !/Array\.isArray\(r\.scores\)/.test(CHARTS), 'ما زال يقرأ الجذر وحده');
-    check('dashboard: محورا الرادار والأعمدة مقلوبان (1 = أفضل)',
-          (STORAGE.match(/reverse: true/g) || []).length >= 2, 'غير مقلوبين');
-    check('dashboard: البند بلا درجةٍ لا يُحسب صفراً',
-          /function svfScoreOf/.test(STORAGE) && /\.filter\(n => n !== null\)/.test(STORAGE));
+    const DASH = require('../js/dash-core.js');
+    check('stats: الدرجات تُقرأ من formData الحديث ومن الجذر الأقدم',
+          DASH.scoreMap({ formData: { 'score-1': '2' } })[1] === 2 && DASH.scoreMap({ scores: [3] })[1] === 3);
+    check('stats: البند بلا درجةٍ لا يُحسب صفراً',
+          DASH.visitsFrom([{ key: 'a', data: { teacherName: 'س', visitDate: '2026-10-01', formData: { 'score-1': '1', 'score-2': '' } } }])[0].mean === 1);
+    check('stats: لا قراءة لمصفوفة الجذر وحدها في الرسوم', !/Array\.isArray\(r\.scores\)\) return/.test(CHARTS));
+    check('dashboard: المحاور مقلوبة للاتّجاه من اليمين (متميز أوّلاً)',
+          (read('js/dash.js').match(/reverse: true/g) || []).length >= 4, 'غير مقلوبة');
 })();
 
 /* ── ٦) التصدير المفرد يتحقّق كالطابور ── */

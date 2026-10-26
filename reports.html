@@ -301,13 +301,13 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                             <i class="fa-solid fa-comments ml-2"></i>المداولة
                         </button>
                         <button class="nav-tab flex-none whitespace-nowrap py-2 px-4 lg:px-5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="dashboard-view">
-                            <i class="fa-solid fa-chart-pie ml-2"></i>التحليل البياني
+                            <i class="fa-solid fa-user-graduate ml-2"></i>ملف المعلم
                         </button>
                         <button class="nav-tab flex-none whitespace-nowrap py-2 px-4 lg:px-5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="saved-reports-view">
                             <i class="fa-solid fa-box-archive ml-2"></i>الأرشيف
                         </button>
                         <button class="nav-tab flex-none whitespace-nowrap py-2 px-4 lg:px-5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="stats-view">
-                            <i class="fa-solid fa-chart-column ml-2"></i>الإحصائيات
+                            <i class="fa-solid fa-chart-column ml-2"></i>لوحة المتابعة
                         </button>
                         <button class="nav-tab flex-none whitespace-nowrap py-2 px-4 lg:px-5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-all duration-200" data-view="term-view">
                             <i class="fa-solid fa-list-check ml-2"></i>إشرافي هذا الفصل
@@ -507,31 +507,8 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                 <div id="eyeBody" class="space-y-5"></div>
             </div>
 
-            <div id="dashboard-view" class="hidden fade-in space-y-6">
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">اختر المعلم</label>
-                            <select id="teacher-dashboard-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5"></select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">نوع التحليل</label>
-                            <select id="chartTypeSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
-                                <option value="radar">تحليل زيارة واحدة (راداري)</option>
-                                <option value="line">تطور الأداء عبر الزيارات (خطي)</option>
-                                <option value="bar">متوسط الأداء العام (شريطي)</option>
-                            </select>
-                        </div>
-                        <div id="visitDateGroup" class="hidden">
-                            <label class="block text-sm font-medium text-slate-600 mb-1">تاريخ الزيارة</label>
-                            <select id="visitDateSelect" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5"></select>
-                        </div>
-                    </div>
-                    <button id="updateDashboardViewBtn" class="svf-btn svf-btn-primary w-full mb-6">عرض التحليل البياني</button>
-                    <div id="chart-container" class="relative h-[500px] w-full border border-slate-200 rounded-xl p-4 bg-white"><canvas id="performanceChart"></canvas></div>
-                    <div id="no-data-message" class="hidden text-center py-16 bg-white rounded-xl border border-dashed border-slate-300 mt-4"><p class="text-slate-600">اختر معلّماً له زيارات محفوظة، ثمّ اضغط «عرض التحليل البياني».</p></div>
-                </div>
-            </div>
+            <!-- ملف المعلم (js/dash.js) — يُبنى عند فتح التبويب -->
+            <div id="dashboard-view" class="hidden fade-in space-y-5"></div>
 
             <div id="saved-reports-view" class="hidden fade-in space-y-6">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -558,9 +535,8 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                 <div id="no-saved-reports-message" class="hidden text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300"><p class="text-slate-600">الأرشيف فارغ. احفظ أوّل زيارةٍ من «نموذج التقييم» لتظهر هنا.</p></div>
             </div>
 
-            <div id="stats-view" class="hidden fade-in space-y-6">
-                <!-- Populated dynamically by renderStatistics() -->
-            </div>
+            <!-- لوحة المتابعة (js/dash-core.js + js/dash.js) — تُبنى عند فتح التبويب -->
+            <div id="stats-view" class="hidden fade-in space-y-5"></div>
 
             <div id="term-view" class="hidden fade-in space-y-6">
                 <!-- يُبنى في js/term-board.js عند فتح التبويب -->
@@ -933,6 +909,8 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
     <script src="js/cloud.js"></script>
     <script src="js/autofill.js"></script>
     <script src="js/term-board.js"></script>
+    <script src="js/dash-core.js"></script>
+    <script src="js/dash.js"></script>
     <script src="js/data-quality.js"></script>
     <script src="js/classroom.js"></script>
     <script src="js/term-plan-data.js"></script>

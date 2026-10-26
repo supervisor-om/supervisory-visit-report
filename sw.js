@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v41';
+const VERSION = 'v42';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
@@ -52,6 +52,8 @@ const ASSETS = [
     './js/monthly.js',
     './js/autofill.js',
     './js/term-board.js',
+    './js/dash-core.js',
+    './js/dash.js',
     './js/data-quality.js',
     './js/storage.js',
     './js/db.js',

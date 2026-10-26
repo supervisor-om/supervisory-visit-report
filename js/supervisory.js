@@ -329,10 +329,10 @@
             if (viewId === 'saved-reports-view') {
                 renderSavedReports();
             } else if (viewId === 'dashboard-view') {
-                populateTeacherDashboardDropdown();
-                updateDashboardView();
+                // ملف المعلم ولوحة المتابعة (js/dash.js)
+                if (typeof svfProfileRender === 'function') svfProfileRender();
             } else if (viewId === 'stats-view') {
-                renderStatistics();
+                if (typeof svfDashRender === 'function') svfDashRender();
             } else if (viewId === 'term-view') {
                 if (typeof renderTermBoard === 'function') renderTermBoard();
             }

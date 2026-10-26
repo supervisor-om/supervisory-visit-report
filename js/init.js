@@ -108,8 +108,6 @@
                     if (typeof supStartAnotherVisit === 'function') supStartAnotherVisit();
                 });
 
-                const updateDashBtn = document.getElementById('updateDashboardViewBtn');
-                if(updateDashBtn) updateDashBtn.addEventListener('click', updateDashboardView);
                 
                 const reportSec = document.querySelector('#reportSection');
                 if(reportSec) {
