@@ -45,7 +45,8 @@
         roi: null, roiDraft: null, roiMode: false, mask: null, cells: null,
         ctxEvents: [], ctxCur: null, pSnap: null, pSnapAt: -1, runId: 0, classMax: 0,
         sp: null, speechConsent: false,
-        sample: null, sampleRound: 'a', marks: []          // عيّنة الطلبة، وعلامات المشرف بأوقاتها
+        sample: null, sampleRound: 'a', marks: [],         // عيّنة الطلبة، وعلامات المشرف بأوقاتها
+        teacher: null, pickTeacher: false                  // المعلّم يُحدَّد بلمسة: يُستثنى من الطلبة ويُرصد موضعه
     };
     const SR = () => root.SpeechRecognition || root.webkitSpeechRecognition || null;
     const SX = () => root.SvfEyeSpeech;
@@ -145,6 +146,7 @@
                     <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                         <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
                         <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
+                        <button type="button" id="eyeTeacherBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
                         <span class="flex-1"></span>
                         <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
                         <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
@@ -265,6 +267,7 @@
         });
         $('eyeRoiBtn').addEventListener('click', toggleRoiMode);
         $('eyeRoiClear').addEventListener('click', () => setRoi(null));
+        $('eyeTeacherBtn').addEventListener('click', toggleTeacherPick);
         $('eyeView').addEventListener('pointerdown', roiPoint);
         $('eyeConsent').addEventListener('change', () => { if (checked('eyeConsent')) message(''); });
         // فهم الكلام: متاحٌ حيث يدعم المتصفّح التعرّف على الكلام (Chrome، Edge، Safari)
@@ -482,6 +485,7 @@
     }
     function toggleRoiMode() {
         if (!S.running || !S.video) { toast('تُحدَّد منطقة الصف والكاميرا تعمل', 'info'); return; }
+        if (S.pickTeacher) { S.pickTeacher = false; teacherUi(); }
         S.roiMode = !S.roiMode;
         S.roiDraft = S.roiMode ? [] : null;
         $('eyeView').style.pointerEvents = S.roiMode ? 'auto' : 'none';
@@ -499,6 +503,7 @@
         if (b) b.lastChild.textContent = S.roiMode ? 'إلغاء التحديد' : (S.roi ? 'إعادة تحديد المنطقة' : 'تحديد منطقة الصف');
     }
     function roiPoint(e) {
+        if (S.pickTeacher) { pickTeacherAt(e); return; }
         if (!S.roiMode) return;
         e.preventDefault();
         const c = $('eyeView'), r = c.getBoundingClientRect();
@@ -522,6 +527,34 @@
         return pts.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx))
                   .map(p => [Math.round(p[0] * 1000) / 1000, Math.round(p[1] * 1000) / 1000]);
     }
+    // ── المعلّم: لمسةٌ عليه في الشاشة (أثناء الرصد بكشف الطلبة) ──
+    function toggleTeacherPick() {
+        if (S.teacher) { S.teacher = null; S.pickTeacher = false; teacherUi(); toast('أُلغي تحديد المعلّم — يُعدّ مع الطلبة'); drawView(); return; }
+        if (!S.running || !S.video || !AI.ok) { toast('يُحدَّد المعلّم والكاميرا وكشف الطلبة يعملان', 'info'); return; }
+        if (S.roiMode) toggleRoiMode();
+        S.pickTeacher = !S.pickTeacher;
+        teacherUi();
+    }
+    function pickTeacherAt(e) {
+        e.preventDefault();
+        const c = $('eyeView'), r = c.getBoundingClientRect();
+        const R = fitRect(r.width, r.height);
+        const x = (e.clientX - r.left - R.ox) / R.rw, y = (e.clientY - r.top - R.oy) / R.rh;
+        const id = E().pickNearest(S.pSnap, x, y);
+        if (id == null) { toast('لم يُكشف أحدٌ قرب اللمسة — المس النقطة التي على المعلّم', 'info'); return; }
+        S.teacher = E().teacherStep(AI.T, { id }, now());
+        S.pickTeacher = false;
+        teacherUi();
+        toast('حُدّد المعلّم — يُستثنى من عدد الطلبة، ويُرصد موضعه وتنقّله');
+        drawView();
+    }
+    function teacherUi() {
+        const c = $('eyeView'), b = $('eyeTeacherBtn'), hint = $('eyeRoiHint');
+        if (c) { c.style.pointerEvents = S.pickTeacher || S.roiMode ? 'auto' : 'none'; c.style.cursor = S.pickTeacher || S.roiMode ? 'crosshair' : ''; }
+        if (hint && !S.roiMode) { hint.textContent = S.pickTeacher ? 'المس المعلّم على الشاشة (النقطة التي عليه)' : ''; hint.classList.toggle('hidden', !S.pickTeacher); }
+        if (b) { b.querySelector('span').textContent = S.teacher ? 'إلغاء تحديد المعلّم' : S.pickTeacher ? 'إلغاء' : 'تحديد المعلّم'; b.disabled = !S.running || !S.video; }
+    }
+
     function setRoi(poly) {
         S.roi = poly && poly.length >= 3 ? poly : null;
         S.mask = S.roi ? E().roiMask(S.roi, W, S.h) : null;
@@ -789,6 +822,7 @@
         S.consent = src !== 'none' || !!S.audio || checked('eyeSpeech') ? checked('eyeConsent') : false;
         S.sp = null;
         S.sample = null; S.sampleRound = 'a'; S.marks = [];
+        S.teacher = null; S.pickTeacher = false;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
         renderCounts();
         renderCtx();
@@ -804,6 +838,7 @@
         $('eyeStop').classList.remove('hidden');
         ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI', 'eyeSpeech'].forEach(id => { $(id).disabled = true; });
         $('eyeRoiBtn').disabled = src === 'none';
+        teacherUi();
         liveDot(true);
         const r = src === 'file' ? rate() : 1;
         if (video) S.timers.push(setInterval(frameTick, Math.round(250 / r)));
@@ -902,9 +937,16 @@
                     dish: (sc => (sc ? E().isDishdasha(sc) : null))(E().garmentScore(rgba, cw, ch, { x: b[0], y: b[1], w: b[2], h: b[3] }))
                 };
             });
+            // الكرات (النموذج نفسه): ما يقع داخل منطقة الصفّ
+            const balls = (res.object || []).filter(o => o.label === 'sports ball' && o.score >= E().BALL_MIN_SCORE).filter(o => {
+                const b = o.boxRaw, cx = box.x + (b[0] + b[2] / 2) * box.w, cy = box.y + (b[1] + b[3] / 2) * box.h;
+                return !S.roi || E().inPoly(cx, cy, S.roi);
+            }).length;
             AI.prevG = gray; AI.prevKey = key;
             E().trackStep(AI.T, dets, t, vw / vh, AI.ttl);
-            S.pSnap = E().peopleSnapshot(AI.T, t, S.roi);
+            S.teacher = E().teacherStep(AI.T, S.teacher, t);
+            S.pSnap = E().peopleSnapshot(AI.T, t, S.roi, S.teacher);
+            S.pSnap.b = balls;
             S.classMax = Math.max(S.classMax || 0, S.pSnap.n + S.pSnap.o);   // عدد الطلبة = أكبر عددٍ رُصد
             S.pSnapAt = now();                       // وقت وصول النتيجة: تُنسب إلى الثانية الجارية لا إلى ثانيةٍ أُغلقت
             AI.fail = 0;
@@ -917,7 +959,8 @@
                 message('الجهاز بطيءٌ على كشف الطلبة — يكمل الرصد بحركة الصورة. جرّب جهازاً أحدث أو متصفّح Chrome.');
                 return;
             }
-            aiState('في الملعب: ' + S.pSnap.n + (S.pSnap.r ? ' · خارجها: ' + S.pSnap.o : ''));
+            const tc = S.pSnap.tc;
+            aiState('في الملعب: ' + S.pSnap.n + (S.pSnap.r ? ' · خارجها: ' + S.pSnap.o : '') + (S.teacher ? (tc ? ' · المعلّم ' + (tc.edge === true ? 'على الطرف' : tc.edge === false ? 'في الوسط' : 'محدَّد') : ' · المعلّم غاب عن الكشف') : ''));
             drawView();
         } catch (e) {
             if (++AI.fail > 5) { AI.ok = false; aiState(''); message('توقّف كشف الطلبة لخطأٍ في الجهاز — يكمل الرصد بحركة الصورة.'); }
@@ -948,7 +991,8 @@
                 m: a.n && a.n >= a.bad ? a.sum / a.n : null,   // أغلب الإطارات مهتزّة ← غير محسوب
                 v: a.af ? a.voice / a.af >= 0.35 : (S.audio ? false : null),
                 w: a.whistle,
-                p: p ? { n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d } : null
+                p: p ? Object.assign({ n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d, vg: p.vg, cr: p.cr, b: p.b },
+                    p.tc ? { t: [p.tc.x, p.tc.y, p.tc.mv ? 1 : 0, p.tc.edge == null ? -1 : p.tc.edge ? 1 : 0] } : {}) : null
             });
             S.acc = freshAcc();
             S.lastSec++;
@@ -1143,6 +1187,11 @@
         if (snap) {
             snap.dots.forEach(d => {
                 const [x, y] = P([d.x, d.y]);
+                if (d.tch) {                                   // المعلّم: مربّعٌ كحليّ بإطارٍ ذهبيّ
+                    g.fillStyle = '#082742'; g.fillRect(x - 8, y - 14, 16, 16);
+                    g.lineWidth = 2.5; g.strokeStyle = '#f0b44a'; g.strokeRect(x - 8, y - 14, 16, 16);
+                    return;
+                }
                 g.beginPath();
                 g.arc(x, y - 6, 6, 0, Math.PI * 2);
                 g.fillStyle = !d.in ? 'rgba(224,122,106,0.95)' : d.mv ? '#f0b44a' : '#e2e8f0';
@@ -1170,7 +1219,7 @@
         if (!S.running) return;
         flushTo(Math.floor(now()));
         S.running = false;
-        S.roiMode = false; S.roiDraft = null;
+        S.roiMode = false; S.roiDraft = null; S.pickTeacher = false;
         const view = $('eyeView'); if (view) { view.style.pointerEvents = 'none'; view.style.cursor = ''; }
         release();
         liveDot(false);
@@ -1183,6 +1232,7 @@
         ['eyeFacing', 'eyeMic', 'eyeRate', 'eyeMicDev', 'eyeTeacherMic', 'eyeAI', 'eyeSpeech'].forEach(id => { $(id).disabled = id === 'eyeSpeech' && !SR(); });
         $('eyeRoiBtn').disabled = true;
         $('eyeRoiClear').classList.add('hidden');
+        teacherUi();
         renderSpeechLive();
         applyVideoVisibility();
         fitStage();
@@ -1326,10 +1376,20 @@
             rows.push(row('منطقة الصف', data.roi ? 'محدّدة' : '<span class="text-slate-500 font-normal">الإطار كلّه</span>'));
             if (P) {
                 rows.push(row('عدد الطلبة', `<input type="number" id="eyeClassSize" min="1" max="80" value="${esc(String(P.classSize || P.inside))}" class="w-16 text-center border border-slate-300 rounded-md py-0.5" aria-label="عدد طلبة الصف">`
-                    + small('أكبر عددٍ رُصد — صحّحه إن دخل فيه المعلّم')));
+                    + small(P.teacher ? 'أكبر عددٍ رُصد (بلا المعلّم)' : 'أكبر عددٍ رُصد — صحّحه إن دخل فيه المعلّم، أو حدِّده أثناء الرصد')));
                 if (P.roi) rows.push(row('خارج منطقة الصف', esc(String(P.outsideMed)) + (data.outAuto ? small('اقتُرح منه «طلبة خارج النشاط»') : '')));
                 rows.push(row('حركة الطلبة', P.movingAll + '%' + (P.movingPlay != null ? small('في العناصر النشطة ' + P.movingPlay + '%') : small('من زمن الرصد'))));
+                const mv = P.movingPlay != null ? P.movingPlay : P.movingAll, vg = P.vigPlay != null ? P.vigPlay : P.vigAll;
+                if (vg != null && mv != null) rows.push(row('شدّة النشاط', `<span class="inline-flex flex-wrap gap-x-3 justify-end"><span>ساكن ${100 - mv}%</span><span>معتدل ${Math.max(0, mv - vg)}%</span><span>شديد ${vg}%</span></span>`
+                    + small('المعيار المتداول: نصف الزمن نشاطاً معتدلاً فأشدّ' + (mv >= E().MVPA_GOAL ? ' — بلغه' : ' — دونه'))));
                 rows.push(row('انتظار الدور', P.queuePct + '%' + small('من الطلبة أثناء النشاط')));
+                if (P.crowdPct != null) rows.push(row('التزاحم أثناء الحركة', P.crowdPct + '%' + small('من المتحرّكين كان زميلٌ ملاصقاً له')));
+                const ratio = E().ballRatio(M);
+                rows.push(row('الكرات في النشاط', `<input type="number" id="eyeBalls" min="0" max="60" value="${esc(P.balls != null ? String(P.balls) : '')}" placeholder="—" class="w-16 text-center border border-slate-300 rounded-md py-0.5" aria-label="عدد الكرات">`
+                    + small(ratio ? 'كرةٌ لكلّ ' + E().perPupils(ratio) + ' — صحّح العدد إن لزم' : 'لم تُرَ كرات — اكتب عددها إن كانت حصّة كرة')));
+                const TS = P.teacher;
+                if (TS) rows.push(row(female() ? 'موقع المعلمة' : 'موقع المعلم', (TS.edgePct != null ? 'على أطراف الطلبة ' + TS.edgePct + '%' : '—')
+                    + small('يتنقّل ' + TS.movePct + '%' + (TS.cover != null ? ' · غطّى ' + TS.cover + '% من مساحة النشاط' : ''))));
             } else {
                 rows.push(row('النشاط الحركي للطلبة', M.activePct + '%' + small(esc(D(M.activeSec)))));
             }
@@ -1342,6 +1402,9 @@
         }
         if (M.observed) {
             rows.push(row('الصفّارة', !data.audio ? noAudio : M.whistles ? M.whistles + (M.cued ? small('منها ' + M.cued + ' عند الانتقال') : '') : 'لم تُرصد'));
+            const RS = M.resp;
+            if (RS && RS.n) rows.push(row('الاستجابة للصفّارة', (RS.med != null ? RS.med + ' ث' + small('في المتوسّط') : 'لم تُقس')
+                + small('(' + RS.n + ') ' + (RS.n >= 3 && RS.n <= 10 ? 'إشارات' : 'إشارة') + (RS.stopMed != null ? ' · التوقّف ' + RS.stopMed + ' ث' : '') + (RS.startMed != null ? ' · البدء ' + RS.startMed + ' ث' : '') + (RS.slow ? ' · بطيئة ' + RS.slow : ''))));
             if (!C && M.phases) rows.push(row('نشاط مراحل الحصة', `<span class="inline-flex flex-wrap gap-x-3 justify-end"><span>الإحماء ${M.phases.warm}%</span><span>الرئيس ${M.phases.main}%</span><span>الختام ${M.phases.close}%</span></span>`));
             rows.push(row('استثمار المساحة', M.space && M.space.coverage ? M.space.coverage + '% ' + (data.roi ? 'من منطقة الصف' : 'من الملعب المرئي') : '—'));
         }
@@ -1594,6 +1657,12 @@
         $('eyeCard').addEventListener('click', () => shareCard('share'));
         $('eyePrint').addEventListener('click', () => shareCard('print'));
         $('eyeToDebrief') && $('eyeToDebrief').addEventListener('click', () => { if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('debrief-view'); });
+        $('eyeBalls') && $('eyeBalls').addEventListener('change', e => {
+            const raw = String(e.target.value || '').trim(), v = Math.round(Number(raw));
+            if (!S.result || !S.result.M || !S.result.M.people || (raw && !(v >= 0 && v <= 60))) return;
+            S.result.M.people.balls = raw && v > 0 ? v : null;
+            resuggest();
+        });
         $('eyeClassSize') && $('eyeClassSize').addEventListener('change', e => {
             const v = Math.round(Number(e.target.value));
             if (!(v >= 1 && v <= 80) || !S.result || !S.result.M || !S.result.M.people) return;

@@ -422,7 +422,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: النموذج محلّيٌّ ويُحمَّل عند الحاجة', /new URL\('vendor\/human\/', document\.baseURI\)/.test(UI) && /await import\(base \+ 'human\.esm\.js'\)/.test(UI)
           && ['human.esm.js', 'centernet.json', 'centernet.bin', 'LICENSE'].every(f => fs.existsSync(path.join(ROOT, 'vendor/human', f))));
     check('wiring: الكشف على منطقة الصفّ مقصوصةً، وبالعتبة نفسها', /E\(\)\.polyBox\(S\.roi, 0\.04\)/.test(UI) && /o\.score >= E\(\)\.PERSON_MIN_SCORE/.test(UI));
-    check('wiring: عامل الخدمة — vendor بالذاكرة أوّلاً ولا يُخزَّن مسبقاً', /url\.pathname\.indexOf\('\/vendor\/'\) !== -1/.test(SW) && !/'\.\/vendor\//.test(SW) && /const VERSION = 'v3[5-9]'/.test(SW));
+    check('wiring: عامل الخدمة — vendor بالذاكرة أوّلاً ولا يُخزَّن مسبقاً', /url\.pathname\.indexOf\('\/vendor\/'\) !== -1/.test(SW) && !/'\.\/vendor\//.test(SW) && /const VERSION = 'v(3[5-9]|[4-9]\d)'/.test(SW));
     const hook = S.indexOf('svfEyeBeforeSave()'), rd = S.indexOf('const reportData = {', S.indexOf('function savePermanentReport'));
     check('wiring: الدرجات المعتمدة تُكتب قبل جمع حقول التقرير', hook > 0 && hook < rd && /typeof svfEyeBeforeSave === 'function'/.test(S));
     check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && UI.includes('id="eyeTeacherMic"') && /enumerateDevices/.test(UI));
@@ -617,6 +617,100 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /b\.id === 'debriefEyeIndicator'[\s\S]{0,300}root\.svfEyeIndicatorText\(\)[\s\S]{0,300}cur\.includes\(t\) \? cur/.test(DB) && /root\.svfEyeIndicatorText = function/.test(UI));
     check('wiring: أنماط الرصد من تقارير العام الدراسيّ الحاليّ وأسماؤها مهروبة', /academicYearOf\(r\.visitDate\) !== ay/.test(UI) && /const names = arr => arr\.slice\(0, 4\)\.map\(esc\)/.test(UI));
     check('wiring: البطاقة فيها العيّنة والأهداف — لا ملاحظات المشرف (العلامات)', /عيّنة الطلبة/.test(RP) && /أهدافنا للزيارة القادمة/.test(RP) && !/marks|momentsOf|autoMoments/.test(RP));
+}
+
+/* ── ١٩) تحليلاتٌ أخرى من الكاميرا (2026-10-26): الاستجابة للصفّارة، شدّة النشاط، التزاحم، الكرات، موقع المعلّم ── */
+{
+    // التتبّع لا يفقد الجاري بين لقطتين متباعدتين (ثانيةٌ بينهما، ١٫٥ طول جسم)، وجريُه نشاطٌ شديد
+    const T = E.newTracker();
+    for (let k = 0; k <= 4; k++) E.trackStep(T, [person(0.1 + 0.17 * k, 0.6), person(0.9, 0.6)], k, 16 / 9);
+    const sn = E.peopleSnapshot(T, 4, null);
+    check('track: الجاري يبقى متتبَّعاً واحداً رغم تباعد اللقطات', T.tracks.length === 2 && T.next === 3, T.tracks.length + '/' + T.next);
+    check('intensity: الجري (أكثر من ' + E.VIG_SPEED + ' طول جسمٍ في الثانية) نشاطٌ شديد، والساكن لا', sn.vg === 1 && sn.mv === 1, JSON.stringify({ vg: sn.vg, mv: sn.mv }));
+
+    const J = E.newTracker();
+    E.trackStep(J, [person(0.2, 0.6, { act: 0.5 })], 0, 16 / 9);
+    const j0 = E.peopleSnapshot(J, 0, null);
+    for (let k = 1; k <= 3; k++) E.trackStep(J, [person(0.2, 0.6, { act: 0.5 })], k * 0.5, 16 / 9);
+    const j1 = E.peopleSnapshot(J, 1.5, null);
+    check('intensity: تغيّر صندوق من لم تُعرف سرعته (أو ينتقل) ليس شدّة — والتمرين القويّ في المكان شديد', j0.mv === 1 && j0.vg === 0 && j1.vg === 1, JSON.stringify([j0.vg, j1.vg]));
+
+    // التزاحم: متحرّكان ملاصقان، وثالثٌ متحرّكٌ بعيد، ورابعٌ ساكنٌ قريبٌ لا يُعدّ (الانتظار ليس تزاحماً)
+    const C = E.newTracker();
+    for (let k = 0; k <= 4; k++) {
+        const t = k * 0.5;
+        E.trackStep(C, [person(0.3, 0.6, { act: 0.3 }), person(0.32, 0.6, { act: 0.3 }), person(0.7, 0.6, { act: 0.3 }), person(0.72, 0.3)], t, 16 / 9);
+    }
+    const cs = E.peopleSnapshot(C, 2, null);
+    check('crowd: متحرّكان ملاصقان يُعدّان، والبعيد والساكن لا', cs.cr === 2 && cs.mv === 3, JSON.stringify({ cr: cs.cr, mv: cs.mv }));
+
+    // المعلّم: يُختار بلمسةٍ قريبة، ويُستثنى من الطلبة، وعلى الطرف أو في الوسط، ويُتبنّى متتبَّعٌ جديدٌ قربه إن انقطع
+    const R = E.newTracker();
+    const kids = [0.3, 0.4, 0.5, 0.6, 0.7].map(x => person(x, 0.5));
+    for (let k = 0; k <= 2; k++) E.trackStep(R, kids.concat([person(0.95, 0.5)]), k * 0.5, 16 / 9);
+    const s0 = E.peopleSnapshot(R, 1, null);
+    const tid = E.pickNearest(s0, 0.98, 0.7);
+    check('teacher: اللمسة تختار أقرب شخصٍ إليها، والبعيدة لا تختار أحداً', tid === 6 && E.pickNearest(s0, 0.5, 0.05) === null, tid);
+    let tch = E.teacherStep(R, { id: tid }, 1);
+    const sT = E.peopleSnapshot(R, 1, null, tch);
+    check('teacher: يُستثنى من الطلبة، وعلى طرفهم', sT.n === 5 && sT.tc && sT.tc.edge === true && sT.dots.filter(d => d.tch).length === 1, JSON.stringify({ n: sT.n, tc: sT.tc }));
+    const M2 = E.newTracker();
+    for (let k = 0; k <= 2; k++) E.trackStep(M2, kids.concat([person(0.5, 0.52)]), k * 0.5, 16 / 9);
+    const mid = E.teacherStep(M2, { id: 6 }, 1);
+    check('teacher: في وسط الطلبة ليس على الطرف', E.peopleSnapshot(M2, 1, null, mid).tc.edge === false);
+    E.trackStep(R, kids, 3.5, 16 / 9);                               // انقطع المعلّم
+    E.trackStep(R, kids.concat([person(0.94, 0.5)]), 4, 16 / 9);     // وظهر متتبَّعٌ جديدٌ قرب موضعه
+    tch = E.teacherStep(R, tch, 4);
+    check('teacher: يُتبنّى أقرب متتبَّعٍ جديدٍ من آخر موضعه', tch.id !== tid && tch.id > 6 && E.peopleSnapshot(R, 4, null, tch).n === 5, JSON.stringify(tch));
+
+    // حصّة: نشاطٌ ثمّ صفّارة توقّف (يتوقّفون بعد ٤ ث)، ثمّ صفّارة بدء (يبدؤون بعد ٣ ث)، والمعلّم على الطرف ثلثي الوقت
+    const secs = [];
+    const ev = [[0, 'warm'], [360, 'fit'], [600, 'teach'], [1260, 'apply'], [1740, 'close']].map(([t, k]) => ({ t, k }));
+    for (let t = 0; t < 1920; t++) {
+        const cyc = t % 180, act = !(cyc >= 144 && cyc < 173);
+        secs.push({ m: act ? 0.05 : 0.004, v: false, w: cyc === 140 || cyc === 170,
+            p: { n: 22, mv: act ? 15 : 1, o: 1, q: 0, r: true, fm: 'S', ln: 0, d: 0, vg: act ? 5 : 0, cr: act ? 6 : 0, b: t > 1260 && t < 1740 ? 4 : 0, t: [0.1 + 0.8 * ((t % 600) / 600), 0.6, 1, t % 300 < 200 ? 1 : 0] } });
+    }
+    const M = E.summarize({ secs, grid: Array(108).fill(10), sens: 'medium', ctx: ev, mic: 'device' });
+    check('whistle: التوقّف بعد ٤ ثوانٍ والبدء بعد ٣ — بثانيتين متتاليتين', M.resp.n === 20 && M.resp.stopMed === 4 && M.resp.startMed === 3 && M.resp.slow === 0, JSON.stringify(M.resp).slice(0, 200));
+    const noResp = E.whistleResponses(Array.from({ length: 60 }, (_, t) => ({ m: 0.05, w: t === 20, p: { n: 10, mv: 8 } })), 0.018);
+    check('whistle: لا توقّف خلال عشرين ثانية ← «لم يُستجب» ويُعدّ بطيئاً', noResp.list[0][2] === -1 && noResp.slow === 1 && noResp.med === null);
+    check('whistle: بلا كشفٍ تُقاس بحركة الصورة', E.whistleResponses(secs.map(s => ({ m: s.m, w: s.w })), 0.018).stopMed === 4);
+    const P = M.people;
+    check('intensity: الجري نسبةً من الطلبة', P.vigAll === 19 && P.vigPlay === 19, JSON.stringify([P.vigAll, P.vigPlay]));
+    check('crowd: من المتحرّكين أثناء النشاط', P.crowdPct === 40, P.crowdPct);
+    check('balls: المئين ٩٠ في زمن النشاط، وطالبٌ لكلّ كرةٍ مقرّب', P.balls === 4 && E.ballRatio(M) === 6);
+    check('balls: حصّةٌ لا تُرى فيها كرةٌ عشرين لقطةً ليست حصّة كرة', E.summarize({ secs: secs.map((s, t) => Object.assign({}, s, { p: Object.assign({}, s.p, { b: t < 15 ? 1 : 0 }) })), sens: 'medium' }).people.balls === null);
+    check('teacher: على الطرف وتنقّله وتغطيته من شبكة ٤×٣', P.teacher && P.teacher.edgePct === 69 && P.teacher.movePct === 100 && P.teacher.cover === 33 && P.teacher.cells === '000011110000', JSON.stringify(P.teacher));
+
+    const sg = E.suggest(M, {}, {}), by = id => sg.find(x => x.id === id);
+    check('suggest ٧: الاستجابة للصفّارة وشدّة النشاط وموقع المعلّم في الشاهد', /منها \(19%\) جرياً أو نشاطاً شديداً/.test(by(7).evidence) && /واستجاب الطلبة لإشارة الصفّارة خلال \(4\) ثوانٍ في المتوسّط \(20 إشارة\)/.test(by(7).evidence)
+          && /ووقف المعلم على أطراف الطلبة \(69%\) من الوقت وتنقّل في \(33%\) من مساحة النشاط/.test(by(7).evidence), by(7).evidence);
+    check('suggest ٧: المعدِّلات ترفع درجةً واحدةً على الأكثر', by(7).score === 1);
+    const slowM = Object.assign({}, M, { waits: 0, longestIdle: 400, resp: Object.assign({}, M.resp, { med: 14 }), people: Object.assign({}, P, { teacher: Object.assign({}, P.teacher, { edgePct: 20 }) }) });
+    check('suggest ٧: انتظارٌ طويلٌ واستجابةٌ بطيئة ومعلّمٌ في الوسط ← تنزل درجتين على الأكثر (جيد ← غير ملائم)', E.suggest(slowM, {}, {}).find(x => x.id === 7).score === 4, E.suggest(slowM, {}, {}).find(x => x.id === 7).score);
+    check('suggest ٥: التزاحم وحده يقترح البند (٤٠٪ ← غير ملائم)', by(5).score === 4 && by(5).basis === 'ai' && /تزاحم الطلبة أثناء الحركة: \(40%\)/.test(by(5).evidence));
+    check('suggest ٥: ومع اللمسات يُضاف، والتزاحم القليل شاهدٌ إيجابيّ', /وتوزّع الطلبة في مسافاتٍ آمنة/.test(E.suggest(Object.assign({}, M, { people: Object.assign({}, P, { crowdPct: 8 }) }), { safe: 1 }, {}).find(x => x.id === 5).evidence));
+    check('suggest ٩: الكرات ← كرةٌ لكلّ (6) طلبة = غير ملائم', by(9).score === 4 && /رُصدت نحو \(4\) كرات لـ\(23\) طالباً — كرةٌ لكلّ \(6\) طلبة/.test(by(9).evidence), by(9).evidence);
+    check('suggest ٩: كرةٌ لكلّ طالبين = جيد (بالجرّ)', /كرةٌ لكلّ طالبين/.test(E.suggest(Object.assign({}, M, { people: Object.assign({}, P, { balls: 12 }) }), {}, {}).find(x => x.id === 9).evidence));
+    check('summary: الاستجابة للصفّارة في سطر الملاحظات', /واستجاب الطلبة لها خلال \(4\) ثوانٍ في المتوسّط/.test(E.summaryText(M, {})));
+    const dp = E.debriefPrompts(M, {}, { female: true });
+    check('debrief: الاستجابة السريعة إجادة، والتزاحم وقلّة الكرات أسئلة', dp.good.some(t => /استجاب الطلبة لإشارة الصفّارة سريعاً/.test(t)) && dp.ask.some(t => /كيف توزّعين المساحة/.test(t)) && dp.ask.some(t => /كرةٌ لكلّ \(6\) طلبة/.test(t)), JSON.stringify(dp));
+    check('debrief: المعلّم في الوسط سؤالٌ بصيغة المخاطَب', E.debriefPrompts(slowM, {}, { female: true }).ask.some(t => /^وقفتِ في وسط الطلبة أغلب الوقت \(على أطرافهم 20% فقط\)/.test(t)));
+    const C2 = E.targetCandidates({ M: slowM, counts: {} }, 20).map(t => t.k);
+    check('targets: الاستجابة والتزاحم والكرات وموقع المعلّم أهدافٌ تُقاس', ['resp', 'crowd', 'balls', 'tEdge'].every(k => C2.includes(k)), C2.join(','));
+    check('targets: أهدافها متدرّجة', E.METRIC.resp.goal(14) === 7 && E.METRIC.balls.goal(6) === 3 && E.METRIC.tEdge.goal(20) === 40 && E.METRIC.crowd.goal(40) === 25);
+    check('patterns: أنماطها', ['slowResp', 'crowd', 'fewBalls', 'teacherCenter'].every(k => E.issuesOf({ M: slowM }).includes(k)), E.issuesOf({ M: slowM }).join(','));
+    const AM = E.autoMoments(Object.assign({}, M, { resp: { list: [[300, 's', 3], [700, 's', 14], [900, 'g', -1]] } }), {});
+    // التوصيل
+    const UI = read('js/eye.js'), RP = read('js/eye-report.js');
+    check('wiring: الكرات من النموذج نفسه داخل منطقة الصفّ، والمعلّم يُتابَع ويُستثنى في كلّ لقطة', /o\.label === 'sports ball' && o\.score >= E\(\)\.BALL_MIN_SCORE/.test(UI) && /!S\.roi \|\| E\(\)\.inPoly\(cx, cy, S\.roi\)/.test(UI)
+          && /S\.teacher = E\(\)\.teacherStep\(AI\.T, S\.teacher, t\);\s*\n\s*S\.pSnap = E\(\)\.peopleSnapshot\(AI\.T, t, S\.roi, S\.teacher\);\s*\n\s*S\.pSnap\.b = balls;/.test(UI));
+    check('wiring: كلّ ثانيةٍ تحفظ الشدّة والتزاحم والكرات وموضع المعلّم', /vg: p\.vg, cr: p\.cr, b: p\.b \}/.test(UI) && /p\.tc \? \{ t: \[p\.tc\.x, p\.tc\.y, p\.tc\.mv \? 1 : 0, p\.tc\.edge == null \? -1 : p\.tc\.edge \? 1 : 0\] \}/.test(UI));
+    check('wiring: المعلّم بلمسةٍ أثناء الرصد بالكشف وحده، ويُصفَّر مع رصدٍ جديد', /if \(!S\.running \|\| !S\.video \|\| !AI\.ok\)/.test(UI) && /const id = E\(\)\.pickNearest\(S\.pSnap, x, y\);/.test(UI) && /S\.teacher = null; S\.pickTeacher = false;\s*\n\s*setRoi\(null\);/.test(UI));
+    check('wiring: عدد الكرات يُصحَّح فيُعاد الاقتراح', /\$\('eyeBalls'\)[\s\S]{0,400}S\.result\.M\.people\.balls = raw && v > 0 \? v : null;\s*\n\s*resuggest\(\);/.test(UI));
+    check('wiring: البطاقة فيها «الحركة والتنظيم»', /heading\(g, 'الحركة والتنظيم'/.test(RP) && /Y\.ballRatio/.test(RP));
+    check('moments: أبطأ استجابةٍ للصفّارة لحظةٌ بوقتها', AM.some(x => x.k === 'resp' && x.t === 900 && /لم يستجب الطلبة لإشارة الصفّارة/.test(x.text)), JSON.stringify(AM));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

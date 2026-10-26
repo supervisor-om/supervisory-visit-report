@@ -23,6 +23,8 @@
 // suggest() يقترح درجةً **لبندٍ عليه شاهدٌ فقط** (السلّم مقلوب: ١ متميّز … ٥ تدخّل سريع)، ومع كلّ اقتراحٍ
 // جملة شاهدٍ بالأرقام ودرجة ثقة. البنود ١٢–١٣ لا تُقترح، و١ و٢ من «عيّنة الطلبة»، و١١ من متابعة أهداف الزيارة السابقة.
 // و`agreement` يقيس اتّفاق العين مع المشرف عبر التقارير المحفوظة — منه تُضبط العتبات.
+// ومن الكاميرا نفسها (2026-10-26): الاستجابة للصفّارة (whistleResponses)، وشدّة النشاط (الجري vg)، والتزاحم (cr)، والكرات
+// (sports ball في النموذج نفسه)، والمعلّم بلمسة (teacherStep/pickNearest/teacherStats: على أطراف الطلبة وتنقّله).
 // أدوات المشرف (2026-10-26): sampleStats (العيّنة)، autoMoments (لحظات الحصة)، METRICS/targetCandidates/targetCheck
 // (أهدافٌ تُقاس وتُتابَع)، ISSUES/patterns (ما يتكرّر عبر الحصص). لا يُحفظ إطارٌ ولا صوت: أرقامٌ في الذاكرة ثمّ في #eyeData.
 // =========================================================================
@@ -55,6 +57,15 @@
     const LINK = 1.6;             // التشكيل: طالبان أقرب من طول جسمٍ ونصف في مجموعةٍ واحدة
     const LINE_ELONG = 0.35;      // مجموعةٌ عرضها أقلّ من ثلث طولها = قاطرة أو صفّ
     const LONG_LINE = 6;          // قاطرةٌ فيها أكثر من ستّة طلبة = طويلة (طلب المشرف)
+    // تحليلاتٌ من الكاميرا نفسها (2026-10-26) — كلّها **أوّليّة** تُضبط من أوّل حصص:
+    const RUN_GATE = 1.5;         // التتبّع: كلّ ثانية غيابٍ تُوسّع حدّ المطابقة بطول جسمٍ ونصف (الجاري لا يُفقد بين لقطتين متباعدتين)
+    const VIG_SPEED = 1.2;        // أطوال جسمٍ في الثانية فما فوق = جريٌ (نشاطٌ شديد)؛ المشي نحو ٠٫٨
+    const VIG_ACT = 0.35;         // أو تغيّرٌ كبيرٌ داخل صندوقه (قفزٌ وتمرينٌ قويّ في المكان)
+    const CROWD_DIST = 0.6;       // التزاحم: متحرّكٌ أقرب إليه زميلٌ من ٠٫٦ طول جسم (العمق مضروبٌ في DEPTH)
+    const DEPTH = 2;              // المسافة في عمق الصورة تنضغط بالمنظور فتُضاعف
+    const BALL_MIN_SCORE = 0.35;  // كرةٌ (sports ball في النموذج نفسه) — أقلّ منه رؤوسٌ ومخاريط
+    const MVPA_GOAL = 50;         // إرشادات التربية البدنية: نصف زمن الحصة على الأقلّ نشاطاً معتدلاً فأشدّ
+    const CROWD_BAD = 25;         // تزاحمٌ ربع المتحرّكين فأكثر ← ينزل البند ٥
 
     // ما يسجّله المشرف بلمسة — item: البند الذي يشهد له، neg: شاهدٌ سلبيّ، qty: عددُ أشخاصٍ لا مرّات
     const TAGS = [
@@ -215,9 +226,11 @@
         const pairs = [];
         T.tracks.forEach((tr, a) => {
             const p = tr.hist[tr.hist.length - 1];
+            // الحدّ يتّسع بزمن الغياب: لقطتان متباعدتان (جهازٌ بطيء) والطالب يجري — لولاه صار شخصاً جديداً بسرعة صفر
+            const gate = Math.min(2.5, MATCH_GATE + RUN_GATE * Math.max(0, t - tr.last - 0.5));
             pts.forEach((d, b) => {
                 const dist = Math.hypot(d.fx - p.fx, d.fy - p.fy) / Math.max(1e-6, Math.max(d.h, p.h));
-                if (dist < MATCH_GATE) pairs.push({ a, b, dist });
+                if (dist < gate) pairs.push({ a, b, dist });
             });
         });
         pairs.sort((p, q) => p.dist - q.dist);
@@ -252,18 +265,66 @@
         let ref = null;
         for (let i = h.length - 2; i >= 0; i--) { if (last.t - h[i].t >= 0.8) { ref = h[i]; if (last.t - h[i].t >= 2) break; } }
         const speed = ref ? Math.hypot(last.cx - ref.cx, last.cy - ref.cy) / Math.max(1e-6, last.h) / Math.max(0.5, last.t - ref.t) : 0;
-        return { speed, act: last.act || 0, moving: speed >= MOVE_SPEED || (last.act || 0) >= BOX_ACT };
+        // الشديد: جريٌ، أو تمرينٌ قويٌّ **في المكان** — تغيّر صندوق من ينتقل (أو من لم تُعرف سرعته بعد) أثرُ انتقاله لا شدّته
+        const inPlace = !!ref && speed < MOVE_SPEED;
+        return { speed, act: last.act || 0, moving: speed >= MOVE_SPEED || (last.act || 0) >= BOX_ACT, vig: speed >= VIG_SPEED || (inPlace && (last.act || 0) >= VIG_ACT) };
+    }
+
+    // ── المعلّم: يُحدَّد بلمسة، ويُتابَع ولو انقطع متتبَّعه (يُتبنّى أقرب شخصٍ جديدٍ من آخر موضعه) ──
+    // tch = {id, fx, fy, h, seen} أو null. يُستثنى من الطلبة في اللقطة.
+    function teacherStep(T, tch, t) {
+        if (!tch) return null;
+        const live = T.tracks.filter(tr => t - tr.last <= 1.2);
+        let tr = live.find(x => x.id === tch.id);
+        if (!tr && t - (tch.seen || 0) <= 8) {
+            const cands = live.filter(x => x.id > tch.id || x.hist.length <= 2).map(x => {
+                const p = x.hist[x.hist.length - 1];
+                return { x, d: Math.hypot(p.fx - tch.fx, p.fy - tch.fy) / Math.max(1e-6, Math.max(p.h, tch.h || p.h)) };
+            }).filter(c => c.d <= 1.5).sort((a, b) => a.d - b.d);
+            if (cands[0]) tr = cands[0].x;
+        }
+        if (!tr) return tch;
+        const p = tr.hist[tr.hist.length - 1];
+        return { id: tr.id, fx: p.fx, fy: p.fy, h: p.h, nx: p.nx, ny: p.ny, seen: tr.last };
+    }
+    // من لمسةٍ على الشاشة (x,y نسبةً إلى الإطار) ← أقرب شخصٍ في اللقطة
+    function pickNearest(snap, x, y) {
+        const dots = (snap && snap.dots) || [];
+        let best = null;
+        dots.forEach(d => { const dist = Math.hypot(d.x - x, d.y - y); if (!best || dist < best.dist) best = { id: d.id, dist }; });
+        return best && best.dist <= 0.12 ? best.id : null;
     }
     // لقطة اللحظة: n داخل المنطقة، mv يتحرّك منهم، o خارجها، q واقفون متقاربون (انتظار دور)
-    function peopleSnapshot(T, t, poly) {
+    // tch: المعلّم (teacherStep) — يُستثنى من الطلبة ويُرصد موضعه: أعلى الطرف (يرى الطلبة كلّهم) أم وسطهم
+    function peopleSnapshot(T, t, poly, tch) {
         const live = T.tracks.filter(tr => t - tr.last <= 1.2);
-        const ppl = live.map(tr => {
+        const all = live.map(tr => {
             const last = tr.hist[tr.hist.length - 1];
             return Object.assign({ id: tr.id, x: last.nx, y: last.ny, fx: last.fx, fy: last.fy, h: last.h, dv: tr.dv || 0, dy: tr.dy || 0,
                 inside: inPoly(last.nx, last.ny, poly) }, trackMotion(tr));
         });
+        const teacher = tch ? all.find(p => p.id === tch.id) || null : null;
+        const ppl = teacher ? all.filter(p => p !== teacher) : all;
         const ins = ppl.filter(p => p.inside);
         const still = ins.filter(p => !p.moving);
+        // التزاحم: متحرّكٌ أقرب إليه زميلٌ من CROWD_DIST طول جسم (والعمق مضاعفٌ لانضغاطه بالمنظور)
+        let cr = 0;
+        ins.forEach(p => {
+            if (!p.moving) return;
+            const close = ins.some(o => o !== p && Math.hypot((o.fx - p.fx), (o.fy - p.fy) * DEPTH) / Math.max(p.h, o.h) < CROWD_DIST);
+            if (close) cr++;
+        });
+        let tc = null;
+        if (teacher) {
+            let edge = null;
+            if (ins.length >= 4) {
+                const xs = ins.map(p => p.fx).sort((a, b) => a - b), ys = ins.map(p => p.fy).sort((a, b) => a - b);
+                const qa = arr => arr[Math.floor(0.1 * (arr.length - 1))], qb = arr => arr[Math.ceil(0.9 * (arr.length - 1))];
+                const m = 0.3 * teacher.h;
+                edge = teacher.fx < qa(xs) - m || teacher.fx > qb(xs) + m || teacher.fy < qa(ys) - m || teacher.fy > qb(ys) + m;
+            }
+            tc = { x: Math.round(teacher.x * 100) / 100, y: Math.round(teacher.y * 100) / 100, mv: teacher.moving, edge };
+        }
         let q = 0;
         still.forEach(p => {
             const near = still.filter(o => o !== p && Math.hypot(o.fx - p.fx, o.fy - p.fy) <= QUEUE_DIST * Math.max(p.h, o.h)).length;
@@ -274,7 +335,8 @@
             n: ins.length, mv: ins.length - still.length, o: ppl.length - ins.length, q,
             r: !!(poly && poly.length >= 3),
             fm: F.dom, ln: F.maxLine, d: ins.filter(isDishTrack).length,
-            dots: ppl.map(p => ({ x: p.x, y: p.y, mv: p.moving, in: p.inside, dish: isDishTrack(p) }))
+            vg: ins.filter(p => p.vig).length, cr, tc,
+            dots: all.map(p => ({ id: p.id, x: p.x, y: p.y, mv: p.moving, in: p.inside, dish: isDishTrack(p), tch: p === teacher }))
         };
     }
 
@@ -564,13 +626,13 @@
         const a = arr.slice().sort((x, y) => x - y);
         return a[Math.min(a.length - 1, Math.floor(q * a.length))];
     };
-    function summarizePeople(secs, st, ctx) {
+    function summarizePeople(secs, st, ctx, grid) {
         const rows = [];
         secs.forEach((s, t) => { if (s && s.p) rows.push({ t, p: s.p }); });
         if (!rows.length) return null;
-        const share = rs => {
+        const share = (rs, k) => {
             const tot = rs.reduce((a, r) => a + r.p.n, 0);
-            return tot ? Math.round(100 * rs.reduce((a, r) => a + r.p.mv, 0) / tot) : null;
+            return tot ? Math.round(100 * rs.reduce((a, r) => a + (r.p[k || 'mv'] || 0), 0) / tot) : null;
         };
         const isCore = t => ctx && ACTIVE_PARTS.includes(ctx[t]);
         const coreRows = rows.filter(r => isCore(r.t));
@@ -578,10 +640,23 @@
         const activeRows = useCore ? coreRows : rows.filter(r => st[r.t] === 'a');
         const qTot = activeRows.reduce((a, r) => a + r.p.n, 0);
         const roi = rows.some(r => r.p.r);
+        // شدّة النشاط: الجري (vg) نسبةً من الطلبة — بقيّة المتحرّكين معتدل (مشيٌ أو تمرينٌ في المكان)، والباقي ساكن
+        const hasVig = rows.some(r => r.p.vg != null);
+        // التزاحم: من المتحرّكين في زمن النشاط، كم كان أحدٌ ملاصقاً له
+        const mvTot = activeRows.reduce((a, r) => a + (r.p.cr != null ? r.p.mv : 0), 0);
+        const crTot = activeRows.reduce((a, r) => a + (r.p.cr || 0), 0);
+        // الكرات: ما يثبت في عُشر اللقطات (المئين ٩٠) من زمن النشاط — وحصّةٌ لا تُرى فيها كرةٌ في عشرين لقطةً ليست حصّة كرة
+        const bRows = (useCore ? coreRows : rows).filter(r => r.p.b != null);
+        const ballSeen = bRows.filter(r => r.p.b >= 1).length;
         return {
             detSecs: rows.length,
             // عدد طلبة الحصة = أكبر عددٍ رُصد (الكشف ينقص أثناء الحركة والتداخل، ولا يزيد إلّا بخطأٍ نادر)
             classSize: rows.reduce((m, r) => Math.max(m, r.p.n + r.p.o), 0),
+            vigAll: hasVig ? share(rows, 'vg') : null,
+            vigPlay: hasVig && useCore ? share(coreRows, 'vg') : null,
+            crowdPct: mvTot >= 50 ? Math.round(100 * crTot / mvTot) : null,
+            balls: ballSeen >= 20 ? quantile(bRows.map(r => r.p.b), 0.9) : null,
+            teacher: teacherStats(rows, grid),
             pupils: median(rows.map(r => r.p.n + r.p.o)),
             inside: median(rows.map(r => r.p.n)),
             movingAll: share(rows),
@@ -591,6 +666,75 @@
             // بغير الزيّ: ما يثبت في عُشر اللقطات على الأقلّ (لا قمّة لحظةٍ واحدة)
             dishEst: quantile(rows.map(r => r.p.d || 0), 0.9),
             roi
+        };
+    }
+
+    // ── المعلّم: أين وقف وكيف تنقّل ── p.t = [x, y, يتحرّك 1/0, على الطرف 1/0/-1 (لا يُعرف)]
+    // التغطية: الملعب بشبكةٍ ٤×٣ — ما فيه حركةٌ للطلبة (من خريطة الحركة) وكم منه زاره المعلّم (ثلاث لقطاتٍ فأكثر)
+    function teacherStats(rows, grid) {
+        const tr = rows.filter(r => Array.isArray(r.p.t));
+        if (tr.length < 30) return null;
+        const known = tr.filter(r => r.p.t[3] !== -1);
+        const CW = 4, CH = 3;
+        const cellOf = (x, y) => Math.min(CH - 1, Math.max(0, Math.floor(y * CH))) * CW + Math.min(CW - 1, Math.max(0, Math.floor(x * CW)));
+        const visits = new Array(CW * CH).fill(0);
+        tr.forEach(r => { visits[cellOf(r.p.t[0], r.p.t[1])]++; });
+        let active = null;
+        const g = Array.from(grid || []);
+        if (g.length === GRID_W * GRID_H && g.some(v => v > 0)) {
+            const coarse = new Array(CW * CH).fill(0);
+            g.forEach((v, i) => { const gx = i % GRID_W, gy = Math.floor(i / GRID_W); coarse[cellOf((gx + 0.5) / GRID_W, (gy + 0.5) / GRID_H)] += v; });
+            const mx = Math.max(...coarse);
+            active = coarse.map(v => v >= mx * 0.1);
+        }
+        const visited = visits.map(v => v >= 3);
+        const pool = active || visited.map(() => true);
+        const poolN = pool.filter(Boolean).length;
+        return {
+            secs: tr.length,
+            edgePct: known.length >= 20 ? Math.round(100 * known.filter(r => r.p.t[3] === 1).length / known.length) : null,
+            movePct: Math.round(100 * tr.filter(r => r.p.t[2]).length / tr.length),
+            cover: poolN ? Math.round(100 * visited.filter((v, i) => v && pool[i]).length / poolN) : null,
+            cells: visits.map(v => (v >= 3 ? 1 : 0)).join('')
+        };
+    }
+
+    // ── الاستجابة لإشارة الصفّارة: ثوانٍ حتّى يتوقّف أغلب الطلبة (إن كانوا يتحرّكون) أو يبدؤوا (إن كانوا ساكنين) ──
+    // مستوى النشاط كلّ ثانية: نسبة المتحرّكين من كشف الطلبة، وإلّا حركة الصورة نسبةً إلى عتبة النشاط.
+    // «التوقّف» = هبوط المستوى دون ٤٥٪ ممّا كان قبلها، و«البدء» = بلوغه ٠٫٣٥ فأكثر وزيادته ربعاً — خلال عشرين ثانية، وإلّا «لم يُستجب».
+    function whistleResponses(secs, activeThr) {
+        const n = secs.length, hasP = secs.some(s => s && s.p && s.p.n);
+        const L = secs.map(s => (hasP ? (s && s.p && s.p.n ? s.p.mv / s.p.n : null) : (s && s.m != null ? Math.min(1, s.m / (activeThr * 2)) : null)));
+        const lv = t => { for (const d of [0, -1, 1, -2, 2]) { const v = L[t + d]; if (t + d >= 0 && t + d < n && v != null) return v; } return null; };
+        const out = [];
+        let lastW = -99;
+        secs.forEach((s, w) => {
+            if (!s || !s.w || w - lastW < 6) return;
+            lastW = w;
+            const pre = [];
+            for (let k = 6; k >= 1; k--) { const v = L[w - k]; if (v != null) pre.push(v); }
+            if (pre.length < 2) return;
+            const before = pre.reduce((a, v) => a + v, 0) / pre.length;
+            const kind = before >= 0.35 ? 'stop' : before <= 0.2 ? 'start' : null;
+            if (!kind) return;
+            let sec = null;
+            for (let k = 1; k <= 20 && w + k < n; k++) {
+                const a = lv(w + k), b = lv(w + k + 1);
+                if (a == null) continue;
+                // ثانيتان متتاليتان تحقّقان الشرط (لا ثانيةٌ عابرة)
+                const v = b == null ? a : (kind === 'stop' ? Math.max(a, b) : Math.min(a, b));
+                if (kind === 'stop' ? v <= before * 0.45 : v >= Math.max(0.35, before + 0.25)) { sec = k; break; }
+            }
+            out.push({ t: w, kind, sec });
+        });
+        const got = out.filter(r => r.sec != null).map(r => r.sec);
+        const med = arr => (arr.length ? median(arr) : null);
+        return {
+            list: out.map(r => [r.t, r.kind === 'stop' ? 's' : 'g', r.sec == null ? -1 : r.sec]),
+            n: out.length, med: med(got),
+            stopMed: med(out.filter(r => r.kind === 'stop' && r.sec != null).map(r => r.sec)),
+            startMed: med(out.filter(r => r.kind === 'start' && r.sec != null).map(r => r.sec)),
+            slow: out.filter(r => r.sec == null || r.sec > 10).length
         };
     }
 
@@ -689,7 +833,8 @@
             },
             ctx: { covered: C.covered, pct: C.pct, sec: C.sec },
             parts: partsOf(ctx, st, secs),
-            people: summarizePeople(secs, st, useCtx ? ctx : null),
+            people: summarizePeople(secs, st, useCtx ? ctx : null, rec && rec.grid),
+            resp: whistleAt.length ? whistleResponses(secs, sens.active) : null,
             forms: forms.windows.replace(/-/g, '').length ? forms : null,
             space, timeline, states: st
         };
@@ -755,6 +900,14 @@
         return parts.length ? 'سُمع في كلام {المعلم|المعلمة}: ' + parts.join('، و') : 'لم يُسمع في كلام {المعلم|المعلمة} تصحيحٌ لأداء الطلبة ولا أسئلة';
     }
 
+    // الاستجابة للصفّارة حين تكفي (ثلاث إشاراتٍ قيست)، والمعلّم حين رُصد خمس دقائق
+    const respOf = M => { const R = M && M.resp; return R && R.med != null && R.list.filter(x => x[2] >= 0).length >= 3 ? R : null; };
+    const teacherOf = M => { const T = M && M.people && M.people.teacher; return T && T.secs >= 300 ? T : null; };
+    // طلبةٌ لكلّ كرة (العدد الأكبر ÷ الكرات) — حين تُرى الكرات
+    const ballRatio = M => { const P = M && M.people; return P && P.balls ? Math.max(1, Math.round((P.classSize || P.inside || 0) / P.balls)) : null; };
+    // «كرةٌ لكلّ طالبين / (٤) طلبة» — بالجرّ بعد «لكلّ»
+    const perPupils = r => (r === 1 ? 'طالب' : r === 2 ? 'طالبين' : '(' + r + ') ' + (r <= 10 ? 'طلبة' : 'طالباً'));
+
     // M من summarize (أو المحفوظ منه)، counts {وسم: عدد}،
     // ctx {female, pupil(text), sample (عيّنة الطلبة), follow (متابعة أهداف الزيارة السابقة — targetCheck), followDate}
     function suggest(M, counts, ctx) {
@@ -797,13 +950,15 @@
         // ٧ فاعلية الإدارة الصفّيّة — حركة الطلبة أنفسهم إن كُشفوا، وإلّا حركة الصورة؛ والقاطرات الطويلة تنقصها
         const classN = people ? (people.classSize || people.inside) : 0;
         if ((m.observed || 0) >= MIN_OBSERVE) {
-            let s, e, basis;
+            let s, e, basis, s0;
             if (people) {
                 const core = people.movingPlay != null;
                 const p = core ? people.movingPlay : people.movingAll;
                 const T = core ? [65, 50, 38, 25] : [55, 45, 35, 25];
                 s = p >= T[0] ? 1 : p >= T[1] ? 2 : p >= T[2] ? 3 : p >= T[3] ? 4 : 5;
                 e = 'تحرّك الطلبة (' + p + '%) من ' + (core ? 'زمن الإحماء والإعداد البدني والأنشطة' : 'زمن الرصد') + ' في المتوسّط، وعددهم ' + pupilsN(classN);
+                const vg = core ? people.vigPlay : people.vigAll;
+                if (vg != null && p >= 10) e += '، منها (' + vg + '%) جرياً أو نشاطاً شديداً';
                 basis = 'ai';
             } else {
                 const p = m.activePct;
@@ -811,6 +966,7 @@
                 e = 'بلغ زمن النشاط الحركي للطلبة (' + p + '%) من زمن الرصد، أي ' + dur(m.activeSec) + ' من ' + dur(m.observed);
                 basis = 'camera';
             }
+            s0 = s;                          // المعدِّلات (الانتظار، القاطرات، الصفّارة، موقع المعلّم) ترفع درجةً واحدةً وتنزل درجتين على الأكثر
             if (m.longestIdle >= 300) s++;
             else if (m.waits >= 2 && m.avgTransition <= 45 && m.longestIdle < 180) s--;
             const FM = m.forms;
@@ -819,9 +975,22 @@
                          : '، بلا فترات انتظار طويلة بين الأنشطة';
             if (FM && FM.longLineSec >= 60 && FM.maxLine > LONG_LINE) e += '، ووقفت قاطراتٌ طويلةٌ (حتّى ' + pupilsN(FM.maxLine) + ') مدّة ' + dur(FM.longLineSec);
             if (m.cued) e += '، ونُظّم ' + count(m.cued, 'انتقالٌ واحد', 'انتقالان', 'انتقالات', 'انتقالاً') + ' بالصفّارة';
+            // الاستجابة لإشارات البدء والتوقّف (شاهدٌ في البند نفسه): سريعةٌ ترفع، وبطيئةٌ تنزل
+            const R = respOf(m);
+            if (R) {
+                if (R.med <= 5) s--; else if (R.med >= 12) s++;
+                e += '، واستجاب الطلبة لإشارة الصفّارة خلال ' + dur(R.med) + ' في المتوسّط (' + R.n + ' ' + (R.n >= 3 && R.n <= 10 ? 'إشارات' : 'إشارة') + ')';
+                if (R.slow) e += '، منها ' + count(R.slow, 'إشارةٌ واحدة', 'إشارتان', 'إشارات', 'إشارة') + ' تأخّرت الاستجابة لها';
+            }
+            // موقع المعلّم: على أطراف الطلبة يراهم جميعاً (الإشراف النشط)، أم في وسطهم وبعضهم خلفه
+            const TS = teacherOf(m);
+            if (TS && TS.edgePct != null) {
+                if (TS.edgePct < 35) s++;
+                e += '، ووقف {المعلم|المعلمة} على أطراف الطلبة (' + TS.edgePct + '%) من الوقت' + (TS.cover != null ? ' {وتنقّل|وتنقّلت} في (' + TS.cover + '%) من مساحة النشاط' : '');
+            }
             const SP7 = speechOf(m);
             if (SP7 && SP7.clauses >= 20 && SP7.orgShare >= 40) e += '، وكان (' + SP7.orgShare + '%) من كلام {المعلم|المعلمة} تعليماتٍ تنظيميّة';
-            add(7, s, basis, e + '.');
+            add(7, Math.max(s0 - 1, Math.min(s0 + 2, s)), basis, e + '.');
         }
 
         // ٦ تخطيط المنهاج — من عناصر الحصة الخمسة إن لُمست (حضورها وترتيبها وزمن كلٍّ منها)، وإلّا من بنيتها المرئيّة.
@@ -961,7 +1130,11 @@
             add(2, s, prog ? (inc || outN ? 'both' : 'sample') : 'taps', bits.join('، ') + '.', prog ? nConf(prog.both) : null);
         }
 
-        // ٥ الأمن والسلامة — ومنها الزيّ الرياضيّ: «بغير الزيّ» عددٌ يقترحه كشف الطلبة ويؤكّده المشرف
+        // ٥ الأمن والسلامة — ومنها الزيّ الرياضيّ: «بغير الزيّ» عددٌ يقترحه كشف الطلبة ويؤكّده المشرف،
+        // والتزاحم أثناء الحركة (الاستمارة: «توزيع الطلبة في مسافات آمنة» / «تزاحم الطلبة في مساحات ضيقة»)
+        const crowd = people && people.crowdPct != null ? people.crowdPct : null;
+        const crowdText = v => (v >= CROWD_BAD ? 'وتزاحم الطلبة أثناء الحركة: (' + v + '%) منهم كان زميلٌ ملاصقاً له'
+                                               : 'وتوزّع الطلبة في مسافاتٍ آمنة أثناء الحركة (التزاحم ' + v + '%)');
         const dishN = c('dish');
         if (c('safe') || c('hazard') || dishN) {
             const p = c('safe'), n = c('hazard');
@@ -977,24 +1150,37 @@
             }
             if (m.space && m.space.concentration >= 60 && (m.observed || 0) >= MIN_OBSERVE) bits.push('وتركّزت الحركة في جزءٍ محدود من المساحة');
             if (SP && SP.safe.n) bits.push('وذكّر {المعلم|المعلمة} الطلبة بالسلامة ' + times(SP.safe.n));
-            add(5, s, 'taps', bits.join('، ') + '.');
+            if (crowd != null) {
+                if (crowd >= CROWD_BAD) s = Math.max(s, crowd >= 40 ? 4 : 3);
+                bits.push(crowdText(crowd));
+            }
+            add(5, s, crowd != null ? 'both' : 'taps', bits.join('، ') + '.');
+        } else if (crowd != null && crowd >= CROWD_BAD) {
+            add(5, crowd >= 40 ? 4 : 3, 'ai', crowdText(crowd).replace(/^و/, '') + '.');
         } else if (SP && SP.safe.n >= 2) {
             add(5, 2, 'speech', '{ذكّر المعلم|ذكّرت المعلمة} الطلبة بالسلامة ' + times(SP.safe.n) + ' أثناء الحصة.');
         }
 
         // ٩ المصادر والموارد — وانتظار الدور الذي تراه الكاميرا
         const queue = people && people.queuePct >= 40 ? people.queuePct : 0;
-        if (c('tools') || c('noTools') || queue) {
+        // والكرات: النموذج نفسه يرى «الكرة» — طلبةٌ لكلّ كرة (٢ فأقلّ جيد، حتّى ٤ ملائم، وأكثر غير ملائم)
+        const ratio = people ? ballRatio(m) : null;
+        if (c('tools') || c('noTools') || queue || ratio) {
             const p = c('tools'), n = c('noTools');
-            let s = n >= 2 ? 4 : n === 1 ? (p ? 3 : 4) : 2;
+            let s = p || n ? (n >= 2 ? 4 : n === 1 ? (p ? 3 : 4) : 2) : 0;
             const bits = [];
             if (p) bits.push('وُظّفت أدواتٌ كافية ومتنوعة');
             if (n) bits.push((p ? 'و' : '') + 'رُصد نقصٌ في الأدوات وانتظارٌ للدور ' + times(n));
+            if (ratio) {
+                const bs = ratio <= 2 ? 2 : ratio <= 4 ? 3 : 4;
+                s = s ? Math.max(s, bs) : bs;
+                bits.push((bits.length ? 'و' : '') + 'رُصدت نحو (' + people.balls + ') ' + (people.balls <= 10 ? 'كرات' : 'كرة') + ' لـ' + pupilsN(people.classSize || people.inside) + ' — كرةٌ لكلّ ' + perPupils(ratio));
+            }
             if (queue) {
-                s = Math.max(p || n ? s : 0, queue >= 55 ? 4 : 3);
+                s = Math.max(s, queue >= 55 ? 4 : 3);
                 bits.push((bits.length ? 'و' : '') + 'وقف (' + queue + '%) من الطلبة ينتظرون دورهم أثناء التطبيق');
             }
-            add(9, s, p || n ? (queue ? 'both' : 'taps') : 'ai', bits.join('، ') + '.');
+            add(9, s, p || n ? (queue || ratio ? 'both' : 'taps') : 'ai', bits.join('، ') + '.');
         }
 
         return out.sort((a, b) => a.id - b.id);
@@ -1035,6 +1221,8 @@
         if (M.waits) bits.push('وتخلّلتها ' + count(M.waits, 'فترة انتظار واحدة', 'فترتا انتظار', 'فترات انتظار', 'فترة انتظار') + ' أطولها ' + dur(M.longestIdle));
         if (M.explainSec >= 60 && !det) bits.push('واستغرق الشرح والتوجيه ' + dur(M.explainSec));
         if (M.whistles) bits.push('واستُعملت الصفّارة ' + times(M.whistles));
+        const R = respOf(M);
+        if (R) bits.push('واستجاب الطلبة لها خلال ' + dur(R.med) + ' في المتوسّط');
         const SP = speechOf(M);
         if (SP) bits.push('وسُمع في كلام {المعلم|المعلمة}: تعزيزٌ (' + SP.praise.n + ')، وتصحيحٌ (' + SP.corr.n + ')، وأسئلةٌ (' + SP.q.n + ')');
         if (SS && SS.final) bits.push((bits.length ? 'و' : '') + 'أتقن المهارة (' + SS.final.ok + ') من ' + pupilsN(SS.final.rated) + ' في عيّنة الطلبة');
@@ -1086,6 +1274,24 @@
             if (SP.corr.n >= 6 && SP.praise.n < SP.corr.n / 2) ask.push('غلب التصحيح (' + SP.corr.n + ') على التعزيز (' + SP.praise.n + '). ما أثر ذلك على دافعيّة الطلبة؟');
             if (SP.topic && SP.topic.terms && SP.topic.terms.length && !SP.topic.n && SP.words >= 300)
                 ask.push('لم يُسمع مصطلح الدرس («' + SP.topic.terms[0] + '») في كلامك. كيف {توظّف|توظّفين} المصطلح الفنّي ليتعلّمه الطلبة؟');
+        }
+        // من الكاميرا: الاستجابة للصفّارة، وشدّة النشاط، والتزاحم، والكرات، وموقع المعلّم
+        const R = respOf(m);
+        if (R && R.med >= 8) ask.push('احتاج الطلبة ' + dur(R.med) + ' في المتوسّط للاستجابة لإشارة الصفّارة. ما الإشارة المتّفق عليها معهم، وكيف {تدرّبهم|تدرّبينهم} عليها؟');
+        else if (R && R.med <= 4) good.push('استجاب الطلبة لإشارة الصفّارة سريعاً: ' + dur(R.med) + ' في المتوسّط.');
+        const PP = m.people && m.people.detSecs >= MIN_OBSERVE / 2 ? m.people : null;
+        if (PP) {
+            const mv = movingOf(m), vg = PP.vigPlay != null ? PP.vigPlay : PP.vigAll;
+            if (mv != null && mv < MVPA_GOAL && !(det && det.some(r => r.lowAct)))
+                ask.push('كان الطلبة في نشاطٍ معتدلٍ فأشدّ (' + mv + '%) من الزمن، والمعيار المتداول نصفه على الأقلّ. أيّ جزءٍ من الحصة يتحوّل إلى ممارسة؟');
+            if (vg != null && vg >= 25) good.push('كان (' + vg + '%) من زمن الطلبة جرياً أو نشاطاً شديداً.');
+            if (PP.crowdPct != null && PP.crowdPct >= CROWD_BAD) ask.push('تزاحم الطلبة أثناء الحركة (' + PP.crowdPct + '%). كيف {توزّع|توزّعين} المساحة ليعمل كلٌّ في مسافةٍ آمنة؟');
+            const ratio = ballRatio(m);
+            if (ratio && ratio > 4) ask.push('كانت كرةٌ لكلّ ' + perPupils(ratio) + '. كيف {تزيد|تزيدين} الكرات أو المحطّات ليلمس كلّ طالبٍ الكرة أكثر؟');
+            else if (ratio && ratio <= 2) good.push('كانت كرةٌ لكلّ ' + perPupils(ratio) + ' — فرص ممارسةٍ وافرة.');
+            const TS = teacherOf(m);
+            if (TS && TS.edgePct != null && TS.edgePct < 35) ask.push('{وقفت|وقفتِ} في وسط الطلبة أغلب الوقت (على أطرافهم ' + TS.edgePct + '% فقط). من كان خلفك؟ وأين {تقف|تقفين} لترى الجميع؟');
+            else if (TS && TS.edgePct >= 60 && (TS.cover == null || TS.cover >= 50)) good.push('{وقفت|وقفتِ} على أطراف الطلبة و{تنقّلت|تنقّلتِ} بينهم — إشرافٌ نشط يرى الجميع.');
         }
         // عيّنة الطلبة: الإتقان والتقدّم
         const SS = sampleStats(ctx.sample);
@@ -1199,13 +1405,26 @@
         { k: 'org', w: 1.5, item: 7, label: 'نصيب التعليمات التنظيميّة من الكلام', unit: '%', dir: -1, good: 40, needs: 'speech',
           read: d => { const SP = spOf(d); return SP && SP.clauses >= 20 ? SP.orgShare : null; }, goal: b => Math.max(30, b - 15),
           text: (b, t) => 'تقليل نصيب التعليمات التنظيميّة من كلام {المعلم|المعلمة} من (' + b + '%) إلى (' + t + '%) على الأكثر، لزيادة زمن الممارسة' },
+        { k: 'resp', w: 2, item: 7, label: 'الاستجابة لإشارة الصفّارة', unit: 'sec', dir: -1, good: 6, needs: 'camera',
+          read: d => { const R = respOf(d.M); return R ? R.med : null; }, goal: b => Math.max(4, Math.round(b / 2)),
+          text: (b, t) => 'تدريب الطلبة على الاستجابة لإشارة الصفّارة لتكون خلال ' + dur(t) + ' على الأكثر — كانت ' + dur(b) },
+        { k: 'crowd', w: 2, item: 5, label: 'التزاحم أثناء الحركة', unit: '%', dir: -1, good: 15, needs: 'ai',
+          read: d => (d.M && d.M.people && d.M.people.detSecs >= MIN_OBSERVE / 2 && d.M.people.crowdPct != null ? d.M.people.crowdPct : null), goal: b => Math.max(10, b - 15),
+          text: (b, t) => 'توزيع الطلبة في مسافاتٍ آمنة أثناء الحركة ليقلّ التزاحم من (' + b + '%) إلى (' + t + '%) على الأكثر' },
+        { k: 'balls', w: 1.5, item: 9, label: 'طلبةٌ لكلّ كرة', unit: 'n', dir: -1, good: 3, needs: 'ai',
+          read: d => ballRatio(d.M), goal: b => Math.max(2, Math.min(3, Math.round(b * 0.6))),
+          text: (b, t) => 'زيادة الكرات أو المحطّات لتكون كرةٌ لكلّ ' + perPupils(t) + ' على الأكثر — كانت لكلّ ' + perPupils(b) },
+        { k: 'tEdge', w: 2, item: 7, label: 'وقوف المعلّم على أطراف الطلبة', unit: '%', dir: 1, good: 60, needs: 'teacher',
+          read: d => { const T = teacherOf(d.M); return T && T.edgePct != null ? T.edgePct : null; }, goal: b => Math.min(80, ceil5(b + 20)),
+          text: (b, t) => '{وقوف المعلم|وقوف المعلمة} على أطراف الطلبة حيث {يراهم|تراهم} جميعاً (' + t + '%) من الوقت على الأقلّ — كان (' + b + '%)' },
         { k: 'mastery', w: 3, item: 1, label: 'إتقان عيّنة الطلبة للمهارة', unit: '%', dir: 1, good: 75, needs: 'sample',
           read: d => { const SS = sampleStats(d.sample); return SS && SS.final ? SS.final.pct : null; }, goal: b => Math.min(90, ceil5(b + 15)),
           text: (b, t) => 'رفع نسبة إتقان الطلبة للمهارة في آخر الحصة من (' + b + '%) إلى (' + t + '%) على الأقلّ، بالتدرّج في تعليمها وتكرار ممارستها' }
     ];
     const METRIC = {};
     METRICS.forEach(x => { METRIC[x.k] = x; });
-    const NEEDS = { camera: 'الكاميرا', ai: 'الكاميرا و«كشف الطلبة»', parts: 'لمس «عناصر الحصة»', tag: 'الوسم أو كشف الطلبة', speech: '«فهم الكلام»', sample: '«عيّنة الطلبة»' };
+    const NEEDS = { camera: 'الكاميرا', ai: 'الكاميرا و«كشف الطلبة»', parts: 'لمس «عناصر الحصة»', tag: 'الوسم أو كشف الطلبة', speech: '«فهم الكلام»', sample: '«عيّنة الطلبة»',
+                    teacher: 'الكاميرا و«تحديد المعلّم»' };
 
     function fmtTarget(unit, v) {
         if (v == null) return '—';
@@ -1264,6 +1483,9 @@
         const partAt = t => { const r = (m.mins || [])[Math.floor(t / 60)]; return r && r[2] ? r[2] : null; };
         if (m.longestIdle >= 60 && m.longestIdleAt != null)
             out.push({ t: m.longestIdleAt, k: 'idle', text: 'بدأ أطول انتظارٍ بين نشاطين، واستمرّ ' + dur(m.longestIdle) });
+        const RL = (m.resp && m.resp.list) || [];
+        const slow = RL.filter(r => r[2] === -1 || r[2] >= 10).sort((a, b) => (b[2] === -1 ? 99 : b[2]) - (a[2] === -1 ? 99 : a[2]))[0];
+        if (slow) out.push({ t: slow[0], k: 'resp', text: slow[2] === -1 ? 'لم يستجب الطلبة لإشارة الصفّارة خلال عشرين ثانية' : 'تأخّرت الاستجابة لإشارة الصفّارة: ' + dur(slow[2]) });
         const LR = m.forms && m.forms.longRun;
         if (LR && LR.sec >= 30) out.push({ t: LR.at, k: 'line', text: 'وقفت قاطرةٌ من ' + pupilsN(LR.size) + ' مدّة ' + dur(LR.sec) });
         // أعلى حركةٍ وأدناها في دقيقة — داخل العناصر النشطة إن لُمست، وإلّا بلا أوّل دقيقةٍ وآخرها
@@ -1298,6 +1520,10 @@
         { k: 'closedQ', label: 'أسئلةٌ مغلقةٌ كلّها', topic: 'الأسئلة التي تستثير التفكير', test: d => { const SP = spOf(d); return !!SP && SP.q.n >= 3 && !SP.q.hi; } },
         { k: 'noCheck', label: 'لا تحقّق من فهم الطلبة', topic: 'التحقّق من الفهم قبل التطبيق', test: d => { const SP = spOf(d); return !!SP && SP.words >= 300 && !SP.check.n && !SP.q.n; } },
         { k: 'orgHeavy', label: 'غلبة التعليمات التنظيميّة على الكلام', topic: 'تقليل التعليمات وزيادة زمن الممارسة', test: d => { const SP = spOf(d); return !!SP && SP.clauses >= 20 && SP.orgShare >= 50; } },
+        { k: 'slowResp', label: 'استجابةٌ بطيئة لإشارة الصفّارة (10 ثوانٍ فأكثر)', topic: 'إشارات البدء والتوقّف وروتين الانتقال', test: d => { const R = respOf(d.M); return !!R && R.med >= 10; } },
+        { k: 'crowd', label: 'تزاحمٌ أثناء الحركة', topic: 'تنظيم المساحة والسلامة أثناء الممارسة', test: d => { const P = d.M && d.M.people; return !!P && P.detSecs >= MIN_OBSERVE / 2 && P.crowdPct != null && P.crowdPct >= CROWD_BAD; } },
+        { k: 'fewBalls', label: 'كرةٌ لكلّ أكثر من أربعة طلبة', topic: 'توفير الأدوات وتعدّد المحطّات', test: d => { const r = ballRatio(d.M); return !!r && r > 4; } },
+        { k: 'teacherCenter', label: 'المعلّم في وسط الطلبة أغلب الوقت', topic: 'الإشراف النشط وموقع المعلّم', test: d => { const T = teacherOf(d.M); return !!T && T.edgePct != null && T.edgePct < 35; } },
         { k: 'lowMastery', label: 'إتقان العيّنة أقلّ من (50%)', topic: 'التدرّج في تعليم المهارة', test: d => { const SS = sampleStats(d.sample); return !!(SS && SS.final) && SS.final.pct < 50; } },
         { k: 'noProgress', label: 'تقدّمٌ محدود في عيّنة الطلبة', topic: 'التدرّج في تعليم المهارة', test: d => { const SS = sampleStats(d.sample); return !!SS && SS.both >= MIN_SAMPLE && SS.progress < 50; } }
     ];
@@ -1376,7 +1602,8 @@
         suggest, confidence, unsupported, summaryText, heatDigits, agreement, dur, count, g, times, pupilsN,
         MIN_SAMPLE, QUANT, quantScore, sampleStats, movingOf, minuteSeries, autoMoments,
         METRICS, METRIC, NEEDS, fmtTarget, targetCandidates, targetText, targetGoalText, targetCheck,
-        ISSUES, issuesOf, patterns
+        ISSUES, issuesOf, patterns,
+        VIG_SPEED, CROWD_DIST, BALL_MIN_SCORE, MVPA_GOAL, CROWD_BAD, teacherStep, pickNearest, teacherStats, whistleResponses, ballRatio, perPupils
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEye = api;

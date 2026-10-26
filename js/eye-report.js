@@ -141,6 +141,30 @@
             y += H + 60;
         }
 
+        // ٤ب) الحركة والتنظيم: شدّة النشاط، والاستجابة للصفّارة، والكرات، والتزاحم، وموقع المعلّم
+        const mvI = people ? (people.movingPlay != null ? people.movingPlay : people.movingAll) : null;
+        const vgI = people ? (people.vigPlay != null ? people.vigPlay : people.vigAll) : null;
+        const RS = M.resp && M.resp.med != null ? M.resp : null, ratio = Y.ballRatio ? Y.ballRatio(M) : null, TS = people && people.teacher;
+        const org = [];
+        if (RS) org.push(P('الاستجابة لإشارة الصفّارة: ' + RS.med + ' ث في المتوسّط (' + RS.n + (RS.n >= 3 && RS.n <= 10 ? ' إشارات)' : ' إشارة)')));
+        if (ratio) org.push(P('الكرات: كرةٌ لكلّ ' + Y.perPupils(ratio)));
+        if (people && people.crowdPct != null) org.push(P('التزاحم أثناء الحركة: ' + people.crowdPct + '% من المتحرّكين'));
+        if (TS && TS.edgePct != null) org.push((info.female ? 'المعلمة' : 'المعلم') + P(' على أطراف الطلبة ' + TS.edgePct + '% من الوقت') + (TS.cover != null ? '، وتنقّل' + (info.female ? 'ت' : '') + ' في ' + TS.cover + '% من المساحة' : ''));
+        if ((mvI != null && vgI != null) || org.length) {
+            y = heading(g, 'الحركة والتنظيم', y + 20) + 16;
+            if (mvI != null && vgI != null) {
+                const segs = [[P('ساكن'), 100 - mvI, '#cbd5e1'], [P('معتدل'), Math.max(0, mvI - vgI), '#5b8fc7'], [P('شديد'), vgI, C.navy]];
+                const bw = W - 2 * PAD;
+                let x = W - PAD;
+                segs.forEach(([lab, v, col]) => { const w = bw * v / 100; if (w > 0) { g.fillStyle = col; g.fillRect(x - w, y, w, 34); } x -= w; });
+                g.font = font(400, 22); g.fillStyle = C.muted;
+                g.fillText(segs.map(([lab, v]) => lab + ' ' + v + '%').join('  ·  ') + '  —  ' + P('المعيار: نصف الزمن نشاطاً معتدلاً فأشدّ'), W - PAD, y + 68);
+                y += 104;
+            }
+            g.font = font(400, 26); g.fillStyle = C.text;
+            org.forEach(t => { y = wrap(g, t, W - PAD, y, W - 2 * PAD, 38); });
+        }
+
         // ٥) التشكيلات
         const F = M.forms;
         if (F && F.count) {
