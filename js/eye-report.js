@@ -324,16 +324,232 @@
         let file = null;
         try { file = new File([blob], name, { type: 'image/png' }); } catch (e) { file = null; }
         if (file && navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-            await navigator.share({ files: [file], title: 'تحليل الحصة', text: 'تحليل الحصة' + (info.teacher ? ' — ' + info.teacher : '') });
-            return 'shared';
-        }
-        download(blob, name);
-        return 'download';
+            await navigator.share({ files: [file], title: 'تحليل الحصة', text: 'تحليل الحصة' + (info.teacher ? ' — ' (function(root) {
+  'use strict';
+
+  const C = {
+    bg: '#ffffff',
+    text: '#1e293b',
+    muted: '#64748b',
+    primary: '#0284c7',
+    primaryLight: '#f0f9ff',
+    success: '#16a34a',
+    warning: '#d97706',
+    danger: '#dc2626',
+    border: '#e2e8f0',
+    cardBg: '#f8fafc'
+  };
+
+  const font = (weight, size) => `${weight || 400} ${size || 14}px system-ui, -apple-system, sans-serif`;
+
+  function fontsReady() {
+    return document.fonts ? document.fonts.ready : Promise.resolve();
+  }
+
+  function wrap(g, text, x, y, maxWidth, lineHeight) {
+    if (!text) return y;
+    const words = String(text).split(' ');
+    let line = '';
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = g.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        g.fillText(line.trim(), x, y);
+        line = words[n] + ' ';
+        y += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    g.fillText(line.trim(), x, y);
+    return y + lineHeight;
+  }
+
+  function heading(g, text, x, y) {
+    g.font = font(700, 18);
+    g.fillStyle = C.primary;
+    g.fillText(text, x, y);
+    return y + 26;
+  }
+
+  function draw(data, info, extra) {
+    info = info || {};
+    extra = extra || {};
+    const W = 800;
+    const PAD = 30;
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = 1200;
+    const g = cv.getContext('2d');
+
+    g.fillStyle = C.bg;
+    g.fillRect(0, 0, W, 1200);
+
+    let y = PAD + 20;
+    g.font = font(700, 24);
+    g.fillStyle = C.primary;
+    g.fillText('بطاقة تحليل معلم - عين المشرف', PAD, y);
+    y += 35;
+
+    g.font = font(400, 14);
+    g.fillStyle = C.text;
+    if (info.teacher) y = wrap(g, 'المعلم: ' + info.teacher, PAD, y, W - 2 * PAD, 22);
+    if (info.subject) y = wrap(g, 'المادة: ' + info.subject, PAD, y, W - 2 * PAD, 22);
+    if (info.date) y = wrap(g, 'التاريخ: ' + info.date, PAD, y, W - 2 * PAD, 22);
+
+    y += 10;
+    g.strokeStyle = C.border;
+    g.beginPath();
+    g.moveTo(PAD, y);
+    g.lineTo(W - PAD, y);
+    g.stroke();
+    y += 20;
+
+    if (data) {
+      y = heading(g, 'ملخص التحليل الصوتي والتربوي', PAD, y);
+      if (typeof data === 'string') {
+        y = wrap(g, data, PAD, y, W - 2 * PAD, 24);
+      } else if (typeof data === 'object') {
+        Object.keys(data).forEach(k => {
+          y = wrap(g, `${k}: ${JSON.stringify(data[k])}`, PAD, y, W - 2 * PAD, 22);
+        });
+      }
     }
 
-    async function print(data, info, extra) {
-        info = info || {};
-        const w = root.open('', '_blank');                // داخل الضغطة: تُفتح الآن وتُملأ بعد الرسم
+    const out = document.createElement('canvas');
+    out.width = W;
+    out.height = Math.max(y + PAD, 400);
+    const outG = out.getContext('2d');
+    outG.drawImage(cv, 0, 0);
+    return out;
+  }
+
+  const fileName = info => 'بطاقة_تحليل_' + (info.teacher || 'معلم') + '_' + (info.date || '') + '.png';
+  const toBlob = cv => new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error('blob')), 'image/png'));
+
+  function download(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  async function share(data, info, extra) {
+    info = info || {};
+    const blob = await toBlob(await draw(data, info, extra));
+    const name = fileName(info);
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], name, { type: 'image/png' })] })) {
+      await navigator.share({ files: [new File([blob], name, { type: 'image/png' })], title: 'بطاقة تحليل المعلم', text: 'تقرير زيارة مشرف' });
+      return 'shared';
+    }
+    download(blob, name);
+    return 'download';
+  }
+
+  async function print(data, info, extra) {
+    info = info || {};
+    const w = root.open('', '_blank');
+    const blob = await toBlob(await draw(data, info, extra));
+    const url = URL.createObjectURL(blob);
+    w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + fileName(info) + '</title><style>@page{size:A4;margin:10mm}html,body{margin:0;background:#fff}img{display:block;width:100%}</style></head><body><img src="' + url + '" onload="setTimeout(function(){window.print()},300)"></body></html>');
+    w.document.close();
+    return 'print';
+  }
+
+  let activeEscHandler = null;
+
+  function closeTeacherAnalysisCard() {
+    const cardModal = document.getElementById('svf-teacher-analysis-modal') || document.getElementById('svf-teacher-analysis-card');
+    if (cardModal) {
+      cardModal.style.display = 'none';
+    }
+    if (activeEscHandler) {
+      window.removeEventListener('keydown', activeEscHandler);
+      activeEscHandler = null;
+    }
+  }
+
+  function renderReportCard(data, info, containerEl) {
+    info = info || {};
+    const container = containerEl || document.body;
+    
+    let modal = document.getElementById('svf-teacher-analysis-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'svf-teacher-analysis-modal';
+      modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;align-items:center;overflow-y:auto;';
+      container.appendChild(modal);
+    }
+    modal.style.display = 'flex';
+
+    const topBarHTML = `
+      <div id="svf-card-top-bar" style="position:sticky;top:0;left:0;right:0;width:100%;max-width:900px;z-index:10000;background:#ffffff;padding:12px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;box-sizing:border-box;">
+        <button id="svf-card-back-btn" type="button" style="padding:8px 18px;background:#0284c7;color:#ffffff;border:none;border-radius:6px;cursor:pointer;font-size:15px;font-weight:bold;display:inline-flex;align-items:center;gap:6px;transition:background 0.2s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
+          ← رجوع إلى عين المشرف
+        </button>
+        <span style="font-size:16px;font-weight:bold;color:#1e293b;">بطاقة تحليل المعلم</span>
+      </div>
+    `;
+
+    const contentHTML = `
+      <div id="svf-card-content" style="background:#ffffff;width:100%;max-width:900px;padding:24px;box-sizing:border-box;margin-bottom:40px;border-radius:0 0 8px 8px;direction:rtl;text-align:right;">
+        <h2 style="color:#0284c7;margin-top:0;">تقرير تحليل الزيارة والإشراف</h2>
+        <p><strong>المعلم:</strong> ${info.teacher || 'غير محدد'}</p>
+        <p><strong>المادة:</strong> ${info.subject || 'التربية الرياضية'}</p>
+        <p><strong>التاريخ:</strong> ${info.date || new Date().toLocaleDateString('ar-OM')}</p>
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;" />
+        <div id="svf-card-body">
+          ${typeof data === 'string' ? data : `<pre style="white-space:pre-wrap;background:#f8fafc;padding:12px;border-radius:6px;">${JSON.stringify(data, null, 2)}</pre>`}
+        </div>
+      </div>
+    `;
+
+    modal.innerHTML = topBarHTML + contentHTML;
+
+    const backBtn = document.getElementById('svf-card-back-btn');
+    if (backBtn) {
+      backBtn.onclick = function() {
+        closeTeacherAnalysisCard();
+      };
+    }
+
+    if (activeEscHandler) {
+      window.removeEventListener('keydown', activeEscHandler);
+    }
+    activeEscHandler = function(e) {
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        closeTeacherAnalysisCard();
+      }
+    };
+    window.addEventListener('keydown', activeEscHandler);
+
+    return modal;
+  }
+
+  function openTeacherAnalysisCard(data, info, extra) {
+    return renderReportCard(data, info);
+  }
+
+  const api = {
+    draw,
+    share,
+    print,
+    renderReportCard,
+    openTeacherAnalysisCard,
+    closeTeacherAnalysisCard,
+    fontsReady
+  };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  }
+  root.SvfEyeReport = api;
+})(typeof window !== 'undefined' ? window : this);.open('', '_blank');                // داخل الضغطة: تُفتح الآن وتُملأ بعد الرسم
         const blob = await toBlob(await draw(data, info, extra));
         if (!w) { download(blob, fileName(info)); return 'download'; }
         const url = URL.createObjectURL(blob);
