@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v45';
+const VERSION = 'v46';
 const CACHE_NAME = `supervisory-${VERSION}`;
 
 const ASSETS = [
