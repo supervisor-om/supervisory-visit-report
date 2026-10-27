@@ -10,6 +10,7 @@
 //   • القيم والروح الرياضيّة، والربط بالصحّة    • مصطلحات درس اليوم (من عنوانه)
 //   • عباراتٌ تحتاج مراجعة المشرف — **لا تدخل التقييم ولا بطاقة المعلّم**
 // وكلّ عبارةٍ تُنسب إلى عنصر الحصة الذي قيلت فيه. القاموس لا يفهم السياق: يعدّ ما يُسمع، والمشرف يراجع الأمثلة.
+// وما قيل أثناء الحضور والزيّ (opts.admin) يُعدّ وحده ولا يدخل الفئات (2026-10-27).
 // =========================================================================
 (function (root) {
     'use strict';
@@ -104,9 +105,21 @@
     };
     const short = s => { s = String(s || '').trim(); return s.length > 90 ? s.slice(0, 88) + '…' : s; };
 
-    // segs: [{t, x}] بزمن الحصة، opts: {topic, ctx: [{t, k}] عناصر الحصة, seconds}
+    // الحضور والزيّ (2026-10-27): ما قيل فيه («حاضر»، «وين الزيّ؟»، «ليش ما لبست الحذاء؟») ليس شرحاً ولا أسئلةً ولا تعليماتٍ للدرس —
+    // يُعدّ وحده ولا يدخل الفئات (إلّا «ما يحتاج مراجعة»: يبقى للمشرف أينما قيل). spans: [[من، إلى)] من eye-core (summarize → admin.spans)
+    const tOf = s => Math.max(0, Math.round(Number(Array.isArray(s) ? s[0] : s && s.t) || 0));
+    const inSpans = (spans, t) => (spans || []).some(p => t >= p[0] && t < p[1]);
+    function lessonSegs(segs, spans) {
+        if (!spans || !spans.length) return segs || [];
+        return (segs || []).filter(s => !inSpans(spans, tOf(s)));
+    }
+
+    // segs: [{t, x}] بزمن الحصة، opts: {topic, ctx: [{t, k}] عناصر الحصة, seconds, admin: [[من، إلى)] الحضور والزيّ}
     function analyze(segs, opts) {
         opts = opts || {};
+        const adm = opts.admin || [];
+        const admSec = adm.reduce((s, p) => s + Math.max(0, p[1] - p[0]), 0);
+        const admin = { clauses: 0, words: 0 };
         const terms = topicTerms(opts.topic);
         const termRe = terms.length ? new RegExp('(?:^| )(?:و|ف)?(?:ب|ل|ك)?(?:ال)?(?:' + terms.map(escRe).join('|') + ')(?= |$)') : null;
         const cats = {};
@@ -123,6 +136,15 @@
         (segs || []).forEach(seg => {
             if (!seg || !seg.x) return;
             const t = Math.max(0, Math.round(Number(seg.t) || 0));
+            if (inSpans(adm, t)) {
+                clauses(seg.x).forEach(cl => {
+                    const s = norm(cl);
+                    if (!s) return;
+                    admin.clauses++; admin.words += s.split(' ').length;
+                    if (L.harsh.test(s)) add('harsh', t, cl);
+                });
+                return;
+            }
             if (first == null) first = t;
             last = t;
             const pk = partAt(opts.ctx, t);
@@ -163,13 +185,13 @@
             });
         });
         const span = first == null ? 0 : Math.max(0, last - first);
-        const lesson = Math.max(opts.seconds || 0, span);
+        const lesson = Math.max((opts.seconds || 0) - admSec, span);
         return Object.assign({
             v: 1, segs: (segs || []).length, clauses: n, words, span, lesson,
             wpm: lesson >= 60 ? Math.round(words / (lesson / 60)) : null,
             orgShare: n ? Math.round(100 * cats.org.n / n) : 0,
             topic: { terms, n: topicN },
-            parts
+            parts, admin
         }, cats);
     }
 
@@ -195,7 +217,7 @@
         return B;
     }
 
-    const api = { norm, analyze, clauses, topicTerms, line, stripExamples, LEX: L };
+    const api = { norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEyeSpeech = api;
 })(typeof window !== 'undefined' ? window : this);

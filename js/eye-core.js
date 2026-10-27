@@ -13,6 +13,8 @@
 //    يُضمّ إلى ما حوله.
 //  • عناصر الحصة الخمسة بلمسة المشرف (`PARTS`: الإحماء، الإعداد البدني، الأنشطة التعليمية، الأنشطة التطبيقية،
 //    ختام الدرس — 2026-10-26 بطلبه): زمن كلّ عنصرٍ وزمن الحركة والشرح والانتظار فيه، ومقارنته بالزمن الموصى به.
+//  • الحضور والزيّ (`ROLL`، 2026-10-27): تسجيل الغياب والزيّ في بداية الحصة حالةٌ مستقلّة 'r' — بلمسة أو تلقائيّاً (`rollSpans`) —
+//    لا تُحسب شرحاً ولا انتظاراً ولا من حركة الطلبة ولا التشكيلات ولا الكلام.
 //  • عدد طلبة الحصة = **أكبر عددٍ رُصد** (طلب المشرف: الكشف ينقص أثناء الحركة فلا يُعتدّ باللحظة).
 //  • التشكيلات (`formations`): قاطرات/صفوف، دوائر، مجموعات، انتشار حرّ — وكم تشكيلاً استُعمل، والقاطرة الطويلة (> ٦).
 //  • الزيّ الرياضيّ (`garmentScore`): الدشداشة البيضاء = ثوبٌ أبيض طويلٌ يغطّي الساقين — تقديرٌ يصحّحه المشرف.
@@ -113,6 +115,16 @@
     ];
     const PART = {};
     PARTS.forEach(x => { PART[x.k] = x; });
+    // الحضور والزيّ (2026-10-27، طلب المشرف): «يسجّل المعلّم في بداية الحصة غياب الطلبة والزيّ — لا يُحسب ذلك من شرحه».
+    // ليس عنصراً من الخمسة (لا زمن موصى به ولا «غائب»)، وثوانيه حالةٌ مستقلّة 'r': لا شرح ولا انتظار ولا نشاط، ولا تدخل حركة الطلبة
+    // ولا التشكيلات (طابور الحضور ليس قاطرة) ولا تحليل الكلام — ويبقى منها عدد الطلبة والزيّ (يُرون فيها واقفين).
+    // يُلمس زرّه، وإلّا عُدّت بداية الحصة حضوراً وزيّاً تلقائيّاً (rollSpans).
+    const ROLL = { k: 'roll', c: 'r', label: 'الحضور والزيّ', short: 'حضور وزيّ', min: null, act: null, admin: true };
+    PART.roll = ROLL;
+    const ROLL_START = 120;      // التلقائيّ: أوّل توقّفٍ يبدأ في أوّل دقيقتين من الرصد…
+    const ROLL_AUTO_MAX = 600;   // …ولا يتجاوز عشر دقائق
+    const ROLL_MIN = 20;         // وما دون عشرين ثانيةً لا يُعدّ
+    const ROLL_LONG = 300;       // خمس دقائق فأكثر ← سؤالٌ في المداولة وتنبيهٌ حيّ (أوّليّة)
     const CONTEXTS = PARTS;                                   // الاسم القديم (الواجهة والتقارير المحفوظة)
     const ACTIVE_PARTS = ['warm', 'fit', 'teach', 'apply'];   // عناصرُ يُنتظر فيها نشاطٌ حركيّ
     const FORMS = { L: 'قاطرات وصفوف', C: 'دائرة', G: 'مجموعات', S: 'انتشار حرّ' };
@@ -503,6 +515,42 @@
         }
         return out;
     }
+    // ثواني الحضور والزيّ: [[من، إلى)] — بلمسة «حضور وزيّ» (حيث لُمس، ولو تكرّر)، وإلّا تلقائيّاً بداية الحصة:
+    //   • لمسة «الإحماء» أو «الإعداد البدني» أوّلاً ← ما قبلها كلّه (إلّا إن رأته الكاميرا نشاطاً في أغلبه: لُمست متأخّرة)؛
+    //   • وإلّا أوّل توقّفٍ يبدأ في أوّل دقيقتين حتّى أوّل نشاط (والثواني غير المحسوبة — ضبط الكاميرا — لا تقطعه)، ولا يتجاوز أوّل لمسة.
+    // التلقائيّ عشر دقائق على الأكثر، وأقصر من عشرين ثانيةً لا يُعدّ.
+    function rollSpans(events, st) {
+        const n = (st || []).length;
+        const ev = (events || []).filter(e => e && e.t != null && PART[e.k]).slice().sort((a, b) => a.t - b.t);
+        if (ev.some(e => e.k === 'roll')) {
+            const ser = ctxSeries(ev, n), spans = [];
+            for (let t = 0; t < n; t++) if (ser[t] === 'roll') { const l = spans[spans.length - 1]; if (l && l[1] === t) l[1] = t + 1; else spans.push([t, t + 1]); }
+            return { spans, auto: false };
+        }
+        const first = ev[0];
+        let from = null, to = null;
+        // ما قبل لمسة الإحماء — إلّا إن رأت الكاميرا الطلبة نشطين أغلبه (لُمس الإحماء متأخّراً): فالقاعدة التالية
+        let busy = false;
+        if (first && (first.k === 'warm' || first.k === 'fit')) {
+            let a = 0, i = 0;
+            for (let t = 0; t < Math.min(n, first.t); t++) { if (st[t] === 'a') a++; else if (st[t] === 'i') i++; }
+            busy = a + i >= 30 && a >= 0.6 * (a + i);
+        }
+        if (first && (first.k === 'warm' || first.k === 'fit') && !busy) { from = 0; to = Math.min(n, first.t); }
+        else {
+            let t0 = -1;
+            for (let t = 0; t <= Math.min(n - 1, ROLL_START); t++) if (st[t] === 'i') { t0 = t; break; }
+            if (t0 >= 0) {
+                let t = t0, idle = 0;
+                while (t < n && st[t] !== 'a') { if (st[t] === 'i') idle++; t++; }
+                if (idle >= ROLL_MIN) { from = t0; to = t; }
+            }
+            if (from != null && first) to = Math.min(to, first.t);
+        }
+        if (from == null || to - from < ROLL_MIN) return { spans: [], auto: true };
+        return { spans: [[from, Math.min(to, from + ROLL_AUTO_MAX)]], auto: true };
+    }
+    const inSpans = (spans, t) => (spans || []).some(s => t >= s[0] && t < s[1]);
     function ctxStats(series) {
         const sec = {};
         PARTS.forEach(x => { sec[x.k] = 0; });
@@ -603,6 +651,7 @@
             let pn = 0, pm = 0, pr = 0, a = 0, o = 0;
             const cc = {};
             for (let u = t; u < Math.min(st.length, t + 60); u++) {
+                if (st[u] === 'r') continue;               // الحضور والزيّ ليس من الحصة دقيقةً دقيقة
                 const s = secs[u], p = s && s.p;
                 if (p && p.n) { pn += p.n; pm += p.mv; pr++; }
                 if (st[u] === 'a') a++;
@@ -627,9 +676,11 @@
         return a[Math.min(a.length - 1, Math.floor(q * a.length))];
     };
     function summarizePeople(secs, st, ctx, grid) {
-        const rows = [];
-        secs.forEach((s, t) => { if (s && s.p) rows.push({ t, p: s.p }); });
-        if (!rows.length) return null;
+        const all = [];
+        secs.forEach((s, t) => { if (s && s.p) all.push({ t, p: s.p }); });
+        if (!all.length) return null;
+        // الحضور والزيّ لا يدخل حركة الطلبة ولا انتظار الدور ولا موقع المعلّم — ويبقى منه العدد الأكبر والزيّ (يُرون فيه واقفين)
+        const rows = all.filter(r => st[r.t] !== 'r');
         const share = (rs, k) => {
             const tot = rs.reduce((a, r) => a + r.p.n, 0);
             return tot ? Math.round(100 * rs.reduce((a, r) => a + (r.p[k || 'mv'] || 0), 0) / tot) : null;
@@ -651,7 +702,7 @@
         return {
             detSecs: rows.length,
             // عدد طلبة الحصة = أكبر عددٍ رُصد (الكشف ينقص أثناء الحركة والتداخل، ولا يزيد إلّا بخطأٍ نادر)
-            classSize: rows.reduce((m, r) => Math.max(m, r.p.n + r.p.o), 0),
+            classSize: all.reduce((m, r) => Math.max(m, r.p.n + r.p.o), 0),
             vigAll: hasVig ? share(rows, 'vg') : null,
             vigPlay: hasVig && useCore ? share(coreRows, 'vg') : null,
             crowdPct: mvTot >= 50 ? Math.round(100 * crTot / mvTot) : null,
@@ -664,7 +715,7 @@
             queuePct: qTot ? Math.round(100 * activeRows.reduce((a, r) => a + r.p.q, 0) / qTot) : 0,
             outsideMed: roi ? median(rows.map(r => r.p.o)) : 0,
             // بغير الزيّ: ما يثبت في عُشر اللقطات على الأقلّ (لا قمّة لحظةٍ واحدة)
-            dishEst: quantile(rows.map(r => r.p.d || 0), 0.9),
+            dishEst: quantile(all.map(r => r.p.d || 0), 0.9),
             roi
         };
     }
@@ -745,16 +796,21 @@
         const secs = (rec && rec.secs) || [];
         const st = classify(secs.map(s => (s && s.m != null ? s.m : null)), sens.active);
         const ctx = ctxSeries(rec && rec.ctx, st.length);
-        let a = 0, i = 0, x = 0, talk = 0, explain = 0, heard = 0;
+        // الحضور والزيّ: حالةٌ مستقلّة 'r' — لا شرح ولا انتظار ولا نشاط (طلب المشرف 2026-10-27)
+        const RS = rollSpans(rec && rec.ctx, st);
+        RS.spans.forEach(([p, q]) => { for (let t = p; t < q && t < st.length; t++) st[t] = 'r'; });
+        let a = 0, i = 0, x = 0, r = 0, rTalk = 0, talk = 0, explain = 0, heard = 0;
         st.forEach((k, t) => {
+            if (k === 'r') { r++; if (secs[t] && secs[t].v) rTalk++; return; }
             if (k === 'a') a++; else if (k === 'i') i++; else x++;
             if (secs[t] && secs[t].v != null) heard++;
             if (secs[t] && secs[t].v) { talk++; if (k === 'i') explain++; }
         });
         const observed = a + i;
+        const lessonSecs = r ? secs.map((s, t) => (st[t] === 'r' ? null : s)) : secs;
 
-        // المقاطع بلا «غير المحسوب»: الانتظار بين نشاطين انتقالٌ، وأطوله يُذكر
-        const compact = st.filter(k => k !== 'x');
+        // المقاطع بلا «غير المحسوب» ولا الحضور والزيّ: الانتظار بين نشاطين انتقالٌ، وأطوله يُذكر
+        const compact = st.filter(k => k !== 'x' && k !== 'r');
         const runs = runsOf(compact);
         const internal = runs.filter((r, k) => r.k === 'i' && k > 0 && k < runs.length - 1 && r.len >= STOP_MIN);
         const longestIdle = internal.reduce((m, r) => Math.max(m, r.len), 0);
@@ -764,7 +820,7 @@
         const whistleAt = [];
         secs.forEach((s, t) => { if (s && s.w) whistleAt.push(t); });
         const realIndex = [];                    // موضع كلّ ثانيةٍ مضغوطةٍ في الزمن الحقيقيّ
-        st.forEach((k, t) => { if (k !== 'x') realIndex.push(t); });
+        st.forEach((k, t) => { if (k !== 'x' && k !== 'r') realIndex.push(t); });
         // متى بدأ أطول انتظار — «لحظةٌ» تُطرح في المداولة بوقتها
         const idleRun = internal.reduce((b, r) => (!b || r.len > b.len ? r : b), null);
         const longestIdleAt = idleRun ? realIndex[idleRun.s] : null;
@@ -792,7 +848,7 @@
 
         // عناصر الحصة، وكلام المعلّم أثناء النشاط (العناصر النشطة إن لُمست، وإلّا حالة الكاميرا)
         const C = ctxStats(ctx);
-        const useCtx = C.covered >= Math.max(60, st.length * 0.5);
+        const useCtx = C.covered >= Math.max(60, (st.length - r) * 0.5);
         let coachBase = 0, coachSec = 0;
         st.forEach((k, t) => {
             const on = useCtx ? ACTIVE_PARTS.includes(ctx[t]) : k === 'a';
@@ -804,21 +860,23 @@
         // الخطّ الزمنيّ: مقاطع عشر ثوانٍ بالحالة الغالبة وشدّةٍ نسبيّة، وعنصرها الغالب
         const timeline = [];
         for (let t = 0; t < st.length; t += 10) {
-            const part = st.slice(t, t + 10), ms = secs.slice(t, t + 10).map(s => (s && s.m != null ? s.m : null)).filter(v => v != null);
-            const cnt = { a: 0, i: 0, x: 0 };
+            const part = st.slice(t, t + 10), ms = lessonSecs.slice(t, t + 10).map(s => (s && s.m != null ? s.m : null)).filter(v => v != null);
+            const cnt = { a: 0, i: 0, x: 0, r: 0 };
             part.forEach(k => { cnt[k]++; });
-            const k = cnt.x > cnt.a + cnt.i ? 'x' : (cnt.a >= cnt.i ? 'a' : 'i');
+            const k = 2 * cnt.r >= part.length ? 'r' : cnt.x > cnt.a + cnt.i ? 'x' : (cnt.a >= cnt.i ? 'a' : 'i');
             const m = ms.length ? ms.reduce((s, v) => s + v, 0) / ms.length : 0;
             const cc = {};
             ctx.slice(t, t + 10).forEach(c => { if (c) cc[c] = (cc[c] || 0) + 1; });
             const top1 = Object.keys(cc).sort((p, q) => cc[q] - cc[p])[0];
-            timeline.push({ k, v: Math.min(1, m / (sens.active * 3)), c: top1 ? PART[top1].c : '-' });
+            timeline.push({ k, v: k === 'r' ? 0 : Math.min(1, m / (sens.active * 3)), c: k === 'r' ? ROLL.c : top1 ? PART[top1].c : '-' });
         }
-        const forms = formationStats(secs);
+        // طابور الحضور ليس قاطرة: التشكيلات من زمن الحصة وحده
+        const forms = formationStats(lessonSecs);
         const mins = minuteSeries(secs, st, ctx);
 
         return {
-            seconds: st.length, observed, activeSec: a, idleSec: i, excludedSec: x,
+            seconds: st.length, lessonSec: st.length - r, observed, activeSec: a, idleSec: i, excludedSec: x,
+            admin: r ? { sec: r, auto: RS.auto, spans: RS.spans.map(s => [s[0], Math.min(s[1], st.length)]), talkSec: rTalk } : null,
             activePct: observed ? Math.round(100 * a / observed) : 0,
             waits: internal.length, longestIdle, longestIdleAt, avgTransition, mins,
             talkSec: talk, explainSec: explain, explainPct: observed ? Math.round(100 * explain / observed) : 0,
@@ -855,12 +913,19 @@
         return count(m, 'دقيقة واحدة', 'دقيقتان', 'دقائق', 'دقيقة');
     }
     const times = n => count(n, 'مرّة واحدة', 'مرّتين', 'مرّات', 'مرّة');
+    // المدّة بعد حرف جرٍّ أو مفعولاً به: المثنّى بالياء («في دقيقتين»، «استغرق ثانيتين»)
+    const durG = sec => dur(sec).replace(/^دقيقتان$/, 'دقيقتين').replace(/^ثانيتان$/, 'ثانيتين');
     const pupilsN = n => count(n, 'طالبٌ واحد', 'طالبان', 'طلبة', 'طالباً');
     const list = arr => (arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join('، و') + '، و' + arr[arr.length - 1]);
     const clamp = s => Math.max(1, Math.min(5, s));
     // «الإحماء (5) دقائق، والإعداد البدني (7) دقائق…» للعناصر الحاضرة
     const partsText = det => list(det.filter(r => r.verdict !== 'missing').map(r => r.label + ' ' + dur(r.sec)));
     const partsWord = n => count(n, 'عنصراً واحداً', 'عنصرين', 'عناصر', 'عنصراً');
+
+    // زمن الحصة بلا الحضور والزيّ (والمحفوظ قبله بلا admin)
+    const lessonSecOf = m => Math.max(0, ((m && m.seconds) || 0) - ((m && m.admin && m.admin.sec) || 0));
+    // «، بعد استثناء (4) دقائق لتسجيل الحضور والزيّ» — دقيقةٌ فأكثر
+    const rollNote = m => (m && m.admin && m.admin.sec >= 60 ? '، بعد استثناء ' + durG(m.admin.sec) + ' لتسجيل الحضور والزيّ' : '');
 
     // درجة الثقة: من زمن الرصد ونسبة المستبعد، أو من تغطية السياق، أو من عدد اللمسات على البند
     function confidence(s, M, counts) {
@@ -874,7 +939,7 @@
             return d >= 1500 ? 'high' : d >= 900 ? 'medium' : 'low';
         }
         if (s.basis === 'ctx') {
-            const cov = ((m.ctx && m.ctx.covered) || 0) / Math.max(1, m.seconds || 0);
+            const cov = ((m.ctx && m.ctx.covered) || 0) / Math.max(1, lessonSecOf(m));
             return cov >= 0.85 ? 'high' : cov >= 0.6 ? 'medium' : 'low';
         }
         if (s.basis === 'speech') {
@@ -950,7 +1015,7 @@
             add(11, s, 'follow', e + '.', FL.length >= 3 ? 'high' : FL.length === 2 ? 'medium' : 'low');
         }
         const people = m.people && m.people.detSecs >= MIN_OBSERVE / 2 && m.people.movingAll != null ? m.people : null;
-        const cx = m.ctx && m.ctx.covered >= Math.max(60, (m.seconds || 0) * 0.5) ? m.ctx : null;
+        const cx = m.ctx && m.ctx.covered >= Math.max(60, lessonSecOf(m) * 0.5) ? m.ctx : null;
         const teacherMic = m.mic === 'teacher' && (m.coachBase || 0) >= 300;
 
         // ٧ فاعلية الإدارة الصفّيّة — حركة الطلبة أنفسهم إن كُشفوا، وإلّا حركة الصورة؛ والقاطرات الطويلة تنقصها
@@ -962,14 +1027,14 @@
                 const p = core ? people.movingPlay : people.movingAll;
                 const T = core ? [65, 50, 38, 25] : [55, 45, 35, 25];
                 s = p >= T[0] ? 1 : p >= T[1] ? 2 : p >= T[2] ? 3 : p >= T[3] ? 4 : 5;
-                e = 'تحرّك الطلبة (' + p + '%) من ' + (core ? 'زمن الإحماء والإعداد البدني والأنشطة' : 'زمن الرصد') + ' في المتوسّط، وعددهم ' + pupilsN(classN);
+                e = 'تحرّك الطلبة (' + p + '%) من ' + (core ? 'زمن الإحماء والإعداد البدني والأنشطة' : 'زمن الرصد' + rollNote(m)) + ' في المتوسّط، وعددهم ' + pupilsN(classN);
                 const vg = core ? people.vigPlay : people.vigAll;
                 if (vg != null && p >= 10) e += '، منها (' + vg + '%) جرياً أو نشاطاً شديداً';
                 basis = 'ai';
             } else {
                 const p = m.activePct;
                 s = p >= 60 ? 1 : p >= 50 ? 2 : p >= 40 ? 3 : p >= 30 ? 4 : 5;
-                e = 'بلغ زمن النشاط الحركي للطلبة (' + p + '%) من زمن الرصد، أي ' + dur(m.activeSec) + ' من ' + dur(m.observed);
+                e = 'بلغ زمن النشاط الحركي للطلبة (' + p + '%) من زمن الرصد، أي ' + dur(m.activeSec) + ' من ' + dur(m.observed) + rollNote(m);
                 basis = 'camera';
             }
             s0 = s;                          // المعدِّلات (الانتظار، القاطرات، الصفّارة، موقع المعلّم) ترفع درجةً واحدةً وتنزل درجتين على الأكثر
@@ -1031,7 +1096,7 @@
             let e = '{نوّع المعلم|نوّعت المعلمة} بين: ' + list(strat.map(k => TAG[k].label));
             if (strat.length === 1) e = '{وظّف المعلم|وظّفت المعلمة}: ' + TAG[strat[0]].label;
             const longAudio = (m.observed || 0) >= MIN_OBSERVE && m.explainPct > 40;
-            if (longAudio) { s++; e += '، مع شرحٍ طويل استغرق (' + m.explainPct + '%) من زمن الرصد'; }
+            if (longAudio) { s++; e += '، مع شرحٍ طويل استغرق (' + m.explainPct + '%) من زمن الرصد' + rollNote(m); }
             add(8, s, longAudio ? 'both' : 'taps', e + '.');
         }
 
@@ -1226,6 +1291,7 @@
         if (M.forms && M.forms.count) bits.push('واستُعمل ' + count(M.forms.count, 'تشكيلٌ واحد', 'تشكيلان', 'تشكيلات', 'تشكيلاً'));
         if (M.waits) bits.push('وتخلّلتها ' + count(M.waits, 'فترة انتظار واحدة', 'فترتا انتظار', 'فترات انتظار', 'فترة انتظار') + ' أطولها ' + dur(M.longestIdle));
         if (M.explainSec >= 60 && !det) bits.push('واستغرق الشرح والتوجيه ' + dur(M.explainSec));
+        if (M.admin && M.admin.sec >= ROLL_LONG) bits.push('واستغرق تسجيل الحضور والزيّ ' + durG(M.admin.sec));
         if (M.whistles) bits.push('واستُعملت الصفّارة ' + times(M.whistles));
         const R = respOf(M);
         if (R) bits.push('واستجاب الطلبة لها خلال ' + dur(R.med) + ' في المتوسّط');
@@ -1235,6 +1301,8 @@
         const FL = ((ctx && ctx.follow) || []).filter(f => f && f.verdict && f.verdict !== 'na');
         if (FL.length) bits.push((bits.length ? 'و' : '') + 'تحقّق (' + FL.filter(f => f.verdict === 'met').length + ') من (' + FL.length + ') من أهداف الزيارة السابقة');
         if (!bits.length) return '';
+        // أوّل الجمل بلا واو العطف (بلا كاميرا قد يكون أوّلها «واستُعملت الصفّارة» أو «واستغرق تسجيل الحضور»)
+        bits[0] = bits[0].replace(/^و(?=استُعمل|تخلّل|استغرق|استجاب|سُمع|تحرّك)/, '');
         return P(g('رُصدت الحصة بعين المشرف' + (span >= 60 ? ' ' + dur(span) : '') + ': ' + bits.join('، ') + '.', F));
     }
 
@@ -1265,6 +1333,10 @@
         if (c('dish')) ask.push('شارك ' + pupilsN(c('dish')) + ' بغير الزيّ الرياضيّ. ما الإجراء المتّفق عليه مع الإدارة وأولياء الأمور؟');
         if (c('out')) ask.push('ظلّ ' + pupilsN(c('out')) + ' خارج النشاط. كيف {تشركهم|تشركينهم} ولو بدورٍ مساعد؟');
         if (m.waits && m.longestIdle >= 180) ask.push('أطول فترة انتظارٍ بين نشاطين بلغت ' + dur(m.longestIdle) + '. ما الذي كان يحدث فيها؟');
+        // الحضور والزيّ: إجراءٌ لازمٌ لا يُحسب شرحاً — ويُسأل عنه حين يطول
+        const AD = m.admin;
+        if (AD && AD.sec >= ROLL_LONG) ask.push('استغرق تسجيل الحضور والزيّ ' + durG(AD.sec) + ' من أوّل الحصة. كيف {تختصره|تختصرينه} ليبدأ الإحماء أسرع (كشفٌ جاهز، أو التسجيل أثناء الإحماء)؟');
+        else if (AD && AD.sec >= 30 && AD.sec <= 150 && (m.observed || 0) >= MIN_OBSERVE) good.push('{أنجزت|أنجزتِ} تسجيل الحضور والزيّ في ' + durG(AD.sec) + ' فبدأ النشاط سريعاً.');
         if (m.cued >= 2) good.push('نُظّمت الانتقالات بالصفّارة (' + m.cued + ' مرّات).');
         // من كلام المعلّم: أمثلةٌ بنصّه حين تُحفظ، والعبارات التي تحتاج مراجعةً **لا تدخل هنا** (للمشرف وحده)
         const SP = m.speech && m.speech.clauses >= 10 ? m.speech : null;
@@ -1556,6 +1628,7 @@
         { k: 'crowd', label: 'تزاحمٌ أثناء الحركة', topic: 'تنظيم المساحة والسلامة أثناء الممارسة', test: d => { const P = d.M && d.M.people; return !!P && P.detSecs >= MIN_OBSERVE / 2 && P.crowdPct != null && P.crowdPct >= CROWD_BAD; } },
         { k: 'fewBalls', label: 'كرةٌ لكلّ أكثر من أربعة طلبة', topic: 'توفير الأدوات وتعدّد المحطّات', test: d => { const r = ballRatio(d.M); return !!r && r > 4; } },
         { k: 'teacherCenter', label: 'المعلّم في وسط الطلبة أغلب الوقت', topic: 'الإشراف النشط وموقع المعلّم', test: d => { const T = teacherOf(d.M); return !!T && T.edgePct != null && T.edgePct < 35; } },
+        { k: 'longRoll', label: 'تسجيل الحضور والزيّ (5) دقائق فأكثر', topic: 'بداية الحصة: تسجيل الحضور والزيّ دون هدر زمن التعلّم', test: d => !!(d.M && d.M.admin && d.M.admin.sec >= ROLL_LONG) },
         { k: 'lowMastery', label: 'إتقان العيّنة أقلّ من (50%)', topic: 'التدرّج في تعليم المهارة', test: d => { const SS = sampleStats(d.sample); return !!(SS && SS.final) && SS.final.pct < 50; } },
         { k: 'noProgress', label: 'تقدّمٌ محدود في عيّنة الطلبة', topic: 'التدرّج في تعليم المهارة', test: d => { const SS = sampleStats(d.sample); return !!SS && SS.both >= MIN_SAMPLE && SS.progress < 50; } }
     ];
@@ -1641,22 +1714,24 @@
         const mode = arr => { const c = {}; arr.forEach(x => { if (x) c[x] = (c[x] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a])[0] || null; };
         const series = [];
         for (let t = 0; t < n; t += LIVE_STEP) {
-            let mvN = 0, mvD = 0, tY = 0, tN = 0, w = 0, a = 0, i = 0, x = 0;
+            let mvN = 0, mvD = 0, tY = 0, tN = 0, w = 0, a = 0, i = 0, x = 0, r = 0;
             const act = [];
             for (let j = t; j < Math.min(n, t + LIVE_STEP); j++) {
                 const s = secs[j], k = st[j];
-                if (k === 'a') a++; else if (k === 'i') i++; else x++;
+                if (k === 'a') a++; else if (k === 'i') i++; else if (k === 'r') r++; else x++;
                 if (!s) continue;
-                if (s.p && s.p.n) { mvN += s.p.mv; mvD += s.p.n; }
-                if (s.m != null) act.push(s.m);
                 if (s.v != null) { tN++; if (s.v) tY++; }
                 if (s.w) w++;
+                if (k === 'r') continue;                  // الحضور والزيّ: لا حركة طلبةٍ ولا نشاط
+                if (s.p && s.p.n) { mvN += s.p.mv; mvD += s.p.n; }
+                if (s.m != null) act.push(s.m);
             }
+            const kk = 2 * r >= a + i + x + r ? 'r' : x > a + i ? 'x' : a >= i ? 'a' : 'i';
             series.push({
-                t, k: x > a + i ? 'x' : a >= i ? 'a' : 'i',
+                t, k: kk,
                 mv: mvD ? Math.round(100 * mvN / mvD) : null,
                 act: act.length ? Math.min(1, act.reduce((s, v) => s + v, 0) / act.length / (sens.active * 3)) : null,
-                talk: tN ? Math.round(100 * tY / tN) / 100 : null, w, c: mode(ctx.slice(t, t + LIVE_STEP))
+                talk: tN ? Math.round(100 * tY / tN) / 100 : null, w, c: kk === 'r' ? 'roll' : mode(ctx.slice(t, t + LIVE_STEP))
             });
         }
         // الحالة الآن ومدّتها
@@ -1666,7 +1741,7 @@
         // حركة الطلبة في نافذةٍ أخيرة (من لقطات الكشف)
         const mvIn = (from, keep) => {
             let a = 0, b = 0;
-            for (let j = Math.max(0, from); j < n; j++) { const s = secs[j]; if (s && s.p && s.p.n && (!keep || keep(j))) { a += s.p.mv; b += s.p.n; } }
+            for (let j = Math.max(0, from); j < n; j++) { const s = secs[j]; if (s && s.p && s.p.n && st[j] !== 'r' && (!keep || keep(j))) { a += s.p.mv; b += s.p.n; } }
             return b ? { pct: Math.round(100 * a / b), n: b } : null;
         };
         const now15 = mvIn(n - 15), all = mvIn(0);
@@ -1687,20 +1762,27 @@
         let lastP = null;
         for (let j = n - 1; j >= Math.max(0, n - 6); j--) if (secs[j] && secs[j].p) { lastP = secs[j].p; break; }
 
+        // الحضور والزيّ: الجاري الآن، ومجموعه، وهل حُدّد تلقائيّاً (لم تُلمس «حضور وزيّ»)
+        const rollNow = state === 'r';
+        const rollAuto = !((rec && rec.ctx) || []).some(e => e && e.k === 'roll');
         const alerts = [];
         const add = (k, level, text) => alerts.push({ k, level, text });
         if (state === 'i' && run >= ALERT_IDLE) add('idle', run >= ALERT_IDLE_BAD ? 'bad' : 'warn', 'انتظارٌ منذ ' + dur(run) + ' — الطلبة بلا نشاط');
         if (state === 'x' && run >= 10 && !o.phone) add('shake', 'warn', 'الكاميرا تتحرّك — ثبّتها على الحامل؛ هذه الثواني لا تُحسب');
+        if (rollNow && run >= ROLL_LONG) add('roll', 'info', 'تسجيل الحضور والزيّ منذ ' + dur(run));
         if (recent && recent.n >= 30 && recent.pct < ALERT_MOVE && n - since >= 60 && !(state === 'i' && run >= ALERT_IDLE)) add('move', 'warn', 'حركة الطلبة ' + recent.pct + '% في «' + PART[part].label + '» (آخر دقيقتين)');
-        if (lineSec >= ALERT_LINE) add('line', 'warn', 'قاطرةٌ من ' + pupilsN(lineLen) + ' منذ ' + dur(lineSec) + ' — قسّمها');
-        if (lastP && lastP.r && lastP.o >= 3) add('out', 'warn', pupilsN(lastP.o) + ' خارج منطقة النشاط');
-        if (part && n - since > recMin(part) * 60 + 120) add('over', 'info', '«' + PART[part].label + '» ' + dur(n - since) + ' — الموصى به ' + recMin(part) + ' د');
-        if (!part && n >= 120) add('parts', 'hint', 'المس عنصر الحصة الجاري ليُقاس زمنه وحركة الطلبة فيه');
+        if (lineSec >= ALERT_LINE && !rollNow) add('line', 'warn', 'قاطرةٌ من ' + pupilsN(lineLen) + ' منذ ' + dur(lineSec) + ' — قسّمها');
+        if (lastP && lastP.r && lastP.o >= 3 && !rollNow) add('out', 'warn', pupilsN(lastP.o) + ' خارج منطقة النشاط');
+        if (part && PART[part].min && n - since > recMin(part) * 60 + 120) add('over', 'info', '«' + PART[part].label + '» ' + dur(n - since) + ' — الموصى به ' + recMin(part) + ' د');
+        if (rollNow && rollAuto) add('rollAuto', 'hint', 'بداية الحصة تُعدّ «حضوراً وزيّاً» حتّى يبدأ النشاط أو تلمس «الإحماء» — لا تُحسب شرحاً ولا انتظاراً');
+        else if (o.camera === false && !((rec && rec.ctx) || []).length && n < ROLL_LONG) add('rollTouch', 'hint', 'يسجّل المعلّم الحضور والزيّ؟ المس «حضور وزيّ» — وإلّا عُدّ ما قبل لمسة «الإحماء» كذلك');
+        else if (!part && n >= 120 && !rollNow) add('parts', 'hint', 'المس عنصر الحصة الجاري ليُقاس زمنه وحركة الطلبة فيه');
         if (o.camera && o.ai && !o.roi && n >= 60) add('roi', 'hint', 'حدّد منطقة الصف ليُعدّ من هم خارجها وتدقّ الأرقام');
         const rank = { bad: 0, warn: 1, info: 2, hint: 3 };
         alerts.sort((a, b) => rank[a.level] - rank[b.level]);
         return {
             series, seconds: n, state, run, part, partSec: part ? n - since : 0, parts,
+            roll: { now: rollNow, sec: st.filter(k => k === 'r').length, auto: rollAuto },
             now: now15 ? now15.pct : null, avg: all ? all.pct : null, recent: recent ? recent.pct : null,
             line: lineSec ? { n: lineLen, sec: lineSec } : null, outside: lastP && lastP.r ? lastP.o : null,
             pupilsNow: lastP ? lastP.n + (lastP.o || 0) : null, alerts: alerts.slice(0, 3)
@@ -1712,7 +1794,7 @@
     const api = {
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
-        PARTS, PART, ACTIVE_PARTS, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
+        PARTS, PART, ACTIVE_PARTS, ROLL, ROLL_START, ROLL_AUTO_MAX, ROLL_MIN, ROLL_LONG, rollSpans, inSpans, lessonSecOf, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
         PERSON_MIN_SCORE, MOVE_SPEED, BOX_ACT,
         inPoly, roiMask, roiCells, polyBox,
         toGray, frameDiff, grayShift, boxMotion,

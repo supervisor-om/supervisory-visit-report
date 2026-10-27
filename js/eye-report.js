@@ -16,7 +16,7 @@
     const W = 1080, PAD = 56;
     const C = { navy: '#0f4c81', dark: '#082742', gold: '#f0b44a', text: '#0f172a', muted: '#475569', line: '#e2e8f0', bg: '#f4f7fb',
                 ok: '#1d6b45', warn: '#9a6f24', bad: '#b5452f', track: '#e8eef5' };
-    const PART_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445' };
+    const PART_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445', r: '#8492a6' };   // r: الحضور والزيّ
     const FORM_COLOR = { L: '#0f4c81', C: '#246445', G: '#9a6f24', S: '#64748b' };
     const FONT = '"IBM Plex Sans Arabic", Tahoma, Arial, sans-serif';
     const font = (w, px) => w + ' ' + px + 'px ' + FONT;
@@ -122,6 +122,13 @@
             });
             y += 10;
         }
+        // الحضور والزيّ: سطرٌ وحده (ليس عنصراً) — لا يُحسب شرحاً ولا انتظاراً
+        if (M.admin && M.admin.sec >= 60) {
+            g.fillStyle = PART_COLOR.r; g.fillRect(W - PAD - 14, y + 2, 14, 14);
+            g.fillStyle = C.muted; g.font = font(400, 24);
+            g.fillText('الحضور والزيّ في أوّل الحصة: ' + Y.dur(M.admin.sec) + ' — لم يُحسب شرحاً ولا انتظاراً', W - PAD - 26, y + 16);
+            y += 44;
+        }
 
         // ٤) مجرى الحصة (نشاطٌ وانتظار، وعناصرها أعلاه)
         if (data && data.tl) {
@@ -131,8 +138,8 @@
             for (let i = 0; i < n; i++) {
                 const x = bx1 - (i + 1) * bw, k = data.tl[i], v = Number((data.tv || '')[i] || 0) / 9, c = (data.tc || '')[i];
                 if (c && PART_COLOR[c]) { g.fillStyle = PART_COLOR[c]; g.fillRect(x, y, Math.max(1, bw), 8); }
-                const hh = k === 'a' ? 16 + v * (H - 30) : k === 'i' ? 10 : 0;
-                if (hh) { g.fillStyle = k === 'a' ? C.navy : '#cbd5e1'; g.fillRect(x + 0.5, y + 14 + (H - 14 - hh), Math.max(1, bw - 1), hh); }
+                const hh = k === 'a' ? 16 + v * (H - 30) : k === 'i' || k === 'r' ? 10 : 0;
+                if (hh) { g.fillStyle = k === 'a' ? C.navy : k === 'r' ? PART_COLOR.r : '#cbd5e1'; g.fillRect(x + 0.5, y + 14 + (H - 14 - hh), Math.max(1, bw - 1), hh); }
             }
             g.fillStyle = C.muted; g.font = font(400, 20);
             g.textAlign = 'right'; g.fillText('البداية', bx1, y + H + 30);

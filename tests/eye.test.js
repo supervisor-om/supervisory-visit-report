@@ -891,15 +891,123 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && H.indexOf('js/lesson-guide.js') < H.indexOf('<script src="js/eye.js">') && /lesson-guide-data\.js/.test(SW) && /lesson-guide\.js/.test(SW));
     check('wiring: الاقتراح والمداولة والملخّص يأخذون الدليل من بيانات الرصد (ctxOf)', /guide: d && d\.guide && LG\(\) \? LG\(\)\.guideCtx\(d\) : null/.test(UI));
     check('wiring: الإيقاف يحفظ الدليل ومهارته وما سُمع من نقاطها، والحذف يمحو أمثلتها',
-          /if \(GD && sp\) keep\.gspeech = LG\(\)\.speechCoverage\(sp\.segs, GD, S\.guide\.skills\);/.test(UI) && /LG\(\)\.stripExamples\(S\.result\.M\.gspeech\)/.test(UI));
+          /if \(GD && sp\) keep\.gspeech = LG\(\)\.speechCoverage\(SX\(\) \? SX\(\)\.lessonSegs\(sp\.segs, rollS\) : sp\.segs, GD, S\.guide\.skills\);/.test(UI) && /LG\(\)\.stripExamples\(S\.result\.M\.gspeech\)/.test(UI));
     check('wiring: تغيير المهارة بعد الرصد يعيد العدّ من النصّ المحفوظ ثمّ الاقتراح، ولا يعدّ لمهارةٍ أخرى بعد حذف النصّ',
           /function guideChanged\(\) \{[\s\S]{0,900}d\.M\.gspeech = LG\(\)\.speechCoverage\(segs, G, S\.guide\.skills\);\s*\n\s*else if \(!same\) d\.M\.gspeech = null;[\s\S]{0,120}resuggest\(\);/.test(UI));
     check('wiring: العيّنة بالنقاط — اللمسة تختار الطالب، ولوحة نقاطه، وعيّنةٌ قُيّمت تقديراً عامّاً تبقى كما هي',
           /if \(sampleSkill\(\)\) \{ S\.samplePick = S\.samplePick === i \? -1 : i; renderSample\(\); return; \}/.test(UI) && /data-spt="\$\{k\}"/.test(UI) && /if \(hasSample\(sm\)\) return null;/.test(UI));
-    check('wiring: المؤشّرات الحيّة (ذُكرت / العيّنة) والنتيجة «مطابقة دليل المعلّم» نصٌّ مهروب', /sp\.G = G \? LG\(\)\.speechCoverage\(sp\.segs, G, S\.guide\.skills\) : null;/.test(UI)
+    check('wiring: المؤشّرات الحيّة (ذُكرت / العيّنة) والنتيجة «مطابقة دليل المعلّم» نصٌّ مهروب', /sp\.G = G \? LG\(\)\.speechCoverage\(SX\(\)\.lessonSegs\(sp\.segs, S\.rollSpans\), G, S\.guide\.skills\) : null;/.test(UI)
           && /مطابقة دليل المعلّم/.test(UI) && /«\$\{esc\(pt\.ex\[1\]\)\}»/.test(UI) && /\$\{esc\(p\.text\)\}/.test(UI));
     check('wiring: تأكيد اللمسة والطالب المختار بإطارٍ خارجيّ (outline) — ring لا يظهر على bg-white تحت قاعدة الزجاج', !/ring-2/.test(UI) && /el\.style\.outline = '2px solid ' \+ color/.test(UI) && /style="outline:2px solid #0f4c81;outline-offset:2px"/.test(UI));
     check('wiring: بطاقة المعلّم — نقاط المهارة في العيّنة وعدد ما سُمع منها (لا النصّ)', /LGm\.pointStats\(data\.sample, GG\)/.test(RP) && /M\.gspeech && M\.gspeech\.total/.test(RP) && !/ex\[1\]/.test(RP));
+}
+
+/* ── ٢٣) الحضور والزيّ (2026-10-27): بداية الحصة لا تُحسب شرحاً ولا انتظاراً ولا من حركة الطلبة ── */
+{
+    const SX = require('../js/eye-speech.js');
+    const mk = () => [];
+    const put = (arr, m, n, extra) => { for (let i = 0; i < n; i++) arr.push(Object.assign({ m, v: false, w: false }, extra && extra(i))); return arr; };
+    // المعلّم يسجّل الحضور ثلاث دقائق (يتكلّم والطلبة واقفون) ثمّ الحصة نفسها كما في القسم ٣
+    const roll = put(mk(), I, 180, i => ({ v: i % 3 !== 0 }));
+    const M2 = E.summarize({ secs: roll.concat(lesson), grid: [], sens: 'medium' });
+    check('roll: بداية الحصة قبل أوّل نشاط ← حضورٌ وزيّ تلقائيّاً', M2.admin && M2.admin.auto && Math.abs(M2.admin.sec - 180) <= 3 && M2.admin.spans[0][0] === 0, JSON.stringify(M2.admin));
+    check('roll: لا يُحسب شرحاً — الشرح والانتظار والنشاط كما في الحصة بلاه', Math.abs(M2.explainSec - M.explainSec) <= 3 && M2.waits === M.waits && M2.longestIdle === M.longestIdle && M2.activePct === M.activePct,
+          [M2.explainSec, M.explainSec, M2.waits, M2.activePct].join(' / '));
+    check('roll: ولا يدخل زمن الرصد ولا نسبة الكلام، ويبقى زمن الحصة كلّه', Math.abs(M2.observed - M.observed) <= 3 && M2.seconds === 2580 && M2.lessonSec === M2.seconds - M2.admin.sec && M2.talkPct === M.talkPct, M2.observed + ' / ' + M2.talkPct);
+    check('roll: الحالة والخطّ الزمنيّ «r» بلونه', M2.states.slice(0, 170).every(k => k === 'r') && M2.timeline[0].k === 'r' && M2.timeline[0].c === 'r' && M2.timeline[19].k === 'a');
+    check('roll: الكلام فيه يُعدّ وحده', M2.admin.talkSec >= 115 && M2.admin.talkSec <= 121, M2.admin.talkSec);
+
+    // تجمّعٌ قصيرٌ ثمّ الحضور: يبدأ من أوّل توقّف (في أوّل دقيقتين)
+    const M3 = E.summarize({ secs: put(put(mk(), A, 30), I, 150, () => ({ v: true })).concat(lesson), grid: [] });
+    check('roll: تجمّعٌ قبله لا يُحسب منه — من أوّل توقّفٍ حتّى أوّل نشاط', M3.admin && M3.admin.spans[0][0] >= 25 && M3.admin.spans[0][0] <= 40 && Math.abs(M3.explainSec - M.explainSec) <= 3, JSON.stringify(M3.admin));
+    // بدايةٌ طويلةٌ جدّاً: عشر دقائق على الأكثر، والباقي كما كان
+    const M4 = E.summarize({ secs: put(mk(), I, 900, () => ({ v: true })).concat(lesson), grid: [] });
+    check('roll: التلقائيّ عشر دقائق على الأكثر', M4.admin.sec === E.ROLL_AUTO_MAX && M4.explainSec - M.explainSec >= 290 && M4.explainSec - M.explainSec <= 310, M4.admin.sec + ' / ' + M4.explainSec);
+    // توقّفٌ يبدأ بعد دقيقتين (الحصة بدأت بنشاط) ← ليس حضوراً
+    const M5 = E.summarize({ secs: put(put(mk(), A, 200), I, 200, () => ({ v: true })).concat(lesson), grid: [] });
+    check('roll: الحصة بدأت بنشاط ← لا حضور تلقائيّ، والتوقّف بعدها شرحٌ كما كان', !M5.admin && M5.explainSec >= M.explainSec + 180, String(M5.explainSec));
+
+    // بلمسة المشرف
+    const RS1 = E.rollSpans([{ t: 0, k: 'roll' }, { t: 200, k: 'warm' }, { t: 900, k: 'roll' }, { t: 960, k: 'teach' }], Array(1200).fill('a'));
+    check('roll: بلمسة «حضور وزيّ» حيث لُمس ولو تكرّر، لا تلقائيّ', !RS1.auto && JSON.stringify(RS1.spans) === '[[0,200],[900,960]]', JSON.stringify(RS1));
+    const RS2 = E.rollSpans([{ t: 150, k: 'warm' }], Array(600).fill('x'));
+    check('roll: لمسة «الإحماء» أوّلاً ← ما قبلها حضورٌ وزيّ (بلا كاميرا)', RS2.auto && JSON.stringify(RS2.spans) === '[[0,150]]', JSON.stringify(RS2));
+    const stR = [...Array(10).fill('a'), ...Array(140).fill('i'), ...Array(450).fill('a')];
+    check('roll: …ومع الكاميرا والطلبة واقفون أغلبه ← من البداية حتّى اللمسة', JSON.stringify(E.rollSpans([{ t: 150, k: 'warm' }], stR).spans) === '[[0,150]]');
+    check('roll: لمسة «الإحماء» متأخّرة والكاميرا ترى نشاطاً أغلبه ← ليس حضوراً', E.rollSpans([{ t: 150, k: 'warm' }], Array(600).fill('a')).spans.length === 0);
+    check('roll: لمسة «الإحماء» في أوّل ثوانٍ ← لا شيء', E.rollSpans([{ t: 8, k: 'warm' }], Array(600).fill('i')).spans.length === 0);
+    const st6 = [...Array(300).fill('i'), ...Array(300).fill('a')];
+    check('roll: أوّل لمسةٍ «الأنشطة التعليمية» تقطع التلقائيّ عندها', JSON.stringify(E.rollSpans([{ t: 120, k: 'teach' }], st6).spans) === '[[0,120]]'
+          && E.rollSpans([{ t: 10, k: 'teach' }], st6).spans.length === 0);
+    check('roll: بلا كاميرا ولا لمسة ← لا شيء', E.rollSpans([], Array(600).fill('x')).spans.length === 0);
+    check('roll: ليس عنصراً — PART يعرفه، والعناصر خمسة، ولا زمن موصى به له', E.PART.roll === E.ROLL && E.PARTS.length === 5 && E.ROLL.min == null && !E.ACTIVE_PARTS.includes('roll'));
+
+    // عناصر الحصة لا تتغيّر به: الإحماء بعد الحضور
+    const cx = [{ t: 0, k: 'roll' }, { t: 180, k: 'warm' }, { t: 480, k: 'fit' }, { t: 900, k: 'teach' }, { t: 1600, k: 'apply' }, { t: 2300, k: 'close' }];
+    const M6 = E.summarize({ secs: roll.concat(lesson), grid: [], ctx: cx });
+    const det6 = E.partsDetail(M6, null);
+    check('roll: عناصر الحصة خمسةٌ بلاه، وزمنها من بعده', det6.length === 5 && det6[0].k === 'warm' && det6[0].sec === 300 && !M6.admin.auto && M6.admin.sec === 180 && M6.ctx.covered === M6.seconds - 180,
+          JSON.stringify(det6.map(r => r.k + r.sec)));
+    check('roll: لا شرح منسوبٌ إلى «الإحماء» من الحضور', det6[0].explainSec === 0 && E.suggest(M6, {}, {}).some(s => s.id === 6));
+
+    // الطلبة: طابور الحضور ليس قاطرة، وحركتهم تُقاس من الحصة، وعددهم الأكبر يُؤخذ منه
+    const pRoll = { n: 24, mv: 0, o: 0, q: 0, r: 0, ln: 24, fm: 'L', d: 3 }, pLes = { n: 20, mv: 14, o: 0, q: 2, r: 0, ln: 3, fm: 'S', d: 1 };
+    const secsP = put(mk(), I, 180, () => ({ v: true, p: pRoll })).concat(lesson.map(s => Object.assign({}, s, { p: pLes })));
+    const MP = E.summarize({ secs: secsP, grid: [] });
+    check('roll: طابور الحضور لا يُعدّ قاطرةً طويلة', MP.forms && MP.forms.longLineSec === 0 && MP.forms.maxLine === 3, JSON.stringify(MP.forms && { l: MP.forms.longLineSec, m: MP.forms.maxLine }));
+    check('roll: حركة الطلبة من الحصة وحدها، والعدد الأكبر من الحضور', MP.people.movingAll === 70 && MP.people.classSize === 24 && Math.abs(MP.people.detSecs - lesson.length) <= 3, JSON.stringify({ mv: MP.people.movingAll, c: MP.people.classSize }));
+    check('roll: الحصة دقيقةً دقيقة بلا دقائق الحضور', MP.mins[0][0] === null && MP.mins[0][1] === null && MP.mins[3][0] === 70, JSON.stringify(MP.mins.slice(0, 4)));
+
+    // الكلام: ما قيل في الحضور لا يُحلَّل (إلّا ما يحتاج مراجعة)
+    const segs = [{ t: 20, x: 'ليش ما لابس الزي اليوم' }, { t: 40, x: 'اسمعوا قفوا في الطابور' }, { t: 60, x: 'اسكت' }, { t: 300, x: 'أحسنت ارفع الركبة' }, { t: 320, x: 'ليش نثني الركبة' }];
+    const A0 = SX.analyze(segs, { seconds: 1200 }), A1 = SX.analyze(segs, { seconds: 1200, admin: [[0, 180]] });
+    check('roll→speech: أسئلة الزيّ وتعليمات الطابور لا تُحسب أسئلةً ولا تنظيماً', A0.q.n === 2 && A1.q.n === 1 && A1.q.hi === 1 && A1.org.n === 0 && A0.org.n >= 1 && A1.praise.n === 1, JSON.stringify({ q0: A0.q.n, q1: A1.q.n, o: A1.org.n }));
+    check('roll→speech: تُعدّ وحدها، و«ما يحتاج مراجعة» يبقى للمشرف أينما قيل، وزمن الحصة بلاها', A1.admin.clauses === 3 && A1.harsh.n === 1 && A1.clauses === 2 && A1.lesson === 1020, JSON.stringify(A1.admin) + ' ' + A1.lesson);
+    check('roll→speech: lessonSegs بالصيغتين', SX.lessonSegs(segs, [[0, 180]]).length === 2 && SX.lessonSegs([[30, 'أ'], [200, 'ب']], [[0, 180]]).length === 1 && SX.lessonSegs(segs, []).length === 5);
+
+    // المتابعة الحيّة
+    const recR = { secs: put(mk(), I, 400, () => ({ v: true, p: pRoll })), grid: [], sens: 'medium' };
+    const LR = E.live(recR, E.summarize(recR), {});
+    const ak = LR.alerts.map(a => a.k);
+    check('roll→live: الحالة «الحضور والزيّ» لا «انتظار»، ولا تنبيه انتظارٍ ولا قاطرة', LR.state === 'r' && LR.roll.now && LR.roll.auto && !ak.includes('idle') && !ak.includes('line'), JSON.stringify(LR.alerts));
+    check('roll→live: تلميحٌ بأنّها تلقائيّة، وتنبيهٌ حين تطول (٥ دقائق)', ak.includes('rollAuto') && ak.includes('roll') && !ak.includes('parts'), ak.join());
+    check('roll→live: المقاطع «r» بعنصرها، ولا حركة طلبةٍ فيها', LR.series[0].k === 'r' && LR.series[0].c === 'roll' && LR.series[5].mv === null && LR.now === null && LR.parts.length === 5);
+    const recE = { secs: put(mk(), I, 400, () => ({ v: true })), grid: [], sens: 'medium', ctx: [{ t: 0, k: 'roll' }] };
+    const LE = E.live(recE, E.summarize(recE), {});
+    const recN = { secs: put(mk(), null, 60), grid: [], sens: 'medium' };
+    const LN = E.live(recN, E.summarize(recN), { camera: false });
+    check('roll→live: بلا كاميرا ولا لمسة في أوّل الحصة ← تلميح «حضور وزيّ»', LN.alerts.some(a => a.k === 'rollTouch') && !E.live(recN, E.summarize(recN), { camera: true }).alerts.some(a => a.k === 'rollTouch'));
+    check('roll→live: بلمسته — العنصر الجاري «roll» بلا زمنٍ موصى به ولا تلميح', LE.part === 'roll' && !LE.roll.auto && !LE.alerts.some(a => a.k === 'over' || a.k === 'rollAuto' || a.k === 'parts' || a.k === 'idle'), JSON.stringify(LE.alerts));
+
+    // الاقتراح والمداولة والملخّص والأنماط
+    const s7 = E.suggest(M2, {}, {}).find(s => s.id === 7);
+    check('roll→suggest: البند ٧ يذكر ما استُثني', s7 && /بعد استثناء \(3\) دقائق لتسجيل الحضور والزيّ/.test(s7.evidence), s7 && s7.evidence);
+    const s7b = E.suggest(M, {}, {}).find(s => s.id === 7);
+    check('roll→suggest: بلا حضورٍ لا ذكر له', !/الحضور/.test(s7b.evidence));
+    const MLong = Object.assign({}, M, { admin: { sec: 420, auto: false, spans: [[0, 420]] } }), MQuick = Object.assign({}, M, { admin: { sec: 90, auto: true, spans: [[0, 90]] } });
+    const dpL = E.debriefPrompts(MLong, {}, { female: true }), dpQ = E.debriefPrompts(MQuick, {}, { female: false });
+    check('roll→debrief: حين يطول يُسأل عنه بصيغة المخاطَبة، وحين يقصر يُعزَّز', dpL.ask.some(t => /استغرق تسجيل الحضور والزيّ \(7\) دقائق من أوّل الحصة\. كيف تختصرينه/.test(t))
+          && dpQ.good.some(t => /^أنجزت تسجيل الحضور والزيّ في دقيقتين فبدأ النشاط سريعاً\.$/.test(t)) && !dpQ.ask.some(t => /الحضور/.test(t)), JSON.stringify([dpL.ask, dpQ.good]));
+    check('roll→summary: يُذكر في الملاحظات حين يطول وحده', /واستغرق تسجيل الحضور والزيّ \(7\) دقائق/.test(E.summaryText(MLong, {})) && !/الحضور/.test(E.summaryText(MQuick, {})));
+    check('roll→summary: بلا كاميرا لا يبدأ الملخّص بواو العطف', E.summaryText({ seconds: 600, ctx: { covered: 5 }, whistles: 3, admin: { sec: 400 } }, {}) === 'رُصدت الحصة بعين المشرف (10) دقائق: استغرق تسجيل الحضور والزيّ (7) دقائق، واستُعملت الصفّارة (3) مرّات.'
+          && /: استُعملت الصفّارة/.test(E.summaryText({ seconds: 600, ctx: { covered: 5 }, whistles: 2 }, {})));
+    check('roll→patterns: «تسجيل الحضور والزيّ يطول» نمطٌ بموضوعٍ تدريبيّ', E.ISSUES.some(x => x.k === 'longRoll' && x.test({ M: MLong }) && !x.test({ M: MQuick }) && !x.test({ M })));
+    const M90 = Object.assign({}, M, { admin: { sec: 100, auto: true, spans: [[0, 100]] } });
+    check('roll→suggest: المثنّى بعد «استثناء» بالياء', /بعد استثناء دقيقتين لتسجيل الحضور والزيّ/.test(E.suggest(M90, {}, {}).find(s => s.id === 7).evidence));
+    check('roll: تقريرٌ محفوظٌ قبله (بلا admin) يُقرأ كما كان', E.lessonSecOf({ seconds: 600 }) === 600 && E.lessonSecOf(M2) === M2.seconds - M2.admin.sec);
+
+    // التوصيل
+    const UI = read('js/eye.js'), RP = read('js/eye-report.js');
+    check('wiring: زرّ «حضور وزيّ» أوّل عناصر الحصة بلونه، وشرحه تحتها', /\$\{\[E\(\)\.ROLL\]\.concat\(E\(\)\.PARTS\)\.map\(c =>/.test(UI) && /grid grid-cols-3 sm:grid-cols-6 gap-1\.5/.test(UI) && /r: '#8492a6'/.test(UI) && /«حضور وزيّ» لتسجيل الغياب والزيّ/.test(UI));
+    check('wiring: الكلام حيّاً وعند الإيقاف بلا الحضور والزيّ، وثوانيه تُتابَع حيّاً',
+          /analyze\(sp\.segs, \{ topic: info\(\)\.topic, ctx: S\.ctxEvents, seconds: now\(\), admin: S\.rollSpans \}\)/.test(UI)
+          && /analyze\(sp\.segs, \{ topic: info\(\)\.topic, ctx: S\.ctxEvents, seconds: M\.seconds, admin: rollS \}\)/.test(UI)
+          && /if \(sig !== S\.rollSig\) \{ S\.rollSig = sig; S\.rollSpans = rs; if \(S\.sp\) S\.sp\.dirty = true; \}/.test(UI)
+          && /SX\(\)\.lessonSegs\(segs0, d\.M\.admin && d\.M\.admin\.spans\)/.test(UI));
+    check('wiring: الحالة الحيّة واللوحة ومجرى الحصة والنتيجة تعرفه', /L\.state === 'r' \? \['الحضور والزيّ '/.test(UI) && /function rollLine\(sec, cur, auto\)/.test(UI)
+          && /it\.k === 'r' \? CTX_COLOR\.r/.test(UI) && /b\.k === 'r' \? E\(\)\.ROLL\.label/.test(UI) && /const rollRow = AD \?/.test(UI) && /بلا الحضور والزيّ/.test(UI));
+    check('wiring: اسم العنصر الجاري من PART (يعرف «roll») لا من العناصر الخمسة وحدها', !/CONTEXTS\.find/.test(UI) && /E\(\)\.PART\[S\.ctxCur\] \? E\(\)\.PART\[S\.ctxCur\]\.label/.test(UI));
+    check('wiring: بطاقة المعلّم — سطر الحضور والزيّ ولونه في مجرى الحصة', /r: '#8492a6'/.test(RP) && /الحضور والزيّ في أوّل الحصة: /.test(RP) && /k === 'r' \? PART_COLOR\.r/.test(RP));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

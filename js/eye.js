@@ -35,7 +35,9 @@
     const toast = (m, t) => { if (typeof root.showToast === 'function') root.showToast(m, t); };
     const RATING = () => (root.SVF_COLORS && root.SVF_COLORS.rating) || { 1: '#1d6b45', 2: '#0f4c81', 3: '#9a6f24', 4: '#b5452f', 5: '#7a2320' };
     // ألوان عناصر الحصة (الحرف من PARTS.c) — والحروف القديمة للتقارير المحفوظة قبل العناصر الخمسة
-    const CTX_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445', e: '#64748b', o: '#b98a32', p: '#5b8fc7', g: '#246445' };
+    // و r: الحضور والزيّ (ليس عنصراً — رماديٌّ مزرقّ)
+    const CTX_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445', r: '#8492a6', e: '#64748b', o: '#b98a32', p: '#5b8fc7', g: '#246445' };
+    const ROLL_TINT = 'rgba(132,146,166,.22)';       // مساحة الحضور والزيّ في مجرى الحصة
     const FORM_COLOR = { L: '#0f4c81', C: '#246445', G: '#9a6f24', S: '#64748b' };
     const REC_KEY = 'svf_eye_rec';
     const recPref = () => { try { const v = JSON.parse(localStorage.getItem(REC_KEY) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } };
@@ -47,6 +49,7 @@
         wake: null, fileUrl: null, written: '', result: null,
         roi: null, roiDraft: null, roiMode: false, mask: null, cells: null,
         ctxEvents: [], ctxCur: null, pSnap: null, pSnapAt: -1, runId: 0, classMax: 0,
+        rollSpans: [], rollSig: '',                        // ثواني الحضور والزيّ (من summarize) — تُستثنى من تحليل الكلام حيّاً
         sp: null, speechConsent: false,
         sample: null, sampleRound: 'a', marks: [],         // عيّنة الطلبة، وعلامات المشرف بأوقاتها
         teacher: null, pickTeacher: false,                 // المعلّم يُحدَّد بلمسة: يُستثنى من الطلبة ويُرصد موضعه
@@ -226,10 +229,11 @@
                                 <b class="text-sm text-slate-900">عناصر الحصة</b>
                                 <span class="text-xs text-slate-500">المس العنصر حين يبدأ</span>
                             </div>
-                            <div class="grid grid-cols-5 gap-1.5" role="group" aria-label="عناصر الحصة">
-                                ${E().PARTS.map(c => `<button type="button" class="eye-ctx svf-btn svf-btn-secondary flex-col !gap-1 !px-1 !py-2.5 text-xs leading-4 text-center" data-ctx="${c.k}" aria-pressed="false" title="${esc(c.label)}">
+                            <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5" role="group" aria-label="عناصر الحصة">
+                                ${[E().ROLL].concat(E().PARTS).map(c => `<button type="button" class="eye-ctx svf-btn svf-btn-secondary flex-col !gap-1 !px-1 !py-2.5 text-xs leading-4 text-center" data-ctx="${c.k}" aria-pressed="false" title="${esc(c.admin ? c.label + ' — بداية الحصة: لا يُحسب شرحاً ولا انتظاراً' : c.label)}">
                                     <i class="inline-block w-full h-1 rounded-sm" style="background:${CTX_COLOR[c.c]}" aria-hidden="true"></i>${esc(c.short)}</button>`).join('')}
                             </div>
+                            <p class="text-[11px] text-slate-500 mt-1.5 leading-4">«حضور وزيّ» لتسجيل الغياب والزيّ — لا يُحسب شرحاً ولا انتظاراً، وإن لم تلمسه عُدّت بداية الحصة قبل أوّل نشاطٍ كذلك.</p>
                         </div>
                         <p class="text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
                         <p id="eyeSpeechNote" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-5"></p>
@@ -279,6 +283,7 @@
                         <span class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
                             <span class="flex items-center gap-1"><i class="inline-block w-3 h-3 rounded-sm" style="background:rgba(15,76,129,.25);border-top:2px solid #0f4c81"></i>حركة الطلبة</span>
                             <span class="flex items-center gap-1"><i class="inline-block w-3 h-2 rounded-sm" style="background:#cbd5e1"></i>انتظار</span>
+                            <span class="flex items-center gap-1"><i class="inline-block w-3 h-2 rounded-sm" style="background:${CTX_COLOR.r}"></i>حضور وزيّ</span>
                             <span class="flex items-center gap-1"><i class="inline-block w-3 h-2 rounded-sm" style="background:#d9a441"></i>كلام المعلّم</span>
                             <span class="flex items-center gap-1"><i class="inline-block" style="width:0;height:0;border-inline:5px solid transparent;border-top:7px solid #082742"></i>صفّارة</span>
                             <span class="flex items-center gap-1"><i class="inline-block w-1 h-3" style="background:#b5452f"></i>لمسة</span>
@@ -486,6 +491,14 @@
                 <span class="w-[4.5rem] flex-none text-left tabular-nums ${over ? 'text-red-700 font-bold' : x.cur ? 'text-slate-900 font-bold' : 'text-slate-500'}">${mmss(x.sec)} / ${esc(recMin(x.rec))} د</span></div>`;
         }).join('');
     }
+    // الحضور والزيّ فوق أشرطة العناصر: سطرٌ خافت (ليس عنصراً، ولا زمن موصى به له)
+    function rollLine(sec, cur, auto) {
+        if (!(sec >= 10)) return '';
+        return `<div class="flex items-center gap-2 text-xs text-slate-500">
+            <span class="w-[4.5rem] flex-none truncate ${cur ? 'font-bold text-slate-800' : ''}"><i class="inline-block w-2 h-2 rounded-sm ml-1" style="background:${CTX_COLOR.r}"></i>${esc(E().ROLL.short)}</span>
+            <span class="flex-1 min-w-0 truncate">لا يُحسب شرحاً ولا انتظاراً${auto ? ' · تلقائيّاً' : ''}</span>
+            <span class="w-[4.5rem] flex-none text-left tabular-nums ${cur ? 'font-bold text-slate-800' : ''}">${mmss(sec)}</span></div>`;
+    }
     // بعد الرصد (أو عند فتح تقريرٍ محفوظ) تصير اللوحة «ملخّص الرصد»: أرقام الحصة كلّها لا آخر لحظة، ولا تنبيهات
     function renderMonitorDone(data) {
         if (!$('eyeMonitor') || !data) return;
@@ -517,8 +530,10 @@
         idle.className = 'text-lg font-bold tabular-nums truncate text-slate-900';
         $('eyeMonIdleL').textContent = M.longestIdle ? 'أطول انتظار (' + M.waits + ')' : 'الانتظار';
         const det = M.ctx && M.ctx.covered ? E().partsDetail(M, M.rec) : null;
-        $('eyeMonParts').innerHTML = det ? partsBars(det.map(x => ({ k: x.k, short: x.short, label: x.label, sec: x.sec, rec: Math.round(x.rec * 60), cur: false, over: x.verdict === 'long' })))
-            : '<p class="text-xs text-slate-500">لم تُلمس عناصر الحصة في هذا الرصد.</p>';
+        const AD = M.admin;
+        $('eyeMonParts').innerHTML = (AD ? rollLine(AD.sec, false, AD.auto) : '')
+            + (det ? partsBars(det.map(x => ({ k: x.k, short: x.short, label: x.label, sec: x.sec, rec: Math.round(x.rec * 60), cur: false, over: x.verdict === 'long' })))
+            : '<p class="text-xs text-slate-500">لم تُلمس عناصر الحصة في هذا الرصد.</p>');
         $('eyeAlerts').innerHTML = '<button type="button" id="eyeToResult" class="svf-btn svf-btn-secondary svf-btn-sm w-full"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>التحليل والتقييم المقترح</button>';
         $('eyeToResult').addEventListener('click', () => $('eyeResult').scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
@@ -545,6 +560,7 @@
         // الحالة الآن
         const st = S.src === 'none' ? ['رصد بلا كاميرا', 'bg-slate-100 text-slate-700']
             : frozen ? ['لا صورة من الهاتف', 'bg-red-50 text-red-800']
+            : L.state === 'r' ? ['الحضور والزيّ ' + mmss(L.run), 'bg-slate-100 text-slate-700']
             : L.state === 'a' ? ['نشاط', 'bg-green-50 text-green-800']
             : L.state === 'i' ? ['انتظار ' + mmss(L.run), 'bg-amber-50 text-amber-900']
             : L.state === 'x' ? ['الكاميرا تتحرّك', 'bg-slate-100 text-slate-700'] : ['يبدأ…', 'bg-slate-100 text-slate-600'];
@@ -554,7 +570,13 @@
         // الرقم الكبير: حركة الطلبة الآن (الكشف)، وإلّا النشاط الحركيّ للصورة، وبلا كاميرا زمن العنصر الجاري
         const hero = $('eyeMonNow'), lbl = $('eyeMonLabel'), sub = $('eyeMonSub');
         const avg = P ? (P.movingPlay != null ? P.movingPlay : P.movingAll) : M.observed >= 20 ? M.activePct : null;
-        if (S.src === 'none') {
+        if (L.state === 'r' && !frozen) {
+            // تسجيل الحضور والزيّ: القياس يبدأ مع أوّل نشاط
+            lbl.textContent = 'الحضور والزيّ';
+            hero.textContent = mmss(L.run);
+            hero.className = 'block text-5xl font-bold tabular-nums leading-tight ' + (L.run >= E().ROLL_LONG ? 'text-amber-700' : 'text-slate-900');
+            sub.textContent = 'لا يُحسب شرحاً ولا انتظاراً · حركة الطلبة تُقاس من أوّل نشاط' + (L.roll && L.roll.auto ? ' · بداية الحصة (تلقائيّاً)' : '');
+        } else if (S.src === 'none') {
             lbl.textContent = L.part ? 'زمن «' + E().PART[L.part].label + '»' : 'زمن الرصد';
             hero.textContent = mmss(L.part ? L.partSec : L.seconds);
             hero.className = 'block text-5xl font-bold tabular-nums leading-tight text-slate-900';
@@ -576,7 +598,7 @@
         const idle = $('eyeMonIdle'), idleL = $('eyeMonIdleL');
         if (L.state === 'i' && !frozen && S.src !== 'none') { idle.textContent = mmss(L.run); idleL.textContent = 'انتظارٌ الآن'; idle.className = 'text-lg font-bold tabular-nums truncate ' + (L.run >= E().ALERT_IDLE ? 'text-amber-700' : 'text-slate-900'); }
         else { idle.textContent = M.longestIdle ? mmss(M.longestIdle) : S.src === 'none' ? '—' : 'لا انتظار'; idleL.textContent = M.longestIdle ? 'أطول انتظار (' + M.waits + ')' : 'الانتظار'; idle.className = 'text-lg font-bold tabular-nums truncate text-slate-900'; }
-        $('eyeMonParts').innerHTML = partsBars(L.parts);
+        $('eyeMonParts').innerHTML = rollLine(L.roll && L.roll.sec, L.roll && L.roll.now, L.roll && L.roll.auto) + partsBars(L.parts);
         // التنبيهات
         const IC = { bad: ['fa-circle-exclamation', 'border-red-200 bg-red-50 text-red-800'], warn: ['fa-triangle-exclamation', 'border-amber-200 bg-amber-50 text-amber-900'],
                      info: ['fa-clock', 'border-slate-200 bg-slate-50 text-slate-700'], hint: ['fa-lightbulb', 'border-blue-200 bg-blue-50 text-blue-800'] };
@@ -587,8 +609,9 @@
         placeBar();
         $('eyeLiveClock').textContent = mmss(L.seconds);
         const lp = $('eyeLivePart');
-        lp.textContent = L.part ? E().PART[L.part].label + ' · ' + mmss(L.partSec) : 'المس عنصر الحصة الجاري';
-        lp.className = 'flex-1 text-sm min-w-0 truncate ' + (L.part ? 'text-slate-800 font-semibold' : 'text-amber-800');
+        const autoRoll = !L.part && L.state === 'r';
+        lp.textContent = L.part ? E().PART[L.part].label + ' · ' + mmss(L.partSec) : autoRoll ? E().ROLL.label + ' · ' + mmss(L.run) : 'المس عنصر الحصة الجاري';
+        lp.className = 'flex-1 text-sm min-w-0 truncate ' + (L.part || autoRoll ? 'text-slate-800 font-semibold' : 'text-amber-800');
         $('eyeLiveSrc').textContent = [S.via === 'phone' ? 'كاميرا الهاتف' : S.src === 'file' ? 'مقطع مصوَّر' : S.src === 'none' ? 'بلا كاميرا' : 'كاميرا الجهاز',
             S.audio ? (S.mic === 'teacher' ? 'ميكروفون المعلّم' : 'الصوت') : '', S.sp ? 'فهم الكلام' : ''].filter(Boolean).join(' · ');
     }
@@ -613,7 +636,7 @@
         g.strokeStyle = 'rgba(15,23,42,.08)'; g.lineWidth = 1;
         [0, 50, 100].forEach(v => { g.beginPath(); g.moveTo(0, Y(v) + 0.5); g.lineTo(Wc, Y(v) + 0.5); g.stroke(); });
         if (useMv) { g.setLineDash([5, 4]); g.strokeStyle = '#94a3b8'; g.beginPath(); g.moveTo(0, Y(50)); g.lineTo(Wc, Y(50)); g.stroke(); g.setLineDash([]); }
-        items.forEach((b, i) => { if (b.k === 'i') { g.fillStyle = 'rgba(203,213,225,.55)'; g.fillRect(X(i) - step / 2, top, step, H); } });
+        items.forEach((b, i) => { if (b.k === 'i' || b.k === 'r') { g.fillStyle = b.k === 'i' ? 'rgba(203,213,225,.55)' : ROLL_TINT; g.fillRect(X(i) - step / 2, top, step, H); } });
         const pts = items.map((b, i) => [X(i), val(b)]).filter(p => p[1] != null);
         if (pts.length < 2) return;
         g.beginPath();
@@ -637,11 +660,11 @@
         const i = Math.floor((r.width - x) / bw);
         const b = items[i];
         if (!b) { tip.classList.add('hidden'); return; }
-        const part = b.c && b.c !== '-' ? (E().PARTS.find(p => p.c === b.c) || {}).label : '';
+        const part = b.c && b.c !== '-' && b.c !== E().ROLL.c ? (E().PARTS.find(p => p.c === b.c) || {}).label : '';
         tip.textContent = '';
         const line = t => { const d = document.createElement('div'); d.textContent = t; tip.appendChild(d); };
         line(mmss(i * 10) + ' – ' + mmss(i * 10 + 10) + (part ? ' · ' + part : ''));
-        line(b.k === 'a' ? 'نشاط' : b.k === 'i' ? 'انتظار' : 'غير محسوب');
+        line(b.k === 'a' ? 'نشاط' : b.k === 'i' ? 'انتظار' : b.k === 'r' ? E().ROLL.label + ' — لا يُحسب شرحاً ولا انتظاراً' : 'غير محسوب');
         if (b.mv != null) line('حركة الطلبة ' + b.mv + '%');
         if (b.talk != null) line('كلام المعلّم ' + Math.round(b.talk * 100) + '%');
         tip.classList.remove('hidden');
@@ -918,7 +941,8 @@
         const prev = d.guide;
         d.guide = G ? { id: G.id, skills: S.guide.skills.slice() } : null;
         if (d.M) {
-            const segs = d.sp && Array.isArray(d.sp.seg) ? d.sp.seg : [];
+            const segs0 = d.sp && Array.isArray(d.sp.seg) ? d.sp.seg : [];
+            const segs = SX() ? SX().lessonSegs(segs0, d.M.admin && d.M.admin.spans) : segs0;     // بلا الحضور والزيّ
             const same = prev && d.guide && prev.id === d.guide.id && prev.skills.join() === d.guide.skills.join();
             if (G && segs.length) d.M.gspeech = LG().speechCoverage(segs, G, S.guide.skills);
             else if (!same) d.M.gspeech = null;      // حُذف النصّ: لا يُعاد عدّه لمهارةٍ أخرى
@@ -1256,9 +1280,9 @@
         if (sp.interim) { const i = document.createElement('span'); i.className = 'text-slate-400'; i.textContent = ' ' + sp.interim; tx.appendChild(i); }
         if (!last && !sp.interim) tx.textContent = 'ينتظر كلام المعلّم…';
         if (sp.dirty && SX()) {
-            sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: now() });
+            sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: now(), admin: S.rollSpans });
             const G = guideOn();
-            sp.G = G ? LG().speechCoverage(sp.segs, G, S.guide.skills) : null;      // نقاط المهارة وأسئلة التقويم كما تُسمع
+            sp.G = G ? LG().speechCoverage(SX().lessonSegs(sp.segs, S.rollSpans), G, S.guide.skills) : null;      // نقاط المهارة وأسئلة التقويم كما تُسمع (بلا الحضور والزيّ)
             sp.dirty = false;
             updateGuideLive();
         }
@@ -1611,6 +1635,7 @@
         S.counts = {};
         S.ctxEvents = [];
         S.ctxCur = null;
+        S.rollSpans = []; S.rollSig = '';
         S.result = null;
         S.hadAudio = !!S.audio;
         S.mic = checked('eyeTeacherMic') ? 'teacher' : 'device';
@@ -1844,11 +1869,15 @@
         const M = E().summarize(recNow());
         $('eyeClock').textContent = mmss(S.lastSec);
         renderKpis(M, S.lastSec);
+        // ثواني الحضور والزيّ تتغيّر حيّاً (التلقائيّ يمتدّ حتّى أوّل نشاط): الكلام يُعاد تحليله بلاها
+        const rs = (M.admin && M.admin.spans) || [], sig = JSON.stringify(rs);
+        if (sig !== S.rollSig) { S.rollSig = sig; S.rollSpans = rs; if (S.sp) S.sp.dirty = true; }
         const last = M.states.slice(-3);
         const k = last.length ? last[last.length - 1] : 'x';
-        const ctxL = S.ctxCur ? E().CONTEXTS.find(c => c.k === S.ctxCur).label : '';
+        const ctxL = S.ctxCur && E().PART[S.ctxCur] ? E().PART[S.ctxCur].label : '';
         $('eyeState').textContent = S.src === 'none' ? (ctxL || 'رصد')
             : phoneFrozen() ? 'لا صورة من الهاتف'
+            : k === 'r' ? E().ROLL.label
             : (k === 'a' ? 'نشاط' : k === 'i' ? 'انتظار' : 'الكاميرا تتحرّك') + (ctxL ? ' · ' + ctxL : '');
         // بلا صورةٍ من الهاتف عشر ثوانٍ: زرّ إعادة الربط ظاهر
         if (S.via === 'phone') $('eyeRelink').classList.toggle('hidden', !($('eyePair').classList.contains('hidden')
@@ -1922,12 +1951,13 @@
         items.forEach((it, i) => {
             const x = X(i), w = Math.max(1, bw);
             if (it.c && it.c !== '-') { g.fillStyle = CTX_COLOR[it.c] || '#94a3b8'; g.fillRect(x, P0, w, P1 - P0); }
-            // الحالة: نشاطٌ كحليّ، وانتظارٌ رماديّ، وغير المحسوب مخطّطٌ فاتح
-            g.fillStyle = it.k === 'a' ? '#0f4c81' : it.k === 'i' ? '#cbd5e1' : '#eef2f7';
+            // الحالة: نشاطٌ كحليّ، وانتظارٌ رماديّ، والحضور والزيّ رماديٌّ مزرقّ (مساحته مظلَّلة)، وغير المحسوب فاتح
+            g.fillStyle = it.k === 'a' ? '#0f4c81' : it.k === 'i' ? '#cbd5e1' : it.k === 'r' ? CTX_COLOR.r : '#eef2f7';
             g.fillRect(x, S0, w, S1 - S0);
             if (it.k === 'i') { g.fillStyle = 'rgba(203,213,225,.35)'; g.fillRect(x, M0, w, M1 - M0); }
+            if (it.k === 'r') { g.fillStyle = ROLL_TINT; g.fillRect(x, M0, w, M1 - M0); }
             if (it.talk != null && it.talk > 0) { g.fillStyle = 'rgba(217,164,65,' + (0.25 + 0.75 * it.talk).toFixed(2) + ')'; g.fillRect(x, T0, w, T1 - T0); }
-            if (!useMv && it.k !== 'x') {
+            if (!useMv && it.k !== 'x' && it.k !== 'r') {
                 const v = it.k === 'a' ? 12 + it.v * 88 : 6;
                 g.fillStyle = it.k === 'a' ? '#0f4c81' : '#cbd5e1';
                 g.fillRect(x + 0.5, Y(v), Math.max(1, bw - 1), M1 - Y(v));
@@ -2142,10 +2172,12 @@
         delete keep.states; delete keep.timeline;
         keep.rec = recPref();                          // الزمن الموصى به للعناصر (اختيار المشرف) يُحفظ مع النتيجة
         // كلام المعلّم: تحليله يدخل M فيُقترح منه ويُعاد الاقتراح عليه، والنصّ نفسه في data.sp
-        if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: M.seconds });
+        // وما قيل أثناء الحضور والزيّ لا يُحلَّل (لا شرح ولا أسئلة ولا تعليمات درس)
+        const rollS = (M.admin && M.admin.spans) || [];
+        if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: M.seconds, admin: rollS });
         // دليل المعلّم: الدليل ومهارة الحصة يُحفظان، وما سُمع من نقاطها الفنّيّة وأسئلة تقويمها
         const GD = guideOn();
-        if (GD && sp) keep.gspeech = LG().speechCoverage(sp.segs, GD, S.guide.skills);
+        if (GD && sp) keep.gspeech = LG().speechCoverage(SX() ? SX().lessonSegs(sp.segs, rollS) : sp.segs, GD, S.guide.skills);
         const LS = E().live(recNow(), M).series;
         const packed = (ser, k, sc) => { const t = E().pack(ser, k, sc); return /[0-9]/.test(t) ? t : ''; };
         const data = {
@@ -2260,10 +2292,15 @@
         const small = s => ' <span class="text-xs font-normal text-slate-500">' + s + '</span>';
         const noAudio = '<span class="text-slate-500 font-normal">لم يُحلَّل الصوت</span>';
         const rows = [];
+        // الحضور والزيّ: زمنه وحده — لا يُحسب شرحاً ولا انتظاراً ولا من حركة الطلبة
+        const AD = M.admin && M.admin.sec >= 10 ? M.admin : null;
+        const rollRow = AD ? row(E().ROLL.label, esc(D(AD.sec)) + small((AD.auto ? 'بداية الحصة قبل أوّل نشاط (تلقائيّاً)' : 'بلمسة «' + E().ROLL.short + '»') + ' — لا يُحسب شرحاً ولا انتظاراً'
+            + (AD.sec >= E().ROLL_LONG ? ' · <b class="text-amber-800">طال</b>' : ''))) : '';
         if (M.observed) {
             const lost = data.via === 'phone' ? Math.min(data.lost || 0, M.excludedSec || 0) : 0;
             rows.push(row('زمن الرصد', esc(D(M.observed)) + (M.excludedSec >= 30
                 ? small('(استُبعد ' + esc(D(M.excludedSec)) + (lost >= 5 ? (lost >= M.excludedSec - 5 ? ' لانقطاع صورة الهاتف' : '، منها ' + esc(D(lost)) + ' لانقطاع صورة الهاتف') : ' لحركة الكاميرا') + ')') : '')));
+            if (rollRow) rows.push(rollRow);
             rows.push(row('منطقة الصف', data.roi ? 'محدّدة' : '<span class="text-slate-500 font-normal">الإطار كلّه</span>'));
             if (P) {
                 rows.push(row('عدد الطلبة', `<input type="number" id="eyeClassSize" min="1" max="80" value="${esc(String(P.classSize || P.inside))}" class="w-16 text-center border border-slate-300 rounded-md py-0.5" aria-label="عدد طلبة الصف">`
@@ -2285,11 +2322,11 @@
                 rows.push(row('النشاط الحركي للطلبة', M.activePct + '%' + small(esc(D(M.activeSec)))));
             }
             rows.push(row('فترات الانتظار بين الأنشطة', M.waits ? M.waits + small('أطولها ' + esc(D(M.longestIdle))) : 'لا فترات طويلة'));
-        }
+        } else if (rollRow) rows.push(rollRow);
         if (data.mic === 'teacher') {
             rows.push(row(female() ? 'كلام المعلمة (ميكروفونها)' : 'كلام المعلم (ميكروفونه)', data.audio ? M.talkPct + '%' + small('من الحصة، وأثناء النشاط ' + M.coachPct + '%') : noAudio));
         } else if (M.observed) {
-            rows.push(row('الشرح والتوجيه (تقديري)', data.audio ? esc(D(M.explainSec)) : noAudio));
+            rows.push(row('الشرح والتوجيه (تقديري)', data.audio ? esc(D(M.explainSec)) + (AD ? small('بلا الحضور والزيّ') : '') : noAudio));
         }
         if (M.observed) {
             rows.push(row('الصفّارة', !data.audio ? noAudio : M.whistles ? M.whistles + (M.cued ? small('منها ' + M.cued + ' عند الانتقال') : '') : 'لم تُرصد'));
@@ -2366,7 +2403,10 @@
         if (SPA && SPA.clauses) {
             const segs = (data.sp && data.sp.seg) || [];
             const cx = (data.cx || []).map(e => ({ t: e[0], k: e[1] }));
-            const partOf = t => { let k = null; cx.forEach(e => { if (e.t <= t) k = e.k; }); return k && E().PART[k] ? E().PART[k].short : ''; };
+            const partOf = t => {
+                if (M.admin && E().inSpans(M.admin.spans, Math.max(0, Math.round(Number(t) || 0)))) return E().ROLL.short;   // ومنه التلقائيّ
+                let k = null; cx.forEach(e => { if (e.t <= t) k = e.k; }); return k && E().PART[k] ? E().PART[k].short : '';
+            };
             const box = (label, n, sub) => `<div class="rounded-xl border border-slate-200 px-3 py-2"><div class="text-xl font-bold text-slate-900 tabular-nums">${esc(String(n))}</div>
                 <div class="text-[11px] text-slate-600 leading-4">${esc(label)}${sub ? '<br><span class="text-slate-500">' + esc(sub) + '</span>' : ''}</div></div>`;
             const exList = (ttl, arr) => (arr && arr.length ? `<div><div class="text-xs font-bold text-slate-500 mb-1">${esc(ttl)}</div>${arr.map(([t, x]) =>
@@ -2386,6 +2426,7 @@
                     ${box('تذكير بالسلامة', SPA.safe.n)}${box('تعليمات تنظيمية', SPA.orgShare + '%')}
                 </div>
                 <p class="text-sm text-slate-700 mt-3 leading-7">${terms ? 'مصطلحات الدرس (' + esc(terms.terms.join('، ')) + '): سُمعت <b>' + terms.n + '</b> ' + (terms.n === 1 ? 'مرّة' : 'مرّات') + ' · ' : ''}القيم والروح الرياضيّة: <b>${SPA.values.n}</b> · الربط بالصحّة: <b>${SPA.health.n}</b></p>
+                ${SPA.admin && SPA.admin.clauses ? `<p class="text-xs text-slate-500 mt-1">قيلت ${esc(E().count(SPA.admin.clauses, 'عبارةٌ واحدة', 'عبارتان', 'عبارات', 'عبارة'))} أثناء الحضور والزيّ — لم تُحلَّل (ليست شرحاً ولا أسئلةً للدرس).</p>` : ''}
                 <div class="grid md:grid-cols-2 gap-4 mt-3">
                     ${exList('تعزيزٌ محدّد', SPA.praise.specEx)}${exList('تصحيحٌ بالمهارة', SPA.corr.specEx)}
                     ${exList('أسئلةٌ تستثير التفكير', SPA.q.hiEx)}${exList('تحقّقٌ من الفهم', SPA.check.ex)}
@@ -2830,6 +2871,7 @@
         if (S.link || !$('eyePair').classList.contains('hidden')) cancelPhone();   // ربطٌ معلَّقٌ لزيارةٍ أخرى
         S.secs = []; S.grid = null; S.events = []; S.counts = {}; S.result = null; S.tl = null; S.savedHeat = null;
         S.ctxEvents = []; S.ctxCur = null; S.pSnap = null; S.src = null; S.consent = false; S.hadAudio = false; S.classMax = 0;
+        S.rollSpans = []; S.rollSig = '';
         S.sp = null; S.speechConsent = false;
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
         S.via = null; S.lostSec = 0; S.phoneCams = null;
