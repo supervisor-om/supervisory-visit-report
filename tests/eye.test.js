@@ -660,9 +660,11 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     for (let k = 0; k <= 2; k++) E.trackStep(M2, kids.concat([person(0.5, 0.52)]), k * 0.5, 16 / 9);
     const mid = E.teacherStep(M2, { id: 6 }, 1);
     check('teacher: في وسط الطلبة ليس على الطرف', E.peopleSnapshot(M2, 1, null, mid).tc.edge === false);
-    E.trackStep(R, kids, 3.5, 16 / 9);                               // انقطع المعلّم
-    E.trackStep(R, kids.concat([person(0.94, 0.5)]), 4, 16 / 9);     // وظهر متتبَّعٌ جديدٌ قرب موضعه
-    tch = E.teacherStep(R, tch, 4);
+    // الأزمنة نسبةً إلى TRACK_TTL: يُنسى متتبَّع المعلّم بعد آخر ظهورٍ له (ث١) بمدّة TTL، فتُضبط على أيّ قيمة
+    const lost = 1 + E.TRACK_TTL;
+    E.trackStep(R, kids, lost, 16 / 9);                              // انقطع المعلّم
+    E.trackStep(R, kids.concat([person(0.94, 0.5)]), lost + 0.5, 16 / 9); // وظهر متتبَّعٌ جديدٌ قرب موضعه
+    tch = E.teacherStep(R, tch, lost + 0.5);
     check('teacher: يُتبنّى أقرب متتبَّعٍ جديدٍ من آخر موضعه', tch.id !== tid && tch.id > 6 && E.peopleSnapshot(R, 4, null, tch).n === 5, JSON.stringify(tch));
 
     // حصّة: نشاطٌ ثمّ صفّارة توقّف (يتوقّفون بعد ٤ ث)، ثمّ صفّارة بدء (يبدؤون بعد ٣ ث)، والمعلّم على الطرف ثلثي الوقت

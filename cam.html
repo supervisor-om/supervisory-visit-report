@@ -187,19 +187,10 @@ button{font:inherit}
   function onMessage(m) {
     if (!m || typeof m !== 'object') return;
     if (m.type === 'lens' && typeof m.id === 'string') lens(m.id);
-    else if (m.type === 'zoom') zoom(m.v)
-    else if (m.type === 'auto-wide') {
-      const u = (C.cams || []).find(c => c.ultra);
-      if (u && C.cur !== u.id) lens(u.id);
-      if (C.zoom) zoom(C.zoom.min);
-        else if (m.type === 'hello' && C.link) C.link.send(camsMsg());
+    else if (m.type === 'zoom') zoom(m.v);
+    else if (m.type === 'hello' && C.link) C.link.send(camsMsg());
     else if (m.type === 'bye') finish('أنهى المشرف الرصد — شكراً.');
-  }  try {
-    if (typeof BroadcastChannel !== 'undefined') {
-      const bc = new BroadcastChannel('svf_eye_cam_ctrl');
-      bc.onmessage = e => { if (e && e.data) onMessage(e.data); };
-    }
-  } catch (e) {}
+  }
   function onState(s) {
     if (C.ended) return;
     if (s === 'connected' || s === 'channel') { state('متّصل بالـiPad', 'live'); note(''); if (C.link) C.link.send(camsMsg()); }

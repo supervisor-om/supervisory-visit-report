@@ -52,7 +52,7 @@
     // الطلبة — وحدة المسافة «طول الجسم» فلا تتأثّر ببعد الكاميرا
     const PERSON_MIN_SCORE = 0.22; // أقلّ منه يكثر فيه الخطأ (لافتاتٌ ومخاريط) — قيس على مشهد مشاة
     const MATCH_GATE = 0.9;       // أبعد من ٠٫٩ طول جسمٍ بين لقطتين ← شخصٌ آخر
-    const TRACK_TTL = 4.5        // ثوانٍ بلا ظهورٍ ثمّ يُنسى
+    const TRACK_TTL = 4.5;        // ثوانٍ بلا ظهورٍ ثمّ يُنسى
     const MOVE_SPEED = 0.25;      // ربع طول الجسم في الثانية ← يتحرّك (مشيٌ بطيء فما فوق)
     const BOX_ACT = 0.12;         // نسبة ما تغيّر داخل صندوقه ← يتحرّك في مكانه (تمرين، تمرير)
     const QUEUE_DIST = 1.6;       // واقفون متقاربون (طول جسمٍ ونصف) ثلاثةٌ فأكثر ← انتظار دور
@@ -1795,7 +1795,7 @@
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
         PARTS, PART, ACTIVE_PARTS, ROLL, ROLL_START, ROLL_AUTO_MAX, ROLL_MIN, ROLL_LONG, rollSpans, inSpans, lessonSecOf, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
-        PERSON_MIN_SCORE, MOVE_SPEED, BOX_ACT,
+        PERSON_MIN_SCORE, TRACK_TTL, MOVE_SPEED, BOX_ACT,
         inPoly, roiMask, roiCells, polyBox,
         toGray, frameDiff, grayShift, boxMotion,
         newTracker, trackStep, trackMotion, peopleSnapshot,

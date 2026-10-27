@@ -208,27 +208,7 @@
         };
     }
 
-    function sendCameraCommand(channel, command, payload = {}) {
-    const ch = channel || activeDataChannel;
-    if (!ch || ch.readyState !== 'open') {
-      console.warn('[EyeLink] Data channel unavailable or closed for command:', command);
-      return false;
-    }
-    try {
-      const msg = JSON.stringify({
-        type: 'camera_command',
-        cmd: command,
-        payload: payload,
-        timestamp: Date.now()
-      });
-      ch.send(msg);
-      return true;
-    } catch (err) {
-      console.error('[EyeLink] Error sending camera command:', command, err);
-      return false;
-    }
-    }
-  const api = { PREFIX, TTL_MS, ULTRA_RE, newCode, docKey, linkUrl, parseHash, signalDoc, tombstone, readSignal, rankCams, pickLens, lensLabel, storeFor, host, joi, sendCameraCommandn };
+    const api = { PREFIX, TTL_MS, ULTRA_RE, newCode, docKey, linkUrl, parseHash, signalDoc, tombstone, readSignal, rankCams, pickLens, lensLabel, storeFor, host, join };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEyeLink = api;
 })(typeof window !== 'undefined' ? window : this);
