@@ -9,11 +9,296 @@
 //   • التذكير بالسلامة                          • التعليمات التنظيميّة
 //   • القيم والروح الرياضيّة، والربط بالصحّة    • مصطلحات درس اليوم (من عنوانه)
 //   • عباراتٌ تحتاج مراجعة المشرف — **لا تدخل التقييم ولا بطاقة المعلّم**
-// وكلّ عبارةٍ تُنسب إلى عنصر الحصة الذي قيلت فيه. القاموس لا يفهم السياق: يعدّ ما يُسمع، والمشرف يراجع الأمثلة.
-// وما قيل أثناء الحضور والزيّ (opts.admin) يُعدّ وحده ولا يدخل الفئات (2026-10-27).
-// =========================================================================
-(function (root) {
-    'use strict';
+// وكلّ عبارةٍ (function (root) {
+  'use strict';
+
+  // 1. Dialect Languages sequence for Omani and Gulf dialects
+  const DIALECT_LANGS = ['ar-OM', 'ar-AE', 'ar-SA', 'ar-KW', 'ar'];
+
+  function selectBestAlternative(alternatives) {
+    if (!alternatives || !alternatives.length) return '';
+    if (typeof alternatives === 'string') return alternatives;
+    let best = alternatives[0];
+    let maxScore = -1;
+    for (let i = 0; i < alternatives.length; i++) {
+      const alt = alternatives[i];
+      const transcript = typeof alt === 'string' ? alt : (alt.transcript || '');
+      const confidence = typeof alt === 'object' && alt.confidence !== undefined ? alt.confidence : 1.0;
+      const score = transcript.length * (confidence || 0.5);
+      if (score > maxScore) {
+        maxScore = score;
+        best = transcript;
+      }
+    }
+    return typeof best === 'string' ? best : (best.transcript || '');
+  }
+
+  // 2. Phonetic corrections matrix for Omani and Gulf dialects
+  const PHONETIC_CORRECTIONS = [
+    [/\bمربع\s+ناقص\s+(طلع|ضلاع|أضلاع)\b/g, 'مربع ناقص ضلع'],
+    [/\b(قطارات|فاطرات)\b/g, 'قاطرات'],
+    [/\bجدام\b/g, 'قدام'],
+    [/\bوجف\b/g, 'وقف'],
+    [/\bريولكم\b/g, 'ارجلكم'],
+    [/\bسبرنت\b/g, 'عدو سريع'],
+    [/\b(أحسنتم|ممتازين|بارك\s+الله\s+فيكم|عشتوا|كفو)\b/g, 'ممتاز'],
+    [/\b(أنتبه|ركز معي|شوف هنا)\b/g, 'انتبه']
+  ];
+
+  function phoneticSkeleton(s) {
+    if (!s) return '';
+    return s
+      .replace(/[ًٌٍَُِّْ]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .replace(/گ|ڤ|چ/g, function(c) {
+        if (c === 'گ') return 'ك';
+        if (c === 'ڤ') return 'ف';
+        if (c === 'چ') return 'ج';
+        return c;
+      })
+      .replace(/ذ|ظ/g, 'ض')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function editDistance(a, b) {
+    if (!a) return b ? b.length : 0;
+    if (!b) return a.length;
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return dp[m][n];
+  }
+
+  function norm(s) {
+    if (!s) return '';
+    let res = String(s).toLowerCase();
+    res = res.replace(/[ًٌٍَُِّْ]/g, '');
+    res = res.replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    PHONETIC_CORRECTIONS.forEach(function(pair) {
+      res = res.replace(pair[0], pair[1]);
+    });
+    return res.trim();
+  }
+
+  // 3. Expanded Dictionaries L for Omani & Gulf field vocabulary
+  const L = {
+    praise: ['ممتاز', 'احسنت', 'بارك الله فيك', 'رائع', 'بطل', 'كفو', 'عشتوا', 'مبدع', 'اجابة صحيحة', 'احسنتم'],
+    corr: ['خطأ', 'حاول مرة أخرى', 'انتبه', 'ركز', 'اعد المحاولة', 'تصحيح', 'ليس كذلك', 'راجع نفسك'],
+    move: ['مربع ناقص ضلع', 'دائرة', 'قاطرات', 'صفوف', 'انتشار', 'انتقال', 'تحرك', 'جري', 'عدو سريع', 'دوران', 'خطوة'],
+    stationary: ['وقف', 'ثبات', 'مكانك', 'جلوس', 'استعداد', 'انتباه', 'هدوء', 'استراحة'],
+    org: ['مجموعة', 'فريق', 'ثنائي', 'فردي', 'قاطرة', 'صف', 'حلقة', 'دائرة', 'محطة'],
+    q: ['ماذا', 'كيف', 'لماذا', 'من', 'متى', 'أين', 'كم', 'هل', 'علل', 'اذكر'],
+    qhi: ['ما الفرق', 'كيف تستنتج', 'علل ذلك', 'ما التحليل', 'قارن بين', 'ما النتيجة'],
+    check: ['هل فهمتم', 'واضح', 'جاهزين', 'معي', 'تمام', 'أليس كذلك', 'مفهوم'],
+    safe: ['احذر', 'انتبه', 'سلامة', 'مسافة', 'حذر', 'رويدكم', 'تأكد من الملعب', 'خطورة']
+  };
+
+  function detectVoiceFormations(text) {
+    const t = norm(text);
+    const result = [];
+    if (/مربع\s+ناقص\s+ضلع/.test(t)) result.push('مربع ناقص ضلع');
+    if (/دائره|دائرة/.test(t)) result.push('دائرة');
+    if (/قاطرات|قاطره|قاطرة/.test(t)) result.push('قاطرات');
+    if (/صفوف|صف/.test(t)) result.push('صفوف');
+    return result;
+  }
+
+  function detectMovementCommand(text) {
+    const t = norm(text);
+    const moves = [...L.move, 'تحركوا', 'امشوا', 'ركض', 'عدو'];
+    for (let m of moves) {
+      if (t.includes(norm(m))) return true;
+    }
+    return false;
+  }
+
+  function detectLessonElements(text) {
+    const t = norm(text);
+    const elements = [];
+    if (/تهيئة|احماء|إحماء/.test(t)) elements.push('الإحماء والتهيئة');
+    if (/شرح|توضيح|عرض/.test(t)) elements.push('الشرح والتوضيح');
+    if (/تطبيق|نشاط|تمرين|تدريب/.test(t)) elements.push('التطبيق العملي');
+    if (/تقويم|ختام|انهاء|إنهاء/.test(t)) elements.push('الختام والتقويم');
+    return elements;
+  }
+
+  function extractLessonTitle(text) {
+    if (!text) return '';
+    const t = norm(text);
+    const match = t.match(/(?:درس اليوم|موضوع اليوم|عنوان الدرس|درسنا اليوم|عنواننا)\s*(?:هو|عن)?\s*([^.،,\n]+)/);
+    return match ? match[1].trim() : '';
+  }
+
+  let micAudioCtx = null;
+  let micAnalyser = null;
+  let micTimer = null;
+  let micCallback = null;
+
+  function notifyMicStopped(onStopCb) {
+    micCallback = onStopCb;
+    if (micTimer) clearTimeout(micTimer);
+    
+    micTimer = setTimeout(function() {
+      if (typeof micCallback === 'function') {
+        micCallback({ silent: true, duration: 8 });
+      }
+    }, 8000);
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && !micAudioCtx) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+          micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          micAnalyser = micAudioCtx.createAnalyser();
+          const source = micAudioCtx.createMediaStreamSource(stream);
+          source.connect(micAnalyser);
+          micAnalyser.fftSize = 256;
+          const bufferLength = micAnalyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          function checkVolume() {
+            if (!micAnalyser) return;
+            micAnalyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+            const avg = sum / bufferLength;
+            if (avg > 10) {
+              if (micTimer) clearTimeout(micTimer);
+              micTimer = setTimeout(function() {
+                if (typeof micCallback === 'function') {
+                  micCallback({ silent: true, duration: 8 });
+                }
+              }, 8000);
+            }
+            requestAnimationFrame(checkVolume);
+          }
+          checkVolume();
+        }).catch(function(e) {
+          console.warn('Mic audio monitor error:', e);
+        });
+      }
+    } catch(e) {
+      console.warn('AudioContext monitor not supported:', e);
+    }
+  }
+
+  function notifyPhaseTransition(currentPhase, nextPhase) {
+    const event = new CustomEvent('svfPhaseTransition', {
+      detail: { currentPhase, nextPhase, timestamp: Date.now() }
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(event);
+    }
+    return { currentPhase, nextPhase };
+  }
+
+  function clauses(text) {
+    if (!text) return [];
+    return text.split(/[.،,!\?\n]+/).map(s => s.trim()).filter(Boolean);
+  }
+
+  function topicTerms(text) {
+    if (!text) return [];
+    return clauses(text).filter(c => c.length > 3);
+  }
+
+  function lessonSegs(text) {
+    if (!text) return [];
+    return clauses(text);
+  }
+
+  function analyze(text, opts) {
+    opts = opts || {};
+    const nText = norm(text || '');
+    const clList = clauses(nText);
+    const words = nText.split(/\s+/).filter(Boolean);
+    const span = opts.seconds || 0;
+    const lesson = Math.max(span, 60);
+
+    const counts = {
+      praise: 0, corr: 0, move: 0, stationary: 0,
+      org: 0, q: 0, qhi: 0, check: 0, safe: 0
+    };
+
+    words.forEach(w => {
+      Object.keys(L).forEach(k => {
+        if (L[k].some(item => norm(item) === w)) {
+          counts[k]++;
+        }
+      });
+    });
+
+    return Object.assign({
+      v: 1,
+      segs: clList,
+      clauses: clList.length,
+      words: words.length,
+      span: span,
+      lesson: lesson,
+      wpm: lesson >= 60 ? Math.round(words.length / (lesson / 60)) : null,
+      orgShare: clList.length ? Math.round((100 * counts.org) / clList.length) : 0,
+      topic: { terms: topicTerms(nText), n: topicTerms(nText).length },
+      parts: counts,
+      admin: 0
+    }, counts);
+  }
+
+  function line(A) {
+    if (!A || !A.clauses) return '';
+    const bits = ['ثناء ' + (A.praise || 0), 'تصحيح ' + (A.corr || 0), 'أسئلة ' + (A.q || 0)];
+    return bits.join(' • ');
+  }
+
+  function stripExamples(A) {
+    if (!A) return A;
+    const B = JSON.parse(JSON.stringify(A));
+    ['praise', 'corr', 'q', 'check', 'safe', 'org'].forEach(k => {
+      if (B[k] && typeof B[k] === 'object') B[k].spec = [];
+    });
+    return B;
+  }
+
+  const api = {
+    DIALECT_LANGS,
+    maxAlternatives: 5,
+    selectBestAlternative,
+    norm,
+    phoneticSkeleton,
+    editDistance,
+    PHONETIC_CORRECTIONS,
+    LEX: L,
+    detectVoiceFormations,
+    detectMovementCommand,
+    detectLessonElements,
+    extractLessonTitle,
+    notifyMicStopped,
+    notifyPhaseTransition,
+    analyze,
+    clauses,
+    topicTerms,
+    line,
+    stripExamples,
+    lessonSegs
+  };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = api;
+  }
+  root.SvfEyeSpeech = api;
+})(typeof window !== 'undefined' ? window : this); strict';
 
     // تسويةٌ للمقارنة: بلا تشكيل ولا تطويل، والهمزات ألفاً، والتاء المربوطة هاءً، والألف المقصورة ياءً، والأرقام لاتينيّة
     const norm = s => String(s || '')
