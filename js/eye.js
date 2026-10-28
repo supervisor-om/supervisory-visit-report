@@ -71,7 +71,7 @@
     const SX = () => root.SvfEyeSpeech;
     const LANGS = () => (SX() && SX().LANGS) || ['ar-OM', 'ar-SA'];
     const LG = () => root.SvfLessonGuide;
-    const AI = { human: null, loading: null, ok: false, busy: false, fail: 0, T: null, prevG: null, prevKey: '', canvas: null, cx: null,
+    const AI = { engine: null, loading: null, ok: false, busy: false, fail: 0, T: null, prevG: null, prevKey: '', canvas: null, cx: null,
                  timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5 };
     const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false, lost: false });
 
@@ -173,6 +173,14 @@ function tagRowHtml(k) {
                                 <select id="eyeMicDev" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" aria-label="الميكروفون"><option value="">الميكروفون الافتراضي</option></select>
                                 ${chk('eyeTeacherMic', 'الميكروفون على المعلّم (لاسلكيّ)', false, 'ميكروفونٌ لاسلكيٌّ على ياقة المعلّم: يصير الكلام المرصود كلامه')}
                                 <label id="eyeSpeechLbl" class="flex items-center gap-2 text-sm text-slate-700" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech"> فهم الكلام (بإذن المعلّم)</label>
+                            </div>
+                            <div class="space-y-2 sm:col-span-2">
+                                <div class="text-xs font-bold text-slate-500">مساعد الصياغة (Claude) — اختياريّ</div>
+                                <p class="text-xs text-slate-500 leading-5">للربط المباشر: رابط الوسيط وكلمته (طريقة الإعداد في <bdi>tools/claude-draft/README.md</bdi>). بدونهما يعمل «نسخ الطلب لـClaude» مجّاناً.</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <input type="url" id="eyeDraftUrl" dir="ltr" autocomplete="off" spellcheck="false" placeholder="https://svf-draft.….workers.dev" class="w-full min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" aria-label="رابط وسيط مساعد الصياغة">
+                                    <input type="password" id="eyeDraftKey" dir="ltr" autocomplete="off" placeholder="كلمة الوسيط" class="w-full min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" aria-label="كلمة وسيط مساعد الصياغة">
+                                </div>
                             </div>
                         </div>
                     </details>
@@ -501,7 +509,7 @@ function tagRowHtml(k) {
 
     // ── الإعدادات المحفوظة ──
     const PREF_KEY = 'svf_eye_prefs';
-    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech'];
+    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey'];
     function readPrefs() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); return p && typeof p === 'object' ? p : null; } catch (e) { return null; } }
     function loadPrefs() {
         const p = readPrefs();
@@ -522,6 +530,8 @@ function tagRowHtml(k) {
         PREF_IDS.forEach(id => { const el = $(id); if (el) p[id] = el.type === 'checkbox' ? el.checked : el.value; });
         try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) { /* تُستعمل لهذه المرّة */ }
         setSummary();
+        const dg = $('eyeDraftGo');                       // الربط المباشر يظهر حين يُكتب رابط الوسيط وكلمته
+        if (dg) { dg.classList.toggle('hidden', !draftLinked()); $('eyeDraftCopy').classList.toggle('svf-btn-secondary', !draftLinked()); $('eyeDraftCopy').classList.toggle('svf-btn-ghost', draftLinked()); }
     }
     // سطرٌ واحد يلخّص الإعدادات الجارية بجانب «الإعدادات»
     function setSummary() {
@@ -532,7 +542,8 @@ function tagRowHtml(k) {
             $('eyeFacing').value === 'user' ? 'الكاميرا الأماميّة' : 'الكاميرا الخلفيّة',
             checked('eyeAI') ? 'كشف الطلبة' : 'بلا كشف الطلبة',
             checked('eyeMic') ? 'الصوت' + (checked('eyeTeacherMic') ? ' من ميكروفون المعلّم' : micName ? ': ' + micName : '') : 'بلا صوت',
-            checked('eyeSpeech') ? 'فهم الكلام' : ''
+            checked('eyeSpeech') ? 'فهم الكلام' : '',
+            draftLinked() ? 'مساعد الصياغة مربوط' : ''
         ].filter(Boolean).join(' · ');
     }
 
@@ -1882,23 +1893,62 @@ function tagRowHtml(k) {
     }
 
     // ── كشف الطلبة (نموذجٌ داخل الجهاز) ──
+    // نموذج الكشف (2026-10-29): YOLOX‑Nano في عاملٍ في الخلفيّة (vendor/onnx/، المعالج — لا تتجمّد الصفحة ولا يعتمد على بطاقة الرسوم)،
+    // وإن تعذّر فـCenterNet السابق (vendor/human/). كلاهما يُرجع {object: [{label, score, boxRaw: [x, y, w, h]}]} بنسبة اللوح.
+    // SVF_EYE_ENGINE = 'human' يفرض السابق (للفحص والمقارنة).
+    function yoloxEngine() {
+        return new Promise((resolve, reject) => {
+            let w;
+            try { w = new Worker(new URL('js/eye-detect-worker.js', document.baseURI), { type: 'module' }); } catch (e) { reject(e); return; }
+            const base = new URL('vendor/onnx/', document.baseURI).href, wait = new Map();
+            let seq = 0, ready = false;
+            const fail = err => { clearTimeout(to); try { w.terminate(); } catch (e) { /* انتهى */ } wait.forEach(p => p.rej(err)); wait.clear(); if (!ready) reject(err); };
+            const to = setTimeout(() => fail(new Error('انتهت مهلة تحميل النموذج')), 60000);
+            const engine = {
+                name: 'yolox', label: 'YOLOX',
+                detect: (canvas, rgba, cw, ch) => new Promise((res, rej) => {
+                    const id = ++seq, buf = new Uint8ClampedArray(rgba).buffer;      // نسخةٌ تُنقل إلى العامل؛ الأصل يبقى للزيّ والحركة
+                    wait.set(id, { res, rej });
+                    w.postMessage({ type: 'detect', id, w: cw, h: ch, buf, person: E().PERSON_MIN_SCORE, ball: E().BALL_MIN_SCORE }, [buf]);
+                }).then(m => ({ object: m.dets.map(d => ({ label: d.label, score: d.score, boxRaw: [d.x, d.y, d.w, d.h] })), ms: m.ms })),
+                stop: () => { try { w.terminate(); } catch (e) { /* انتهى */ } }
+            };
+            w.onmessage = e => {
+                const m = e.data || {};
+                if (m.type === 'ready') { ready = true; clearTimeout(to); resolve(engine); return; }
+                const p = m.id != null ? wait.get(m.id) : null;
+                if (p) { wait.delete(m.id); if (m.type === 'dets') p.res(m); else p.rej(new Error(m.error)); }
+                else if (m.type === 'error') fail(new Error(m.error));
+            };
+            w.onerror = e => { if (e && e.preventDefault) e.preventDefault(); fail(new Error((e && e.message) || 'عامل الكشف')); };
+            w.postMessage({ type: 'init', base, model: base + 'yolox_nano.onnx', size: 416 });
+        });
+    }
+    async function humanEngine() {
+        const base = new URL('vendor/human/', document.baseURI).href;
+        const mod = await import(base + 'human.esm.js');
+        const human = new mod.Human({
+            modelBasePath: base, backend: 'webgl', debug: false, cacheSensitivity: 0, warmup: 'none',
+            face: { enabled: false }, body: { enabled: false }, hand: { enabled: false }, gesture: { enabled: false },
+            segmentation: { enabled: false }, filter: { enabled: false },
+            object: { enabled: true, modelPath: 'centernet.json', minConfidence: 0.25, iouThreshold: 0.4, maxDetected: 60, skipFrames: 0, skipTime: 0 }
+        });
+        await human.load();
+        const be = human.tf && human.tf.getBackend ? human.tf.getBackend() : '';
+        if (be && !/webgl|webgpu|humangl/.test(be)) throw new Error('backend ' + be);
+        return { name: 'human', label: 'CenterNet', detect: c => human.detect(c), stop: () => {} };
+    }
     function loadAI() {
         if (AI.loading) return AI.loading;
         AI.loading = (async () => {
-            const base = new URL('vendor/human/', document.baseURI).href;
-            const mod = await import(base + 'human.esm.js');
-            const human = new mod.Human({
-                modelBasePath: base, backend: 'webgl', debug: false, cacheSensitivity: 0, warmup: 'none',
-                face: { enabled: false }, body: { enabled: false }, hand: { enabled: false }, gesture: { enabled: false },
-                segmentation: { enabled: false }, filter: { enabled: false },
-                object: { enabled: true, modelPath: 'centernet.json', minConfidence: 0.25, iouThreshold: 0.4, maxDetected: 60, skipFrames: 0, skipTime: 0 }
-            });
-            await human.load();
-            const be = human.tf && human.tf.getBackend ? human.tf.getBackend() : '';
-            if (be && !/webgl|webgpu|humangl/.test(be)) throw new Error('backend ' + be);
-            AI.human = human;
+            let eng = null;
+            if (root.SVF_EYE_ENGINE !== 'human' && typeof Worker === 'function') {
+                try { eng = await yoloxEngine(); } catch (e) { console.warn('YOLOX غير متاح — CenterNet', e); }
+            }
+            if (!eng) eng = await humanEngine();
+            AI.engine = eng;
             AI.ok = true;
-            return human;
+            return eng;
         })();
         AI.loading.catch(() => { AI.loading = null; AI.ok = false; });
         return AI.loading;
@@ -1916,7 +1966,7 @@ function tagRowHtml(k) {
         aiState('كشف الطلبة: تحميل…');
         loadAI().then(() => {
             if (!S.running || S.runId !== id) return;
-            aiState('كشف الطلبة: جاهز');
+            aiState('كشف الطلبة: جاهز (' + AI.engine.label + ')');
             scheduleDet(id, r);
         }).catch(() => {
             if (!S.running || S.runId !== id) return;
@@ -1958,7 +2008,7 @@ function tagRowHtml(k) {
             const prev = AI.prevKey === key ? AI.prevG : null;
             const shift = prev ? E().grayShift(prev, gray) : 0;
             const thr = E().SENS[sens()].thr;
-            const res = await AI.human.detect(c);
+            const res = await AI.engine.detect(c, rgba, cw, ch);
             if (!S.running || S.runId !== id) return;
             const dets = (res.object || []).filter(o => o.label === 'person' && o.score >= E().PERSON_MIN_SCORE).map(o => {
                 const b = o.boxRaw;
@@ -2420,6 +2470,7 @@ function tagRowHtml(k) {
             ev: S.events.filter(e => e.t != null).slice(-300).map(e => [e.t, e.k]),
             cx: S.ctxEvents.map(e => [e.t, e.k]),
             outAuto, dishAuto,
+            det: S.src !== 'none' && AI.ok && AI.engine && AI.count ? AI.engine.name : null,   // نموذج الكشف الذي رصد هذه الحصة
             sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]), off: S.spOff || 0 } : null,
             sample: hasSample(S.sample) ? JSON.parse(JSON.stringify(S.sample)) : null,
             guide: GD ? { id: GD.id, skills: S.guide.skills.slice() } : null,
@@ -2797,6 +2848,32 @@ function tagRowHtml(k) {
         }
 
         // التشكيلات والزيّ الرياضيّ
+        // منهجية SOFIT: سياق الحصة ونشاط الطلبة وسلوك المعلّم كلّ عشرين ثانية — من أرقام الرصد المحفوظة
+        let sofitHtml = '';
+        const SF = E().sofit(data);
+        if (SF) {
+            const SC = { M: '#8492a6', K: '#d9a441', F: '#1d6b45', S: '#0f4c81', G: '#5b8fc7', still: '#cbd5e1', walk: '#5b8fc7', vig: '#0f4c81', teach: '#0f4c81', manage: '#8492a6', observe: '#cbd5e1' };
+            const sbar = rows => `<div class="flex h-3 rounded-full overflow-hidden bg-slate-100">${rows.filter(r => r.pct > 0).map(r => `<i class="block h-full" style="width:${r.pct}%;background:${SC[r.k]}" title="${esc(r.label + ' ' + r.pct + '%')}"></i>`).join('')}</div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-600">${rows.filter(r => r.pct > 0).map(r => `<span class="inline-flex items-center gap-1"><i class="inline-block w-2.5 h-2.5 rounded-sm" style="background:${SC[r.k]}"></i>${esc(r.label)} <b class="tabular-nums text-slate-900">${r.pct}%</b></span>`).join('')}</div>`;
+            const A = SF.act;
+            const actRows = A ? [{ k: 'still', label: 'ساكن (جالس أو واقف)', pct: A.still }].concat(A.vig != null
+                ? [{ k: 'walk', label: 'معتدل (مشي وحركة)', pct: A.walk }, { k: 'vig', label: 'شديد (جري وتمرينٌ قويّ)', pct: A.vig }]
+                : [{ k: 'walk', label: 'معتدل فأشدّ', pct: A.mvpa }]) : null;
+            sofitHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 class="text-lg font-bold text-slate-900">وفق منهجية SOFIT</h2>
+                    <span class="text-xs text-slate-500">عيّنةٌ كلّ ${SF.step} ثانية · ${SF.n} عيّنة</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1 leading-5">SOFIT أداةٌ محكَّمة عالميّاً لرصد حصص التربية البدنيّة: سياق الحصة، ونشاط الطلبة، وسلوك المعلّم في عيّناتٍ منتظمة.</p>
+                ${A ? `<div class="mt-4"><div class="flex flex-wrap items-baseline justify-between gap-2 mb-1.5"><b class="text-sm text-slate-900">نشاط الطلبة</b>
+                    <span class="text-sm ${A.ok ? 'text-green-700' : 'text-red-700'} font-bold">معتدلٌ فأشدّ ${A.mvpa}% <span class="font-normal text-slate-500">— المعيار ${A.goal}% فأكثر</span></span></div>${sbar(actRows)}</div>` : ''}
+                ${SF.ctx ? `<div class="mt-4"><b class="text-sm text-slate-900 block mb-1.5">سياق الحصة</b>${sbar(SF.ctx)}</div>` : ''}
+                ${SF.teacher ? `<div class="mt-4"><b class="text-sm text-slate-900 block mb-1.5">سلوك ${female() ? 'المعلّمة' : 'المعلّم'}</b>${sbar(SF.teacher)}</div>` : ''}
+                <p class="text-xs text-slate-500 mt-3 leading-5">تكييفٌ آليّ لـSOFIT من رصد العين، لا يغني عن ملاحظةٍ مدرَّبة: النشاط من كشف الطلبة في الصورة (لا يفرّق الجالس من الواقف)،
+                   والسياق من عناصر الحصة التي لمستها وتوقّف الطلبة، وسلوك المعلّم من وجود كلامه لا من مضمونه.</p>
+            </div>`;
+        }
+
         let formsHtml = '';
         const dishN = (data.counts || {}).dish || 0;
         if (F || (P && (P.dishEst || dishN))) {
@@ -3053,6 +3130,7 @@ function tagRowHtml(k) {
             ${followHtml}
             ${momHtml}
             ${partsHtml}
+            ${sofitHtml}
             ${formsHtml}
             ${speechHtml}
             ${guideHtml}
@@ -3069,6 +3147,24 @@ function tagRowHtml(k) {
                     <p class="text-xs text-slate-500 mt-1 leading-5">لا اقتراح عليها من هذا الرصد. المحدَّد فيها درجتها في النموذج الآن؛ المس مستوىً آخر فيُحدَّد البند للتطبيق.</p>
                     <ul class="mt-1">${others}</ul>
                 </details>` : ''}
+                <div id="eyeDraft" class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <b class="text-sm text-slate-900">مساعد الصياغة (Claude)</b>
+                        <span class="text-xs text-slate-500">يصوغ الإجادة والتطوير والتوصيات من المستويات أعلاه وأدلّة الحصة — تراجعها قبل اعتمادها</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 mt-2">
+                        <button type="button" id="eyeDraftGo" class="svf-btn svf-btn-secondary svf-btn-sm${draftLinked() ? '' : ' hidden'}"><i class="fa-solid fa-pen-nib" aria-hidden="true"></i>صياغة بمساعد Claude</button>
+                        <button type="button" id="eyeDraftCopy" class="svf-btn svf-btn-${draftLinked() ? 'ghost' : 'secondary'} svf-btn-sm"><i class="fa-regular fa-copy" aria-hidden="true"></i>نسخ الطلب لـClaude</button>
+                        <button type="button" id="eyeDraftPasteBtn" class="svf-btn svf-btn-ghost svf-btn-sm">الصق ردّ Claude</button>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1.5 leading-5">يُرسَل الصفّ وعنوان الدرس ومستويات البنود وعبارات الأدلّة — لا اسم المعلّم ولا المدرسة، ولا كلامه بنصّه، ولا ملاحظاتك، ولا صورة ولا صوت.</p>
+                    <div id="eyeDraftPasteBox" class="hidden mt-2">
+                        <textarea id="eyeDraftPaste" rows="5" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-sm leading-6" placeholder="الصق هنا ردّ Claude كاملاً"></textarea>
+                        <button type="button" id="eyeDraftRead" class="svf-btn svf-btn-secondary svf-btn-sm mt-1">قراءة الردّ</button>
+                    </div>
+                    <p id="eyeDraftMsg" class="hidden text-xs mt-2 rounded-lg border px-3 py-2 leading-5" aria-live="polite"></p>
+                    <div id="eyeDraftOut" class="hidden mt-3 space-y-3"></div>
+                </div>
                 <div class="flex flex-wrap items-center gap-2 mt-4">
                     <button type="button" id="eyeApproveSave" class="svf-btn svf-btn-primary"><i class="fa-solid fa-check-double" aria-hidden="true"></i>اعتماد وحفظ في الأرشيف</button>
                     <button type="button" id="eyeApply" class="svf-btn svf-btn-secondary">تطبيق المحدَّد فقط</button>
@@ -3091,6 +3187,7 @@ function tagRowHtml(k) {
         updateGuideLive();
         $('eyeApply') && $('eyeApply').addEventListener('click', apply);
         $('eyeApproveSave') && $('eyeApproveSave').addEventListener('click', approveSave);
+        bindDraft();
         if (!box.dataset.lvBound) {                       // الحاوية تبقى بين إعادات الرسم — المستمعان مرّةً واحدة
             box.dataset.lvBound = '1';
             box.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.eye-lvb'); if (b && box.contains(b)) pickLevel(b); });
@@ -3369,6 +3466,133 @@ function tagRowHtml(k) {
         });
         box.appendChild(ul);
         box.open = open;
+    }
+
+    // ── مساعد الصياغة (js/eye-draft.js) ──
+    const DRAFT = () => root.SvfEyeDraft;
+    const draftLinked = () => { const u = $('eyeDraftUrl'), k = $('eyeDraftKey'); return !!(u && k && /^https:\/\/\S+$/.test(u.value.trim()) && k.value.trim()); };
+    // المستوى الذي تراه في المراجعة الآن (المختار بلمسة، وإلّا درجة النموذج)
+    function reviewScores() {
+        const out = {};
+        for (let id = 1; id <= 13; id++) {
+            const b = document.querySelector('#eyeResult .eye-lvb[data-id="' + id + '"][aria-pressed="true"]');
+            const el = document.querySelector('#score-' + id), f = el ? Number(el.textContent) : NaN;
+            out[id] = b ? Number(b.dataset.score) : (f >= 1 && f <= 5 ? f : null);
+        }
+        return out;
+    }
+    function draftInput() {
+        const sc = reviewScores(), I = info();
+        let g = 0;
+        try { g = typeof getSupervisoryGender === 'function' ? getSupervisoryGender() : 0; } catch (e) { g = 0; }
+        const items = (typeof evaluationItems !== 'undefined' ? evaluationItems : []).map(it => {
+            const s = sc[it.id];
+            let level = '';
+            try {
+                const L = typeof evidenceBasedContent !== 'undefined' ? evidenceBasedContent[String(it.id)] : null;
+                level = L && L.levels && s ? (L.levels[s] || '') : '';
+                if (level && typeof applyGenderFilter === 'function') level = applyGenderFilter(level, g);
+            } catch (e) { level = ''; }
+            return { id: it.id, standard: it.standard, title: it.title, score: s, level: pupil(level), ev: (S.reviewLog || {})[it.id] || [] };
+        });
+        return { female: female(), lower: lower(), cls: I.cls, topic: I.topic, summary: S.result && S.result.summary, items };
+    }
+    function draftMsg(text, kind) {
+        const el = $('eyeDraftMsg');
+        if (!el) return;
+        el.classList.toggle('hidden', !text);
+        el.className = 'text-xs mt-2 rounded-lg border px-3 py-2 leading-5 ' + (kind === 'bad' ? 'border-red-200 bg-red-50 text-red-800' : kind === 'ok' ? 'border-green-200 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700') + (text ? '' : ' hidden');
+        el.textContent = text || '';
+    }
+    async function draftRun() {
+        const D = DRAFT(), btn = $('eyeDraftGo');
+        if (!D) return;
+        if (!draftLinked()) { draftMsg('أضف رابط الوسيط وكلمته في «الإعدادات» ← مساعد الصياغة، أو استعمل «نسخ الطلب لـClaude».', 'bad'); return; }
+        const req = D.build(draftInput());
+        btn.disabled = true;
+        draftMsg('يصوغ Claude التقرير… قرابة نصف دقيقة.');
+        try {
+            const r = await fetch($('eyeDraftUrl').value.trim(), { method: 'POST', headers: { 'content-type': 'application/json', 'x-svf-key': $('eyeDraftKey').value.trim() }, body: JSON.stringify(req) });
+            let j = {};
+            try { j = await r.json(); } catch (e) { j = {}; }
+            if (!r.ok) throw new Error(j.error || ('رمز ' + r.status));
+            const out = D.parse(j.text);
+            if (!out) throw new Error('لم تُفهم صيغة الردّ');
+            draftShow(out, j.stop === 'max_tokens');
+        } catch (e) {
+            draftMsg('تعذّرت الصياغة: ' + (e && e.message ? e.message : e) + (navigator.onLine === false ? ' — لا اتّصال بالإنترنت.' : '') + ' ويبقى «نسخ الطلب لـClaude» متاحاً.', 'bad');
+        } finally { btn.disabled = false; }
+    }
+    // الطريق المجّانيّ: الطلب إلى الحافظة، وClaude في تبويبٍ جديد، ثمّ يُلصق الردّ هنا
+    function draftCopy() {
+        const D = DRAFT();
+        if (!D) return;
+        const text = D.promptText(D.build(draftInput()));
+        let ok = false;
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove();
+        } catch (e) { ok = false; }
+        if (!ok && navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+        try { root.open('https://claude.ai/new', '_blank', 'noopener'); } catch (e) { /* يفتحه المشرف بنفسه */ }
+        $('eyeDraftPasteBox').classList.remove('hidden');
+        draftMsg('نُسخ الطلب. الصقه في Claude، ثمّ انسخ ردّه كاملاً والصقه في الخانة أدناه واضغط «قراءة الردّ».');
+    }
+    function draftRead() {
+        const D = DRAFT(), out = D && D.parse($('eyeDraftPaste').value);
+        if (!out) { draftMsg('لم أجد في الردّ العناوين الثلاثة («جوانب الإجادة:» و«الجوانب التي تحتاج إلى تطوير:» و«التوصيات:»). الصق الردّ كاملاً.', 'bad'); return; }
+        draftShow(out, false);
+    }
+    function draftShow(out, cut) {
+        const D = DRAFT(), I = info(), box = $('eyeDraftOut');
+        S.draft = out;
+        const probs = D.problems(out, { teacher: I.teacher, school: I.school });
+        if (cut) probs.unshift('الردّ انقطع لطوله — راجع آخر خانة');
+        box.innerHTML = D.FIELDS.map(F => `<label class="block">
+                <span class="flex items-baseline justify-between gap-2 text-xs font-bold text-slate-700">${esc(F.head)}<span class="eye-dlen font-normal text-slate-500 tabular-nums" data-k="${F.k}"></span></span>
+                <textarea class="eye-dtext w-full mt-1 bg-white border border-slate-300 rounded-lg p-2 text-sm leading-7" rows="6" data-k="${F.k}"></textarea></label>`).join('')
+            + (probs.length ? `<ul class="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-0.5">${probs.map(p => '<li>' + esc(p) + '</li>').join('')}</ul>` : '')
+            + `<div class="flex flex-wrap items-center gap-2">
+                <button type="button" id="eyeDraftUse" class="svf-btn svf-btn-primary svf-btn-sm"><i class="fa-solid fa-file-pen" aria-hidden="true"></i>أدرج هذه الصياغة في الاستمارة</button>
+                <button type="button" id="eyeDraftDrop" class="svf-btn svf-btn-ghost svf-btn-sm">تجاهلها</button>
+                <span class="text-[11px] text-slate-500">عدّل ما شئت قبل الإدراج — ثمّ «اعتماد وحفظ» يُبقيها كما هي</span></div>`;
+        box.querySelectorAll('.eye-dtext').forEach(t => { t.value = out[t.dataset.k] || ''; });
+        const lens = () => box.querySelectorAll('.eye-dtext').forEach(t => {
+            const n = t.value.replace(/\n/g, '\r\n').length, el = box.querySelector('.eye-dlen[data-k="' + t.dataset.k + '"]');
+            el.textContent = n + ' من 1000'; el.style.color = n > 1000 ? '#b5452f' : '';
+        });
+        lens();
+        box.oninput = lens;
+        box.classList.remove('hidden');
+        $('eyeDraftUse').addEventListener('click', draftUse);
+        $('eyeDraftDrop').addEventListener('click', () => { S.draft = null; box.classList.add('hidden'); box.innerHTML = ''; draftMsg(''); });
+        draftMsg('راجع الصياغة: كلّ ما فيها يجب أن يكون ممّا رصدته فعلاً.', 'ok');
+    }
+    function draftUse() {
+        const box = $('eyeDraftOut'), map = { strengths: 'strengthsContent', developments: 'developmentContent', recs: 'recommendationsContent' };
+        const vals = {};
+        box.querySelectorAll('.eye-dtext').forEach(t => { vals[t.dataset.k] = pupil(DRAFT().clean(t.value)); });
+        if (Object.keys(vals).some(k => vals[k].replace(/\n/g, '\r\n').length > 1000)) { toast('خانةٌ أطول من حدّ البوّابة (1000 حرف) — اختصرها أوّلاً', 'error'); return; }
+        const filled = Object.keys(map).filter(k => { const f = $(map[k]); return f && f.value.trim() && f.value.trim() !== (vals[k] || '').trim(); });
+        if (filled.length) {
+            let ok = false;
+            try { ok = root.confirm('في الاستمارة نصٌّ في ' + filled.length + (filled.length === 1 ? ' خانة' : ' خانات') + ' — تحلّ الصياغة محلّه؟'); } catch (e) { ok = false; }
+            if (!ok) return;
+        }
+        Object.keys(map).forEach(k => {
+            const f = $(map[k]);
+            if (f && vals[k]) { f.value = vals[k]; f.dispatchEvent(new Event('input', { bubbles: true })); }
+        });
+        draftMsg('أُدرجت الصياغة في الاستمارة. «اعتماد وحفظ» يطبّق المستويات ويحفظ دون أن يغيّرها.', 'ok');
+        toast('أُدرجت الصياغة في الاستمارة');
+    }
+    function bindDraft() {
+        if (!$('eyeDraft')) return;
+        $('eyeDraftGo').addEventListener('click', draftRun);
+        $('eyeDraftCopy').addEventListener('click', draftCopy);
+        $('eyeDraftPasteBtn').addEventListener('click', () => { $('eyeDraftPasteBox').classList.toggle('hidden'); if (!$('eyeDraftPasteBox').classList.contains('hidden')) $('eyeDraftPaste').focus(); });
+        $('eyeDraftRead').addEventListener('click', draftRead);
     }
 
     const pickedRows = () => Array.from(document.querySelectorAll('#eyeResult .eye-apply:checked')).map(c => ({ id: +c.dataset.id, score: +c.dataset.score })).filter(p => p.score >= 1 && p.score <= 5);

@@ -230,38 +230,69 @@
     // det: {x, y, w, h, score, act} نسبةً إلى الإطار (x,y الزاوية العليا). ar = عرض الإطار ÷ ارتفاعه.
     // الموضع بوحدة «ارتفاع الإطار» في المحورين (x×ar) فتصحّ المسافات، والقدم (أسفل الصندوق) هي موضعه في الملعب.
     function newTracker() { return { next: 1, tracks: [] }; }
+    // التتبّع على طريقة ByteTrack (2026-10-29): (١) يُتوقَّع موضع كلّ متتبَّعٍ بسرعته الأخيرة، (٢) يُطابَق الكشف الواثق أوّلاً،
+    // (٣) ثمّ الكشف الضعيف بمن بقي من المتتبَّعين — فطالبٌ يخفت كشفه وهو يجري أو خلف زميله لا يضيع ولا يصير شخصاً جديداً،
+    // (٤) والكشف الضعيف الذي لا متتبَّع له يبدأ متتبَّعاً **مبدئيّاً** لا يُعدّ حتّى يُرى مرّةً ثانية — فلافتةٌ أو مخروطٌ في لقطةٍ واحدة لا يُحسب طالباً.
+    const HIGH_SCORE = 0.45;      // كشفٌ واثق: يُطابَق أوّلاً ويبدأ متتبَّعاً مؤكَّداً
+    const MAX_PRED = 2;           // سقف السرعة في التوقّع (طول جسمٍ في الثانية) — قفزةٌ خاطئةٌ لا تقذف المتتبَّع بعيداً
+    function predict(tr, t) {
+        const h = tr.hist, p = h[h.length - 1];
+        let vx = 0, vy = 0;
+        for (let i = h.length - 2; i >= 0; i--) {
+            const dt = p.t - h[i].t;
+            if (dt >= 0.3) {
+                vx = (p.fx - h[i].fx) / dt; vy = (p.fy - h[i].fy) / dt;
+                const sp = Math.hypot(vx, vy), cap = MAX_PRED * p.h;
+                if (sp > cap) { vx *= cap / sp; vy *= cap / sp; }
+                break;
+            }
+        }
+        const gap = Math.min(2, Math.max(0, t - p.t));
+        return { fx: p.fx + vx * gap, fy: p.fy + vy * gap, h: p.h, p };
+    }
     function trackStep(T, dets, t, ar, ttl) {
         ar = ar || 1;
         ttl = ttl || TRACK_TTL;
         const pts = (dets || []).filter(d => d && (d.score == null || d.score >= PERSON_MIN_SCORE)).map(d => ({
             fx: (d.x + d.w / 2) * ar, fy: d.y + d.h, cx: (d.x + d.w / 2) * ar, cy: d.y + d.h / 2, h: d.h,
-            nx: d.x + d.w / 2, ny: d.y + d.h, act: d.act || 0, dish: d.dish == null ? null : !!d.dish
+            nx: d.x + d.w / 2, ny: d.y + d.h, act: d.act || 0, dish: d.dish == null ? null : !!d.dish,
+            hi: d.score == null || d.score >= HIGH_SCORE
         }));
         T.tracks = T.tracks.filter(tr => t - tr.last <= ttl);
-        const pairs = [];
-        T.tracks.forEach((tr, a) => {
-            const p = tr.hist[tr.hist.length - 1];
-            // الحدّ يتّسع بزمن الغياب: لقطتان متباعدتان (جهازٌ بطيء) والطالب يجري — لولاه صار شخصاً جديداً بسرعة صفر
-            const gate = Math.min(2.5, MATCH_GATE + RUN_GATE * Math.max(0, t - tr.last - 0.5));
-            pts.forEach((d, b) => {
-                const dist = Math.hypot(d.fx - p.fx, d.fy - p.fy) / Math.max(1e-6, Math.max(d.h, p.h));
-                if (dist < gate) pairs.push({ a, b, dist });
-            });
-        });
-        pairs.sort((p, q) => p.dist - q.dist);
+        const pred = T.tracks.map(tr => predict(tr, t));
         const usedA = new Set(), usedB = new Set();
-        pairs.forEach(p => {
-            if (usedA.has(p.a) || usedB.has(p.b)) return;
-            usedA.add(p.a); usedB.add(p.b);
-            const tr = T.tracks[p.a];
-            tr.hist.push(Object.assign({ t }, pts[p.b]));
-            while (tr.hist.length > 2 && t - tr.hist[0].t > 6) tr.hist.shift();
-            tr.last = t;
-            vote(tr, pts[p.b].dish);
-        });
+        // مطابقةٌ جشعة بأقرب مسافة: إلى الموضع المتوقَّع أو الأخير (أيّهما أقرب)، بحدٍّ يتّسع بزمن الغياب
+        const associate = wantHi => {
+            const pairs = [];
+            T.tracks.forEach((tr, a) => {
+                if (usedA.has(a)) return;
+                const P = pred[a], p = P.p;
+                const gate = Math.min(2.5, MATCH_GATE + RUN_GATE * Math.max(0, t - tr.last - 0.5));
+                pts.forEach((d, b) => {
+                    if (usedB.has(b) || d.hi !== wantHi) return;
+                    const hh = Math.max(1e-6, Math.max(d.h, p.h));
+                    const dist = Math.min(Math.hypot(d.fx - P.fx, d.fy - P.fy), Math.hypot(d.fx - p.fx, d.fy - p.fy)) / hh;
+                    if (dist < gate) pairs.push({ a, b, dist });
+                });
+            });
+            pairs.sort((p, q) => p.dist - q.dist);
+            pairs.forEach(p => {
+                if (usedA.has(p.a) || usedB.has(p.b)) return;
+                usedA.add(p.a); usedB.add(p.b);
+                const tr = T.tracks[p.a];
+                tr.hist.push(Object.assign({ t }, pts[p.b]));
+                while (tr.hist.length > 2 && t - tr.hist[0].t > 6) tr.hist.shift();
+                tr.last = t;
+                tr.hits = (tr.hits || 1) + 1;
+                if (tr.ok === false && tr.hits >= 2) tr.ok = true;
+                vote(tr, pts[p.b].dish);
+            });
+        };
+        associate(true);
+        associate(false);
         pts.forEach((d, b) => {
             if (usedB.has(b)) return;
-            const tr = { id: T.next++, last: t, hist: [Object.assign({ t }, d)], dv: 0, dy: 0 };
+            const tr = { id: T.next++, last: t, hist: [Object.assign({ t }, d)], dv: 0, dy: 0, hits: 1, ok: d.hi };
             vote(tr, d.dish);
             T.tracks.push(tr);
         });
@@ -289,7 +320,7 @@
     // tch = {id, fx, fy, h, seen} أو null. يُستثنى من الطلبة في اللقطة.
     function teacherStep(T, tch, t) {
         if (!tch) return null;
-        const live = T.tracks.filter(tr => t - tr.last <= 1.2);
+        const live = T.tracks.filter(tr => t - tr.last <= 1.2 && tr.ok !== false);   // المبدئيّ (كشفٌ ضعيفٌ مرّةً واحدة) لا يُعدّ
         let tr = live.find(x => x.id === tch.id);
         if (!tr && t - (tch.seen || 0) <= 8) {
             // حارس الحجب (2026-10-27): حين يمرّ المعلّم خلف طالب، يظهر الطالب وحده قرب موضعه — فلا يُتبنّى من يقصر عنه كثيراً أو يطوله
@@ -314,7 +345,7 @@
     // لقطة اللحظة: n داخل المنطقة، mv يتحرّك منهم، o خارجها، q واقفون متقاربون (انتظار دور)
     // tch: المعلّم (teacherStep) — يُستثنى من الطلبة ويُرصد موضعه: أعلى الطرف (يرى الطلبة كلّهم) أم وسطهم
     function peopleSnapshot(T, t, poly, tch) {
-        const live = T.tracks.filter(tr => t - tr.last <= 1.2);
+        const live = T.tracks.filter(tr => t - tr.last <= 1.2 && tr.ok !== false);   // المبدئيّ (كشفٌ ضعيفٌ مرّةً واحدة) لا يُعدّ
         const all = live.map(tr => {
             const last = tr.hist[tr.hist.length - 1];
             return Object.assign({ id: tr.id, x: last.nx, y: last.ny, fx: last.fx, fy: last.fy, h: last.h, dv: tr.dv || 0, dy: tr.dy || 0,
@@ -1936,11 +1967,61 @@
     // سلسلةٌ محفوظةٌ مع النتيجة: رقمٌ لكلّ عشر ثوانٍ (٠–٩ = عُشر النسبة، و«-» بلا قياس) — لمجرى الحصة بعد الرصد
     const pack = (series, key, scale) => series.map(b => (b[key] == null ? '-' : String(Math.min(9, Math.round(b[key] * scale))))).join('');
 
+
+    // ── منهجية SOFIT (McKenzie وآخرون) — تكييفٌ آليٌّ من أرقام الرصد المحفوظة (2026-10-29) ──
+    // SOFIT ترصد كلّ عشرين ثانية: سياق الحصة، ونشاط الطلبة، وسلوك المعلّم. هنا: عيّنةٌ من كلّ مقطعين من مقاطع العشر ثوانٍ المحفوظة
+    // (tl الحالة، tc العنصر، tm حركة الطلبة، tt كلام المعلّم) — تُقرأ من التقارير المحفوظة قبلها أيضاً. **ليست ملاحظةً مدرَّبة**:
+    // نشاط الطلبة من الكشف لا يفرّق الجالس من الواقف (فهما «ساكن» معاً)، وسلوك المعلّم من وجود كلامه لا من مضمونه.
+    const SOFIT_STEP = 20;
+    const SOFIT_CTX = { M: 'إدارة وتنظيم', K: 'شرح ومعرفة', F: 'لياقة بدنية', S: 'تدريب مهاري', G: 'لعب وتطبيق' };
+    const SOFIT_TCH = { teach: 'يعلّم ويوجّه', manage: 'ينظّم', observe: 'يراقب' };
+    function sofit(d) {
+        const D = d || {}, tl = String(D.tl || ''), tc = String(D.tc || ''), tm = String(D.tm || ''), tt = String(D.tt || '');
+        if (!tl.length) return null;
+        const dig = (str, i) => { const ch = str[i]; return ch && /[0-9]/.test(ch) ? Number(ch) : null; };
+        const camera = D.src !== 'none' && D.src !== 'taps' && /[ai]/.test(tl);
+        const ctxN = { M: 0, K: 0, F: 0, S: 0, G: 0 }, tch = { teach: 0, manage: 0, observe: 0 };
+        let n = 0, nCtx = 0, mvSum = 0, mvN = 0, tN = 0;
+        for (let i = 0; i < tl.length; i += SOFIT_STEP / 10) {
+            const k = tl[i], c = tc[i] || '-', talk = dig(tt, i), mv = dig(tm, i);
+            if (camera && k === 'x') continue;                    // الكاميرا تتحرّك أو متوقّفة: لا عيّنة
+            n++;
+            let cx = null;
+            if (k === 'r' || c === 'r') cx = 'M';                 // الحضور والزيّ: إدارة
+            else if (camera && k === 'i') cx = talk != null && talk >= 3 ? 'K' : 'M';   // توقّفٌ بكلامٍ شرح، وبلا كلامٍ انتقالٌ وانتظار
+            else if (c === 'w' || c === 'f') cx = 'F';
+            else if (c === 't') cx = 'S';
+            else if (c === 'a') cx = 'G';
+            else if (c === 'c') cx = 'K';
+            if (cx) { ctxN[cx]++; nCtx++; }
+            if (camera && mv != null && k !== 'r') { mvSum += mv * 10; mvN++; }
+            if (talk != null) {
+                tN++;
+                if (talk < 3) tch.observe++;
+                else if (cx === 'M') tch.manage++;
+                else tch.teach++;
+            }
+        }
+        if (!n) return null;
+        const pct = (a, b) => (b ? Math.round(100 * a / b) : 0);
+        const ctx = nCtx >= 3 ? Object.keys(ctxN).map(x => ({ k: x, label: SOFIT_CTX[x], pct: pct(ctxN[x], nCtx) })) : null;
+        let act = null;
+        if (mvN >= 6) {
+            const P = (D.M && D.M.people) || {}, mvpa = Math.min(100, Math.round(mvSum / mvN));
+            const vg = P.vigPlay != null ? P.vigPlay : P.vigAll;
+            const vig = vg != null ? Math.min(mvpa, Math.round(vg)) : null;
+            act = { mvpa, vig, walk: vig != null ? mvpa - vig : null, still: 100 - mvpa, goal: MVPA_GOAL, ok: mvpa >= MVPA_GOAL };
+        }
+        const teacher = tN >= 6 ? Object.keys(tch).map(x => ({ k: x, label: SOFIT_TCH[x], pct: pct(tch[x], tN) })) : null;
+        if (!ctx && !act && !teacher) return null;
+        return { step: SOFIT_STEP, n, min: Math.round(n * SOFIT_STEP / 60), ctx, act, teacher };
+    }
+
     const api = {
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
         PARTS, PART, ACTIVE_PARTS, ROLL, ROLL_START, ROLL_AUTO_MAX, ROLL_MIN, ROLL_LONG, rollSpans, inSpans, lessonSecOf, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
-        PERSON_MIN_SCORE, TRACK_TTL, MOVE_SPEED, BOX_ACT, TEACHER_H, EDGE, ALERT_EDGE,
+        PERSON_MIN_SCORE, HIGH_SCORE, MAX_PRED, TRACK_TTL, MOVE_SPEED, BOX_ACT, TEACHER_H, EDGE, ALERT_EDGE,
         inPoly, roiMask, roiCells, polyBox,
         toGray, frameDiff, grayShift, boxMotion,
         newTracker, trackStep, trackMotion, peopleSnapshot,
@@ -1949,6 +2030,7 @@
         MIN_SAMPLE, QUANT, quantScore, sampleStats, movingOf, minuteSeries, autoMoments,
         METRICS, METRIC, NEEDS, fmtTarget, targetCandidates, targetText, targetGoalText, targetCheck,
         ISSUES, issuesOf, patterns, EV_TAG, evidenceLog, officialFor,
+        SOFIT_STEP, SOFIT_CTX, SOFIT_TCH, sofit,
         VIG_SPEED, CROWD_DIST, BALL_MIN_SCORE, MVPA_GOAL, CROWD_BAD, teacherStep, pickNearest, teacherStats, whistleResponses, ballRatio, perPupils
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }

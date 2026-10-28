@@ -9,6 +9,7 @@ const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const E = require('../js/eye-core.js');
 
 let failures = 0;
+const PENDING = [];                                  // فحوصٌ غير متزامنة (الوسيط) — يُنتظر بها قبل الخروج
 const check = (name, ok, detail) => {
     console.log((ok ? 'PASS ' : 'FAIL ') + name + (!ok && detail ? '  — ' + detail : ''));
     if (!ok) failures++;
@@ -430,7 +431,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
           && (UI.match(/localStorage\.setItem\(/g) || []).length === 5 && /localStorage\.setItem\('svf_eye_show'/.test(UI)
           && /localStorage\.setItem\(CK_KEY, JSON\.stringify\(ck\)\)/.test(UI) && /localStorage\.setItem\(LAST_KEY, JSON\.stringify\(\{ at: Date\.now\(\), form: formSig\(\), data \}\)\)/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI)
-          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech'\];/.test(UI));
+          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey'\];/.test(UI));
 }
 
 /* ── ١٦) التوصيل — العناصر والبطاقة والمداولة والنموذج ── */
@@ -1204,5 +1205,145 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /\$\('eyeQuickTags'\)\.addEventListener\('click'/.test(UI) && /if \(S\.running\) \{ S\.tagFreq\[k\] = \(S\.tagFreq\[k\] \|\| 0\) \+ 1; savePrefs\(\); \}/.test(UI));
 }
 
-console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
-process.exit(failures ? 1 : 0);
+/* ── ٣١) مساعد الصياغة: ما يُرسَل، وقراءة الردّ، والوسيط (2026-10-29) ── */
+{
+    const D = require('../js/eye-draft.js');
+    const items = [
+        { id: 7, standard: 'إدارة الصف', title: 'فاعلية الإدارة الصفية', score: 2, level: 'يدير المعلم الصف بصورة جيدة.',
+          ev: [{ src: 'cam', text: 'لا انتظار بين الأنشطة دقيقةً فأكثر', pos: 'الانتقال السلس بين أجزاء الدرس دون هدر للوقت' }] },
+        { id: 10, standard: 'التقويم ومساندة التقدم', title: 'توظيف أساليب تقويم متنوعة', score: 4, level: 'يوظف المعلم أساليب تقويم بصورة غير ملائمة.',
+          ev: [{ src: 'speech', text: 'صحّح: «ارفع ركبتك يا أحمد»', pos: 'تصحيح أخطاء الأداء فورا', neg: undefined },
+               { src: 'tap', text: 'خطأ في الأداء لم يُصحَّح', neg: 'تكرار أخطاء في الأداء دون تصحيح' },
+               { src: 'mark', text: 'سالم بن خالد لم يشارك' }] },
+        { id: 12, standard: 'الحوكمة', title: 'الالتزام بأخلاقيات المهنة', score: 3, level: '', ev: [] }
+    ];
+    const R = D.build({ female: true, lower: true, cls: '3/2', topic: 'الوثب الطويل', summary: 'حركة الطلبة (52%)', items });
+    check('draft: لا يُرسَل كلام المعلّم بنصّه ولا ملاحظة المشرف (أسماء الطلبة)', !/أحمد|سالم|ارفع ركبتك/.test(R.user));
+    check('draft: البند بمستواه وجملة مستواه وعبارة الدليل لمستواه (السالبة لـ٤)', /\[10\] التقويم ومساندة التقدم .* المستوى: غير ملائم/.test(R.user)
+          && R.user.includes('تكرار أخطاء في الأداء دون تصحيح') && !R.user.includes('تصحيح أخطاء الأداء فورا') && R.user.includes('الانتقال السلس بين أجزاء الدرس'));
+    check('draft: ما لا دليل عليه يُقال، والحقيقة الرقميّة من الكاميرا تصحب العبارة', /\[12\][^\n]*\n\s*\(لا أدلّة من الحصة\)/.test(R.user) && R.user.includes('(لا انتظار بين الأنشطة دقيقةً فأكثر)'));
+    check('draft: التعليمات بالجنس و«التلاميذ» والعناوين الثلاثة وحدّ الطول وبلا «<»', /نوصي المعلمة بالآتي:/.test(R.system) && /المؤنّث/.test(R.system) && /«التلاميذ»/.test(R.system)
+          && D.FIELDS.every(F => R.system.includes(F.head + ':')) && R.system.includes(String(D.MAX_FIELD)) && /بلا الرمز </.test(R.system));
+    check('draft: البيانات بلا اسمٍ للمعلّم ولا مدرسة (الإدخال لا يحملهما)', !/teacher|school/.test(JSON.stringify(Object.keys(R))) && /- معلمة، الصف: 3\/2، عنوان الدرس: الوثب الطويل/.test(R.user));
+
+    const reply = '**جوانب الإجادة:**\n• إدارة الصف: تنتقل المعلمة بين أجزاء الدرس بسلاسة.\n\n## الجوانب التي تحتاج إلى تطوير\n- التقويم ومساندة التقدم: تكرار أخطاء في الأداء دون تصحيح &#1644; <b>\nالتوصيات:\nنوصي المعلمة بالآتي:\n• التقويم: تقديم تغذية راجعة.\nوالله ولي التوفيق.';
+    const O = D.parse(reply);
+    check('parse: العناوين بماركداون أو بلا نقطتين، والشرطة نقطة', O && O.strengths === '• إدارة الصف: تنتقل المعلمة بين أجزاء الدرس بسلاسة.' && /^• التقويم ومساندة التقدم/.test(O.developments) && /والله ولي التوفيق\.$/.test(O.recs));
+    check('parse: آمنٌ للبوّابة — لا «<» ولا ترميز HTML', !/[<]|&#/.test(JSON.stringify(O)) && O.developments.includes('‹b>'));
+    check('parse: ردٌّ بلا عناوين ← لا شيء، وJSON يُقبل', D.parse('شكراً') === null && D.parse('{"strengths":"• أ","developments":"• ب","recs":"ج"}').recs === 'ج');
+    const P = D.problems({ strengths: 'أ'.repeat(1001), developments: '', recs: 'قالت المعلمة نورة الهاشمي' }, { teacher: 'نورة الهاشمي', school: 'مدرسة النور' });
+    check('problems: الطويل والفارغ واسم المعلّمة المتسرّب', P.length === 3 && P.some(x => /أطول من حدّ البوّابة/.test(x)) && P.some(x => /فارغة/.test(x)) && P.some(x => /نورة الهاشمي/.test(x)));
+
+    // الوسيط على Claude مُحاكى
+    const W = read('tools/claude-draft/worker.js');
+    const mod = { exports: null };
+    new Function('module', W.replace('export default', 'module.exports ='))(mod);
+    const worker = mod.exports, env = { ANTHROPIC_API_KEY: 'sk-test', SVF_KEY: 'secret-word' };
+    let sent = null;
+    globalThis.fetch = async (url, opt) => { sent = { url, opt, body: JSON.parse(opt.body) }; return { ok: true, json: async () => ({ content: [{ type: 'text', text: 'جوانب الإجادة:\nأ' }], stop_reason: 'end_turn', usage: { input_tokens: 9 } }) }; };
+    const mk = (o, key, body) => ({ method: 'POST', headers: { get: h => ({ Origin: o, origin: o, 'x-svf-key': key })[h] || null }, json: async () => body });
+    PENDING.push((async () => {
+        const bad1 = await worker.fetch(mk('https://evil.example', 'secret-word', { user: 'x' }), env);
+        const bad2 = await worker.fetch(mk('https://supervisor-mct.com', 'wrong', { user: 'x' }), env);
+        const big = await worker.fetch(mk('https://supervisor-mct.com', 'secret-word', { user: 'x'.repeat(30000) }), env);
+        sent = null;
+        const ok = await worker.fetch(mk('https://supervisor-mct.com', 'secret-word', { system: 's', user: 'u', model: 'claude-fable-5-1', max_tokens: 99999 }), env);
+        const j = JSON.parse(await ok.text());
+        check('worker: مصدرٌ آخر وكلمةٌ خاطئة وطلبٌ ضخم مرفوضة قبل Claude', bad1.status === 403 && bad2.status === 401 && big.status === 400);
+        check('worker: المفتاح في الترويسة من البيئة، والنموذج والطول من الوسيط لا من الموقع', sent && sent.url === 'https://api.anthropic.com/v1/messages' && sent.opt.headers['x-api-key'] === 'sk-test'
+              && sent.body.model === 'claude-sonnet-5-5' && sent.body.max_tokens === 2000 && sent.body.system === 's' && sent.body.messages[0].content === 'u');
+        check('worker: يُرجع النصّ وسبب التوقّف', ok.status === 200 && j.text === 'جوانب الإجادة:\nأ' && j.stop === 'end_turn');
+    })());
+
+    const UI = read('js/eye.js'), H = read('reports.html'), SW = read('sw.js');
+    check('wiring: الملفّ قبل الشاشة وفي عامل الخدمة', /eye-speech\.js"><\/script>\s*<script src="js\/eye-draft\.js"><\/script>/.test(H) && SW.includes("'./js/eye-draft.js'"));
+    check('wiring: الطلب من draftInput بلا اسم المعلّم ولا المدرسة', /return \{ female: female\(\), lower: lower\(\), cls: I\.cls, topic: I\.topic, summary: S\.result && S\.result\.summary, items \};/.test(UI));
+    check('wiring: الربط المباشر بكلمة الوسيط، والنسخ إلى Claude، واللصق', /'x-svf-key': \$\('eyeDraftKey'\)\.value\.trim\(\)/.test(UI) && /root\.open\('https:\/\/claude\.ai\/new'/.test(UI) && /function draftRead\(\)/.test(UI));
+    check('wiring: الإدراج بعد المعاينة، يستأذن قبل الكتابة فوق نصٍّ، ويرفض ما يتجاوز حدّ البوّابة', /function draftUse\(\)/.test(UI) && /تحلّ الصياغة محلّه؟/.test(UI) && /أطول من حدّ البوّابة \(1000 حرف\) — اختصرها/.test(UI)
+          && /strengths: 'strengthsContent', developments: 'developmentContent', recs: 'recommendationsContent'/.test(UI));
+}
+
+/* ── ٣٢) منهجية SOFIT من أرقام الرصد المحفوظة (2026-10-29) ── */
+{
+    const sum = a => a.reduce((x, r) => x + r.pct, 0);
+    const d = { src: 'camera', tl: 'rrrraaaaaaiiiaaaaaaaaaaaaaaiiaaaa', tc: 'rrrrwwwwffffttttttaaaaaaaaaaacccc',
+                tm: '---5566767221666655788887762155433', tt: '7777222244444883322115551112266333', M: { people: { vigAll: 18 } } };
+    const F = E.sofit(d);
+    const C = k => F.ctx.find(r => r.k === k).pct;
+    check('sofit: عيّنةٌ كلّ عشرين ثانية، والسياق الخمس فئات يُجمع ~١٠٠', F && F.step === 20 && F.n === 17 && Math.abs(sum(F.ctx) - 100) <= 2);
+    check('sofit: الحضور إدارة، والإحماء والإعداد لياقة، والتعليميّة مهارة، والتطبيقيّة لعب، والختام شرح', C('M') > 0 && C('F') > 0 && C('S') > 0 && C('G') > C('S') && C('K') > 0);
+    check('sofit: نشاط الطلبة — المعتدل فأشدّ من حركة الطلبة، والشديد من الكشف، والساكن الباقي', F.act.mvpa === 50 && F.act.vig === 18 && F.act.walk === 32 && F.act.still === 50 && F.act.ok);
+    check('sofit: سلوك المعلّم — يراقب حين يصمت، ويعلّم أو ينظّم حين يتكلّم', F.teacher && Math.abs(sum(F.teacher) - 100) <= 2 && F.teacher.find(r => r.k === 'observe').pct > 0);
+    const N = E.sofit({ src: 'none', tl: 'xxxxxxxxxxxxxxxxxxxx', tc: 'wwwwffffttttaaaacccc', tm: '', tt: '' });
+    check('sofit: بلا كاميرا — السياق من العناصر وحدها، ولا نشاط ولا سلوك', N && N.ctx && !N.act && !N.teacher && N.n === 10);
+    const X = E.sofit({ src: 'camera', tl: 'aaxxxxxx', tc: 'aaaaaaaa', tm: '55555555', tt: '' });
+    check('sofit: الكاميرا المتحرّكة لا عيّنة منها، والقليل لا يُحكم منه', X === null && E.sofit({}) === null);
+    const UI = read('js/eye.js');
+    check('wiring: قسم «وفق منهجية SOFIT» في النتيجة بعد العناصر، بتنبيه أنّه تكييف', /const SF = E\(\)\.sofit\(data\);/.test(UI) && /\$\{partsHtml\}\s*\$\{sofitHtml\}/.test(UI) && /تكييفٌ آليّ لـSOFIT/.test(UI));
+}
+
+/* ── ٣٣) التتبّع على طريقة ByteTrack (2026-10-29) ── */
+{
+    const lastX = (T, id) => { const tr = T.tracks.find(x => x.id === id); return tr ? tr.hist[tr.hist.length - 1].nx : null; };
+    // طالبان يتقاطعان: أ يجري يميناً وب يساراً على الخطّ نفسه تقريباً — بالتوقّع يبقى كلٌّ بهويّته بعد التقاطع
+    const X = E.newTracker();
+    for (let k = 0; k <= 8; k++) {
+        const t = k * 0.5;
+        E.trackStep(X, [person(0.30 + 0.06 * k, 0.50), person(0.71 - 0.06 * k, 0.52)], t, 1);   // بين لقطتين يتبادلان الجانبين
+    }
+    const ids = X.tracks.map(x => x.id).sort();
+    check('bytetrack: تقاطع طالبين — لا تتبادل الهويّتان ولا يُخلق متتبَّعٌ جديد', ids.length === 2 && lastX(X, 1) > 0.6 && lastX(X, 2) < 0.4);
+    // الكشف يخفت (ظلّ، زميلٌ يحجبه) والطالب يتحرّك: يبقى متتبَّعه نفسه
+    const W = E.newTracker();
+    E.trackStep(W, [person(0.3, 0.5)], 0, 1);
+    for (let k = 1; k <= 4; k++) E.trackStep(W, [person(0.3 + 0.03 * k, 0.5, { score: 0.3 })], k * 0.5, 1);
+    check('bytetrack: الكشف الضعيف يمدّ المتتبَّع القائم ولا يُنشئ غيره', W.tracks.length === 1 && W.tracks[0].hits === 5 && E.peopleSnapshot(W, 2, null, null).n === 1);
+    // كشفٌ ضعيفٌ وحيد (لافتة، مخروط) لا يُعدّ طالباً حتّى يُرى مرّةً ثانية
+    const L = E.newTracker();
+    E.trackStep(L, [person(0.5, 0.5, { score: 0.3 })], 0, 1);
+    const n1 = E.peopleSnapshot(L, 0, null, null).n;
+    E.trackStep(L, [person(0.5, 0.5, { score: 0.3 })], 0.5, 1);
+    check('bytetrack: الضعيف المنفرد مبدئيٌّ لا يُعدّ، ويُؤكَّد بالرؤية الثانية', n1 === 0 && E.peopleSnapshot(L, 0.5, null, null).n === 1 && L.tracks[0].ok === true);
+    // الجاري بين لقطتين متباعدتين: التوقّع يبلغه ولو تجاوز حدّ المسافة من موضعه الأخير
+    const R = E.newTracker();
+    E.trackStep(R, [person(0.10, 0.5)], 0, 1);
+    E.trackStep(R, [person(0.16, 0.5)], 0.5, 1);
+    E.trackStep(R, [person(0.40, 0.5)], 2.5, 1);
+    check('bytetrack: التوقّع بالسرعة يُبقي الجاري متتبَّعاً واحداً', R.tracks.length === 1);
+    check('bytetrack: سقف السرعة يمنع القذف بقفزةٍ خاطئة', E.MAX_PRED === 2 && E.HIGH_SCORE > E.PERSON_MIN_SCORE);
+}
+
+/* ── ٣٤) نموذج الكشف الأحدث: YOLOX‑Nano في عاملٍ في الخلفيّة (2026-10-29) ── */
+{
+    const Y = require('../js/eye-yolox.js');
+    // المدخل: BGR بقيمه، مصغّرٌ إلى المربّع، والباقي ١١٤
+    const px = new Uint8ClampedArray(4 * 4 * 2);
+    for (let i = 0; i < 8; i++) { px[i * 4] = 200; px[i * 4 + 1] = 100; px[i * 4 + 2] = 10; px[i * 4 + 3] = 255; }
+    const T = Y.tensor(px, 4, 2, 8), pl = 64;
+    check('yolox: المدخل BGR بقيمه بلا تطبيع، والمساحة الفارغة ١١٤', T.scale === 2 && T.data[0] === 10 && T.data[pl] === 100 && T.data[2 * pl] === 200 && T.data[8 * 4] === 114 && T.data.length === 3 * pl);
+    check('yolox: عدد الخلايا ٣٥٤٩ لمدخل ٤١٦ و٨٤٠٠ لـ٦٤٠ (كما قِيس من النموذج)', Y.rows(416) === 3549 && Y.rows(640) === 8400);
+    // مخرجٌ مصنوع: شخصٌ في الخليّة (٥، ١٠) من شبكة الخطوة ٨، وكرةٌ في شبكة الخطوة ٣٢، وتكرارٌ يُزال
+    const size = 416, out = new Float32Array(Y.rows(size) * 85);
+    const put = (row, ox, oy, lw, lh, obj, cls, p) => { const b = row * 85; out[b] = ox; out[b + 1] = oy; out[b + 2] = lw; out[b + 3] = lh; out[b + 4] = obj; out[b + 5 + cls] = p; };
+    put(10 * 52 + 5, 0.5, 0.5, Math.log(4), Math.log(10), 0.9, 0, 0.9);          // المركز (44، 84)، ٣٢×٨٠ بكسلاً
+    put(10 * 52 + 6, 0.4, 0.5, Math.log(4), Math.log(10), 0.8, 0, 0.8);          // مكرّرٌ متداخل
+    put(52 * 52 + 26 * 26 + 3 * 13 + 2, 0.5, 0.5, 0, 0, 0.9, 32, 0.8);           // كرة
+    put(5, 0.5, 0.5, 0, 0, 0.1, 0, 0.9);                                          // ضعيف
+    const D = Y.decode(out, size, 1, 416, 416, { person: 0.22, ball: 0.35 });
+    const P = D.filter(d => d.label === 'person');
+    check('yolox: فكّ الشبكة (الإزاحة × الخطوة، والعرض بالأسّ) بنسبة الصورة', P.length === 1 && Math.abs(P[0].x * 416 - 28) < 0.01 && Math.abs(P[0].y * 416 - 44) < 0.01 && Math.abs(P[0].w * 416 - 32) < 0.01 && Math.abs(P[0].h * 416 - 80) < 0.01);
+    check('yolox: الثقة = «فيه شيء» × الصنف، والمكرّر يُزال، والكرة صنفها، والضعيف يُترك', Math.abs(P[0].score - 0.81) < 1e-6 && D.filter(d => d.label === 'sports ball').length === 1 && D.length === 2);
+    const UI = read('js/eye.js'), WK = read('js/eye-detect-worker.js'), SW = read('sw.js');
+    check('wiring: العامل يحمّل ONNX Runtime والمعالجة نفسها، على المعالج بخيطٍ واحد', /import \* as ortNS from '\.\.\/vendor\/onnx\/ort\.wasm\.min\.mjs';/.test(WK) && /import '\.\/eye-yolox\.js';/.test(WK)
+          && /executionProviders: \['wasm'\]/.test(WK) && /numThreads = 1/.test(WK) && !/postMessage\([^)]*buf/.test(WK.replace(/m\.buf/g, '')));
+    check('wiring: YOLOX أوّلاً وإن تعذّر فـCenterNet، والصورة نسخةٌ تُنقل ولا تُحفظ', /try \{ eng = await yoloxEngine\(\); \} catch/.test(UI) && /if \(!eng\) eng = await humanEngine\(\);/.test(UI)
+          && /const res = await AI\.engine\.detect\(c, rgba, cw, ch\);/.test(UI) && /new Uint8ClampedArray\(rgba\)\.buffer/.test(UI) && !/toDataURL|MediaRecorder|toBlob/.test(UI + WK));
+    const fs = require('fs'), path = require('path'), V = f => fs.existsSync(path.join(__dirname, '..', 'vendor', 'onnx', f));
+    check('vendor: النموذج والمشغّل وترخيصاهما، وفي عامل الخدمة', ['ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm', 'yolox_nano.onnx', 'LICENSE-YOLOX', 'LICENSE-onnxruntime', 'README.md'].every(V)
+          && SW.includes("'./js/eye-yolox.js'") && SW.includes("'./js/eye-detect-worker.js'"));
+}
+
+Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {
+    console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
+    process.exit(failures ? 1 : 0);
+});
