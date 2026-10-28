@@ -1165,5 +1165,21 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: العلامة تُنسب إلى بندٍ وتُحفظ معه', /data-markitem="\$\{i\}"/.test(UI) && /item: m\[2\] \|\| null/.test(UI));
 }
 
+/* ── ٢٩) مراجعةٌ واحدة و«اعتماد وحفظ»، والمداولة من الأدلّة، وكلّها لصاحب العين وحده (2026-10-28) ── */
+{
+    const UI = read('js/eye.js');
+    check('owner: ما يدخل النموذج المشترك لصاحب العين وحده', /const EYE_OK = \(\) => !!\(root\.SupervisorGate && SupervisorGate\.canEye && SupervisorGate\.canEye\(\)\);/.test(UI)
+          && /root\.svfEyeOfficial = function \(id, score, all\) \{\s*\n\s*if \(!EYE_OK\(\)\) return null;/.test(UI)
+          && /if \(!EYE_OK\(\)\) \{ document\.querySelectorAll\('#form-view \.eye-evlist, #form-view \.eye-badge'\)\.forEach\(x => x\.remove\(\)\); return; \}/.test(UI)
+          && /root\.svfEyeDebriefHtml = function \(\) \{\s*\n\s*if \(!EYE_OK\(\)\) return '';/.test(UI));
+    check('review: لكلّ بندٍ أدلّته وما سيُكتب في الوصف، ويتجدّد مع المستوى', /\$\{evMini\(LOG\[s\.id\]\)\}/.test(UI) && /function previewText\(id, n\)/.test(UI) && /pv\.textContent = previewText\(Number\(id\), n\);/.test(UI)
+          && /مراجعة التقييم والأدلّة/.test(UI));
+    check('approve: تطبيقٌ ثمّ توليدٌ (لا يطمس المكتوب باليد) ثمّ الملخّص والأهداف ثمّ الحفظ بمساره نفسه', /function approveSave\(\)/.test(UI)
+          && /if \(!edited\.length && typeof generateReport === 'function'\)/.test(UI) && /if \(typeof savePermanentReport === 'function'\) savePermanentReport\(\);/.test(UI)
+          && /return f && f\.value\.trim\(\) && !\(g && g\.texts && g\.texts\[k\] === f\.value\);/.test(UI) && /developments: 'الجوانب التي تحتاج إلى تطوير', recs: 'التوصيات'/.test(UI));
+    check('debrief: الأحوج سؤالٌ مرتكزٌ على لحظته، والأقوى تعزيزٌ بدليله، بالجنس', /function debriefEvidence\(d\)/.test(UI) && /'عند الدقيقة ' \+ mmss\(e\.t\)/.test(UI)
+          && /ما الذي دفعكِ إلى ذلك؟/.test(UI) && /أجدتِ /.test(UI) && /\$\{evTalk\}/.test(UI));
+}
+
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);

@@ -2572,12 +2572,26 @@
         });
         const cb = document.querySelector('#eyeResult .eye-apply[data-id="' + id + '"]');
         if (cb) { cb.dataset.score = String(n); cb.checked = n !== Number(lv.dataset.cur); }
+        let pv = document.querySelector('#eyeResult .eye-prev[data-id="' + id + '"]');
+        if (!pv) { pv = document.createElement('p'); pv.className = 'eye-prev text-[11px] text-slate-600 mt-1 leading-5'; pv.dataset.id = id; lv.parentNode.appendChild(pv); }
+        pv.textContent = previewText(Number(id), n);
         applyCount();
     }
     function applyCount() {
         const n = document.querySelectorAll('#eyeResult .eye-apply:checked').length, el = $('eyeApplyN');
         if (el) el.textContent = n ? E().count(n, 'بندٌ واحدٌ محدَّد', 'بندان محدَّدان', 'بنود محدَّدة', 'بنداً محدَّداً') : 'لم يُحدَّد بند';
         if ($('eyeApply')) $('eyeApply').disabled = !n;
+    }
+    // أدلّة البند في المراجعة: آخر أربعة بأوقاتها ومصدرها
+    function evMini(list) {
+        if (!list || !list.length) return '';
+        const rows = list.slice(0, 4).map(e => `<li class="leading-5"><span class="tabular-nums text-slate-500 ml-1">${e.t != null ? mmss(e.t) : '—'}</span>${esc(e.text)}<span class="text-[10px] text-slate-400 mr-1"> · ${esc(SRC_TEXT[e.src] || '')}</span></li>`).join('');
+        return `<ul class="mt-1.5 space-y-0.5 text-xs text-slate-700 border-r-2 border-blue-200 pr-2">${rows}${list.length > 4 ? `<li class="text-slate-500">و${list.length - 4} غيرها — كلّها تحت البند في «نموذج التقييم»</li>` : ''}</ul>`;
+    }
+    // ما سيُكتب في «ويتضح ذلك من خلال …» لهذا المستوى
+    function previewText(id, n) {
+        const ph = E().officialFor(S.reviewLog || {}, Number(id), Number(n));
+        return ph.length ? 'يُكتب في الوصف: «…ويتضح ذلك من خلال ' + ph.join('، و') + '»' : 'لا دليل من الحصة لهذا المستوى — يُكتب دليلٌ من قائمة البند كما كان';
     }
     const basisText = { camera: 'من الكاميرا', ai: 'من كشف الطلبة', ctx: 'من سياق الحصة', taps: 'من لمساتك', both: 'من لمساتك والرصد', speech: 'من كلام المعلّم',
                         sample: 'من عيّنة الطلبة', follow: 'من متابعة أهداف الزيارة السابقة' };
@@ -2940,6 +2954,7 @@
 
         const sugg = data.sugg || [];
         const applied = new Set(data.applied || []);
+        const LOG = S.reviewLog = logOf(data);              // أدلّة الحصة لكلّ بند (مساعد الأدلّة)
         const formScore = id => { const el = document.querySelector('#score-' + id); const n = el ? Number(el.textContent) : NaN; return n >= 1 && n <= 5 ? n : null; };
         const items = sugg.map(s => {
             const curScore = formScore(s.id);
@@ -2954,7 +2969,9 @@
                         ${applied.has(s.id) ? '<span class="text-xs font-bold text-green-700">طُبّق</span>' : ''}
                     </div>
                     <p class="text-sm text-slate-700 mt-1 leading-7">${esc(s.evidence)}</p>
+                    ${evMini(LOG[s.id])}
                     ${levelPicker(s.id, s.score, s.score, curScore)}
+                    <p class="eye-prev text-[11px] text-slate-600 mt-1 leading-5" data-id="${s.id}">${esc(previewText(s.id, s.score))}</p>
                 </div></li>`;
         }).join('');
         const un = E().unsupported(sugg, M);
@@ -2966,8 +2983,9 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2"><b class="text-slate-900">${esc(title(u.id))}</b>
                         ${applied.has(u.id) ? '<span class="text-xs font-bold text-green-700">طُبّق</span>' : ''}</div>
-                    <p class="text-xs text-slate-500 mt-0.5 leading-5">${esc(u.why)}</p>
+                    ${LOG[u.id] && LOG[u.id].length ? evMini(LOG[u.id]) : `<p class="text-xs text-slate-500 mt-0.5 leading-5">${esc(u.why)}</p>`}
                     ${levelPicker(u.id, curScore, null, curScore)}
+                    ${curScore ? `<p class="eye-prev text-[11px] text-slate-600 mt-1 leading-5" data-id="${u.id}">${esc(previewText(u.id, curScore))}</p>` : ''}
                 </div></li>`;
         }).join('');
 
@@ -2994,8 +3012,9 @@
             ${talkHtml}
             ${targetsHtml}
             <div class="bg-white rounded-2xl border border-slate-200 p-5">
-                <h2 class="text-lg font-bold text-slate-900">التقييم المقترح</h2>
-                <p class="text-sm text-slate-600 mt-1 leading-6">اقتراحٌ يُراجَع لا حكمٌ نهائيّ: يُقترح البند الذي عليه شاهدٌ من الرصد أو من لمساتك، ومع كلٍّ شاهده ودرجة الثقة فيه.
+                <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
+                <p class="text-sm text-slate-600 mt-1 leading-6">لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
+                   اقتراحٌ يُراجَع لا حكمٌ نهائيّ: يُقترح البند الذي عليه شاهدٌ من الرصد أو من لمساتك، ومع كلٍّ شاهده ودرجة الثقة فيه.
                    صحّح العدّادات إن لزم فيُعاد الاقتراح، ثمّ حدِّد ما تعتمده وطبّقه على نموذج التقييم — ويظهر الشاهد تحت البند فيه.</p>
                 ${sugg.length ? `<ul class="mt-2">${items}</ul>` : '<p class="text-sm text-slate-600 py-4">لا بند عليه شاهدٌ كافٍ بعد. ارصد عشر دقائق على الأقلّ، أو المس عناصر الحصة والوسوم أثناءها.</p>'}
                 ${un.length ? `<details id="eyeOthers" class="mt-3 text-sm"${sugg.length ? '' : ' open'}>
@@ -3004,7 +3023,8 @@
                     <ul class="mt-1">${others}</ul>
                 </details>` : ''}
                 <div class="flex flex-wrap items-center gap-2 mt-4">
-                    <button type="button" id="eyeApply" class="svf-btn svf-btn-primary">تطبيق المحدَّد على نموذج التقييم</button>
+                    <button type="button" id="eyeApproveSave" class="svf-btn svf-btn-primary"><i class="fa-solid fa-check-double" aria-hidden="true"></i>اعتماد وحفظ في الأرشيف</button>
+                    <button type="button" id="eyeApply" class="svf-btn svf-btn-secondary">تطبيق المحدَّد فقط</button>
                     <span id="eyeApplyN" class="text-xs text-slate-500"></span>
                     <span class="flex-1"></span>
                     <button type="button" id="eyeNew" class="svf-btn svf-btn-ghost">رصد جديد</button>
@@ -3023,6 +3043,7 @@
         renderMonitorDone(data);
         updateGuideLive();
         $('eyeApply') && $('eyeApply').addEventListener('click', apply);
+        $('eyeApproveSave') && $('eyeApproveSave').addEventListener('click', approveSave);
         if (!box.dataset.lvBound) {                       // الحاوية تبقى بين إعادات الرسم — المستمعان مرّةً واحدة
             box.dataset.lvBound = '1';
             box.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.eye-lvb'); if (b && box.contains(b)) pickLevel(b); });
@@ -3220,7 +3241,11 @@
         if (fv && !fv.classList.contains('hidden')) decorate();
     }
     // عبارات الدليل للبند بمستواه — تحلّ محلّ العشوائيّة في «ويتضح ذلك من خلال …» (supervisory.js)، وفي لوحة «تعديل الأدلة» كلّها (all)
+    // ما يدخل «نموذج التقييم» المشترك (الوصف ولوحة الأدلّة والأدلّة تحت البنود) لصاحب العين وحده (EYE_OWNERS في gate.js):
+    // بقيّة المشرفين على النظام السابق بلا تغيير — حتّى لو وُجد في #eyeData رصدٌ (تقريرٌ منقول) لا يُقرأ لهم
+    const EYE_OK = () => !!(root.SupervisorGate && SupervisorGate.canEye && SupervisorGate.canEye());
     root.svfEyeOfficial = function (id, score, all) {
+        if (!EYE_OK()) return null;
         try { const out = E().officialFor(currentLog(), Number(id), Number(score), !!all); return out.length ? out : null; } catch (e) { return null; }
     };
 
@@ -3230,6 +3255,7 @@
         try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
         const by = {};
         ((d && d.sugg) || []).forEach(s => { by[s.id] = s; });
+        if (!EYE_OK()) { document.querySelectorAll('#form-view .eye-evlist, #form-view .eye-badge').forEach(x => x.remove()); return; }
         const LOG = S.running ? (S.log || {}) : logOf(d);
         document.querySelectorAll('#form-view [id^="item-"]').forEach(card => {
             const id = Number(card.id.slice(5));
@@ -3298,18 +3324,58 @@
         box.open = open;
     }
 
-    function apply() {
-        const picks = Array.from(document.querySelectorAll('#eyeResult .eye-apply:checked')).map(c => ({ id: +c.dataset.id, score: +c.dataset.score })).filter(p => p.score >= 1 && p.score <= 5);
-        if (!picks.length) { toast('حدِّد بنداً واحداً على الأقلّ', 'error'); return; }
+    const pickedRows = () => Array.from(document.querySelectorAll('#eyeResult .eye-apply:checked')).map(c => ({ id: +c.dataset.id, score: +c.dataset.score })).filter(p => p.score >= 1 && p.score <= 5);
+    // الزرّ نفسه الذي يضغطه المشرف: الدرجة والوصف (بأدلّة الحصة) يتبعانه كما لو اختارها بيده
+    function applyPicks(picks) {
         let done = 0;
         picks.forEach(p => {
-            // الزرّ نفسه الذي يضغطه المشرف: الدرجة والوصف المولَّد يتبعانه كما لو اختارها بيده
             const btn = document.querySelector('#item-' + p.id + ' .rating-btn[data-score="' + p.score + '"]');
             if (btn) { btn.click(); done++; }
         });
-        if (!done) { toast('تعذّر الوصول إلى بنود النموذج', 'error'); return; }
         const data = S.result;
-        if (data) { data.applied = Array.from(new Set((data.applied || []).concat(picks.map(p => p.id)))); save(data); }
+        if (done && data) { data.applied = Array.from(new Set((data.applied || []).concat(picks.map(p => p.id)))); save(data); }
+        return done;
+    }
+    // خانات التقرير التي كتبها المشرف بيده (ليست كما وُلّدت) — لا يطمسها «اعتماد وحفظ»
+    function editedReportFields() {
+        try {
+            const F = typeof SUP_GENERATED_FIELDS !== 'undefined' ? SUP_GENERATED_FIELDS : null, g = typeof supLastGenerated !== 'undefined' ? supLastGenerated : null;
+            if (!F) return [];
+            const names = { strengths: 'جوانب الإجادة', developments: 'الجوانب التي تحتاج إلى تطوير', recs: 'التوصيات' };
+            return Object.keys(F).filter(k => { const f = document.querySelector(F[k]); return f && f.value.trim() && !(g && g.texts && g.texts[k] === f.value); }).map(k => names[k] || k);
+        } catch (e) { return []; }
+    }
+    // المرحلة الثانية: «اعتماد وحفظ» — تطبيق المراجَع، ثمّ توليد التقرير (ما لم يكتب المشرف نصّه بيده)، والملخّص في «الملاحظات العامة»،
+    // والأهداف المختارة في «التوصيات»، ثمّ الحفظ في الأرشيف بمساره نفسه (savePermanentReport — ومعه سؤال «زيارة جديدة أم تحديث»)
+    function approveSave() {
+        const I = info();
+        if (!I.teacher || !I.date) { toast('اكتب اسم المعلّم وتاريخ الزيارة في «نموذج التقييم» أوّلاً', 'error'); return; }
+        const picks = pickedRows();
+        const rest = Array.from(document.querySelectorAll('#eyeOthers .eye-apply:not(:checked)')).map(c => +c.dataset.id);
+        const edited = editedReportFields();
+        const msg = (picks.length ? 'يُطبَّق ما راجعته (' + picks.length + (picks.length > 10 ? ' بنداً' : ' بنود') + ')' : 'لا تغيير على الدرجات') + '، '
+            + (edited.length ? 'وما كتبته بيدك في «' + edited.join('» و«') + '» يبقى كما هو' : 'ويُولَّد التقرير') + '، ثمّ يُحفظ في الأرشيف.'
+            + (rest.length ? '\nبنودٌ تبقى بدرجتها الحاليّة في النموذج: ' + rest.join('، ') + '.' : '') + '\n\nمتابعة؟';
+        let ok = false;
+        try { ok = root.confirm(msg); } catch (e) { ok = false; }
+        if (!ok) return;
+        if (picks.length && !applyPicks(picks)) { toast('تعذّر الوصول إلى بنود النموذج', 'error'); return; }
+        if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('form-view');
+        if (!edited.length && typeof generateReport === 'function') { try { generateReport(); } catch (e) { console.warn(e); } }
+        const d = S.result;
+        if (d && d.summary) { const ta = $('generalNotesContent'); if (ta && !ta.value.includes(d.summary)) { ta.value = ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' + d.summary : d.summary; ta.dispatchEvent(new Event('input', { bubbles: true })); } }
+        if (d && Array.isArray(d.targets) && d.targets.length) {
+            const ta = $('recommendationsContent'), add = targetLines(d).filter(l => ta && !ta.value.includes(l.slice(2)));
+            if (ta && add.length) { ta.value = ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' + add.join('\n') : add.join('\n'); ta.dispatchEvent(new Event('input', { bubbles: true })); }
+        }
+        if (typeof savePermanentReport === 'function') savePermanentReport();
+    }
+
+    function apply() {
+        const picks = pickedRows();
+        if (!picks.length) { toast('حدِّد بنداً واحداً على الأقلّ', 'error'); return; }
+        const done = applyPicks(picks);
+        if (!done) { toast('تعذّر الوصول إلى بنود النموذج', 'error'); return; }
         if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('form-view');
         const cards = picks.map(p => document.getElementById('item-' + p.id)).filter(Boolean);
         cards.forEach(c => flash(c, '#f0b44a', 2600));
@@ -3465,6 +3531,7 @@
     root.svfEyeDecorate = function () { try { decorate(); } catch (e) { /* لا أثر على النموذج */ } };
     // المداولة (js/debrief.js): لوحة «من عين المشرف» للزيارة المفتوحة، أو فراغ
     root.svfEyeDebriefHtml = function () {
+        if (!EYE_OK()) return '';
         let d = null;
         try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
         if (!d || !d.M || !E()) return '';
@@ -3475,6 +3542,7 @@
         const tg = Array.isArray(d.targets) ? d.targets.filter(t => E().METRIC[t.k]) : [];
         const kv = (k, v) => `<div class="px-3 py-2"><div class="text-lg font-bold text-slate-900 tabular-nums">${esc(v)}</div><div class="text-[11px] text-slate-600">${esc(k)}</div></div>`;
         const mv = movingOf(M);
+        const evTalk = debriefEvidence(d);
         return `<div class="bg-white rounded-2xl border border-slate-200 p-5">
             <div class="flex flex-wrap items-baseline justify-between gap-2"><h3 class="font-bold text-slate-800"><i class="fa-solid fa-eye ml-2 text-slate-500"></i>من عين المشرف</h3>
                 <button type="button" id="debriefEyeCard" class="svf-btn svf-btn-secondary svf-btn-sm">بطاقة التحليل للمعلّم</button></div>
@@ -3484,6 +3552,7 @@
             </div>
             ${M.speech && M.speech.clauses && SX() ? `<p class="text-sm text-slate-700 mt-3"><b class="text-slate-900">من كلامه:</b> ${esc(SX().line(M.speech))}</p>` : ''}
             ${det ? `<div class="flex flex-wrap gap-1.5 mt-3">${det.map(r => `<span class="text-xs rounded-lg border px-2 py-1 ${r.verdict === 'ok' ? 'border-green-200 text-green-800' : r.verdict === 'missing' ? 'border-red-200 text-red-800' : 'border-amber-200 text-amber-800'}">${esc(r.short)} ${r.minutes} د</span>`).join('')}</div>` : ''}
+            ${evTalk}
             ${dp.good.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-green-700 mb-1">ما يُعزَّز</div>${dp.good.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${dp.ask.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-amber-700 mb-1">أسئلةٌ من الرصد</div>${dp.ask.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${mom.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-slate-600 mb-1">لحظاتٌ للنقاش</div>${mom.slice(0, 8).map(x => `<div class="text-sm text-slate-700 leading-7">
@@ -3493,6 +3562,32 @@
                 <button type="button" id="debriefEyeIndicator" class="svf-btn svf-btn-secondary svf-btn-sm mt-2">أدرجها في «مؤشّر النجاح»</button></div>` : ''}
         </div>`;
     };
+    // المرحلة الثالثة: المداولة من الأدلّة نفسها — البنود بدرجاتها في النموذج الآن: الأحوج (٤–٥، أو ٣ عليه دليلٌ سالب) سؤالٌ مرتكزٌ على لحظةٍ
+    // بعينها «عند الدقيقة … رُصد …»، والأقوى (١–٢ بدليلٍ موجب) تعزيزٌ بدليله. بصيغة المخاطَب والجنس، والنصوص مهروبة.
+    function debriefEvidence(d) {
+        const LOG = logOf(d), ctx = ctxOf(d), fem = !!ctx.female, g = (m, f) => (fem ? f : m);
+        const sc = id => { const el = document.getElementById('score-' + id); const n = el ? Number(el.textContent) : NaN; return n >= 1 && n <= 5 ? n : null; };
+        const ids = Object.keys(LOG).map(Number);
+        const focus = ids.filter(id => sc(id) >= 4 || (sc(id) === 3 && LOG[id].some(e => e.neg))).sort((a, b) => sc(b) - sc(a) || a - b).slice(0, 3);
+        const strong = ids.filter(id => sc(id) && sc(id) <= 2 && LOG[id].some(e => e.pos)).sort((a, b) => sc(a) - sc(b) || a - b).slice(0, 3);
+        if (!focus.length && !strong.length) return '';
+        const when = e => (e.t != null ? 'عند الدقيقة ' + mmss(e.t) : 'في الحصة');
+        const line = e => `<div class="text-sm text-slate-700 leading-7"><span class="text-xs tabular-nums text-slate-500 ml-1">${e.t != null ? mmss(e.t) : '—'}</span>${esc(e.text)}</div>`;
+        const head = id => `<div class="text-sm font-bold text-slate-900 mt-2">${esc(title(id))} <span class="text-xs font-normal text-slate-500">— في النموذج: ${esc(E().LEVELS[sc(id)] || '')}</span></div>`;
+        const ask = id => {
+            const L = LOG[id], e = L.find(x => x.neg && x.t != null) || L.find(x => x.neg) || L[0];
+            return `<div class="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1 leading-7">${esc(when(e) + ': ' + e.text + '. ' + g('ما الذي دفعك إلى ذلك؟ وما البديل الذي ستجرّبه في الحصة القادمة؟', 'ما الذي دفعكِ إلى ذلك؟ وما البديل الذي ستجرّبينه في الحصة القادمة؟'))}</div>`;
+        };
+        const praise = id => {
+            const e = LOG[id].find(x => x.pos && x.t != null) || LOG[id].find(x => x.pos);
+            return `<div class="text-sm text-green-900 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-1 leading-7">${esc(g('أجدتَ ', 'أجدتِ ') + when(e) + ': ' + e.text + '. ' + g('كيف تحافظ على ذلك وتنقله إلى حصصك الأخرى؟', 'كيف تحافظين على ذلك وتنقلينه إلى حصصك الأخرى؟'))}</div>`;
+        };
+        return `<div class="mt-3 rounded-xl border border-blue-100 p-3">
+            <div class="text-[11px] font-bold text-blue-900">أدلّةٌ للنقاش من الحصة — مرتّبةٌ على درجات النموذج الآن</div>
+            ${focus.map(id => head(id) + ask(id) + LOG[id].slice(0, 3).map(line).join('')).join('')}
+            ${strong.length ? `<div class="text-[11px] font-bold text-green-700 mt-3">للتعزيز</div>` + strong.map(id => head(id) + praise(id)).join('') : ''}
+        </div>`;
+    }
     // «مؤشّر النجاح» في اتّفاق المداولة من الأهداف المختارة — يقيسه الرصد التالي
     root.svfEyeIndicatorText = function () {
         let d = null;
