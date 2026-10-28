@@ -59,7 +59,9 @@
         via: null, link: null, linkGen: 0, linkSup: '', linkDown: false, lastFrameAt: 0, rvfc: false, frameTok: null,
         lostSec: 0, phoneCams: null, wantSpeech: false,
         // دليل المعلّم (js/lesson-guide.js): {id, skills, sure, on} — من الصفّ وعنوان الدرس، ومهارة الحصة يختارها المشرف
-        guide: null, gkey: '', samplePick: -1
+        guide: null, gkey: '', samplePick: -1,
+        // الانقطاع (2026-10-28): رصدٌ يُكمَل من نسخته الاحتياطيّة، والمدّة الضائعة، وثواني توقّف الكاميرا، وانقطاع فهم الكلام
+        resume: null, spSeed: null, gapSec: 0, resumes: 0, spOff: 0, lastCk: 0, ckWarned: false, camFrozenFor: 0
     };
     const IDLE_TEXT = 'ضع الجهاز أفقيّاً على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.';
     const SAMPLE_HINT = 'طلبةٌ متفاوتون تقيّمهم في أوّل التطبيق ثمّ في آخره: المس الرقم ليتبدّل لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ و٢.';
@@ -129,6 +131,14 @@
             </div>
 
             <section id="eyeSetup" class="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
+                <div id="eyeResume" class="hidden rounded-xl border border-amber-300 bg-amber-50 p-3" aria-live="polite">
+                    <p id="eyeResumeText" class="text-sm text-amber-950 leading-6"></p>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <button type="button" id="eyeResumeGo" class="svf-btn svf-btn-primary svf-btn-sm"><i class="fa-solid fa-play" aria-hidden="true"></i><span>أكمل الرصد</span></button>
+                        <button type="button" id="eyeResumeAn" class="svf-btn svf-btn-secondary svf-btn-sm">حلّل ما رُصد</button>
+                        <button type="button" id="eyeResumeDrop" class="svf-btn svf-btn-ghost svf-btn-sm">احذفه</button>
+                    </div>
+                </div>
                 <div class="flex flex-wrap items-baseline justify-between gap-2">
                     <h2 class="font-bold text-slate-900">ابدأ الرصد</h2>
                     <span class="text-xs text-slate-500">من أين الصورة؟</span>
@@ -215,6 +225,7 @@
                             <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
                             <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
                             <button type="button" id="eyeTeacherBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
+                            <button type="button" id="eyeCamRestart" class="hidden svf-btn svf-btn-moe svf-btn-sm"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>إعادة تشغيل الكاميرا</button>
                             <span class="flex-1"></span>
                             <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
                             <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
@@ -361,9 +372,27 @@
         S.canvas.width = W; S.canvas.height = S.h;
         S.cx = S.canvas.getContext('2d', { willReadFrequently: true });
 
-        $('eyeStartCam').addEventListener('click', startCamera);
-        $('eyeStartNoCam').addEventListener('click', startNoCam);
-        $('eyeStartPhone').addEventListener('click', startPhone);
+        const fresh = fn => () => {
+            if (S.running) return;
+            if (ckRead()) {
+                let ok = false;
+                try { ok = root.confirm('يوجد رصدٌ لم يكتمل — بدء رصدٍ جديدٍ يحذفه.\n«أكمل الرصد» أو «حلّل ما رُصد» في أعلى الشاشة يحفظانه.\n\nبدء رصدٍ جديد؟'); } catch (e) { ok = false; }
+                if (!ok) return;
+                ckClear();
+            }
+            S.resume = null;
+            fn();
+        };
+        $('eyeStartCam').addEventListener('click', fresh(startCamera));
+        $('eyeStartNoCam').addEventListener('click', fresh(startNoCam));
+        $('eyeStartPhone').addEventListener('click', fresh(startPhone));
+        $('eyeResumeGo').addEventListener('click', resumeGo);
+        $('eyeResumeAn').addEventListener('click', resumeAnalyze);
+        $('eyeResumeDrop').addEventListener('click', resumeDrop);
+        $('eyeCamRestart').addEventListener('click', restartCamera);
+        // الصفحة تُخفى (تطبيقٌ آخر، قفل الشاشة) أو تُغلق: نسخةٌ احتياطيّةٌ فوراً — Safari قد يُغلقها في الخلفيّة دون إنذار
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') ckSave(); });
+        root.addEventListener('pagehide', ckSave);
         $('eyePairCancel').addEventListener('click', cancelPhone);
         $('eyePairNew').addEventListener('click', () => { if (S.linkSup) openLink(S.linkSup); });
         $('eyeRelink').addEventListener('click', () => { if (S.running && S.via === 'phone' && S.linkSup) openLink(S.linkSup); });
@@ -1227,6 +1256,7 @@
     // سؤالٌ مستقلٌّ عن إذن المعلّم بتحويل كلامه إلى نصّ — داخل الضغطة نفسها
     function speechConsent() {
         if (!checked('eyeSpeech') || !SR()) return false;
+        if (S.resume && S.resume.speechConsent) { S.speechConsent = true; return true; }      // أُكمل رصدٌ وافق فيه المعلّم
         let ok = false;
         try {
             ok = root.confirm('«فهم الكلام» يحوّل كلام المعلّم إلى نصٍّ ويحلّله (التعزيز والتصحيح والأسئلة والسلامة).\n'
@@ -1241,7 +1271,8 @@
         const Ctor = SR();
         if (!Ctor || !S.running) return;
         const runId = S.runId;
-        const sp = S.sp = { on: true, segs: [], mode: 'cloud', li: 0, lang: LANGS()[0], restarts: [], interim: '', err: '', rec: null, track: track || null, dirty: true, A: null,
+        const seed = S.spSeed; S.spSeed = null;          // رصدٌ مُكمَل: ما قيل قبل الانقطاع يبقى
+        const sp = S.sp = { on: true, segs: seed ? seed.segs.slice() : [], mode: 'cloud', li: 0, lang: LANGS()[0], restarts: [], interim: '', err: '', rec: null, track: track || null, dirty: true, A: null,
                             heard: Date.now() };
         // داخل الجهاز إن كانت حزمة العربيّة مثبّتة (Chrome على الحاسوب)، وإلّا خدمة المتصفّح
         try {
@@ -1289,7 +1320,7 @@
                 else if (sp.li < LANGS().length - 1) { sp.li++; sp.lang = LANGS()[sp.li]; }      // العُمانيّة ← الإماراتيّة ← السعوديّة ← العامّة
                 else { sp.on = false; sp.err = 'العربيّة غير متاحة للتعرّف على الكلام في هذا المتصفّح.'; }
             }
-            else if (k === 'network') sp.err = 'التعرّف على الكلام يحتاج اتّصالاً بالإنترنت — تُعاد المحاولة.';
+            else if (k === 'network') { sp.netAt = Date.now(); sp.err = 'لا إنترنت — فهم الكلام متوقّف ويُعاد حين يعود الاتّصال، والتحليل مستمرّ. مدّته لا تُحسب في معدّلات الكلام.'; }
             else if (k === 'audio-capture') sp.err = 'تعذّر على خدمة الكلام الوصول إلى الميكروفون (قد يشغله تحليل الصوت). جرّب إطفاء «الصوت» وإبقاء «فهم الكلام».';
             renderSpeechLive();
         };
@@ -1358,7 +1389,7 @@
         if (sp.interim) { const i = document.createElement('span'); i.className = 'text-slate-400'; i.textContent = ' ' + sp.interim; tx.appendChild(i); }
         if (!last && !sp.interim) tx.textContent = 'ينتظر كلام المعلّم…';
         if (sp.dirty && SX()) {
-            sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: now(), admin: S.rollSpans });
+            sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: Math.max(0, now() - (S.spOff || 0)), admin: S.rollSpans });
             const G = guideOn();
             sp.G = G ? LG().speechCoverage(SX().lessonSegs(sp.segs, S.rollSpans), G, S.guide.skills) : null;      // نقاط المهارة وأسئلة التقويم كما تُسمع (بلا الحضور والزيّ)
             sp.dirty = false;
@@ -1400,6 +1431,7 @@
         if (stream.getAudioTracks().length) startAudio(ctx => ctx.createMediaStreamSource(stream), false);
         begin('camera', v);
         if (wantSpeech) speechStart(stream.getAudioTracks()[0] || null);
+        watchFrames(v);                                 // كاميرا تتوقّف (مكالمة، قفل الشاشة) تُكشف ولا تُعدّ صورتها المتجمّدة انتظاراً
     }
 
     function startFile(file) {
@@ -1740,6 +1772,19 @@
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
         S.teacher = null; S.pickTeacher = false;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
+        S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0; S.ckWarned = false;
+        // رصدٌ يُكمَل من نسخته الاحتياطيّة: أرقامه ولمساته تعود، والمدّة منذ آخر نسخةٍ «غير محسوبة»، والساعة تكمل
+        const RS = S.resume; S.resume = null;
+        let resumed = null;
+        if (RS) {
+            S.spSeed = null;
+            const gap = Math.max(0, Math.min(CK_MAX_GAP, Math.round((Date.now() - RS.at) / 1000)));
+            restoreState(RS, gap, true);
+            S.t0 = performance.now() - S.lastSec * 1000;
+            resumed = { from: RS.sec, gap };
+            ckClear();
+        } else S.spSeed = null;
+        S.lastCk = S.lastSec;
         renderCounts();
         renderCtx();
         renderSample();
@@ -1764,6 +1809,9 @@
         if (video && checked('eyeAI')) startAI(r);
         if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(w => { S.wake = w; }).catch(() => {});
         layout();
+        renderResume();
+        if (resumed) { renderGuide(); renderFocus(); toast('أُكمل الرصد من ' + mmss(resumed.from) + ' — ' + (resumed.gap ? 'استُبعدت ' + E().dur(resumed.gap) + ' ضائعة. ' : '')
+            + (S.roi ? 'تأكّد أنّ منطقة الصفّ ما زالت على الملعب، ' : '') + (src !== 'none' && checked('eyeAI') ? 'وحدّد المعلّم من جديد.' : ''), 'info'); drawView(); return; }
         toast(src === 'file' ? 'بدأ تحليل المقطع' : src === 'none' ? 'بدأ الرصد بلا كاميرا'
             : (S.via === 'phone' ? 'وصلت صورة الهاتف — ' : 'بدأ الرصد — ') + 'حدّد منطقة الصف، والمس السياق والوسوم طوال الحصة');
         drawView();
@@ -1908,7 +1956,7 @@
             const p = !shaky && S.pSnap && S.pSnapAt >= S.lastSec - 1 && S.pSnapAt < S.lastSec + 1.5 ? S.pSnap : null;
             S.secs.push({
                 m: a.n && a.n >= a.bad ? a.sum / a.n : null,   // أغلب الإطارات مهتزّة ← غير محسوب
-                v: a.af ? a.voice / a.af >= 0.35 : (S.audio ? false : null),
+                v: a.af ? a.voice / a.af >= 0.35 : (S.audio && S.audio.ctx && S.audio.ctx.state === 'running' ? false : null),
                 w: a.whistle,
                 p: p ? Object.assign({ n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d, vg: p.vg, cr: p.cr, b: p.b, e: p.e },
                     p.tc ? { t: [p.tc.x, p.tc.y, p.tc.mv ? 1 : 0, p.tc.edge == null ? -1 : p.tc.edge ? 1 : 0] } : {}) : null
@@ -1922,9 +1970,10 @@
     function frameTick() {
         const v = S.video;
         if (!S.running || !v) return;
-        if (S.via === 'phone') phoneTick(v);
-        // صورة الهاتف لا تصل (انقطاعٌ، أو قُفلت شاشته، أو تتبدّل العدسة): الثانية «غير محسوبة» — الصورة المتجمّدة ليست انتظاراً
-        if (S.via === 'phone' && (phoneFrozen() || v.readyState < 2 || !v.videoWidth)) {
+        if (S.via === 'phone' || S.src === 'camera') phoneTick(v);
+        // صورة الهاتف لا تصل (انقطاعٌ، أو قُفلت شاشته، أو تتبدّل العدسة)، أو توقّفت كاميرا الجهاز (مكالمة، تطبيقٌ آخر أخذها):
+        // الثانية «غير محسوبة» — الصورة المتجمّدة ليست انتظاراً
+        if ((S.via === 'phone' && (phoneFrozen() || v.readyState < 2 || !v.videoWidth)) || camFrozen()) {
             flushTo(Math.floor(now()));
             S.acc.bad++; S.acc.lost = true;
             S.prev = null;
@@ -1945,7 +1994,7 @@
     }
 
     function audioTick() {
-        if (!S.running || !S.audio) return;
+        if (!S.running || !S.audio || (S.audio.ctx && S.audio.ctx.state !== 'running')) return;   // مُعلَّق (مكالمة): لا يُقرأ طيفٌ قديم
         S.audio.an.getFloatFrequencyData(S.audio.buf);
         if (!isFinite(S.audio.buf[10])) return;          // الصمت التامّ يعطي ‎-Infinity
         S.ast.t = now();
@@ -1962,6 +2011,16 @@
         flushTo(Math.floor(now()));
         const M = E().summarize(recNow());
         $('eyeClock').textContent = mmss(S.lastSec);
+        if (S.lastSec - S.lastCk >= 10) ckSave();
+        // كاميرا الجهاز متوقّفة ثلاث ثوانٍ: زرّ «إعادة تشغيل الكاميرا» يكملها في الرصد نفسه
+        if (S.src === 'camera' && S.via !== 'phone') {
+            S.camFrozenFor = camFrozen() ? S.camFrozenFor + 1 : 0;
+            $('eyeCamRestart').classList.toggle('hidden', S.camFrozenFor < 3);
+            if (S.camFrozenFor === 3) toast('توقّفت الكاميرا — ثوانيها لا تُحسب. «إعادة تشغيل الكاميرا» تكمل الرصد نفسه', 'error');
+        }
+        if (S.audio && S.audio.ctx && S.audio.ctx.state === 'suspended') S.audio.ctx.resume().catch(() => {});
+        // فهم الكلام عبر خدمة المتصفّح بلا إنترنت: ثوانٍ لا تُحسب في معدّلات الكلام
+        if (S.sp && S.sp.on && S.sp.mode !== 'local' && (navigator.onLine === false || Date.now() - (S.sp.netAt || 0) < 5000)) S.spOff++;
         renderKpis(M, S.lastSec);
         // ثواني الحضور والزيّ تتغيّر حيّاً (التلقائيّ يمتدّ حتّى أوّل نشاط): الكلام يُعاد تحليله بلاها
         const rs = (M.admin && M.admin.spans) || [], sig = JSON.stringify(rs);
@@ -1971,13 +2030,14 @@
         const ctxL = S.ctxCur && E().PART[S.ctxCur] ? E().PART[S.ctxCur].label : '';
         $('eyeState').textContent = S.src === 'none' ? (ctxL || 'رصد')
             : phoneFrozen() ? 'لا صورة من الهاتف'
+            : camFrozen() ? 'الكاميرا متوقّفة'
             : k === 'r' ? E().ROLL.label
             : (k === 'a' ? 'نشاط' : k === 'i' ? 'انتظار' : 'الكاميرا تتحرّك') + (ctxL ? ' · ' + ctxL : '');
         // بلا صورةٍ من الهاتف عشر ثوانٍ: زرّ إعادة الربط ظاهر
         if (S.via === 'phone') $('eyeRelink').classList.toggle('hidden', !($('eyePair').classList.contains('hidden')
             && (!S.link || S.linkFailed || (phoneFrozen() && performance.now() - Math.max(S.lastFrameAt, S.linkAt || 0) > 10000))));
         // المتابعة الحيّة: سلسلةٌ لكلّ عشر ثوانٍ و«الآن» والتنبيهات (eye-core: live)
-        const L = S.live = E().live(recNow(), M, { rec: recPref(), phone: S.via === 'phone', camera: S.src !== 'none', ai: checked('eyeAI') && AI.ok, roi: !!S.roi });
+        const L = S.live = E().live(recNow(), M, { rec: recPref(), phone: S.via === 'phone', frozen: S.camFrozenFor > 0, camera: S.src !== 'none', ai: checked('eyeAI') && AI.ok, roi: !!S.roi });
         drawTimeline(L.series.map(liveItem));
         renderMonitor(L, M);
         drawSpark();
@@ -2220,6 +2280,8 @@
         if (!S.running) return;
         flushTo(Math.floor(now()));
         S.running = false;
+        ckClear();
+        $('eyeCamRestart').classList.add('hidden');
         S.roiMode = false; S.roiDraft = null; S.pickTeacher = false;
         const view = $('eyeView'); if (view) { view.style.pointerEvents = 'none'; view.style.cursor = ''; }
         release();
@@ -2249,7 +2311,7 @@
     function finish() {
         const M = E().summarize(recNow());
         const hasTaps = S.events.length > 0 || Object.keys(S.counts).some(k => S.counts[k] > 0);
-        const sp = S.sp && S.sp.segs.length ? S.sp : null;
+        const sp = S.sp && S.sp.segs.length ? S.sp : S.spSeed && S.spSeed.segs.length ? S.spSeed : null;
         if (!M.observed && !M.ctx.covered && !hasTaps && !sp && !hasSample(S.sample)) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا أو المس «عناصر الحصة» أو وسوم «ما لا تراه الكاميرا» أو «عيّنة الطلبة» أثناء الحصة.'); return; }
         // «طلبة خارج النشاط»: تقترحه الكاميرا من منطقة الصفّ، ويبقى عدد المشرف إن لمسه
         let outAuto = 0;
@@ -2271,7 +2333,7 @@
         // كلام المعلّم: تحليله يدخل M فيُقترح منه ويُعاد الاقتراح عليه، والنصّ نفسه في data.sp
         // وما قيل أثناء الحضور والزيّ لا يُحلَّل (لا شرح ولا أسئلة ولا تعليمات درس)
         const rollS = (M.admin && M.admin.spans) || [];
-        if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: M.seconds, admin: rollS });
+        if (sp && SX()) keep.speech = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: Math.max(0, M.seconds - (S.spOff || 0)), admin: rollS });
         // دليل المعلّم: الدليل ومهارة الحصة يُحفظان، وما سُمع من نقاطها الفنّيّة وأسئلة تقويمها
         const GD = guideOn();
         if (GD && sp) keep.gspeech = LG().speechCoverage(SX() ? SX().lessonSegs(sp.segs, rollS) : sp.segs, GD, S.guide.skills);
@@ -2292,7 +2354,7 @@
             ev: S.events.filter(e => e.t != null).slice(-300).map(e => [e.t, e.k]),
             cx: S.ctxEvents.map(e => [e.t, e.k]),
             outAuto, dishAuto,
-            sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]) } : null,
+            sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]), off: S.spOff || 0 } : null,
             sample: hasSample(S.sample) ? JSON.parse(JSON.stringify(S.sample)) : null,
             guide: GD ? { id: GD.id, skills: S.guide.skills.slice() } : null,
             marks: S.marks.map(m => [m.t, m.note || '']),
@@ -2301,6 +2363,8 @@
         };
         // الصورة من كاميرا الهاتف، وكم ثانيةً لم تصل فيها (استُبعدت)
         if (S.via === 'phone' && M.observed) { data.via = 'phone'; data.lost = S.lostSec || 0; }
+        else if (M.observed && S.lostSec) data.lost = S.lostSec;                 // ثواني توقّف كاميرا الجهاز
+        if (S.gapSec || S.resumes) data.gap = { sec: S.gapSec || 0, n: S.resumes || 0 };   // توقّف الرصد (إغلاق الصفحة) ثمّ أُكمل
         // أهداف الزيارة السابقة للمعلّم نفسه تُقاس على رصد اليوم (والبند ١١ منها)
         const prev = prevEye();
         if (prev && Array.isArray(prev.d.targets) && prev.d.targets.length)
@@ -2308,8 +2372,155 @@
         data.sugg = E().suggest(keep, data.counts, ctxOf(data));
         data.summary = E().summaryText(keep, ctxOf(data));
         save(data);
+        lastSave(data);
         renderResult(data);
+        renderResume();
         $('eyeResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── الحماية من الانقطاع (2026-10-28) ──
+    // كلّ عشر ثوانٍ، وعند إخفاء الصفحة: نسخةٌ احتياطيّةٌ من الرصد الجاري في المتصفّح — أرقامه ولمساته وعلاماته ونصّ الكلام، **بلا صورةٍ
+    // ولا صوت**. فإن أُغلقت الصفحة (Safari في الخلفيّة، نفاد الشحن، تحديثٌ بالخطأ) عُرض عند فتحها «أكمل الرصد» أو «حلّل ما رُصد».
+    // المدّة بين آخر نسخةٍ والاستكمال «غير محسوبة» (كانقطاع صورة الهاتف): لا انتظار ولا نشاط. وبعد التحليل تبقى النتيجة احتياطاً
+    // (svf_eye_last) حتّى يُحفظ التقرير — فإن أُغلقت الصفحة قبل الحفظ عُرض «استعادتها».
+    const CK_KEY = 'svf_eye_live', LAST_KEY = 'svf_eye_last';
+    const CK_MAX_GAP = 1800;                            // أكثر من نصف ساعة: الحصة انتهت — يُحلَّل ما رُصد ولا يُكمَل
+    const SRC_LABEL = c => (c.via === 'phone' ? 'كاميرا الهاتف' : c.src === 'camera' ? 'كاميرا الجهاز' : 'بلا كاميرا');
+    const formSig = () => { const I = info(); return { teacher: I.teacher, date: I.date, topic: I.topic, cls: I.cls }; };
+    function ckRead() { try { const c = JSON.parse(localStorage.getItem(CK_KEY) || 'null'); return c && c.v === 1 && Array.isArray(c.secs) ? c : null; } catch (e) { return null; } }
+    function ckClear() { try { localStorage.removeItem(CK_KEY); } catch (e) { /* لا تخزين */ } }
+    function lastRead() { try { const c = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); return c && c.data ? c : null; } catch (e) { return null; } }
+    function lastClear() { try { localStorage.removeItem(LAST_KEY); } catch (e) { /* لا تخزين */ } }
+    function lastSave(data) { try { localStorage.setItem(LAST_KEY, JSON.stringify({ at: Date.now(), form: formSig(), data })); } catch (e) { /* النتيجة في النموذج */ } }
+    function ckSave() {
+        if (!S.running || S.src === 'file') return;            // المقطع المصوَّر يُعاد تحليله من الملفّ
+        S.lastCk = S.lastSec;
+        const sp = S.sp && S.sp.segs.length ? S.sp : S.spSeed;
+        const ck = {
+            v: 1, at: Date.now(), sec: S.lastSec, src: S.src, via: S.via, mic: S.mic, hadAudio: !!S.hadAudio, consent: !!S.consent,
+            speechConsent: !!S.speechConsent, form: formSig(),
+            secs: S.secs, grid: S.grid ? Array.from(S.grid) : null, events: S.events, counts: S.counts, ctx: S.ctxEvents, ctxCur: S.ctxCur,
+            lost: S.lostSec || 0, gap: S.gapSec || 0, resumes: S.resumes || 0, spOff: S.spOff || 0, classMax: S.classMax || 0,
+            roi: S.roi, sample: S.sample, sampleRound: S.sampleRound, marks: S.marks,
+            guide: S.guide ? { id: S.guide.id, skills: (S.guide.skills || []).slice() } : null,
+            sp: sp ? { mode: sp.mode, lang: sp.lang, segs: sp.segs } : null
+        };
+        try { localStorage.setItem(CK_KEY, JSON.stringify(ck)); }
+        catch (e) { if (!S.ckWarned) { S.ckWarned = true; toast('تعذّر الحفظ الاحتياطيّ للرصد (تخزين المتصفّح ممتلئ) — الرصد مستمرّ', 'error'); } }
+    }
+    // gap: ثوانٍ ضائعة تُضاف «غير محسوبة» بعد آخر ثانيةٍ محفوظة (الاستكمال)، وصفرٌ للتحليل وحده
+    function restoreState(R, gap, resuming) {
+        S.secs = R.secs.slice();
+        for (let i = 0; i < gap; i++) S.secs.push({ m: null, v: null, w: false, p: null });
+        S.lastSec = S.secs.length;
+        S.grid = R.grid ? Uint32Array.from(R.grid) : new Uint32Array(E().GRID_W * E().GRID_H);
+        S.events = R.events || []; S.counts = Object.assign({}, R.counts || {});
+        S.ctxEvents = R.ctx || []; S.ctxCur = R.ctxCur || null;
+        S.lostSec = R.lost || 0; S.gapSec = (R.gap || 0) + gap; S.resumes = (R.resumes || 0) + (resuming ? 1 : 0);
+        S.spOff = (R.spOff || 0) + (R.sp ? gap : 0);
+        S.classMax = R.classMax || 0;
+        S.sample = R.sample || null; S.sampleRound = R.sampleRound || 'a'; S.marks = R.marks || [];
+        S.hadAudio = S.hadAudio || !!R.hadAudio; S.consent = S.consent || !!R.consent;
+        S.speechConsent = S.speechConsent || !!R.speechConsent;
+        S.spSeed = R.sp && R.sp.segs && R.sp.segs.length ? { mode: R.sp.mode, lang: R.sp.lang, segs: R.sp.segs } : null;
+        if (R.guide && LG() && LG().byId(R.guide.id)) S.guide = { id: R.guide.id, skills: R.guide.skills.slice(), sure: true, on: true, min: false };
+        if (R.roi) setRoi(R.roi);
+    }
+    function renderResume() {
+        const box = $('eyeResume');
+        if (!box) return;
+        const ck = S.running ? null : ckRead();
+        const last = !ck && !S.running && !S.result && !(($('eyeData') || {}).value) ? lastRead() : null;
+        box.classList.toggle('hidden', !ck && !last);
+        if (!ck && !last) return;
+        const c = ck || last, who = c.form && c.form.teacher ? ' لـ«' + c.form.teacher + '»' : '';
+        const ago = Math.max(0, Math.round((Date.now() - c.at) / 1000));
+        const I = info(), other = c.form && c.form.teacher && I.teacher && c.form.teacher.trim() !== I.teacher.trim();
+        const go = $('eyeResumeGo');
+        if (ck) {
+            const late = ago > CK_MAX_GAP, can = ck.src === 'camera' || ck.src === 'none';
+            box.dataset.mode = 'ck';
+            $('eyeResumeText').textContent = 'رصدٌ لم يكتمل' + who + ': رُصدت ' + mmss(ck.sec) + ' (' + SRC_LABEL(ck) + ')، وتوقّف قبل ' + E().dur(Math.max(1, ago)) + '. '
+                + (late ? 'مضى أكثر من نصف ساعة — يُحلَّل ما رُصد.' : 'أكمله فتُستبعد المدّة الضائعة ولا تُحسب انتظاراً.')
+                + (other ? ' تنبيه: النموذج المفتوح الآن لـ«' + I.teacher + '».' : '');
+            go.classList.toggle('hidden', late || !can);
+            go.querySelector('span').textContent = ck.via === 'phone' ? 'أكمل — اربط الهاتف' : ck.src === 'camera' ? 'أكمل بالكاميرا' : 'أكمل الرصد';
+            $('eyeResumeAn').textContent = 'حلّل ما رُصد';
+            $('eyeResumeDrop').textContent = 'احذفه';
+        } else {
+            box.dataset.mode = 'last';
+            $('eyeResumeText').textContent = 'نتيجة رصدٍ' + who + ' لم تُحفظ مع التقرير (قبل ' + E().dur(Math.max(1, ago)) + ').' + (other ? ' تنبيه: النموذج المفتوح الآن لـ«' + I.teacher + '».' : '');
+            go.classList.add('hidden');
+            $('eyeResumeAn').textContent = 'استعادتها';
+            $('eyeResumeDrop').textContent = 'حذفها';
+        }
+    }
+    function resumeGo() {
+        const ck = ckRead();
+        if (!ck || S.running) return;
+        S.resume = ck;
+        if (ck.consent) $('eyeConsent').checked = true;
+        if (ck.via === 'phone') startPhone();
+        else if (ck.src === 'camera') startCamera();
+        else startNoCam();
+    }
+    function resumeAnalyze() {
+        if (S.running) return;
+        if ($('eyeResume').dataset.mode === 'last') {
+            const last = lastRead();
+            if (!last) { renderResume(); return; }
+            $('eyeData').value = JSON.stringify(last.data);
+            root.svfEyeOpen();
+            toast('استُعيدت نتيجة الرصد — احفظ التقرير لتبقى معه');
+            return;
+        }
+        const ck = ckRead();
+        if (!ck) { renderResume(); return; }
+        reset();
+        S.src = ck.src; S.via = ck.via; S.mic = ck.mic;
+        restoreState(ck, 0, false);
+        ckClear();
+        finish();
+        renderCounts(); renderCtx(); renderSample(); renderMarks();
+        renderResume();
+    }
+    function resumeDrop() {
+        const mode = $('eyeResume').dataset.mode;
+        let ok = false;
+        try { ok = root.confirm(mode === 'last' ? 'تُحذف نتيجة الرصد التي لم تُحفظ. متابعة؟' : 'يُحذف الرصد غير المكتمل نهائيّاً. متابعة؟'); } catch (e) { ok = false; }
+        if (!ok) return;
+        if (mode === 'last') lastClear(); else ckClear();
+        renderResume();
+    }
+    // كاميرا الجهاز: انتهى مسارها (تطبيقٌ آخر أخذها) أو كُتم (مكالمة) أو لم يصل إطارٌ ثانيتين
+    const camFrozen = () => {
+        if (!S.running || S.src !== 'camera' || S.via === 'phone') return false;
+        const t = S.stream && S.stream.getVideoTracks()[0];
+        return !t || t.readyState === 'ended' || t.muted || ((S.rvfc || S.vpqOk) && performance.now() - S.lastFrameAt > 2000);
+    };
+    async function restartCamera() {
+        if (!S.running || S.src !== 'camera' || S.via === 'phone') return;
+        const hi = checked('eyeAI'), hadMic = !!S.audio;
+        const video = { facingMode: { ideal: $('eyeFacing').value }, width: { ideal: hi ? 1280 : 640 }, height: { ideal: hi ? 720 : 480 } };
+        let stream = null;
+        try { stream = await navigator.mediaDevices.getUserMedia({ video, audio: hadMic ? audioConstraints() : false }); }
+        catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ video }); } catch (e2) { toast(permissionText(e2), 'error'); return; } }
+        if (!S.running) { stream.getTracks().forEach(t => t.stop()); return; }
+        const old = S.stream;
+        S.stream = stream;
+        if (old) old.getTracks().forEach(t => t.stop());
+        S.video.srcObject = stream;
+        S.video.play().catch(() => {});
+        S.prev = null; AI.prevG = null;
+        watchFrames(S.video);
+        if (stream.getAudioTracks().length) {
+            if (S.audio) { try { S.audio.ctx.close(); } catch (e) { /* أُغلق */ } S.audio = null; }
+            startAudio(ctx => ctx.createMediaStreamSource(stream), false);
+        }
+        if (S.sp) { S.sp.track = stream.getAudioTracks()[0] || null; restartSpeech(); }
+        S.camFrozenFor = 0;
+        $('eyeCamRestart').classList.add('hidden');
+        toast('عادت الكاميرا — الرصد مستمرّ، وثواني التوقّف لم تُحسب');
     }
 
     function save(data) {
@@ -2418,9 +2629,14 @@
         const rollRow = AD ? row(E().ROLL.label, esc(D(AD.sec)) + small((AD.auto ? 'بداية الحصة قبل أوّل نشاط (تلقائيّاً)' : 'بلمسة «' + E().ROLL.short + '»') + ' — لا يُحسب شرحاً ولا انتظاراً'
             + (AD.sec >= E().ROLL_LONG ? ' · <b class="text-amber-800">طال</b>' : ''))) : '';
         if (M.observed) {
-            const lost = data.via === 'phone' ? Math.min(data.lost || 0, M.excludedSec || 0) : 0;
-            rows.push(row('زمن الرصد', esc(D(M.observed)) + (M.excludedSec >= 30
-                ? small('(استُبعد ' + esc(D(M.excludedSec)) + (lost >= 5 ? (lost >= M.excludedSec - 5 ? ' لانقطاع صورة الهاتف' : '، منها ' + esc(D(lost)) + ' لانقطاع صورة الهاتف') : ' لحركة الكاميرا') + ')') : '')));
+            // المستبعد وأسبابه: توقّف الرصد (أُغلقت الصفحة ثمّ أُكمل)، وانقطاع صورة الهاتف أو توقّف الكاميرا، والباقي اهتزاز الكاميرا
+            const ex = M.excludedSec || 0, gapS = Math.min((data.gap && data.gap.sec) || 0, ex), lost = Math.min(data.lost || 0, ex - gapS);
+            const why = [];
+            if (gapS >= 5) why.push(esc(D(gapS)) + ' لتوقّف الرصد' + (data.gap.n > 1 ? ' (' + data.gap.n + ' مرّات)' : ''));
+            if (lost >= 5) why.push(esc(D(lost)) + (data.via === 'phone' ? ' لانقطاع صورة الهاتف' : ' لتوقّف الكاميرا'));
+            const rest = ex - gapS - lost;
+            rows.push(row('زمن الرصد', esc(D(M.observed)) + (ex >= 30 || why.length
+                ? small('(استُبعد ' + esc(D(ex)) + (why.length ? ': ' + why.join('، ') + (rest >= 30 ? '، والباقي لحركة الكاميرا' : '') : ' لحركة الكاميرا') + ')') : '')));
             if (rollRow) rows.push(rollRow);
             rows.push(row('منطقة الصف', data.roi ? 'محدّدة' : '<span class="text-slate-500 font-normal">الإطار كلّه</span>'));
             if (P) {
@@ -2540,7 +2756,7 @@
             const terms = SPA.topic && SPA.topic.terms && SPA.topic.terms.length ? SPA.topic : null;
             speechHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">كلام المعلّم</h2>
-                    <span class="text-xs text-slate-500">${data.sp && data.sp.mode === 'local' ? 'حُوِّل إلى نصٍّ داخل الجهاز' : 'حُوِّل إلى نصٍّ بخدمة المتصفّح'} · ${esc(String(SPA.words))} كلمة${SPA.wpm ? ' · ' + esc(String(SPA.wpm)) + ' في الدقيقة' : ''}${data.mic === 'teacher' ? '' : ' · ميكروفون الجهاز قد يلتقط غير المعلّم'}</span></div>
+                    <span class="text-xs text-slate-500">${data.sp && data.sp.mode === 'local' ? 'حُوِّل إلى نصٍّ داخل الجهاز' : 'حُوِّل إلى نصٍّ بخدمة المتصفّح'} · ${esc(String(SPA.words))} كلمة${SPA.wpm ? ' · ' + esc(String(SPA.wpm)) + ' في الدقيقة' : ''}${data.mic === 'teacher' ? '' : ' · ميكروفون الجهاز قد يلتقط غير المعلّم'}${data.sp && data.sp.off >= 30 ? ' · انقطع فهم الكلام ' + esc(D(data.sp.off)) + ' (لم تُحسب في المعدّلات)' : ''}</span></div>
                 <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-3">
                     ${box('تعزيز', SPA.praise.n, SPA.praise.spec ? 'محدّد ' + SPA.praise.spec : '')}${box('تصحيح للأداء', SPA.corr.n, SPA.corr.spec ? 'بالمهارة ' + SPA.corr.spec : '')}
                     ${box('أسئلة', SPA.q.n, SPA.q.hi ? 'للتفكير ' + SPA.q.hi : '')}${box('تحقّق من الفهم', SPA.check.n)}
@@ -2795,7 +3011,7 @@
         }
         applyCount();
         $('eyeToNotes') && $('eyeToNotes').addEventListener('click', () => toNotes(data.summary));
-        $('eyeNew').addEventListener('click', reset);
+        $('eyeNew').addEventListener('click', () => { lastClear(); reset(); });
         $('eyeCard').addEventListener('click', () => shareCard('share'));
         $('eyePrint').addEventListener('click', () => shareCard('print'));
         $('eyeToDebrief') && $('eyeToDebrief').addEventListener('click', () => { if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('debrief-view'); });
@@ -3018,6 +3234,7 @@
         S.sp = null; S.speechConsent = false;
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
         S.via = null; S.lostSec = 0; S.phoneCams = null;
+        S.resume = null; S.spSeed = null; S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0;
         S.guide = null; S.gkey = '';
         detectGuide();
         renderGuide();
@@ -3082,6 +3299,7 @@
 
     // يُستدعى قبل حفظ التقرير (savePermanentReport): الدرجات المعتمدة للبنود المقترحة
     root.svfEyeBeforeSave = function () {
+        lastClear();                                    // نتيجة الرصد تُحفظ الآن مع التقرير
         const ta = $('eyeData');
         if (!ta || !ta.value) return;
         let d;
@@ -3104,6 +3322,7 @@
     root.svfEyeOpen = function () {
         if (!E()) return;
         if (!S.bound) build();
+        setTimeout(renderResume, 0);
         renderAgreement();
         renderPatterns();
         decorate();

@@ -428,7 +428,8 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && /chk\('eyeTeacherMic'/.test(UI) && /enumerateDevices/.test(UI));
     check('wiring: أزرار عناصر الحصة الخمسة والعدّادات تُنقص', /E\(\)\.PARTS\.map/.test(UI) && /data-dec="\$\{k\}"/.test(UI) && /function resuggest\(\)/.test(UI));
     check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
-          && (UI.match(/localStorage\.setItem\(/g) || []).length === 3 && /localStorage\.setItem\('svf_eye_show'/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI)
+          && (UI.match(/localStorage\.setItem\(/g) || []).length === 5 && /localStorage\.setItem\('svf_eye_show'/.test(UI)
+          && /localStorage\.setItem\(CK_KEY, JSON\.stringify\(ck\)\)/.test(UI) && /localStorage\.setItem\(LAST_KEY, JSON\.stringify\(\{ at: Date\.now\(\), form: formSig\(\), data \}\)\)/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI)
           && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech'\];/.test(UI));
 }
 
@@ -508,7 +509,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
 
     // التوصيل
     const UI = read('js/eye.js'), RP = read('js/eye-report.js'), H = read('reports.html'), SW = read('sw.js');
-    check('wiring: «فهم الكلام» يُسأل عنه سؤالاً مستقلّاً قبل تشغيله، ورفضه يطفئه', /function speechConsent\(\)[\s\S]{0,700}root\.confirm\([\s\S]{0,400}هل وافق المعلّم على ذلك؟[\s\S]{0,200}\$\('eyeSpeech'\)\.checked = false/.test(UI)
+    check('wiring: «فهم الكلام» يُسأل عنه سؤالاً مستقلّاً قبل تشغيله، ورفضه يطفئه', /function speechConsent\(\)[\s\S]{0,900}root\.confirm\([\s\S]{0,400}هل وافق المعلّم على ذلك؟[\s\S]{0,200}\$\('eyeSpeech'\)\.checked = false/.test(UI)
           && /const wantSpeech = speechConsent\(\);[\s\S]{0,1600}begin\('camera', v\);\s*\n\s*if \(wantSpeech\) speechStart\(/.test(UI)
           && /const wantSpeech = speechConsent\(\);[\s\S]{0,900}begin\('none', null\);\s*\n\s*if \(wantSpeech\) speechStart\(/.test(UI));
     check('wiring: داخل الجهاز إن أتاحه المتصفّح (processLocally)، وإلّا خدمته — ويُذكر ذلك', /Ctor\.available\(\{ langs: \[sp\.lang\], processLocally: true \}\)/.test(UI) && /rec\.processLocally = true/.test(UI)
@@ -762,7 +763,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: الميكروفون يُفتح داخل ضغطة «كاميرا الهاتف» (iOS) لا عند وصول الصورة',
           /async function startPhone\(\)[\s\S]{0,1600}getUserMedia\(\{ audio: audioConstraints\(\) \}\)[\s\S]{0,300}startAudio\([\s\S]{0,400}await openLink\(sup\);/.test(UI));
     check('wiring: صورةٌ لا تصل ← الثانية غير محسوبة لا انتظار، ولا كشف عليها',
-          /if \(S\.via === 'phone' && \(phoneFrozen\(\) \|\| v\.readyState < 2 \|\| !v\.videoWidth\)\) \{[\s\S]{0,120}S\.acc\.bad\+\+; S\.acc\.lost = true;/.test(UI)
+          /if \(\(S\.via === 'phone' && \(phoneFrozen\(\) \|\| v\.readyState < 2 \|\| !v\.videoWidth\)\) \|\| camFrozen\(\)\) \{[\s\S]{0,120}S\.acc\.bad\+\+; S\.acc\.lost = true;/.test(UI)
           && /v\.readyState < 2 \|\| !v\.videoWidth \|\| phoneFrozen\(\)\) return;/.test(UI) && /if \(a\.lost && a\.bad >= a\.n\) S\.lostSec\+\+;/.test(UI));
     check('wiring: وصول الإطارات بعدّادٍ متزامن ونداء الإطار، والنبضة المتأخّرة لا تُعدّ انقطاعاً',
           /getVideoPlaybackQuality\(\)\.totalVideoFrames/.test(UI) && /requestVideoFrameCallback\(cb\)/.test(UI) && /t - S\.lastTickAt > 1500/.test(UI));
@@ -1002,8 +1003,8 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const UI = read('js/eye.js'), RP = read('js/eye-report.js');
     check('wiring: زرّ «حضور وزيّ» أوّل عناصر الحصة بلونه، وشرحه تحتها', /\$\{\[E\(\)\.ROLL\]\.concat\(E\(\)\.PARTS\)\.map\(c =>/.test(UI) && /grid grid-cols-3 sm:grid-cols-6 gap-1\.5/.test(UI) && /r: '#8492a6'/.test(UI) && /«حضور وزيّ» لتسجيل الغياب والزيّ/.test(UI));
     check('wiring: الكلام حيّاً وعند الإيقاف بلا الحضور والزيّ، وثوانيه تُتابَع حيّاً',
-          /analyze\(sp\.segs, \{ topic: info\(\)\.topic, ctx: S\.ctxEvents, seconds: now\(\), admin: S\.rollSpans \}\)/.test(UI)
-          && /analyze\(sp\.segs, \{ topic: info\(\)\.topic, ctx: S\.ctxEvents, seconds: M\.seconds, admin: rollS \}\)/.test(UI)
+          /analyze\(sp\.segs, \{ topic: info\(\)\.topic, ctx: S\.ctxEvents, seconds: Math\.max\(0, now\(\) - \(S\.spOff \|\| 0\)\), admin: S\.rollSpans \}\)/.test(UI)
+          && /analyze\(sp\.segs, \{ topic: info\(\)\.topic, ctx: S\.ctxEvents, seconds: Math\.max\(0, M\.seconds - \(S\.spOff \|\| 0\)\), admin: rollS \}\)/.test(UI)
           && /if \(sig !== S\.rollSig\) \{ S\.rollSig = sig; S\.rollSpans = rs; if \(S\.sp\) S\.sp\.dirty = true; \}/.test(UI)
           && /SX\(\)\.lessonSegs\(segs0, d\.M\.admin && d\.M\.admin\.spans\)/.test(UI));
     check('wiring: الحالة الحيّة واللوحة ومجرى الحصة والنتيجة تعرفه', /L\.state === 'r' \? \['الحضور والزيّ '/.test(UI) && /function rollLine\(sec, cur, auto\)/.test(UI)
@@ -1100,6 +1101,35 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('mini-form: التطبيق بأزرار النموذج نفسها ولدرجةٍ صالحةٍ وحدها', /filter\(p => p\.score >= 1 && p\.score <= 5\)/.test(UI) && /'#item-' \+ p\.id \+ ' \.rating-btn\[data-score="' \+ p\.score \+ '"\]'/.test(UI));
     check('mini-form: لا يُكتب الشاهد في وصف البند الرسميّ، ولا أرشيفٌ موازٍ', !/notes-' \+ p\.id/.test(UI) && !/svf_visits_archive|indexedDB\.open\('sv_db'/.test(UI));
     check('mini-form: المستمعان مرّةً واحدة على الحاوية', /if \(!box\.dataset\.lvBound\)/.test(UI));
+}
+
+/* ── ٢٧) الحماية من الانقطاع (2026-10-28) ── */
+{
+    const UI = read('js/eye.js');
+    check('resume: نسخةٌ احتياطيّةٌ كلّ عشر ثوانٍ وعند إخفاء الصفحة — بلا مقطعٍ مصوَّر', /if \(S\.lastSec - S\.lastCk >= 10\) ckSave\(\);/.test(UI)
+          && /visibilityState === 'hidden'\) ckSave\(\)/.test(UI) && /addEventListener\('pagehide', ckSave\)/.test(UI) && /if \(!S\.running \|\| S\.src === 'file'\) return;/.test(UI));
+    check('resume: النسخة أرقامٌ ولمساتٌ ونصّ — لا صورة ولا صوت', /const ck = \{[\s\S]{0,900}sp: sp \? \{ mode: sp\.mode, lang: sp\.lang, segs: sp\.segs \} : null/.test(UI)
+          && !/const ck = \{[\s\S]{0,900}(video|canvas|stream|ImageData)/.test(UI));
+    check('resume: المدّة الضائعة ثوانٍ «غير محسوبة» وحدّها نصف ساعة، والساعة تكمل', /for \(let i = 0; i < gap; i\+\+\) S\.secs\.push\(\{ m: null, v: null, w: false, p: null \}\)/.test(UI)
+          && /const CK_MAX_GAP = 1800;/.test(UI) && /S\.t0 = performance\.now\(\) - S\.lastSec \* 1000;/.test(UI));
+    check('resume: «أكمل» بالمصدر نفسه، و«حلّل ما رُصد» بلا تشغيل، وبدءٌ جديدٌ يستأذن في حذفه', /if \(ck\.via === 'phone'\) startPhone\(\);\s*else if \(ck\.src === 'camera'\) startCamera\(\);\s*else startNoCam\(\);/.test(UI)
+          && /restoreState\(ck, 0, false\);\s*ckClear\(\);\s*finish\(\);/.test(UI) && /بدء رصدٍ جديدٍ يحذفه/.test(UI));
+    check('resume: نصّ الكلام قبل الانقطاع يبقى، وإذن المعلّم لا يُعاد سؤاله', /segs: seed \? seed\.segs\.slice\(\) : \[\]/.test(UI) && /if \(S\.resume && S\.resume\.speechConsent\)/.test(UI)
+          && /S\.sp && S\.sp\.segs\.length \? S\.sp : S\.spSeed && S\.spSeed\.segs\.length \? S\.spSeed : null/.test(UI));
+    check('resume: النتيجة احتياطٌ حتّى يُحفظ التقرير', /lastSave\(data\);/.test(UI) && /root\.svfEyeBeforeSave = function \(\) \{\s*lastClear\(\);/.test(UI));
+    check('camera: كاميرا الجهاز المتوقّفة ثوانٍ غير محسوبة وزرّ إعادةٍ يكمل الرصد نفسه', /t\.readyState === 'ended' \|\| t\.muted/.test(UI) && /async function restartCamera\(\)/.test(UI)
+          && /if \(S\.via === 'phone' \|\| S\.src === 'camera'\) phoneTick\(v\);/.test(UI) && /begin\('camera', v\);[\s\S]{0,120}watchFrames\(v\);/.test(UI));
+    check('audio: الصوت المعلَّق (مكالمة) غير مقيسٍ لا صمت، ويُستأنف', /S\.audio\.ctx\.state === 'running' \? false : null/.test(UI) && /S\.audio\.ctx\.state !== 'running'\)\) return;/.test(UI)
+          && /state === 'suspended'\) S\.audio\.ctx\.resume\(\)/.test(UI));
+    check('speech: ثواني انقطاع الإنترنت خارج معدّلات الكلام وتُذكر', /navigator\.onLine === false \|\| Date\.now\(\) - \(S\.sp\.netAt \|\| 0\) < 5000\)\) S\.spOff\+\+/.test(UI)
+          && /off: S\.spOff \|\| 0/.test(UI) && /انقطع فهم الكلام/.test(UI));
+    // المحرّك: الثواني «غير المحسوبة» لا تدخل زمن الرصد ولا الانتظار
+    const mk = (m, k) => Array.from({ length: k }, () => ({ m, v: null, w: false, p: null }));
+    const rec = { secs: mk(0.06, 300).concat(mk(null, 600), mk(0.06, 300)), sens: 'medium', ctx: [] };
+    const M = E.summarize(rec);
+    check('engine: عشر دقائق ضائعة وسط الحصة ← لا انتظار ولا رصد', M.observed === 600 && M.excludedSec >= 600 && !(M.longestIdle >= 60), JSON.stringify({ o: M.observed, ex: M.excludedSec, li: M.longestIdle }));
+    const L = E.live({ secs: mk(null, 40), sens: 'medium', ctx: [] }, E.summarize({ secs: mk(null, 40), sens: 'medium', ctx: [] }), { frozen: true });
+    check('engine: الكاميرا المتوقّفة لا تُنبّه «الكاميرا تتحرّك»', !L.alerts.some(a => a.k === 'shake'));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
