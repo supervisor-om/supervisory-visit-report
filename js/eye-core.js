@@ -53,6 +53,9 @@
     const PERSON_MIN_SCORE = 0.22; // أقلّ منه يكثر فيه الخطأ (لافتاتٌ ومخاريط) — قيس على مشهد مشاة
     const MATCH_GATE = 0.9;       // أبعد من ٠٫٩ طول جسمٍ بين لقطتين ← شخصٌ آخر
     const TRACK_TTL = 4.5;        // ثوانٍ بلا ظهورٍ ثمّ يُنسى
+    const TEACHER_H = [0.8, 1.25]; // طول من يُتبنّى معلّماً نسبةً إلى طول المعلّم الأخير — حارس الحجب
+    const EDGE = 0.03;            // ٣٪ من عرض الصورة يميناً أو يساراً: على الحافّة
+    const ALERT_EDGE = 2;         // طالبان فأكثر على الحافّة في أغلب لقطات آخر نصف دقيقة ← «وسّع الزاوية»
     const MOVE_SPEED = 0.25;      // ربع طول الجسم في الثانية ← يتحرّك (مشيٌ بطيء فما فوق)
     const BOX_ACT = 0.12;         // نسبة ما تغيّر داخل صندوقه ← يتحرّك في مكانه (تمرين، تمرير)
     const QUEUE_DIST = 1.6;       // واقفون متقاربون (طول جسمٍ ونصف) ثلاثةٌ فأكثر ← انتظار دور
@@ -289,10 +292,12 @@
         const live = T.tracks.filter(tr => t - tr.last <= 1.2);
         let tr = live.find(x => x.id === tch.id);
         if (!tr && t - (tch.seen || 0) <= 8) {
+            // حارس الحجب (2026-10-27): حين يمرّ المعلّم خلف طالب، يظهر الطالب وحده قرب موضعه — فلا يُتبنّى من يقصر عنه كثيراً أو يطوله
+            // (في الموضع نفسه من الصورة يتقارب الطولان بالمنظور: ٠٫٨–١٫٢٥ من طوله الأخير)، ويبقى المعلّم «منقطعاً» حتّى يظهر هو
             const cands = live.filter(x => x.id > tch.id || x.hist.length <= 2).map(x => {
                 const p = x.hist[x.hist.length - 1];
-                return { x, d: Math.hypot(p.fx - tch.fx, p.fy - tch.fy) / Math.max(1e-6, Math.max(p.h, tch.h || p.h)) };
-            }).filter(c => c.d <= 1.5).sort((a, b) => a.d - b.d);
+                return { x, r: tch.h ? p.h / tch.h : 1, d: Math.hypot(p.fx - tch.fx, p.fy - tch.fy) / Math.max(1e-6, Math.max(p.h, tch.h || p.h)) };
+            }).filter(c => c.d <= 1.5 && c.r >= TEACHER_H[0] && c.r <= TEACHER_H[1]).sort((a, b) => a.d - b.d);
             if (cands[0]) tr = cands[0].x;
         }
         if (!tr) return tch;
@@ -343,12 +348,15 @@
             if (near >= 2) q++;
         });
         const F = formations(ins);
+        // على حافّة الصورة يميناً أو يساراً: مقصوصٌ أو على وشك الخروج منها ← الكاميرا لا تغطّي الملعب كلّه (يُستثنى من هو خارج المنطقة المحدَّدة)
+        const e = ppl.filter(p => (p.inside || !(poly && poly.length >= 3)) && (p.x < EDGE || p.x > 1 - EDGE)).length;
         return {
             n: ins.length, mv: ins.length - still.length, o: ppl.length - ins.length, q,
             r: !!(poly && poly.length >= 3),
             fm: F.dom, ln: F.maxLine, d: ins.filter(isDishTrack).length,
-            vg: ins.filter(p => p.vig).length, cr, tc,
-            dots: all.map(p => ({ id: p.id, x: p.x, y: p.y, mv: p.moving, in: p.inside, dish: isDishTrack(p), tch: p === teacher }))
+            vg: ins.filter(p => p.vig).length, cr, tc, e,
+            // pl: يتحرّك **في مكانه** (تمرينٌ، تمرير) — لونٌ غير لون من ينتقل في الملعب
+            dots: all.map(p => ({ id: p.id, x: p.x, y: p.y, mv: p.moving, pl: p.moving && p.speed < MOVE_SPEED, in: p.inside, dish: isDishTrack(p), tch: p === teacher }))
         };
     }
 
@@ -1773,6 +1781,11 @@
         if (recent && recent.n >= 30 && recent.pct < ALERT_MOVE && n - since >= 60 && !(state === 'i' && run >= ALERT_IDLE)) add('move', 'warn', 'حركة الطلبة ' + recent.pct + '% في «' + PART[part].label + '» (آخر دقيقتين)');
         if (lineSec >= ALERT_LINE && !rollNow) add('line', 'warn', 'قاطرةٌ من ' + pupilsN(lineLen) + ' منذ ' + dur(lineSec) + ' — قسّمها');
         if (lastP && lastP.r && lastP.o >= 3 && !rollNow) add('out', 'warn', pupilsN(lastP.o) + ' خارج منطقة النشاط');
+        // حافّة الصورة: في أغلب لقطات آخر ٣٠ ثانية (ستٌّ فأكثر) طالبان فأكثر عند الحافّة
+        let eN = 0, eY = 0;
+        for (let j = Math.max(0, n - 30); j < n; j++) { const p = secs[j] && secs[j].p; if (p && p.e != null) { eN++; if (p.e >= ALERT_EDGE) eY++; } }
+        const edge = eN >= 6 && 2 * eY > eN;
+        if (edge && !rollNow) add('edge', 'warn', 'طلبةٌ على حافّة الصورة — قد يخرج بعضهم منها؛ وسّع زاوية الكاميرا' + (o.phone ? ' («أوسع زاوية» تحت الصورة)' : ' أو أبعدها'));
         if (part && PART[part].min && n - since > recMin(part) * 60 + 120) add('over', 'info', '«' + PART[part].label + '» ' + dur(n - since) + ' — الموصى به ' + recMin(part) + ' د');
         if (rollNow && rollAuto) add('rollAuto', 'hint', 'بداية الحصة تُعدّ «حضوراً وزيّاً» حتّى يبدأ النشاط أو تلمس «الإحماء» — لا تُحسب شرحاً ولا انتظاراً');
         else if (o.camera === false && !((rec && rec.ctx) || []).length && n < ROLL_LONG) add('rollTouch', 'hint', 'يسجّل المعلّم الحضور والزيّ؟ المس «حضور وزيّ» — وإلّا عُدّ ما قبل لمسة «الإحماء» كذلك');
@@ -1785,7 +1798,7 @@
             roll: { now: rollNow, sec: st.filter(k => k === 'r').length, auto: rollAuto },
             now: now15 ? now15.pct : null, avg: all ? all.pct : null, recent: recent ? recent.pct : null,
             line: lineSec ? { n: lineLen, sec: lineSec } : null, outside: lastP && lastP.r ? lastP.o : null,
-            pupilsNow: lastP ? lastP.n + (lastP.o || 0) : null, alerts: alerts.slice(0, 3)
+            pupilsNow: lastP ? lastP.n + (lastP.o || 0) : null, edge, alerts: alerts.slice(0, 3)
         };
     }
     // سلسلةٌ محفوظةٌ مع النتيجة: رقمٌ لكلّ عشر ثوانٍ (٠–٩ = عُشر النسبة، و«-» بلا قياس) — لمجرى الحصة بعد الرصد
@@ -1795,7 +1808,7 @@
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
         PARTS, PART, ACTIVE_PARTS, ROLL, ROLL_START, ROLL_AUTO_MAX, ROLL_MIN, ROLL_LONG, rollSpans, inSpans, lessonSecOf, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
-        PERSON_MIN_SCORE, TRACK_TTL, MOVE_SPEED, BOX_ACT,
+        PERSON_MIN_SCORE, TRACK_TTL, MOVE_SPEED, BOX_ACT, TEACHER_H, EDGE, ALERT_EDGE,
         inPoly, roiMask, roiCells, polyBox,
         toGray, frameDiff, grayShift, boxMotion,
         newTracker, trackStep, trackMotion, peopleSnapshot,

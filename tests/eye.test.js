@@ -710,7 +710,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const UI = read('js/eye.js'), RP = read('js/eye-report.js');
     check('wiring: الكرات من النموذج نفسه داخل منطقة الصفّ، والمعلّم يُتابَع ويُستثنى في كلّ لقطة', /o\.label === 'sports ball' && o\.score >= E\(\)\.BALL_MIN_SCORE/.test(UI) && /!S\.roi \|\| E\(\)\.inPoly\(cx, cy, S\.roi\)/.test(UI)
           && /S\.teacher = E\(\)\.teacherStep\(AI\.T, S\.teacher, t\);\s*\n\s*S\.pSnap = E\(\)\.peopleSnapshot\(AI\.T, t, S\.roi, S\.teacher\);\s*\n\s*S\.pSnap\.b = balls;/.test(UI));
-    check('wiring: كلّ ثانيةٍ تحفظ الشدّة والتزاحم والكرات وموضع المعلّم', /vg: p\.vg, cr: p\.cr, b: p\.b \}/.test(UI) && /p\.tc \? \{ t: \[p\.tc\.x, p\.tc\.y, p\.tc\.mv \? 1 : 0, p\.tc\.edge == null \? -1 : p\.tc\.edge \? 1 : 0\] \}/.test(UI));
+    check('wiring: كلّ ثانيةٍ تحفظ الشدّة والتزاحم والكرات وموضع المعلّم', /vg: p\.vg, cr: p\.cr, b: p\.b(, e: p\.e)? \}/.test(UI) && /p\.tc \? \{ t: \[p\.tc\.x, p\.tc\.y, p\.tc\.mv \? 1 : 0, p\.tc\.edge == null \? -1 : p\.tc\.edge \? 1 : 0\] \}/.test(UI));
     check('wiring: المعلّم بلمسةٍ أثناء الرصد بالكشف وحده، ويُصفَّر مع رصدٍ جديد', /if \(!S\.running \|\| !S\.video \|\| !AI\.ok\)/.test(UI) && /const id = E\(\)\.pickNearest\(S\.pSnap, x, y\);/.test(UI) && /S\.teacher = null; S\.pickTeacher = false;\s*\n\s*setRoi\(null\);/.test(UI));
     check('wiring: عدد الكرات يُصحَّح فيُعاد الاقتراح', /\$\('eyeBalls'\)[\s\S]{0,400}S\.result\.M\.people\.balls = raw && v > 0 \? v : null;\s*\n\s*resuggest\(\);/.test(UI));
     check('wiring: البطاقة فيها «الحركة والتنظيم»', /heading\(g, 'الحركة والتنظيم'/.test(RP) && /Y\.ballRatio/.test(RP));
@@ -1010,6 +1010,96 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /it\.k === 'r' \? CTX_COLOR\.r/.test(UI) && /b\.k === 'r' \? E\(\)\.ROLL\.label/.test(UI) && /const rollRow = AD \?/.test(UI) && /بلا الحضور والزيّ/.test(UI));
     check('wiring: اسم العنصر الجاري من PART (يعرف «roll») لا من العناصر الخمسة وحدها', !/CONTEXTS\.find/.test(UI) && /E\(\)\.PART\[S\.ctxCur\] \? E\(\)\.PART\[S\.ctxCur\]\.label/.test(UI));
     check('wiring: بطاقة المعلّم — سطر الحضور والزيّ ولونه في مجرى الحصة', /r: '#8492a6'/.test(RP) && /الحضور والزيّ في أوّل الحصة: /.test(RP) && /k === 'r' \? PART_COLOR\.r/.test(RP));
+}
+
+/* ── ٢٤) اللهجة العُمانيّة في فهم الكلام (2026-10-27) ── */
+{
+    const SX = require('../js/eye-speech.js');
+    const f = x => SX.fix(SX.norm(x));
+    check('dialect: سلسلة اللغات تبدأ بالعُمانيّة وتنتهي بالعامّة', SX.LANGS[0] === 'ar-OM' && SX.LANGS[SX.LANGS.length - 1] === 'ar' && SX.LANGS.length >= 3);
+    check('dialect: «جدام/وجفوا/قطارات/ريولك» تُصحَّح للتحليل', f('وجفوا جدام الخط') === 'وقفوا قدام الخط' && f('سووا قطارات') === 'سووا قاطرات' && f('ارفع ريولك') === 'ارفع رجليك', f('وجفوا جدام الخط'));
+    check('dialect: بحرف عطفٍ أو جرٍّ أو «ال» قبلها', f('والقطارات') === 'والقاطرات' && f('بجدام') === 'بقدام');
+    check('dialect: «لعبة القطار» لا تُمسّ، وكلمةٌ تحتوي الخطأ لا تُمسّ', f('لعبة القطار') === 'لعبه القطار' && f('جدامهم') === 'جدامهم');
+    const A = SX.analyze([{ t: 5, x: 'يلا قطارات ثلاث' }, { t: 40, x: 'ارفع ريولك فوق' }, { t: 60, x: 'عشتوا يا شباب' }, { t: 70, x: 'تحركوا' }], { seconds: 120 });
+    check('dialect: التصحيح يدخل التحليل (تصحيحٌ بالجسم، تنظيم، تعزيز)', A.corr.n === 1 && A.corr.spec === 1 && A.praise.n === 1 && A.org.n === 2, JSON.stringify({ c: A.corr, p: A.praise.n, o: A.org.n }));
+    check('dialect: والنصّ المحفوظ كما سُمع', A.corr.ex[0][1] === 'ارفع ريولك فوق' && A.formsEx[0][1] === 'يلا قطارات ثلاث');
+    check('forms: التشكيلات التي طلبها بصوته تُعدّ', JSON.stringify(SX.analyze([{ t: 1, x: 'كل اثنين مع بعض' }, { t: 9, x: 'دائرة كبيرة' }, { t: 20, x: 'مربع ناقص طلع' }], { seconds: 60 }).forms) === '{"P":1,"C":1,"U":1}');
+    check('forms: الأمثلة تُحذف مع «حذف النصّ»', SX.stripExamples(A).formsEx.length === 0 && SX.stripExamples(A).forms.L === 1);
+    check('pickAlt: يُقدَّم بديلٌ أوفق لألفاظ الملعب', SX.pickAlt([{ transcript: 'كل وحده فيكم', confidence: 0.8 }, { transcript: 'كفو عليك', confidence: 0.5 }], '') === 'كفو عليك');
+    check('pickAlt: والتساوي للأعلى ثقة، وبديلٌ واحدٌ يُعاد كما هو', SX.pickAlt(['احسنت', 'ممتاز'], '') === 'احسنت' && SX.pickAlt([{ transcript: ' تمام ' }], '') === 'تمام' && SX.pickAlt([], '') === '');
+    check('pickAlt: مصطلح الدرس يرجّح', SX.pickAlt(['دفع الجملة', 'دفع الجلة'], 'دفع الجلة بطريقة الزحف') === 'دفع الجلة');
+    const c = x => SX.cues(x).part;
+    check('cues: إعلان العنصر من كلام المعلّم', c('يلا نبدأ الإحماء') === 'warm' && c('الحين النشاط التطبيقي') === 'apply' && c('بنختم الحين') === 'close' && c('خلونا نحضر الغياب') === 'roll');
+    check('cues: الأخير في العبارة هو الجديد', c('خلصنا الإحماء، الحين الإعداد البدني') === 'fit' && c('بعد التطبيق نسوي التهدئة') === 'close');
+    check('cues: كلامٌ عاديّ لا يُعلن عنصراً', c('ارفع ركبتك فوق') === null && c('احسنت يا بطل') === null);
+
+    const UI = read('js/eye.js');
+    check('wiring: خمسة بدائل وأنسبها، وسلسلة اللغات من الوحدة', /rec\.maxAlternatives = 5/.test(UI) && /SX\(\)\.pickAlt\(alts, info\(\)\.topic\)/.test(UI)
+          && /const LANGS = \(\) => \(SX\(\) && SX\(\)\.LANGS\)/.test(UI) && /sp\.li < LANGS\(\)\.length - 1/.test(UI));
+    check('wiring: إعلان العنصر اقتراحٌ يُلمس ويُسجَّل من لحظة قوله', /function speechCue\(x\)/.test(UI) && /setCtx\(c\.k, c\.t\)/.test(UI) && /function setCtx\(k, at\)/.test(UI)
+          && /Math\.max\(lastT, Math\.min\(Math\.round\(now\(\)\), Math\.round\(at\)\)\)/.test(UI));
+    check('wiring: تنبيه التقاطٍ متوقّف وإعادةٌ لا تكرّر نفسها', /يُسمع كلامٌ ولا يصل نصٌّ منذ/.test(UI) && /function restartSpeech\(\)/.test(UI)
+          && /sp\.rec !== rec\) return;/.test(UI) && /\(sp\.err && !sp\.on\) \|\| quiet/.test(UI));
+    check('wiring: لا AudioContext ولا getUserMedia ثانٍ في وحدة الكلام', !/AudioContext|getUserMedia|navigator|window\./.test(read('js/eye-speech.js')));
+}
+
+/* ── ٢٥) الكاميرا: حارس الحجب، الحركة في المكان، حافّة الصورة (2026-10-27) ── */
+{
+    // المعلّم يُحجب خلف طالبٍ أقصر منه: الطالب الظاهر قربه لا يُتبنّى، ومن يطابق طوله يُتبنّى
+    const R = E.newTracker();
+    const kids = [0.3, 0.4, 0.5, 0.6, 0.7].map(x => person(x, 0.5));
+    const tall = (x, y) => person(x, y, { h: H * 1.3, y: y - H * 0.3 });
+    for (let k = 0; k <= 2; k++) E.trackStep(R, kids.concat([tall(0.92, 0.5)]), k * 0.5, 16 / 9);
+    const tid = E.pickNearest(E.peopleSnapshot(R, 1, null), 0.95, 0.5 + H);
+    let tch = E.teacherStep(R, { id: tid }, 1);
+    const lost = 1 + E.TRACK_TTL;
+    E.trackStep(R, kids, lost, 16 / 9);
+    E.trackStep(R, kids.concat([person(0.93, 0.5)]), lost + 0.5, 16 / 9);          // طالبٌ بطوله العاديّ قرب موضع المعلّم
+    const t1 = E.teacherStep(R, tch, lost + 0.5);
+    check('occlusion: طالبٌ أقصر قرب موضع المعلّم لا يُتبنّى معلّماً', tid != null && t1.id === tid, JSON.stringify({ tid, t1 }));
+    E.trackStep(R, kids.concat([person(0.93, 0.5), tall(0.9, 0.5)]), lost + 1, 16 / 9);   // ثمّ عاد المعلّم بطوله
+    const t2 = E.teacherStep(R, t1, lost + 1);
+    check('occlusion: ومن يطابق طوله يُتبنّى', t2.id !== tid && t2.id > tid && Math.abs(t2.h / t1.h - 1) < 0.05, JSON.stringify(t2));
+    check('occlusion: حدّا الطول ثابتان مُصدَّران', E.TEACHER_H[0] < 1 && E.TEACHER_H[1] > 1);
+
+    // يتحرّك في مكانه (تغيّر صندوقه دون انتقال) ← pl، والمنتقل لا
+    const P = E.newTracker();
+    for (let k = 0; k <= 4; k++) E.trackStep(P, [person(0.3, 0.5, { act: 0.3 }), person(0.4 + 0.05 * k, 0.5), person(0.7, 0.5)], k * 0.5, 16 / 9);
+    const sp = E.peopleSnapshot(P, 2, null).dots.sort((a, b) => a.x - b.x);
+    check('in-place: المتمرّن في مكانه pl، والمنتقل mv بلا pl، والساكن لا هذا ولا ذاك', sp[0].mv && sp[0].pl && sp[1].mv && !sp[1].pl && !sp[2].mv && !sp[2].pl, JSON.stringify(sp));
+
+    // حافّة الصورة
+    const G = E.newTracker();
+    E.trackStep(G, [person(-0.02, 0.5), person(0.985, 0.5), person(0.5, 0.5)], 0, 16 / 9);
+    const se = E.peopleSnapshot(G, 0, null);
+    check('edge: من يقع مركزه في ٣٪ من حافّتي الصورة يُعدّ', se.e === 2, se.e);
+    const roi = [[0.2, 0.2], [0.8, 0.2], [0.8, 0.95], [0.2, 0.95]];
+    check('edge: ومن هو خارج المنطقة المحدَّدة لا يُعدّ', E.peopleSnapshot(G, 0, roi).e === 0);
+    const mk = e => ({ m: 0.02, p: { n: 6, mv: 3, o: 0, q: 0, r: false, e } });
+    const recE = { secs: Array.from({ length: 40 }, (_, i) => mk(i >= 15 ? 3 : 0)), sens: 'medium', ctx: [] };
+    const LE = E.live(recE, E.summarize(recE), { phone: true });
+    const recN = { secs: Array.from({ length: 40 }, (_, i) => mk(i % 3 ? 0 : 2)), sens: 'medium', ctx: [] };
+    const LN = E.live(recN, E.summarize(recN), {});
+    check('edge→live: أغلب آخر نصف دقيقة على الحافّة ← تنبيهٌ يذكر الزرّ في الهاتف', LE.edge && LE.alerts.some(a => a.k === 'edge' && /أوسع زاوية/.test(a.text)), JSON.stringify(LE.alerts));
+    check('edge→live: لقطاتٌ متفرّقة لا تُنبّه', !LN.edge && !LN.alerts.some(a => a.k === 'edge'));
+
+    const UI = read('js/eye.js');
+    check('wiring: الحافّة تُحفظ لكلّ ثانية، ولون المتمرّن في مكانه ومفتاح النقاط', /cr: p\.cr, b: p\.b, e: p\.e/.test(UI) && /d\.pl \? DOT\.place/.test(UI) && /id="eyeDotKey"/.test(UI));
+    check('wiring: «أوسع زاوية» بالرسائل القائمة (عدسة ثمّ تقريب) — لا تبديل آليّ', /function wideStep\(\)/.test(UI) && /if \(w\.lens\) phoneLens\(w\.lens\); else \{ phoneZoom\(w\.zoom\)/.test(UI)
+          && !/auto-wide/.test(UI + read('cam.html')));
+    const RP = read('js/eye-report.js');
+    check('card: نافذة الطباعة بشريطٍ علويٍّ ورجوعٍ وEsc، ويختفي في الطباعة', /id="back"/.test(RP) && /window\.close\(\)/.test(RP) && /e\.key==="Escape"/.test(RP) && /@media print\{#bar\{display:none!important\}/.test(RP));
+}
+
+/* ── ٢٦) الاستمارة المصغّرة في «التقييم المقترح» (2026-10-27) ── */
+{
+    const UI = read('js/eye.js');
+    check('mini-form: البنود الثلاثة عشر — المقترحة ثمّ «البنود الأخرى — قيّمها من هنا»', /const others = un\.map\(u =>/.test(UI) && /البنود الأخرى — قيّمها من هنا/.test(UI));
+    check('mini-form: مستوياتٌ خمسة بألوان الاستمارة، والمقترح بنقطةٍ ذهبيّة', /function levelPicker\(id, chosen, sug, cur\)/.test(UI) && /RATING\(\)\[n\]/.test(UI) && /title="المقترح"/.test(UI));
+    check('mini-form: البند الآخر لا يُحدَّد حتّى يُغيَّر مستواه عن النموذج', /data-score="\$\{curScore \|\| ''\}" aria-label="تطبيق البند/.test(UI) && /cb\.checked = n !== Number\(lv\.dataset\.cur\)/.test(UI));
+    check('mini-form: التطبيق بأزرار النموذج نفسها ولدرجةٍ صالحةٍ وحدها', /filter\(p => p\.score >= 1 && p\.score <= 5\)/.test(UI) && /'#item-' \+ p\.id \+ ' \.rating-btn\[data-score="' \+ p\.score \+ '"\]'/.test(UI));
+    check('mini-form: لا يُكتب الشاهد في وصف البند الرسميّ، ولا أرشيفٌ موازٍ', !/notes-' \+ p\.id/.test(UI) && !/svf_visits_archive|indexedDB\.open\('sv_db'/.test(UI));
+    check('mini-form: المستمعان مرّةً واحدة على الحاوية', /if \(!box\.dataset\.lvBound\)/.test(UI));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');

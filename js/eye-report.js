@@ -337,9 +337,22 @@
         const blob = await toBlob(await draw(data, info, extra));
         if (!w) { download(blob, fileName(info)); return 'download'; }
         const url = URL.createObjectURL(blob);
-        w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + fileName(info).replace(/\.png$/, '').replace(/[<&]/g, '')
-            + '</title><style>@page{size:A4;margin:10mm}html,body{margin:0;background:#fff}img{display:block;width:100%;max-width:190mm;margin:0 auto}</style></head>'
-            + '<body><img src="' + url + '" alt="تحليل الحصة" onload="setTimeout(function(){window.print()},300)"></body></html>');
+        // شريطٌ علويٌّ ثابت (يختفي في الطباعة): «رجوع» يُغلق النافذة — على الـiPad والجوّال تُفتح تبويباً بلا طريق رجوعٍ ظاهر —
+        // و«طباعة / PDF» لمن ألغى نافذة الطباعة الأولى، وEsc يُغلقها على الحاسوب. سكربتٌ ثابتٌ بلا مدخلٍ من البيانات.
+        const bar = 'position:fixed;top:0;left:0;right:0;z-index:9;display:flex;gap:8px;align-items:center;padding:10px 12px;'
+            + 'padding-top:calc(10px + env(safe-area-inset-top));background:#082742;color:#f7f5ee;font:600 15px system-ui,-apple-system,sans-serif';
+        const btn = 'font:inherit;border-radius:10px;padding:8px 14px;border:1px solid rgba(255,255,255,.35);background:transparent;color:inherit;cursor:pointer';
+        w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>'
+            + fileName(info).replace(/\.png$/, '').replace(/[<&]/g, '')
+            + '</title><style>@page{size:A4;margin:10mm}html,body{margin:0;background:#fff}body{padding-top:calc(60px + env(safe-area-inset-top))}'
+            + 'img{display:block;width:100%;max-width:190mm;margin:0 auto}@media print{#bar{display:none!important}body{padding-top:0}}</style></head>'
+            + '<body><div id="bar" style="' + bar + '"><button type="button" id="back" style="' + btn + '">&rarr; رجوع إلى عين المشرف</button>'
+            + '<span style="flex:1"></span><button type="button" id="pr" style="' + btn + ';background:#f0b44a;color:#082742;border-color:#f0b44a">طباعة / PDF</button></div>'
+            + '<img src="' + url + '" alt="تحليل الحصة" onload="setTimeout(function(){window.print()},300)">'
+            + '<script>(function(){function back(){try{window.close()}catch(e){}setTimeout(function(){if(!window.closed){if(history.length>1)history.back();'
+            + 'else document.getElementById("back").textContent="أغلق هذا التبويب للرجوع"}},250)}'
+            + 'document.getElementById("back").onclick=back;document.getElementById("pr").onclick=function(){window.print()};'
+            + 'document.addEventListener("keydown",function(e){if(e.key==="Escape")back()})})()<\/script></body></html>');
         w.document.close();
         return 'print';
     }

@@ -36,6 +36,8 @@
     const RATING = () => (root.SVF_COLORS && root.SVF_COLORS.rating) || { 1: '#1d6b45', 2: '#0f4c81', 3: '#9a6f24', 4: '#b5452f', 5: '#7a2320' };
     // ألوان عناصر الحصة (الحرف من PARTS.c) — والحروف القديمة للتقارير المحفوظة قبل العناصر الخمسة
     // و r: الحضور والزيّ (ليس عنصراً — رماديٌّ مزرقّ)
+    // نقاط الطلبة فوق الصورة: ذهبيّ ينتقل، أخضر فاتح يتمرّن في مكانه، أبيض ساكن، طوبيّ خارج المنطقة
+    const DOT = { move: '#f0b44a', place: '#7fd1a4', still: '#e2e8f0', out: 'rgba(224,122,106,0.95)' };
     const CTX_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445', r: '#8492a6', e: '#64748b', o: '#b98a32', p: '#5b8fc7', g: '#246445' };
     const ROLL_TINT = 'rgba(132,146,166,.22)';       // مساحة الحضور والزيّ في مجرى الحصة
     const FORM_COLOR = { L: '#0f4c81', C: '#246445', G: '#9a6f24', S: '#64748b' };
@@ -64,6 +66,7 @@
     const GRADE_NAME = ['', 'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر', 'الثاني عشر'];
     const SR = () => root.SpeechRecognition || root.webkitSpeechRecognition || null;
     const SX = () => root.SvfEyeSpeech;
+    const LANGS = () => (SX() && SX().LANGS) || ['ar-OM', 'ar-SA'];
     const LG = () => root.SvfLessonGuide;
     const AI = { human: null, loading: null, ok: false, busy: false, fail: 0, T: null, prevG: null, prevKey: '', canvas: null, cx: null,
                  timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5 };
@@ -216,10 +219,16 @@
                             <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
                             <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
                         </div>
+                        <div id="eyeDotKey" class="hidden flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600" aria-label="مفتاح نقاط الطلبة">
+                            ${[['move', 'ينتقل في الملعب'], ['place', 'يتمرّن في مكانه'], ['still', 'ساكن'], ['out', 'خارج المنطقة']].map(([k, t]) =>
+                                `<span class="flex items-center gap-1"><i class="inline-block w-2.5 h-2.5 rounded-full" style="background:${DOT[k]};box-shadow:0 0 0 1.5px #082742"></i>${t}</span>`).join('')}
+                            <span class="flex items-center gap-1"><i class="inline-block w-2.5 h-2.5" style="background:#082742;box-shadow:0 0 0 1.5px #f0b44a"></i>المعلّم</span>
+                        </div>
                         <div id="eyeLensRow" class="hidden flex flex-wrap items-center gap-2 text-xs text-slate-600">
                             <span class="font-semibold text-slate-800">عدسة الهاتف</span>
                             <span id="eyeLens" class="flex flex-wrap gap-1.5"></span>
                             <label id="eyeZoomLbl" class="hidden flex items-center gap-1.5">التقريب <input type="range" id="eyeZoom" class="w-28"></label>
+                            <button type="button" id="eyeWide" class="hidden svf-btn svf-btn-secondary svf-btn-sm" title="العدسة العريضة جدّاً وأقلّ تقريب — حين يكون الطلبة على حافّة الصورة"><i class="fa-solid fa-expand" aria-hidden="true"></i>أوسع زاوية</button>
                             <span class="flex-1"></span>
                             <button type="button" id="eyeRelink" class="hidden svf-btn svf-btn-moe svf-btn-sm"><i class="fa-solid fa-link" aria-hidden="true"></i>إعادة ربط الهاتف</button>
                         </div>
@@ -244,6 +253,15 @@
                                     <button type="button" id="eyeSpeechRetry" class="hidden svf-btn svf-btn-secondary svf-btn-sm">تشغيل فهم الكلام</button></span>
                             </div>
                             <p id="eyeSpeechText" class="text-sm text-slate-800 leading-7 mt-2 min-h-[1.75rem]"></p>
+                            <div id="eyeSpeechCue" class="hidden mt-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+                                <p id="eyeCueText" class="text-xs text-blue-900 leading-5"></p>
+                                <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                                    <button type="button" id="eyeCueOk" class="svf-btn svf-btn-primary svf-btn-sm"></button>
+                                    <button type="button" id="eyeCueNo" class="svf-btn svf-btn-ghost svf-btn-sm">تجاهل</button>
+                                    <span class="text-[11px] text-blue-800">يُسجَّل من لحظة قوله</span>
+                                </div>
+                            </div>
+                            <p id="eyeSpeechQuiet" class="hidden mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-5"></p>
                             <div id="eyeSpeechCounts" class="flex flex-wrap gap-1.5 mt-2"></div>
                         </div>
                     </section>
@@ -352,7 +370,8 @@
         $('eyePairCopy').addEventListener('click', copyPairUrl);
         $('eyeLens').addEventListener('click', e => { const b = e.target.closest('[data-lens]'); if (b) phoneLens(b.dataset.lens); });
         $('eyeZoom').addEventListener('change', () => phoneZoom($('eyeZoom').value));
-        $('eyeSpeechRetry').addEventListener('click', () => { const sp = S.sp; if (sp && S.running && !sp.on) { sp.on = true; sp.err = ''; speechRun(sp); renderSpeechLive(); } });
+        $('eyeWide').addEventListener('click', phoneWide);
+        $('eyeSpeechRetry').addEventListener('click', restartSpeech);
         $('eyeFile').addEventListener('click', e => { if (!needConsent(true)) e.preventDefault(); });
         $('eyeFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) startFile(f); });
         $('eyeFileBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('eyeFile').click(); } });
@@ -377,6 +396,8 @@
         body.querySelectorAll('.eye-tag').forEach(b => b.addEventListener('click', () => tap(b.dataset.tag, b)));
         body.querySelectorAll('.eye-dec').forEach(b => b.addEventListener('click', () => dec(b.dataset.dec)));
         body.querySelectorAll('.eye-ctx').forEach(b => b.addEventListener('click', () => setCtx(b.dataset.ctx)));
+        $('eyeCueOk').addEventListener('click', () => { const c = S.cue; if (c) { setCtx(c.k, c.t); flash($('eyeCueOk'), '#1d6b45', 300); } });
+        $('eyeCueNo').addEventListener('click', () => { S.cue = null; renderCue(); });
         $('eyeMark').addEventListener('click', addMark);
         $('eyeMarks').addEventListener('input', e => { const i = +e.target.dataset.mark; if (S.marks[i]) { S.marks[i].note = e.target.value.slice(0, 160); syncMarks(false); } });
         $('eyeMarks').addEventListener('change', e => { if (e.target.dataset.mark != null) syncMarks(true); });
@@ -759,12 +780,34 @@
     }
 
     // ── سياق الحصة ──
-    function setCtx(k) {
+    // at: وقتٌ سابقٌ اختياريّ — حين يُعتمد ما أعلنه المعلّم بصوته يُسجَّل العنصر من لحظة قوله لا من لحظة اللمس
+    function setCtx(k, at) {
         if (!S.running) { toast('يُلمس عنصر الحصة أثناء الرصد', 'info'); return; }
+        if (S.cue) { S.cue = null; renderCue(); }
         if (S.ctxCur === k) return;
+        const lastT = S.ctxEvents.length ? S.ctxEvents[S.ctxEvents.length - 1].t : 0;
+        const t = at == null ? Math.round(now()) : Math.max(lastT, Math.min(Math.round(now()), Math.round(at)));
         S.ctxCur = k;
-        S.ctxEvents.push({ t: Math.round(now()), k });
+        S.ctxEvents.push({ t, k });
         renderCtx();
+    }
+    // ما أعلنه المعلّم بصوته («نبدأ الإحماء»، «الحين النشاط التطبيقي»): **اقتراحٌ** يلمسه المشرف — لا يُسجَّل وحده، فالمحوِّل قد يخطئ
+    // والمعلّم قد يذكر العنصر ولا يبدؤه. يُعرض دقيقتين، ولا يُقترح العنصر الجاري.
+    function speechCue(x) {
+        const c = SX() && SX().cues ? SX().cues(x) : null;
+        if (!c || !c.part || c.part === S.ctxCur || !E().PART[c.part]) return;
+        S.cue = { k: c.part, t: Math.round(now()), x: String(x).slice(0, 90) };
+        renderCue();
+    }
+    function renderCue() {
+        const box = $('eyeSpeechCue');
+        if (!box) return;
+        const c = S.cue;
+        if (c && (!S.running || now() - c.t > 120 || c.k === S.ctxCur)) S.cue = null;
+        box.classList.toggle('hidden', !S.cue);
+        if (!S.cue) return;
+        $('eyeCueText').textContent = 'سُمع عند ' + mmss(S.cue.t) + ': «' + S.cue.x + '»';
+        $('eyeCueOk').textContent = 'بدأ «' + E().PART[S.cue.k].label + '»';
     }
     function renderCtx() {
         document.querySelectorAll('#eyeBody .eye-ctx').forEach(b => {
@@ -1198,7 +1241,8 @@
         const Ctor = SR();
         if (!Ctor || !S.running) return;
         const runId = S.runId;
-        const sp = S.sp = { on: true, segs: [], mode: 'cloud', lang: 'ar-OM', restarts: [], interim: '', err: '', rec: null, track: track || null, dirty: true, A: null };
+        const sp = S.sp = { on: true, segs: [], mode: 'cloud', li: 0, lang: LANGS()[0], restarts: [], interim: '', err: '', rec: null, track: track || null, dirty: true, A: null,
+                            heard: Date.now() };
         // داخل الجهاز إن كانت حزمة العربيّة مثبّتة (Chrome على الحاسوب)، وإلّا خدمة المتصفّح
         try {
             if (typeof Ctor.available === 'function') {
@@ -1215,14 +1259,23 @@
         if (!Ctor) return;
         let rec;
         try { rec = new Ctor(); } catch (e) { sp.err = 'تعذّر تشغيل التعرّف على الكلام في هذا المتصفّح.'; renderSpeechLive(); return; }
-        rec.lang = sp.lang; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+        // حتّى خمسة بدائل للعبارة: يُختار منها الأنسب لألفاظ الملعب ومصطلحات الدرس (pickAlt — والتساوي لأعلاها ثقة)
+        rec.lang = sp.lang; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 5;
         if (sp.mode === 'local') { try { rec.processLocally = true; } catch (e) { sp.mode = 'cloud'; } }
         rec.onresult = e => {
             let interim = '';
+            sp.heard = Date.now();
             for (let i = e.resultIndex; i < e.results.length; i++) {
-                const r = e.results[i], x = String((r[0] && r[0].transcript) || '').trim();
-                if (!x) continue;
-                if (r.isFinal) speechAdd(sp, x); else interim += ' ' + x;
+                const r = e.results[i];
+                if (r.isFinal) {
+                    const alts = [];
+                    for (let j = 0; j < r.length; j++) if (r[j]) alts.push(r[j]);
+                    const x = String((SX() ? SX().pickAlt(alts, info().topic) : (r[0] && r[0].transcript)) || '').trim();
+                    if (x) { speechAdd(sp, x); speechCue(x); }
+                } else {
+                    const x = String((r[0] && r[0].transcript) || '').trim();
+                    if (x) interim += ' ' + x;
+                }
             }
             sp.interim = interim.trim();
             sp.err = '';
@@ -1231,14 +1284,18 @@
         rec.onerror = e => {
             const k = e && e.error;
             if (k === 'not-allowed' || k === 'service-not-allowed') { sp.on = false; sp.err = 'رُفض إذن التعرّف على الكلام — اسمح بالميكروفون لهذا الموقع ثمّ أعد الرصد.'; }
-            else if (k === 'language-not-supported') { if (sp.mode === 'local') sp.mode = 'cloud'; else if (sp.lang !== 'ar-SA') sp.lang = 'ar-SA'; else { sp.on = false; sp.err = 'العربيّة غير متاحة للتعرّف على الكلام في هذا المتصفّح.'; } }
+            else if (k === 'language-not-supported') {
+                if (sp.mode === 'local') sp.mode = 'cloud';
+                else if (sp.li < LANGS().length - 1) { sp.li++; sp.lang = LANGS()[sp.li]; }      // العُمانيّة ← الإماراتيّة ← السعوديّة ← العامّة
+                else { sp.on = false; sp.err = 'العربيّة غير متاحة للتعرّف على الكلام في هذا المتصفّح.'; }
+            }
             else if (k === 'network') sp.err = 'التعرّف على الكلام يحتاج اتّصالاً بالإنترنت — تُعاد المحاولة.';
             else if (k === 'audio-capture') sp.err = 'تعذّر على خدمة الكلام الوصول إلى الميكروفون (قد يشغله تحليل الصوت). جرّب إطفاء «الصوت» وإبقاء «فهم الكلام».';
             renderSpeechLive();
         };
         // التعرّف يتوقّف بعد الصمت (خاصّةً على الجوّال) — يُعاد تشغيله ما دام الرصد جارياً، بتمهّلٍ إن تكرّر كثيراً
         rec.onend = () => {
-            if (!sp.on || !S.running || S.sp !== sp) return;
+            if (!sp.on || !S.running || S.sp !== sp || sp.rec !== rec) return;     // أُعيد التشغيل يدويّاً: لهذا التشغيل خلفٌ
             const t = Date.now();
             sp.restarts = sp.restarts.filter(x => t - x < 60000);
             sp.restarts.push(t);
@@ -1248,6 +1305,17 @@
         // مسار ميكروفون الرصد نفسه (ميكروفون المعلّم المختار) حيث يقبله المتصفّح، وإلّا الميكروفون الافتراضيّ
         try { if (sp.track && sp.track.readyState === 'live') rec.start(sp.track); else rec.start(); }
         catch (e) { try { rec.start(); } catch (e2) { sp.err = 'تعذّر بدء التعرّف على الكلام.'; renderSpeechLive(); } }
+    }
+    // إعادة التعرّف بلمسة: بعد رفض الإذن، أو حين يُسمع كلامٌ ولا يصل نصّ (المحوِّل علق بعد مكالمةٍ أو قفل الشاشة)
+    function restartSpeech() {
+        const sp = S.sp;
+        if (!sp || !S.running) return;
+        const old = sp.rec;
+        sp.rec = null;                                  // onend القديم لا يُعيد نفسه
+        try { if (old) old.abort(); } catch (e) { /* انتهى أصلاً */ }
+        sp.on = true; sp.err = ''; sp.heard = Date.now();
+        renderSpeechLive();
+        setTimeout(() => { if (sp.on && S.running && S.sp === sp && !sp.rec) speechRun(sp); }, 300);
     }
     function speechAdd(sp, x) {
         const t = Math.round(now());
@@ -1271,8 +1339,18 @@
         const st = $('eyeSpeechState');
         st.textContent = sp.err || ((sp.mode === 'local' ? 'داخل الجهاز' : 'عبر خدمة المتصفّح') + ' · ' + sp.segs.length + ' عبارة');
         st.className = 'text-xs ' + (sp.err ? 'text-red-700 font-bold' : 'text-slate-500');
-        // توقّف التعرّف (إذنٌ يُطلب بلمسة — كأن بدأ الرصد بوصول صورة الهاتف لا بضغطة): يُعاد بلمسة
-        $('eyeSpeechRetry').classList.toggle('hidden', !(sp.err && !sp.on));
+        // التقاطٌ متوقّف: تحليل الصوت يسمع كلاماً (٢٠ ثانيةً فأكثر) ولا يصل من المحوِّل نصّ — أو بلا تحليل صوتٍ دقيقتان بلا نصّ
+        const gap = Math.max(0, (Date.now() - (sp.heard || Date.now())) / 1000);
+        let voiced = 0;
+        if (S.audio) for (let j = Math.max(0, S.secs.length - Math.floor(gap)); j < S.secs.length; j++) if (S.secs[j] && S.secs[j].v) voiced++;
+        const quiet = sp.on && !sp.err && (S.audio ? voiced >= 20 : gap >= 120);
+        const qe = $('eyeSpeechQuiet');
+        qe.classList.toggle('hidden', !quiet);
+        if (quiet) qe.textContent = (S.audio ? 'يُسمع كلامٌ ولا يصل نصٌّ منذ ' : 'لم يصل نصٌّ منذ ') + mmss(gap)
+            + ' — قد يكون التعرّف توقّف (مكالمة، قفل الشاشة، انقطاع الإنترنت). المس «تشغيل فهم الكلام».';
+        // توقّف التعرّف (إذنٌ يُطلب بلمسة — كأن بدأ الرصد بوصول صورة الهاتف لا بضغطة)، أو التقاطٌ متوقّف: يُعاد بلمسة
+        $('eyeSpeechRetry').classList.toggle('hidden', !((sp.err && !sp.on) || quiet));
+        renderCue();
         const last = sp.segs[sp.segs.length - 1];
         const tx = $('eyeSpeechText');
         tx.textContent = '';
@@ -1580,6 +1658,21 @@
         const z = c.zoom, zl = $('eyeZoomLbl'), zi = $('eyeZoom');
         zl.classList.toggle('hidden', !z);
         if (z) { zi.min = z.min; zi.max = z.max; zi.step = z.step; zi.value = z.v; }
+        $('eyeWide').classList.toggle('hidden', !wideStep());
+    }
+    // أوسع زاويةٍ في الهاتف: العدسة العريضة جدّاً إن لم تكن الحاليّة، وإلّا أقلّ تقريب — خطوةٌ بلمسة (تبديل العدسة يمسح منطقة الصفّ والمعلّم)
+    function wideStep() {
+        const c = S.phoneCams;
+        if (!c) return null;
+        const u = c.list.find(x => x.ultra);
+        if (u && u.id !== c.cur) return { lens: u.id };
+        if (c.zoom && c.zoom.v > c.zoom.min + 1e-6) return { zoom: c.zoom.min };
+        return null;
+    }
+    function phoneWide() {
+        const w = wideStep();
+        if (!w) { toast('الهاتف على أوسع زاويةٍ لديه — أبعد الحامل أو ارفعه', 'info'); return; }
+        if (w.lens) phoneLens(w.lens); else { phoneZoom(w.zoom); S.phoneCams.zoom.v = w.zoom; lensUi(); }
     }
     // العدسة أو التقريب يغيّران هندسة الصورة: منطقة الصفّ والمعلّم والمتتبَّعون يُعادون
     function lensChanged() {
@@ -1636,6 +1729,7 @@
         S.ctxEvents = [];
         S.ctxCur = null;
         S.rollSpans = []; S.rollSig = '';
+        S.cue = null;
         S.result = null;
         S.hadAudio = !!S.audio;
         S.mic = checked('eyeTeacherMic') ? 'teacher' : 'device';
@@ -1816,7 +1910,7 @@
                 m: a.n && a.n >= a.bad ? a.sum / a.n : null,   // أغلب الإطارات مهتزّة ← غير محسوب
                 v: a.af ? a.voice / a.af >= 0.35 : (S.audio ? false : null),
                 w: a.whistle,
-                p: p ? Object.assign({ n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d, vg: p.vg, cr: p.cr, b: p.b },
+                p: p ? Object.assign({ n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d, vg: p.vg, cr: p.cr, b: p.b, e: p.e },
                     p.tc ? { t: [p.tc.x, p.tc.y, p.tc.mv ? 1 : 0, p.tc.edge == null ? -1 : p.tc.edge ? 1 : 0] } : {}) : null
             });
             if (a.lost && a.bad >= a.n) S.lostSec++;            // ثانيةٌ بلا صورةٍ من الهاتف
@@ -1889,6 +1983,8 @@
         drawSpark();
         drawHeat();
         drawView();
+        $('eyeDotKey').classList.toggle('hidden', !(checked('eyeAI') && AI.ok && S.src !== 'none'));
+        if (S.via === 'phone') $('eyeWide').classList.toggle('hidden', !wideStep());
         renderSpeechLive();
     }
     // مقطع السلسلة الحيّة بشكل مجرى الحصة (والمحفوظ مثله: tl/tv/tc/tm/tt)
@@ -2089,7 +2185,7 @@
                 }
                 g.beginPath();
                 g.arc(x, y - 6, 6, 0, Math.PI * 2);
-                g.fillStyle = !d.in ? 'rgba(224,122,106,0.95)' : d.mv ? '#f0b44a' : '#e2e8f0';
+                g.fillStyle = !d.in ? DOT.out : d.pl ? DOT.place : d.mv ? DOT.move : DOT.still;
                 g.fill();
                 g.lineWidth = 1.5; g.strokeStyle = '#082742'; g.stroke();
             });
@@ -2131,6 +2227,7 @@
         aiState('');
         roiHint();
         $('eyeStatus').classList.add('hidden');
+        $('eyeDotKey').classList.add('hidden');
         $('eyeStop').classList.add('hidden');
         $('eyeIdle').classList.remove('hidden');
         startBtns.forEach(id => $(id).classList.remove('hidden'));
@@ -2225,8 +2322,32 @@
     }
 
     // ── النتيجة ──
-    function chip(score) {
-        return `<span class="inline-block text-xs font-bold text-white rounded-md px-2 py-0.5" style="background:${RATING()[score]}">${esc(E().LEVELS[score])}</span>`;
+    // مستويات البند الخمسة بألوان أزرار الاستمارة: المختار ممتلئ، والمقترح بنقطةٍ ذهبيّة، وما في النموذج الآن مكتوبٌ تحته
+    function levelPicker(id, chosen, sug, cur) {
+        const btns = [1, 2, 3, 4, 5].map(n => {
+            const on = n === chosen, col = RATING()[n];
+            return `<button type="button" class="eye-lvb relative rounded-lg border px-1 py-1.5 text-[11px] leading-4 font-semibold" data-id="${id}" data-score="${n}" aria-pressed="${on}"
+                style="${on ? 'background:' + col + ';border-color:' + col + ';color:#fff' : 'background:#fff;border-color:#cbd5e1;color:#334155'}">${esc(E().LEVELS[n])}${n === sug
+                ? '<i class="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full" style="background:#f0b44a;box-shadow:0 0 0 1.5px #fff" title="المقترح"></i>' : ''}</button>`;
+        }).join('');
+        return `<div class="eye-lv grid grid-cols-5 gap-1 mt-2" role="group" aria-label="مستوى ${esc(title(id))}" data-cur="${cur || ''}">${btns}</div>
+            <p class="text-[11px] text-slate-500 mt-1">${cur ? 'في النموذج الآن: ' + esc(E().LEVELS[cur]) : ''}${sug ? (cur ? ' · ' : '') + '<i class="inline-block w-2 h-2 rounded-full align-middle" style="background:#f0b44a"></i> المقترح' : ''}</p>`;
+    }
+    function pickLevel(b) {
+        const id = b.dataset.id, n = Number(b.dataset.score), lv = b.closest('.eye-lv');
+        lv.querySelectorAll('.eye-lvb').forEach(x => {
+            const on = x === b, col = RATING()[Number(x.dataset.score)];
+            x.setAttribute('aria-pressed', on ? 'true' : 'false');
+            x.style.background = on ? col : '#fff'; x.style.borderColor = on ? col : '#cbd5e1'; x.style.color = on ? '#fff' : '#334155';
+        });
+        const cb = document.querySelector('#eyeResult .eye-apply[data-id="' + id + '"]');
+        if (cb) { cb.dataset.score = String(n); cb.checked = n !== Number(lv.dataset.cur); }
+        applyCount();
+    }
+    function applyCount() {
+        const n = document.querySelectorAll('#eyeResult .eye-apply:checked').length, el = $('eyeApplyN');
+        if (el) el.textContent = n ? E().count(n, 'بندٌ واحدٌ محدَّد', 'بندان محدَّدان', 'بنود محدَّدة', 'بنداً محدَّداً') : 'لم يُحدَّد بند';
+        if ($('eyeApply')) $('eyeApply').disabled = !n;
     }
     const basisText = { camera: 'من الكاميرا', ai: 'من كشف الطلبة', ctx: 'من سياق الحصة', taps: 'من لمساتك', both: 'من لمساتك والرصد', speech: 'من كلام المعلّم',
                         sample: 'من عيّنة الطلبة', follow: 'من متابعة أهداف الزيارة السابقة' };
@@ -2426,6 +2547,7 @@
                     ${box('تذكير بالسلامة', SPA.safe.n)}${box('تعليمات تنظيمية', SPA.orgShare + '%')}
                 </div>
                 <p class="text-sm text-slate-700 mt-3 leading-7">${terms ? 'مصطلحات الدرس (' + esc(terms.terms.join('، ')) + '): سُمعت <b>' + terms.n + '</b> ' + (terms.n === 1 ? 'مرّة' : 'مرّات') + ' · ' : ''}القيم والروح الرياضيّة: <b>${SPA.values.n}</b> · الربط بالصحّة: <b>${SPA.health.n}</b></p>
+                ${SPA.forms && Object.keys(SPA.forms).length && SX() ? `<p class="text-sm text-slate-700 mt-1 leading-7">تشكيلاتٌ طلبها بصوته: ${Object.keys(SPA.forms).map(k => esc(SX().FORM_LABEL[k] || k) + ' <b>' + SPA.forms[k] + '</b>').join(' · ')}${M.forms && M.forms.count ? ' <span class="text-xs text-slate-500">— قارنها بما رأته الكاميرا في «التشكيلات»</span>' : ''}</p>` : ''}
                 ${SPA.admin && SPA.admin.clauses ? `<p class="text-xs text-slate-500 mt-1">قيلت ${esc(E().count(SPA.admin.clauses, 'عبارةٌ واحدة', 'عبارتان', 'عبارات', 'عبارة'))} أثناء الحضور والزيّ — لم تُحلَّل (ليست شرحاً ولا أسئلةً للدرس).</p>` : ''}
                 <div class="grid md:grid-cols-2 gap-4 mt-3">
                     ${exList('تعزيزٌ محدّد', SPA.praise.specEx)}${exList('تصحيحٌ بالمهارة', SPA.corr.specEx)}
@@ -2583,24 +2705,36 @@
 
         const sugg = data.sugg || [];
         const applied = new Set(data.applied || []);
+        const formScore = id => { const el = document.querySelector('#score-' + id); const n = el ? Number(el.textContent) : NaN; return n >= 1 && n <= 5 ? n : null; };
         const items = sugg.map(s => {
-            const cur = document.querySelector('#score-' + s.id);
-            const curScore = cur ? Number(cur.textContent) : null;
+            const curScore = formScore(s.id);
             const conf = s.conf && confText[s.conf] ? `<span class="inline-flex items-center gap-1 text-xs text-slate-600"><i class="inline-block w-2 h-2 rounded-full" style="background:${confColor[s.conf]}"></i>${esc(confText[s.conf])}</span>` : '';
             return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0">
-                <input type="checkbox" class="eye-apply mt-1.5 w-4 h-4" data-id="${s.id}" data-score="${s.score}" ${curScore === s.score ? '' : 'checked'} aria-label="تطبيق اقتراح البند ${s.id}">
+                <input type="checkbox" class="eye-apply mt-1.5 w-4 h-4" data-id="${s.id}" data-score="${s.score}" ${curScore === s.score ? '' : 'checked'} aria-label="تطبيق البند ${s.id} على النموذج">
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                        <b class="text-slate-900">${esc(title(s.id))}</b>${chip(s.score)}
+                        <b class="text-slate-900">${esc(title(s.id))}</b>
                         <span class="text-xs text-slate-500">${esc(basisText[s.basis] || '')}</span>
                         ${conf}
                         ${applied.has(s.id) ? '<span class="text-xs font-bold text-green-700">طُبّق</span>' : ''}
-                        ${curScore && curScore !== s.score ? `<span class="text-xs text-slate-500">في النموذج الآن: ${esc(E().LEVELS[curScore] || '')}</span>` : ''}
                     </div>
                     <p class="text-sm text-slate-700 mt-1 leading-7">${esc(s.evidence)}</p>
+                    ${levelPicker(s.id, s.score, s.score, curScore)}
                 </div></li>`;
         }).join('');
         const un = E().unsupported(sugg, M);
+        // الاستمارة المصغّرة (2026-10-27): البنود الأخرى تُقيَّم من هنا أيضاً — المحدَّد فيها درجة النموذج الآن، ولا يُطبَّق إلّا ما غيّرته
+        const others = un.map(u => {
+            const curScore = formScore(u.id);
+            return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0">
+                <input type="checkbox" class="eye-apply mt-1.5 w-4 h-4" data-id="${u.id}" data-score="${curScore || ''}" aria-label="تطبيق البند ${u.id} على النموذج">
+                <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2"><b class="text-slate-900">${esc(title(u.id))}</b>
+                        ${applied.has(u.id) ? '<span class="text-xs font-bold text-green-700">طُبّق</span>' : ''}</div>
+                    <p class="text-xs text-slate-500 mt-0.5 leading-5">${esc(u.why)}</p>
+                    ${levelPicker(u.id, curScore, null, curScore)}
+                </div></li>`;
+        }).join('');
 
         box.innerHTML = `
             <div class="bg-white rounded-2xl border border-slate-200 p-5">
@@ -2629,12 +2763,15 @@
                 <p class="text-sm text-slate-600 mt-1 leading-6">اقتراحٌ يُراجَع لا حكمٌ نهائيّ: يُقترح البند الذي عليه شاهدٌ من الرصد أو من لمساتك، ومع كلٍّ شاهده ودرجة الثقة فيه.
                    صحّح العدّادات إن لزم فيُعاد الاقتراح، ثمّ حدِّد ما تعتمده وطبّقه على نموذج التقييم — ويظهر الشاهد تحت البند فيه.</p>
                 ${sugg.length ? `<ul class="mt-2">${items}</ul>` : '<p class="text-sm text-slate-600 py-4">لا بند عليه شاهدٌ كافٍ بعد. ارصد عشر دقائق على الأقلّ، أو المس عناصر الحصة والوسوم أثناءها.</p>'}
-                <details class="mt-3 text-sm">
-                    <summary class="cursor-pointer text-slate-600">بنودٌ بلا اقتراح (${un.length})</summary>
-                    <ul class="mt-2 space-y-1.5">${un.map(u => `<li class="text-slate-600"><b class="text-slate-800">${esc(title(u.id))}</b> — ${esc(u.why)}</li>`).join('')}</ul>
-                </details>
-                <div class="flex flex-wrap gap-2 mt-4">
-                    ${sugg.length ? '<button type="button" id="eyeApply" class="svf-btn svf-btn-primary">تطبيق المحدَّد على نموذج التقييم</button>' : ''}
+                ${un.length ? `<details id="eyeOthers" class="mt-3 text-sm"${sugg.length ? '' : ' open'}>
+                    <summary class="cursor-pointer text-slate-700 font-semibold">البنود الأخرى — قيّمها من هنا (${un.length})</summary>
+                    <p class="text-xs text-slate-500 mt-1 leading-5">لا اقتراح عليها من هذا الرصد. المحدَّد فيها درجتها في النموذج الآن؛ المس مستوىً آخر فيُحدَّد البند للتطبيق.</p>
+                    <ul class="mt-1">${others}</ul>
+                </details>` : ''}
+                <div class="flex flex-wrap items-center gap-2 mt-4">
+                    <button type="button" id="eyeApply" class="svf-btn svf-btn-primary">تطبيق المحدَّد على نموذج التقييم</button>
+                    <span id="eyeApplyN" class="text-xs text-slate-500"></span>
+                    <span class="flex-1"></span>
                     <button type="button" id="eyeNew" class="svf-btn svf-btn-ghost">رصد جديد</button>
                 </div>
             </div>`;
@@ -2651,6 +2788,12 @@
         renderMonitorDone(data);
         updateGuideLive();
         $('eyeApply') && $('eyeApply').addEventListener('click', apply);
+        if (!box.dataset.lvBound) {                       // الحاوية تبقى بين إعادات الرسم — المستمعان مرّةً واحدة
+            box.dataset.lvBound = '1';
+            box.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.eye-lvb'); if (b && box.contains(b)) pickLevel(b); });
+            box.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('eye-apply')) applyCount(); });
+        }
+        applyCount();
         $('eyeToNotes') && $('eyeToNotes').addEventListener('click', () => toNotes(data.summary));
         $('eyeNew').addEventListener('click', reset);
         $('eyeCard').addEventListener('click', () => shareCard('share'));
@@ -2839,7 +2982,7 @@
     }
 
     function apply() {
-        const picks = Array.from(document.querySelectorAll('#eyeResult .eye-apply:checked')).map(c => ({ id: +c.dataset.id, score: +c.dataset.score }));
+        const picks = Array.from(document.querySelectorAll('#eyeResult .eye-apply:checked')).map(c => ({ id: +c.dataset.id, score: +c.dataset.score })).filter(p => p.score >= 1 && p.score <= 5);
         if (!picks.length) { toast('حدِّد بنداً واحداً على الأقلّ', 'error'); return; }
         let done = 0;
         picks.forEach(p => {
