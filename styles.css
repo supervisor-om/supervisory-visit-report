@@ -79,3 +79,8 @@
 
         .delete-evidence-btn { visibility: hidden; }
         .evidence-item:hover .delete-evidence-btn { visibility: visible; }
+
+        /* عين المشرف — وضع الحصة المبسّط: أثناء الرصد يظهر الأساسيّ وحده (العناصر، أهمّ الوسوم، العلامة، الإيقاف)،
+           وما سواه يعود بزرّ «كل الأدوات» أو بعد الإيقاف. السمة يضعها layout() في js/eye.js */
+        #eyeBody[data-eye-simple] .eye-adv { display: none !important; }
+        #eyeBody:not([data-eye-simple]) .eye-simple-only { display: none !important; }

@@ -1181,5 +1181,28 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /ما الذي دفعكِ إلى ذلك؟/.test(UI) && /أجدتِ /.test(UI) && /\$\{evTalk\}/.test(UI));
 }
 
+/* ── ٣٠) وضع الحصة المبسّط: الأساسيّ وحده أثناء الرصد (2026-10-29) ── */
+{
+    const UI = read('js/eye.js'), CSS = read('styles.css');
+    // «أهمّ ما تلمسه»: يُشغَّل نصّ الدالّة نفسه على عاداتٍ مصنوعة
+    const src = UI.slice(UI.indexOf('    const QUICK_N = 6'), UI.indexOf('    function renderQuick()'));
+    const pick = freq => new Function('E', 'S', src + '\nreturn quickTags();')(() => E, { tagFreq: freq });
+    check('quick: قبل أن تتكوّن عادة — ستّةٌ من التدريس والتقويم والسلامة', JSON.stringify(pick({})) === JSON.stringify(['demo', 'fbInd', 'ask', 'fbMiss', 'out', 'hazard']));
+    const used = pick({ games: 9, safe: 4, demo: 1 });
+    check('quick: الأكثر لمساً يتقدّم، والباقي من الافتراض بترتيبه', used.length === 6 && used[0] === 'games' && used[1] === 'safe' && used[2] === 'demo' && used[3] === 'fbInd' && !used.includes('hazard'));
+    check('quick: كلّ وسمٍ فيها من وسوم العين', pick({ x: 99 }).every(k => E.TAG[k]));
+    check('simple: الوضع أثناء الرصد وحده، ويُبدَّل بزرٍّ في شريط الرصد ويُذكر', /const simple = S\.running && S\.simple !== false;/.test(UI) && /\$\('eyeBody'\)\.toggleAttribute\('data-eye-simple', simple\);/.test(UI)
+          && /id="eyeMore"/.test(UI) && /S\.simple = !S\.simple; savePrefs\(\); layout\(\);/.test(UI) && /const p = \{ simple: S\.simple !== false, freq: S\.tagFreq \|\| \{\} \};/.test(UI));
+    check('simple: القاعدتان في styles.css', /#eyeBody\[data-eye-simple\] \.eye-adv \{ display: none !important; \}/.test(CSS) && /#eyeBody:not\(\[data-eye-simple\]\) \.eye-simple-only \{ display: none !important; \}/.test(CSS));
+    // ما يُخفى: المتابعة والمجرى والوسوم والعيّنة واللحظات والدليل والأهداف — وما يبقى: العناصر، والعلامة والإيقاف، وأدوات الإنقاذ
+    const adv = ['eyeMonitor', 'eyeEvLive', 'eyeFocus', 'eyeGuide', 'eyeDotKey', 'eyeTeacherBtn', 'eyeSpeechText', 'eyeSpeechCounts'];
+    check('simple: المتقدّم موسومٌ eye-adv', adv.every(id => new RegExp('id="' + id + '" class="eye-adv ').test(UI)) && /class="eye-adv bg-white rounded-2xl border border-slate-200 p-4">\s*<div[^>]*>\s*<b class="text-sm text-slate-900">مجرى الحصة/.test(UI)
+          && /class="eye-adv grid grid-cols-1 lg:grid-cols-2 gap-5">\s*<section[^>]*>\s*<div[^>]*>\s*<h2 class="font-bold text-slate-900">ما لا تراه الكاميرا/.test(UI));
+    const keep = ['eyeMark', 'eyeStop', 'eyeRoiBtn', 'eyeCamRestart', 'eyeRelink', 'eyeSpeechRetry', 'eyeSpeechCue', 'eyeSpeechQuiet', 'eyeLiveBar'];
+    check('simple: الأساسيّ وأدوات الإنقاذ لا تُخفى', keep.every(id => { const m = UI.match(new RegExp('id="' + id + '" class="([^"]*)"')); return m && !/eye-adv/.test(m[1]); }) && !/eye-adv[^"]*" data-ctx|class="eye-adv eye-ctx/.test(UI));
+    check('simple: أهمّ تنبيهٍ يظهر في اللوحة المبسّطة، بالتفويض للمسات', /const qa = \$\('eyeQuickAlert'\), top = L\.alerts\[0\];/.test(UI) && /qa\.textContent = top\.text;/.test(UI)
+          && /\$\('eyeQuickTags'\)\.addEventListener\('click'/.test(UI) && /if \(S\.running\) \{ S\.tagFreq\[k\] = \(S\.tagFreq\[k\] \|\| 0\) \+ 1; savePrefs\(\); \}/.test(UI));
+}
+
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);
