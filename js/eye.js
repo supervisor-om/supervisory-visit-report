@@ -257,6 +257,14 @@
                         </div>
                         <p class="text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
                         <p id="eyeSpeechNote" class="hidden text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-5"></p>
+                        <div id="eyeEvLive" class="hidden bg-white rounded-2xl border border-slate-200 p-4">
+                            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                <b class="text-sm text-slate-900">أدلّة الحصة حتّى الآن</b>
+                                <span class="text-xs text-slate-500">تُكتب تحت بنودها في «نموذج التقييم» بأوقاتها</span>
+                            </div>
+                            <div id="eyeEvItems" class="flex flex-wrap gap-1.5 mt-2"></div>
+                            <ul id="eyeEvLast" class="mt-2 space-y-1"></ul>
+                        </div>
                         <div id="eyeSpeechLive" class="hidden bg-white rounded-2xl border border-slate-200 p-4" aria-live="polite">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <b class="text-sm text-slate-900">كلام المعلّم</b>
@@ -429,7 +437,14 @@
         $('eyeCueNo').addEventListener('click', () => { S.cue = null; renderCue(); });
         $('eyeMark').addEventListener('click', addMark);
         $('eyeMarks').addEventListener('input', e => { const i = +e.target.dataset.mark; if (S.marks[i]) { S.marks[i].note = e.target.value.slice(0, 160); syncMarks(false); } });
-        $('eyeMarks').addEventListener('change', e => { if (e.target.dataset.mark != null) syncMarks(true); });
+        $('eyeMarks').addEventListener('change', e => {
+            if (e.target.dataset.markitem != null) {
+                const m = S.marks[+e.target.dataset.markitem];
+                if (m) { m.item = Number(e.target.value) || null; if (S.running) refreshEvidence(); else syncMarks(true); }
+                return;
+            }
+            if (e.target.dataset.mark != null) syncMarks(true);
+        });
         $('eyeMarks').addEventListener('click', e => { const b = e.target.closest('[data-unmark]'); if (b) { S.marks.splice(+b.dataset.unmark, 1); renderMarks(); drawTimeline(); syncMarks(true); } });
         body.querySelectorAll('.eye-round').forEach(b => b.addEventListener('click', () => { S.sampleRound = b.dataset.round; renderSample(); }));
         $('eyeSampleChips').addEventListener('click', e => { const b = e.target.closest('[data-pupil]'); if (b) sampleTap(+b.dataset.pupil); });
@@ -864,13 +879,15 @@
                 <span class="flex-none text-xs tabular-nums text-slate-600 w-11">${mmss(m.t)}</span>
                 ${partShort(partAt(cx, m.t)) ? `<span class="flex-none text-[11px] text-slate-500">${esc(partShort(partAt(cx, m.t)))}</span>` : ''}
                 <input type="text" data-mark="${i}" value="${esc(m.note || '')}" maxlength="160" placeholder="ملاحظة قصيرة (اختياريّة)" class="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 py-1 text-sm">
+                <select data-markitem="${i}" class="flex-none w-20 border border-slate-300 rounded-lg px-1 py-1 text-xs" aria-label="البند الذي تشهد له العلامة" title="انسبها إلى بندٍ فتظهر دليلاً تحته">
+                    <option value="">البند</option>${[...Array(13)].map((_, k) => `<option value="${k + 1}" ${m.item === k + 1 ? 'selected' : ''}>${k + 1}</option>`).join('')}</select>
                 <button type="button" data-unmark="${i}" class="flex-none w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:border-red-400" aria-label="حذف العلامة">×</button></li>`).join('')
             || '<li class="text-xs text-slate-400">لا علامات بعد.</li>';
     }
     // بعد الرصد: العلامات تُحفظ مع النتيجة (الملاحظة تُكتب في أيّ وقت)
     function syncMarks(rerender) {
         if (!S.result || S.running) return;
-        S.result.marks = S.marks.map(m => [m.t, m.note || '']);
+        S.result.marks = S.marks.map(markRow);
         save(S.result);
         if (rerender) renderResult(S.result);
     }
@@ -2044,6 +2061,7 @@
         drawHeat();
         drawView();
         $('eyeDotKey').classList.toggle('hidden', !(checked('eyeAI') && AI.ok && S.src !== 'none'));
+        if (S.lastSec % 5 === 0) refreshEvidence(M);
         if (S.via === 'phone') $('eyeWide').classList.toggle('hidden', !wideStep());
         renderSpeechLive();
     }
@@ -2290,6 +2308,7 @@
         roiHint();
         $('eyeStatus').classList.add('hidden');
         $('eyeDotKey').classList.add('hidden');
+        $('eyeEvLive').classList.add('hidden');
         $('eyeStop').classList.add('hidden');
         $('eyeIdle').classList.remove('hidden');
         startBtns.forEach(id => $(id).classList.remove('hidden'));
@@ -2357,7 +2376,7 @@
             sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]), off: S.spOff || 0 } : null,
             sample: hasSample(S.sample) ? JSON.parse(JSON.stringify(S.sample)) : null,
             guide: GD ? { id: GD.id, skills: S.guide.skills.slice() } : null,
-            marks: S.marks.map(m => [m.t, m.note || '']),
+            marks: S.marks.map(markRow),
             targets: [],
             applied: []
         };
@@ -3167,15 +3186,55 @@
         }).catch(e => { if (!e || e.name !== 'AbortError') toast('تعذّرت مشاركة البطاقة', 'error'); });
     }
 
-    // الشاهد تحت البند في «نموذج التقييم»: ما اقترحته العين وشاهده، بلا مساسٍ بالوصف الرسميّ
+    // ── مساعد الأدلّة (2026-10-28) ──
+    // سجلّ الأدلّة (eye-core: evidenceLog) — حيّاً من الرصد الجاري، أو من النتيجة المحفوظة في #eyeData. لا يُحفظ وحده: يُبنى من أرقام الرصد.
+    const markRow = m => (m.item ? [m.t, m.note || '', m.item] : [m.t, m.note || '']);
+    function logOf(d) {
+        if (!d) return {};
+        return E().evidenceLog({ ev: (d.ev || []).map(e => ({ t: e[0], k: e[1] })), counts: d.counts || {}, M: d.M || {}, sample: d.sample,
+            follow: d.follow && d.follow.list, marks: (d.marks || []).map(m => ({ t: m[0], note: m[1], item: m[2] })), ctx: ctxOf(d) });
+    }
+    function liveLog(M) {
+        const sp = S.sp && S.sp.A;
+        return E().evidenceLog({ ev: S.events, counts: S.counts, M: sp ? Object.assign({}, M, { speech: sp }) : M, sample: S.sample,
+            marks: S.marks, ctx: suggCtx() });
+    }
+    function currentLog() {
+        if (S.running) return S.log || {};
+        let d = null;
+        try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
+        return logOf(d);
+    }
+    const SRC_TEXT = { tap: 'لمستك', mark: 'علامتك', cam: 'الكاميرا', ai: 'كشف الطلبة', ctx: 'عناصر الحصة', speech: 'كلام المعلّم', sample: 'عيّنة الطلبة', follow: 'أهداف الزيارة السابقة' };
+    function refreshEvidence(M) {
+        if (!S.running) return;
+        S.log = liveLog(M || E().summarize(recNow()));
+        const box = $('eyeEvLive'), L = S.log, ids = Object.keys(L).map(Number).sort((a, b) => a - b);
+        const all = [];
+        ids.forEach(id => L[id].forEach(e => all.push(Object.assign({ id }, e))));
+        box.classList.toggle('hidden', !all.length);
+        $('eyeEvItems').innerHTML = ids.map(id => `<span class="text-xs rounded-lg border border-slate-200 px-2 py-1 text-slate-700" title="${esc(title(id))}">البند ${id} <b class="tabular-nums text-slate-900">${L[id].length}</b></span>`).join('');
+        const last = all.filter(e => e.t != null).sort((a, b) => b.t - a.t).slice(0, 4);
+        $('eyeEvLast').innerHTML = last.map(e => `<li class="text-xs text-slate-700 leading-5"><span class="tabular-nums text-slate-500 ml-1">${mmss(e.t)}</span><b class="text-slate-800 ml-1">البند ${e.id}:</b>${esc(e.text)}</li>`).join('');
+        const fv = $('form-view');
+        if (fv && !fv.classList.contains('hidden')) decorate();
+    }
+    // عبارات الدليل للبند بمستواه — تحلّ محلّ العشوائيّة في «ويتضح ذلك من خلال …» (supervisory.js)، وفي لوحة «تعديل الأدلة» كلّها (all)
+    root.svfEyeOfficial = function (id, score, all) {
+        try { const out = E().officialFor(currentLog(), Number(id), Number(score), !!all); return out.length ? out : null; } catch (e) { return null; }
+    };
+
+    // تحت كلّ بندٍ في «نموذج التقييم»: اقتراح العين وشاهده، وأدلّة الحصة بأوقاتها — بلا مساسٍ بالوصف الرسميّ
     function decorate() {
         let d = null;
         try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
         const by = {};
         ((d && d.sugg) || []).forEach(s => { by[s.id] = s; });
+        const LOG = S.running ? (S.log || {}) : logOf(d);
         document.querySelectorAll('#form-view [id^="item-"]').forEach(card => {
             const id = Number(card.id.slice(5));
             if (!id) return;
+            evList(card, id, LOG[id] || []);
             let b = card.querySelector('.eye-badge');
             const s = by[id];
             if (!s) { if (b) b.remove(); return; }
@@ -3195,6 +3254,48 @@
             b.appendChild(document.createTextNode(ev.length > 170 ? ev.slice(0, 168) + '…' : ev));
             b.title = ev;
         });
+    }
+
+    // «أدلّة من الحصة (ن)»: قائمةٌ مطويّةٌ تحت البند — الوقت والمصدر وما حدث (textContent)، وعبارة التقرير
+    function evList(card, id, list) {
+        let box = card.querySelector('.eye-evlist');
+        if (!list.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement('details');
+            box.className = 'eye-evlist mt-2 text-xs text-slate-700 bg-white border border-blue-100 rounded-lg px-2.5 py-1.5';
+            const host = card.querySelector('.flex-grow') || card;
+            host.appendChild(box);
+        }
+        const open = box.open;
+        box.textContent = '';
+        const sum = document.createElement('summary');
+        sum.className = 'cursor-pointer font-semibold text-blue-900';
+        sum.textContent = 'أدلّة من الحصة (' + list.length + ')' + (S.running ? ' — تتجدّد' : '');
+        box.appendChild(sum);
+        const ul = document.createElement('ul');
+        ul.className = 'mt-1 space-y-1';
+        list.forEach(e => {
+            const li = document.createElement('li');
+            li.className = 'leading-5';
+            const tm = document.createElement('span');
+            tm.className = 'tabular-nums text-slate-500 ml-1';
+            tm.textContent = (e.t != null ? mmss(e.t) : '—') + ' ';
+            li.appendChild(tm);
+            li.appendChild(document.createTextNode(e.text));
+            const src = document.createElement('span');
+            src.className = 'text-[10px] text-slate-400 mr-1';
+            src.textContent = ' · ' + (SRC_TEXT[e.src] || '');
+            li.appendChild(src);
+            if (e.pos || e.neg) {
+                const ph = document.createElement('div');
+                ph.className = 'text-[11px] ' + (e.neg ? 'text-red-800' : 'text-green-800');
+                ph.textContent = 'للتقرير: ' + (e.pos || e.neg);
+                li.appendChild(ph);
+            }
+            ul.appendChild(li);
+        });
+        box.appendChild(ul);
+        box.open = open;
     }
 
     function apply() {
@@ -3345,7 +3446,7 @@
             S.counts = Object.assign({}, data.counts || {});
             S.events = (data.ev || []).map(e => ({ t: e[0], k: e[1] }));
             S.sample = data.sample ? JSON.parse(JSON.stringify(data.sample)) : null;
-            S.marks = (data.marks || []).map(m => ({ t: m[0], note: m[1] || '' }));
+            S.marks = (data.marks || []).map(m => ({ t: m[0], note: m[1] || '', item: m[2] || null }));
             if (data.guide && LG() && LG().byId(data.guide.id)) {
                 const I = info();
                 S.guide = { id: data.guide.id, skills: (data.guide.skills || []).slice(), sure: true, on: true, min: false };

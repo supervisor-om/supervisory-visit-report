@@ -1615,6 +1615,138 @@
         return out.sort((a, b) => a.t - b.t).map(x => Object.assign(x, { text: P(x.text), part: partAt(x.t) }));
     }
 
+    // ── سجلّ الأدلّة (2026-10-28) — «مساعد الأدلّة» ──
+    // طلب المشرف: «العين مساعدٌ شخصيّ يضع الأدلّة من واقع الحصة … كأنّ معه مشرفاً محترفاً يتابع كلّ لحظة». كلّ ما رُصد يصير دليلاً
+    // **بوقته تحت بنده** (text: ما حدث، للمشرف)، ومعه **عبارة دليلٍ رسميّة الصياغة** للتقرير (pos للمستويات ١–٣، neg لـ٤–٥) تحلّ محلّ
+    // العبارة العشوائيّة في «ويتضح ذلك من خلال …» (svfEyeOfficial في eye.js ← generateDescriptionText في supervisory.js).
+    // قائمة الاستمارة عيّنةٌ لا حصر (توجيه المشرف 2026-10-28): العبارات هنا مكتوبةٌ لحصة الرياضة المدرسيّة على معايير البنود، **بلا تشكيلٍ
+    // وبلا ذكرٍ للمعلّم/المعلّمة** (تمرّ بتصريف الجنس والتلاميذ في الاستمارة)، والأرقام بين قوسين. الدليل ما حدث، والحكم للمشرف.
+    const EV_TAG = {
+        demo:     { pos: 'تقديم نموذج عملي للمهارة قبل الممارسة' },
+        groups:   { pos: 'تنظيم الطلبة في مجموعات تعاونية لممارسة المهارة' },
+        games:    { pos: 'توظيف الألعاب الصغيرة والمنافسات لخدمة الهدف المهاري' },
+        stations: { pos: 'تنفيذ التعلم بالمحطات بما يتيح ممارسة متزامنة لجميع الطلبة' },
+        levels:   { pos: 'تكليف الطلبة بمهام متدرجة وفق مستوياتهم' },
+        include:  { pos: 'إشراك الطلبة ذوي المستويات المختلفة بمهام تناسب قدراتهم' },
+        out:      { neg: 'بقاء عدد من الطلبة خارج النشاط دون إشراك' },
+        fbInd:    { pos: 'تقديم تغذية راجعة فردية فورية لتصحيح الأداء' },
+        fbGrp:    { pos: 'تقديم تغذية راجعة جماعية عن الأخطاء الشائعة في المهارة' },
+        ask:      { pos: 'طرح أسئلة شفهية للتحقق من فهم الطلبة للمهارة' },
+        peer:     { pos: 'إشراك الطلبة في تقويم أدائهم وأداء زملائهم' },
+        fbMiss:   { neg: 'تكرار أخطاء في الأداء دون تصحيح' },
+        lead:     { pos: 'قيادة الطلبة لزملائهم أثناء الإحماء أو التطبيق' },
+        team:     { pos: 'تعاون الطلبة لإنجاز المهام الحركية داخل الفريق' },
+        tactic:   { pos: 'اقتراح الطلبة حلولا خططية أثناء اللعب' },
+        praise:   { pos: 'تعزيز الروح الرياضية والتعامل باحترام بين الطلبة' },
+        misbehave:{ neg: 'ظهور سلوك غير رياضي دون معالجة' },
+        safe:     { pos: 'تهيئة الملعب والأدوات بصورة آمنة قبل الممارسة' },
+        hazard:   { neg: 'حدوث موقف يهدد سلامة الطلبة أثناء الممارسة' },
+        tools:    { pos: 'توفير أدوات كافية ومتنوعة تزيد فرص الممارسة' },
+        noTools:  { neg: 'نقص الأدوات بما يطيل انتظار الطلبة لأدوارهم' }
+    };
+    const n_ = x => '(' + x + ')';
+    // in: {ev: [{t, k}] اللمسات, counts, M: الملخّص, sample, follow: [{verdict}], marks: [{t, note, item}], ctx: {pupil}}
+    // ← {بند: [{t|null, src, text, pos?, neg?}]} مرتّبةً بالوقت (وما لا وقت له آخراً)
+    function evidenceLog(input) {
+        const I = input || {}, M = I.M || {}, P = I.ctx && typeof I.ctx.pupil === 'function' ? I.ctx.pupil : (x => x);
+        const log = {};
+        const add = (item, e) => { if (!item) return; (log[item] = log[item] || []).push(Object.assign({ t: null }, e, { text: P(e.text) })); };
+        const ev = I.ev || [], c = I.counts || {};
+        // ١) لمسات المشرف بأوقاتها — كلّ لمسةٍ دليل
+        ev.forEach(e => {
+            const T = TAG[e.k];
+            if (!T || e.k === 'dish') return;              // الزيّ أدناه بعدده
+            const r = EV_TAG[e.k] || {};
+            add(T.item, { t: e.t, src: 'tap', text: T.label.replace(/ \(عددهم\)$/, ''), pos: r.pos, neg: r.neg });
+        });
+        if (c.dish > 0) {                            // الزيّ: البند ٤ (القيم) والبند ٥ (السلامة)، بعددهم
+            const t0 = (ev.find(e => e.k === 'dish') || {}).t;
+            add(4, { t: t0, src: ev.some(e => e.k === 'dish') ? 'tap' : 'ai', text: pupilsN(c.dish) + ' بغير الزيّ الرياضيّ', neg: 'مشاركة ' + n_(c.dish) + ' من الطلبة بغير الزي الرياضي' });
+            add(5, { t: t0, src: ev.some(e => e.k === 'dish') ? 'tap' : 'ai', text: pupilsN(c.dish) + ' بغير الزيّ الرياضيّ أثناء الممارسة', neg: 'ممارسة بعض الطلبة النشاط بغير الزي الرياضي الآمن' });
+        }
+        if (c.out > 0 && !ev.some(e => e.k === 'out')) add(2, { src: 'ai', text: pupilsN(c.out) + ' خارج منطقة النشاط (تقديرٌ من الكاميرا)', neg: 'بقاء ' + n_(c.out) + ' من الطلبة خارج النشاط دون إشراك' });
+        // ٢) الكاميرا: الزمن والانتظار والصفّارة وموقع المعلّم والتزاحم والأدوات
+        if (M.observed >= MIN_OBSERVE / 2) {
+            const who = M.people && M.people.detSecs >= 60;
+            if (M.longestIdle >= 60 && M.longestIdleAt != null)
+                add(7, { t: M.longestIdleAt, src: 'cam', text: 'أطول انتظارٍ بين نشاطين: ' + dur(M.longestIdle) + (M.waits > 1 ? ' (من ' + M.waits + ' انتظارات)' : ''),
+                         neg: 'انتظار الطلبة بين نشاطين دون ممارسة مدة بلغت ' + durG(M.longestIdle) });
+            else if (M.observed >= MIN_OBSERVE && !M.waits) add(7, { src: 'cam', text: 'لا انتظار بين الأنشطة دقيقةً فأكثر طوال ' + dur(M.observed) + ' من الرصد', pos: 'الانتقال السلس بين أجزاء الدرس دون هدر للوقت' });
+            const mv = movingOf(M);
+            if (mv != null && mv >= 55) add(7, { src: who ? 'ai' : 'cam', text: (who ? 'حركة الطلبة ' : 'النشاط الحركيّ ') + mv + '% من زمن الأنشطة', pos: 'استثمار ' + n_(mv + '%') + ' من زمن الأنشطة في الممارسة الحركية الفعلية' });
+            if (mv != null && mv < 35) add(8, { src: who ? 'ai' : 'cam', text: (who ? 'حركة الطلبة ' : 'النشاط الحركيّ ') + mv + '% فقط من زمن الأنشطة', neg: 'قلة زمن الممارسة الفعلية إذ لم تتجاوز ' + n_(mv + '%') + ' من زمن الأنشطة' });
+            if (M.explainPct >= 40) add(8, { src: 'cam', text: 'كلامٌ والطلبة متوقّفون ' + M.explainPct + '% من زمن الرصد', neg: 'طول زمن الشرح اللفظي والطلبة متوقفون ' + n_(M.explainPct + '%') + ' من زمن الحصة' });
+            const R = M.resp, RL = (R && R.list) || [];
+            if (R && R.n >= 3 && R.med != null && R.med <= 5) add(7, { t: RL[0] && RL[0][0], src: 'cam', text: 'الاستجابة لإشارة الصفّارة في ' + dur(R.med) + ' (الوسيط من ' + R.n + ' إشارات)', pos: 'استجابة الطلبة السريعة لإشارات البدء والتوقف' });
+            const slow = RL.filter(r => r[2] === -1 || r[2] >= 12);
+            slow.slice(0, 2).forEach((r, i) => add(7, { t: r[0], src: 'cam', text: r[2] === -1 ? 'لم يستجب الطلبة لإشارة الصفّارة خلال عشرين ثانية' : 'تأخّرت الاستجابة لإشارة الصفّارة ' + dur(r[2]),
+                neg: i === 0 ? 'بطء استجابة الطلبة لإشارات البدء والتوقف' : undefined }));
+            const LR = M.forms && M.forms.longRun;
+            if (LR && LR.sec >= 30) add(7, { t: LR.at, src: 'ai', text: 'قاطرةٌ من ' + pupilsN(LR.size) + ' مدّة ' + dur(LR.sec), neg: 'وقوف الطلبة في قاطرات طويلة ' + n_(LR.size + ' طلبة') + ' تطيل انتظار الدور' });
+            const pp = M.people || {}, T = pp.teacher;
+            if (T && T.edgePct != null) {
+                if (T.edgePct >= 60) add(7, { src: 'ai', text: 'على أطراف الطلبة ' + T.edgePct + '% من الوقت', pos: 'اختيار موقع يكشف جميع الطلبة أثناء النشاط' });
+                else if (T.edgePct < 35) add(7, { src: 'ai', text: 'وسط الطلبة ' + (100 - T.edgePct) + '% من الوقت', neg: 'الوقوف وسط الطلبة في موقع لا يكشفهم جميعا' });
+            }
+            if (pp.crowdPct != null) {
+                if (pp.crowdPct >= 25) add(5, { src: 'ai', text: 'متحرّكون متلاصقون ' + pp.crowdPct + '% أثناء النشاط', neg: 'تزاحم الطلبة في مساحات ضيقة أثناء التطبيق' });
+                else if (pp.crowdPct <= 10) add(5, { src: 'ai', text: 'التلاصق أثناء الحركة ' + pp.crowdPct + '% فقط', pos: 'توزيع الطلبة في مسافات آمنة أثناء التطبيق' });
+            }
+            const br = ballRatio(M);
+            if (br) add(9, { src: 'ai', text: 'كرةٌ لكلّ ' + perPupils(br) + ' (' + pp.balls + ' كرات)',
+                pos: br <= 2 ? 'توفير كرة لكل ' + perPupils(br) + ' بما يزيد عدد التكرارات' : undefined,
+                neg: br > 4 ? 'عدم كفاية الكرات لعدد الطلبة إذ بلغت كرة لكل ' + perPupils(br) : undefined });
+        }
+        // ٣) عناصر الحصة
+        if (M.ctx && M.ctx.covered >= MIN_STRUCTURE && M.parts) {
+            if (M.parts.orderOk === false) add(6, { src: 'ctx', text: 'ترتيب العناصر: ' + M.parts.order.map(k => (PART[k] ? PART[k].short : k)).join(' ← '), neg: 'عدم الالتزام بتسلسل عناصر الدرس' });
+            const det = partsDetail(M, M.rec);
+            if (det && M.parts.orderOk !== false && det.every(r => r.verdict === 'ok')) add(6, { src: 'ctx', text: 'العناصر الخمسة بترتيبها وفي زمنها الموصى به', pos: 'تنفيذ عناصر الدرس الخمسة بتسلسلها وتوزيع مناسب لزمنها' });
+            else if (det) det.filter(r => r.verdict === 'missing').slice(0, 1).forEach(r => add(6, { src: 'ctx', text: '«' + r.label + '» لم يُنفَّذ', neg: 'غياب ' + r.label + ' من عناصر الدرس' }));
+        }
+        // ٤) كلام المعلّم — العبارة نفسها بوقتها
+        const SP = M.speech;
+        if (SP && SP.clauses) {
+            (SP.corr.specEx || []).slice(0, 3).forEach(([t, x]) => add(10, { t, src: 'speech', text: 'صحّح: «' + x + '»', pos: 'تصحيح أخطاء الأداء فورا بالإشارة إلى أجزاء المهارة' }));
+            (SP.check.ex || []).slice(0, 2).forEach(([t, x]) => add(10, { t, src: 'speech', text: 'تحقّق من الفهم: «' + x + '»', pos: 'التحقق من فهم الطلبة بأسئلة شفهية أثناء الممارسة' }));
+            (SP.q.hiEx || []).slice(0, 2).forEach(([t, x]) => add(3, { t, src: 'speech', text: 'سؤالٌ يستثير التفكير: «' + x + '»', pos: 'طرح أسئلة تستثير تفكير الطلبة في أداء المهارة' }));
+            if (SP.q.n >= 3 && !SP.q.hi) add(3, { src: 'speech', text: 'أسئلةٌ مغلقةٌ كلّها (' + SP.q.n + ')', neg: 'اقتصار الأسئلة على أسئلة مغلقة لا تستثير التفكير' });
+            (SP.praise.specEx || []).slice(0, 2).forEach(([t, x]) => add(4, { t, src: 'speech', text: 'تعزيزٌ محدّد: «' + x + '»', pos: 'تعزيز الطلبة بعبارات محددة تبين ما أجادوه' }));
+            (SP.safe.ex || []).slice(0, 2).forEach(([t, x]) => add(5, { t, src: 'speech', text: 'تذكيرٌ بالسلامة: «' + x + '»', pos: 'تذكير الطلبة بقواعد السلامة أثناء الممارسة' }));
+            if (SP.words >= 300 && !SP.corr.n) add(10, { src: 'speech', text: 'لم يُسمع تصحيحٌ للأداء في (' + SP.words + ') كلمة', neg: 'قلة التغذية الراجعة المصححة للأداء' });
+        }
+        // ٥) عيّنة الطلبة — البندان ١ و٢
+        const S = sampleStats(I.sample);
+        if (S && S.final) {
+            const f = S.final, nn = pupilsN(f.rated);
+            add(1, { src: 'sample', text: 'أتقن المهارة ' + f.pct + '% من عيّنةٍ من ' + nn,
+                pos: f.pct >= 50 ? 'إتقان ' + n_(f.pct + '%') + ' من عينة الطلبة للمهارة وفق خطواتها الفنية' : undefined,
+                neg: f.pct < 50 ? 'ضعف إتقان المهارة إذ لم يتقنها إلا ' + n_(f.pct + '%') + ' من عينة الطلبة' : undefined });
+        }
+        if (S && S.both >= MIN_SAMPLE) {
+            if (S.improved >= Math.ceil(S.both / 2)) add(2, { src: 'sample', text: 'تحسّن ' + S.improved + ' من ' + S.both + ' في العيّنة بين أوّل التطبيق وآخر الحصة',
+                pos: 'تحسن أداء ' + n_(S.improved) + ' من ' + n_(S.both) + ' طلبة في العينة بين بداية التطبيق ونهاية الحصة' });
+            else if (!S.improved) add(2, { src: 'sample', text: 'لم يتحسّن أحدٌ من العيّنة (' + S.both + ') بين القراءتين', neg: 'ثبات مستوى أداء الطلبة دون تحسن ملحوظ خلال الحصة' });
+        }
+        // ٦) أهداف الزيارة السابقة — البند ١١
+        const F = (I.follow || []).filter(f => f && f.verdict && f.verdict !== 'na');
+        const met = F.filter(f => f.verdict === 'met').length;
+        if (F.length && met) add(11, { src: 'follow', text: 'تحقّق ' + met + ' من ' + F.length + ' من أهداف الزيارة السابقة', pos: 'العمل بتوجيهات الزيارة السابقة وتحقق ' + n_(met) + ' من أهدافها' });
+        else if (F.length) add(11, { src: 'follow', text: 'لم يتحقّق هدفٌ من أهداف الزيارة السابقة (' + F.length + ')', neg: 'عدم تحقق أهداف الزيارة السابقة' });
+        // ٧) علامات المشرف التي نسبها إلى بند — ملاحظته نصّاً، بلا عبارة تقرير
+        (I.marks || []).forEach(m => { if (m && m.item >= 1 && m.item <= 13) add(m.item, { t: m.t, src: 'mark', text: m.note ? String(m.note).slice(0, 160) : 'علامةٌ للمداولة' }); });
+        Object.keys(log).forEach(k => log[k].sort((a, b) => (a.t == null ? 1e9 : a.t) - (b.t == null ? 1e9 : b.t)));
+        return log;
+    }
+    // عبارات الدليل التي يشهد لها السجلّ لمستوى البند: «متميز/جيد/ملائم» ← الموجبة، و«غير ملائم/تدخل سريع» ← السالبة؛ الأكثر شواهد أوّلاً،
+    // واثنتان على الأكثر (all: كلّها — للوحة «تعديل الأدلة»)
+    function officialFor(log, id, score, all) {
+        const key = Number(score) >= 4 ? 'neg' : 'pos', n = {};
+        ((log && log[id]) || []).forEach(e => { if (e[key]) n[e[key]] = (n[e[key]] || 0) + 1; });
+        const out = Object.keys(n).sort((a, b) => n[b] - n[a]);
+        return all ? out : out.slice(0, 2);
+    }
+
     // ── أنماط الرصد عبر الحصص: ما يتكرّر عند معلّمي المشرف، وما يصلح موضوعاً لبرنامجه التدريبيّ ──
     const ISSUES = [
         { k: 'lowMove', label: 'حركة الطلبة أقلّ من (50%)', topic: 'رفع زمن الممارسة الفعليّة للطلبة', test: d => { const v = movingOf(d.M); return v != null && v < 50; } },
@@ -1816,7 +1948,7 @@
         suggest, confidence, unsupported, summaryText, heatDigits, agreement, dur, count, g, times, pupilsN,
         MIN_SAMPLE, QUANT, quantScore, sampleStats, movingOf, minuteSeries, autoMoments,
         METRICS, METRIC, NEEDS, fmtTarget, targetCandidates, targetText, targetGoalText, targetCheck,
-        ISSUES, issuesOf, patterns,
+        ISSUES, issuesOf, patterns, EV_TAG, evidenceLog, officialFor,
         VIG_SPEED, CROWD_DIST, BALL_MIN_SCORE, MVPA_GOAL, CROWD_BAD, teacherStep, pickNearest, teacherStats, whistleResponses, ballRatio, perPupils
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }

@@ -179,8 +179,12 @@
             let text = "";
             let selectedEvidences = [];
             
+            // عين المشرف (2026-10-28): أدلّةٌ من واقع الحصة لهذا البند بمستواه تحلّ محلّ الاختيار العشوائيّ، وإلّا كما كان
+            const eyeEv = !customEvidences && typeof svfEyeOfficial === 'function' ? svfEyeOfficial(itemId, rating) : null;
             if (customEvidences) {
                 selectedEvidences = customEvidences;
+            } else if (eyeEv && eyeEv.length) {
+                selectedEvidences = eyeEv;
             } else {
                 if (rating == 1) selectedEvidences = getRandomEvidences(positiveEvidences, 2);
                 else if (rating == 2) selectedEvidences = getRandomEvidences(positiveEvidences, 1);
@@ -240,7 +244,9 @@
             // بطاقةٌ واحدةٌ مرفوعةٌ في كلّ وقت: لوحة الأدلّة تطفو فوق شريط الأزرار اللاصق
             closeEvidencePanels();
             
-            const sourceList = (rating >= 4) ? (content.neg_evidences || []) : content.evidences;
+            // أدلّة الحصة (عين المشرف) أوّل القائمة، ثمّ قائمة البند — بلا تكرار
+            const eyeList = (typeof svfEyeOfficial === 'function' && svfEyeOfficial(itemId, rating, true)) || [];
+            const sourceList = eyeList.concat(((rating >= 4) ? (content.neg_evidences || []) : content.evidences).filter(ev => !eyeList.includes(ev)));
             listContainer.innerHTML = '';
             
             if(sourceList.length === 0) {
@@ -252,7 +258,7 @@
                     div.className = 'evidence-item flex items-center gap-2 group hover:bg-slate-50 p-1 rounded';
                     div.innerHTML = `
                         <input type="checkbox" id="ev-${itemId}-${index}" class="evidence-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" value="${ev}" ${isChecked ? 'checked' : ''} data-item-id="${itemId}">
-                        <label for="ev-${itemId}-${index}" class="text-sm text-slate-700 leading-tight cursor-pointer select-none flex-grow">${ev}</label>
+                        <label for="ev-${itemId}-${index}" class="text-sm text-slate-700 leading-tight cursor-pointer select-none flex-grow">${ev}${eyeList.includes(ev) ? ' <span class="text-[10px] font-bold text-blue-800 whitespace-nowrap">من الحصة</span>' : ''}</label>
                         <button type="button" class="delete-evidence-btn text-slate-300 hover:text-red-500 transition-opacity p-1" data-item-id="${itemId}" data-value="${ev}" title="حذف"><i class="fa-solid fa-trash-can text-xs"></i></button>
                     `;
                     listContainer.appendChild(div);

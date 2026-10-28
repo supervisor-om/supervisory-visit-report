@@ -611,7 +611,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: العلامة أثناء الرصد وحده، بوقتها، وملاحظتها مهروبة', /function addMark\(\) \{\s*\n\s*if \(!S\.running\)/.test(UI) && /S\.marks\.push\(\{ t: Math\.round\(now\(\)\), note: '' \}\)/.test(UI)
           && /value="\$\{esc\(m\.note \|\| ''\)\}"/.test(UI) && /\$\{esc\(x\.text \|\| 'بلا ملاحظة'\)\}/.test(UI));
     // نسخةٌ عميقة: العيّنة بنقاط المهارة فيها مصفوفات (pa/pb) — نسخةٌ سطحيّة كانت ستشارك الحالة الحيّة
-    check('wiring: العيّنة والعلامات تُحفظ مع الرصد وتُستعاد، وتُصفَّر مع رصدٍ جديد', /sample: hasSample\(S\.sample\) \? JSON\.parse\(JSON\.stringify\(S\.sample\)\) : null,\s*\n\s*guide: GD \? \{ id: GD\.id, skills: S\.guide\.skills\.slice\(\) \} : null,\s*\n\s*marks: S\.marks\.map\(m => \[m\.t, m\.note \|\| ''\]\)/.test(UI)
+    check('wiring: العيّنة والعلامات تُحفظ مع الرصد وتُستعاد، وتُصفَّر مع رصدٍ جديد', /sample: hasSample\(S\.sample\) \? JSON\.parse\(JSON\.stringify\(S\.sample\)\) : null,\s*\n\s*guide: GD \? \{ id: GD\.id, skills: S\.guide\.skills\.slice\(\) \} : null,\s*\n\s*marks: S\.marks\.map\(markRow\)/.test(UI) && /const markRow = m => \(m\.item \? \[m\.t, m\.note \|\| '', m\.item\] : \[m\.t, m\.note \|\| ''\]\);/.test(UI)
           && /S\.sample = data\.sample \? JSON\.parse\(JSON\.stringify\(data\.sample\)\) : null;\s*\n\s*S\.marks = \(data\.marks \|\| \[\]\)/.test(UI) && (UI.match(/S\.sample = null; S\.sampleRound = 'a'; S\.marks = \[\]; S\.samplePick = -1;/g) || []).length === 2);
     check('wiring: أهداف الزيارة السابقة (الرصد السابق للمعلّم نفسه) تُقاس على رصد اليوم، ثمّ يُقترح بها', /const prev = prevEye\(\);\s*\n\s*if \(prev && Array\.isArray\(prev\.d\.targets\)[\s\S]{0,200}targetCheck\(t, data\)[\s\S]{0,120}data\.sugg = E\(\)\.suggest\(keep, data\.counts, ctxOf\(data\)\);\s*\n\s*data\.summary = E\(\)\.summaryText\(keep, ctxOf\(data\)\)/.test(UI)
           && /if \(d\.follow && Array\.isArray\(d\.follow\.targets\)\) d\.follow\.list = d\.follow\.targets\.map\(t => E\(\)\.targetCheck\(t, d\)\)/.test(UI));
@@ -1130,6 +1130,39 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('engine: عشر دقائق ضائعة وسط الحصة ← لا انتظار ولا رصد', M.observed === 600 && M.excludedSec >= 600 && !(M.longestIdle >= 60), JSON.stringify({ o: M.observed, ex: M.excludedSec, li: M.longestIdle }));
     const L = E.live({ secs: mk(null, 40), sens: 'medium', ctx: [] }, E.summarize({ secs: mk(null, 40), sens: 'medium', ctx: [] }), { frozen: true });
     check('engine: الكاميرا المتوقّفة لا تُنبّه «الكاميرا تتحرّك»', !L.alerts.some(a => a.k === 'shake'));
+}
+
+/* ── ٢٨) مساعد الأدلّة: سجلٌّ بوقته تحت كلّ بند، وعبارة دليلٍ للتقرير من واقع الحصة (2026-10-28) ── */
+{
+    const L = E.evidenceLog({
+        ev: [{ t: 120, k: 'fbInd' }, { t: 500, k: 'groups' }, { t: 700, k: 'fbMiss' }], counts: { dish: 2 },
+        M: { observed: 1500, longestIdle: 130, longestIdleAt: 600, waits: 2, activePct: 62, explainPct: 10 },
+        sample: { n: 6, a: '111222', b: '333322' }, marks: [{ t: 900, note: 'لم يصحّح وضع القدم', item: 1 }, { t: 950, note: 'بلا بند' }],
+        follow: [{ verdict: 'met' }, { verdict: 'same' }]
+    });
+    check('log: كلّ دليلٍ تحت بنده بوقته، والمرتّب بالوقت وما لا وقت له آخراً', L[10][0].t === 120 && L[10][1].t === 700 && L[8][0].t === 500 && L[1][L[1].length - 1].t === 900 && L[1][0].t === 900 || (L[1].some(e => e.src === 'mark' && e.t === 900) && L[1].findIndex(e => e.t == null) > L[1].findIndex(e => e.t === 900)), JSON.stringify(L[1]));
+    check('log: الانتظار بعبارةٍ للتقرير بالمدّة منصوبة، والزيّ في البندين ٤ و٥ بعدده', L[7].some(e => e.t === 600 && e.neg === 'انتظار الطلبة بين نشاطين دون ممارسة مدة بلغت دقيقتين')
+          && L[4].some(e => e.neg === 'مشاركة (2) من الطلبة بغير الزي الرياضي') && L[5].length === 1);
+    check('log: العيّنة (١ و٢) وأهداف الزيارة السابقة (١١) بأرقامها', L[1].some(e => /^إتقان \(83%\)/.test(e.pos || '')) && L[2].some(e => /\(4\) من \(6\)/.test(e.pos || '')) && L[11].some(e => /\(1\) من أهدافها/.test(e.pos || '')));
+    check('log: علامة المشرف المنسوبة إلى بندٍ دليلٌ بلا عبارة تقرير، وغير المنسوبة لا تُعرض', L[1].some(e => e.src === 'mark' && e.text === 'لم يصحّح وضع القدم' && !e.pos && !e.neg) && !Object.values(L).some(a => a.some(e => e.text === 'بلا بند')));
+    check('officialFor: المستويات ١–٣ موجبةٌ و٤–٥ سالبة، واثنتان على الأكثر', E.officialFor(L, 10, 2).join() === 'تقديم تغذية راجعة فردية فورية لتصحيح الأداء'
+          && E.officialFor(L, 10, 4).join() === 'تكرار أخطاء في الأداء دون تصحيح' && E.officialFor(L, 13, 1).length === 0 && E.officialFor(L, 7, 4, true).length >= 1);
+    // العبارات للتقرير: بلا تشكيل ولا ذكرٍ للمعلّم (تصريف الجنس في الاستمارة)، ولا علامات HTML
+    const phr = [];
+    Object.values(E.EV_TAG).forEach(r => phr.push(r.pos || r.neg));
+    Object.values(L).forEach(a => a.forEach(e => { if (e.pos) phr.push(e.pos); if (e.neg) phr.push(e.neg); }));
+    check('log: عبارات التقرير بلا تشكيلٍ ولا «المعلم» ولا وسوم', phr.length > 20 && phr.every(x => !/[ً-ْ]/.test(x) && !/معلم/.test(x) && !/[<>]/.test(x)), phr.find(x => /[ً-ْ]|معلم|[<>]/.test(x)));
+    check('log: كلّ وسمٍ له عبارة', E.TAGS.every(T => !!E.EV_TAG[T.k] || T.k === 'dish'));
+    const SPL = E.evidenceLog({ M: { observed: 0, speech: { clauses: 30, words: 400, corr: { n: 2, specEx: [[300, 'ارفع ركبتك أكثر']] }, check: { ex: [] }, q: { n: 4, hi: 0, hiEx: [] }, praise: { specEx: [] }, safe: { ex: [] } } } });
+    check('log: كلام المعلّم بنصّه ووقته، والأسئلة المغلقة كلّها دليلٌ سالبٌ للبند ٣', SPL[10][0].t === 300 && SPL[10][0].text === 'صحّح: «ارفع ركبتك أكثر»' && SPL[3].some(e => e.neg === 'اقتصار الأسئلة على أسئلة مغلقة لا تستثير التفكير'));
+
+    const UI = read('js/eye.js'), SUP = read('js/supervisory.js');
+    check('wiring: الوصف الرسميّ يأخذ أدلّة الحصة بدل العشوائيّة، وإلّا كما كان', /const eyeEv = !customEvidences && typeof svfEyeOfficial === 'function' \? svfEyeOfficial\(itemId, rating\) : null;/.test(SUP)
+          && /\} else if \(eyeEv && eyeEv\.length\) \{\s*\n\s*selectedEvidences = eyeEv;/.test(SUP) && /getRandomEvidences\(positiveEvidences, 2\)/.test(SUP));
+    check('wiring: لوحة «تعديل الأدلة» تبدأ بأدلّة الحصة موسومةً «من الحصة»', /const eyeList = \(typeof svfEyeOfficial === 'function' && svfEyeOfficial\(itemId, rating, true\)\) \|\| \[\];/.test(SUP) && /من الحصة<\/span>/.test(SUP));
+    check('wiring: تحت كلّ بندٍ «أدلّة من الحصة» بنصٍّ آمن، حيّاً أثناء الرصد', /function evList\(card, id, list\)/.test(UI) && /li\.appendChild\(document\.createTextNode\(e\.text\)\)/.test(UI)
+          && /if \(S\.lastSec % 5 === 0\) refreshEvidence\(M\);/.test(UI) && /if \(fv && !fv\.classList\.contains\('hidden'\)\) decorate\(\);/.test(UI));
+    check('wiring: العلامة تُنسب إلى بندٍ وتُحفظ معه', /data-markitem="\$\{i\}"/.test(UI) && /item: m\[2\] \|\| null/.test(UI));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
