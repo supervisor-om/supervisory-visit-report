@@ -1257,7 +1257,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
 
     const UI = read('js/eye.js'), H = read('reports.html'), SW = read('sw.js');
     check('wiring: الملفّ قبل الشاشة وفي عامل الخدمة', /eye-speech\.js"><\/script>\s*<script src="js\/eye-draft\.js"><\/script>/.test(H) && SW.includes("'./js/eye-draft.js'"));
-    check('wiring: الطلب من draftInput بلا اسم المعلّم ولا المدرسة', /return \{ female: female\(\), lower: lower\(\), cls: I\.cls, topic: I\.topic, summary: S\.result && S\.result\.summary, items \};/.test(UI));
+    check('wiring: الطلب من draftInput بلا اسم المعلّم ولا المدرسة', /return \{ female: female\(\), lower: lower\(\), cls: I\.cls, topic: I\.topic, summary, items \};/.test(UI));
     check('wiring: الربط المباشر بكلمة الوسيط، والنسخ إلى Claude، واللصق', /'x-svf-key': \$\('eyeDraftKey'\)\.value\.trim\(\)/.test(UI) && /root\.open\('https:\/\/claude\.ai\/new'/.test(UI) && /function draftRead\(\)/.test(UI));
     check('wiring: الإدراج بعد المعاينة، يستأذن قبل الكتابة فوق نصٍّ، ويرفض ما يتجاوز حدّ البوّابة', /function draftUse\(\)/.test(UI) && /تحلّ الصياغة محلّه؟/.test(UI) && /أطول من حدّ البوّابة \(1000 حرف\) — اختصرها/.test(UI)
           && /strengths: 'strengthsContent', developments: 'developmentContent', recs: 'recommendationsContent'/.test(UI));
@@ -1279,7 +1279,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const X = E.sofit({ src: 'camera', tl: 'aaxxxxxx', tc: 'aaaaaaaa', tm: '55555555', tt: '' });
     check('sofit: الكاميرا المتحرّكة لا عيّنة منها، والقليل لا يُحكم منه', X === null && E.sofit({}) === null);
     const UI = read('js/eye.js');
-    check('wiring: قسم «وفق منهجية SOFIT» في النتيجة بعد العناصر، بتنبيه أنّه تكييف', /const SF = E\(\)\.sofit\(data\);/.test(UI) && /\$\{partsHtml\}\s*\$\{sofitHtml\}/.test(UI) && /تكييفٌ آليّ لـSOFIT/.test(UI));
+    check('wiring: قسم «وفق منهجية SOFIT+» في النتيجة بعد العناصر (ونشاط الطلبة من SOFIT)، بتنبيه أنّه تكييف', /const SF = E\(\)\.sofit\(data\), SP = E\(\)\.sofitPlus\(data\);/.test(UI) && /\$\{partsHtml\}\s*\$\{sofitHtml\}/.test(UI) && /تكييفٌ آليّ لـSOFIT/.test(UI));
 }
 
 /* ── ٣٣) التتبّع على طريقة ByteTrack (2026-10-29) ── */
@@ -1341,6 +1341,33 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const fs = require('fs'), path = require('path'), V = f => fs.existsSync(path.join(__dirname, '..', 'vendor', 'onnx', f));
     check('vendor: النموذج والمشغّل وترخيصاهما، وفي عامل الخدمة', ['ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm', 'yolox_nano.onnx', 'LICENSE-YOLOX', 'LICENSE-onnxruntime', 'README.md'].every(V)
           && SW.includes("'./js/eye-yolox.js'") && SW.includes("'./js/eye-detect-worker.js'"));
+}
+
+/* ── ٣٥) SOFIT+: الأبعاد الأربعة، ومؤشّر الممارسات، ولحظتاه، وقائمة النهاية (2026-10-29) ── */
+{
+    const SX = require('../js/eye-speech.js');
+    const A = SX.analyze([{ t: 5, x: 'يا شباب انتبهوا' }, { t: 15, x: 'ممتاز يا أحمد' }, { t: 25, x: 'المجموعة الثانية ارفعوا الركبة' }], { topic: 'كرة القدم' });
+    check('speech: نوع الكلام ومخاطَبه لكلّ عشر ثوانٍ (يشجّع/يعلّم، والصف/المجموعة/الطالب) — بلا نصّ', A.tb === '-pi' && A.to === 'csg' && !/أحمد/.test(A.tb + A.to)
+          && SX.addressee(SX.norm('يا سالم')) === 's' && SX.addressee(SX.norm('الكل يرجع')) === 'c');
+    check('tags: الإقصاء والتوقّف للأدوات سالبان، والاكتشاف موجب، ولكلٍّ عبارة دليل', E.TAG.elim.neg && E.TAG.equip.neg && !E.TAG.discover.neg && E.EV_TAG.elim.neg && E.EV_TAG.equip.neg && E.EV_TAG.discover.pos);
+    const d = { src: 'camera', tl: 'rrrraaaaaaiiiaaaaaaaaaaaaaaiiaaaa', tc: 'rrrrwwwwffffttttttaaaaaaaaaaacccc', tm: '---5566767221666655788887762155433', tt: '7777222244444883322115551112266333',
+        M: { forms: { windows: '----SSSSSSLLLLLLGGGGGGGGGGGSSSSSS', queue: '----000000666666000000000000000000' }, speech: { tb: 'oooo--pp--iiii-pp--i-p-------ii', to: 'cccc------sgggg------s' } },
+        ev: [[130, 'elim']], cx: [[0, 'roll'], [40, 'warm'], [80, 'fit'], [120, 'teach'], [180, 'apply'], [290, 'close']], exit: { loc: 'ملعبٌ مكشوف' } };
+    const R = E.sofitPlus(d), K = (arr, k) => (arr.find(r => r.k === k) || {}).pct || 0, L = k => (R.limits.find(l => l.k === k) || {}).n || 0;
+    check('sofit+: سياق النشاط من التشكيلات (المجموعات والانتشار والطوابير)', R.act && K(R.act, 'groups') > 0 && K(R.act, 'free') > 0 && K(R.act, 'line') > 0);
+    check('sofit+: سلوك المعلّم من نوع كلامه ومخاطَبه', R.teacherBy === 'speech' && K(R.teacher, 'promote') > 0 && K(R.teacher, 'group') > 0 && K(R.teacher, 'one') > 0);
+    check('sofit+: ما يحدّ — الطابور من الانتظار، والإقصاء من لمسته حتّى تغيّر العنصر', L('queue') === 3 && L('elim') === 3 && R.limits.every(l => l.sec === l.n * 20));
+    check('sofit+: اجتماع الممارسات وحركة الطلبة — المرتفع أعلى من المنخفض', R.rel && R.rel.hi.mv > R.rel.lo.mv && R.index > 0 && R.index <= 4);
+    check('sofit+: لحظتان — الأدنى فيه ما يحدّ، والأعلى فيه ممارساتٌ داعمة', R.worst && R.best && R.worst.idx < R.best.idx && /لعبة إقصاء|انتظار الدور/.test(E.sofitPlusWhy(R.worst)) && /نشاطٌ حركيّ/.test(E.sofitPlusWhy(R.best)));
+    check('sofit+: أوّل نصف دقيقةٍ لا يدخل المقارنة ولا اللحظات (متتبَّعون بلا سرعةٍ بعد)', R.rows.filter(r => r.t < 30).every(r => r.mv === null) && R.worst.t >= 30);
+    check('sofit+: قائمة النهاية تُقرأ من المحفوظ', R.exit && R.exit.loc === 'ملعبٌ مكشوف');
+    const flat = E.sofitPlus(Object.assign({}, d, { tm: d.tm.replace(/[0-9]/g, '8') }));
+    check('sofit+: لا لحظتين حين لا فرق حقيقيّاً في حركة الطلبة', flat.best === null && flat.worst === null && E.SOFITP_GAP === 15);
+    const old = E.sofitPlus({ src: 'camera', tl: d.tl, tc: d.tc, tm: d.tm, tt: d.tt, M: {} });
+    check('sofit+: تقريرٌ قديمٌ بلا تشكيلٍ ولا نوع كلام — يُترك بُعده ولا يُخمَّن', old && old.act === null && old.teacherBy === 'talk' && old.lesson);
+    const UI = read('js/eye.js');
+    check('wiring: قائمة النهاية تُحفظ مع النتيجة، ولحظتا SOFIT+ في المداولة بالجنس، وسطرها للمساعد', /d\.exit = \{ loc: \$\('eyeExitLoc'\)\.value/.test(UI) && /const spHtml = SPx && \(SPx\.rel \|\| SPx\.best \|\| SPx\.worst\)/.test(UI)
+          && /\$\{evTalk\}\s*\$\{spHtml\}/.test(UI) && /كنتِ تستطيعين' : 'كنتَ تستطيع'/.test(UI) && /const spLine = SP \?/.test(UI));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {

@@ -79,6 +79,8 @@
         { k: 'games',     item: 8,  label: 'ألعاب ومنافسات' },
         { k: 'stations',  item: 8,  label: 'محطات أو تعلّم ذاتي' },
         { k: 'levels',    item: 8,  label: 'تكليف حسب المستوى' },
+        { k: 'discover',  item: 8,  label: 'تعلّم بالاكتشاف (مهمّةٌ مفتوحة)' },
+        { k: 'elim',      item: 8,  label: 'لعبة إقصاء (يخرج من يخطئ)', neg: true },
         { k: 'include',   item: 2,  label: 'مراعاة الفروق والدمج' },
         { k: 'out',       item: 2,  label: 'طلبة خارج النشاط (عددهم)', neg: true, qty: true },
         { k: 'fbInd',     item: 10, label: 'تغذية راجعة فردية' },
@@ -95,13 +97,14 @@
         { k: 'hazard',    item: 5,  label: 'موقف خطر', neg: true },
         { k: 'dish',      item: 5,  label: 'بغير الزي الرياضي (عددهم)', neg: true, qty: true },
         { k: 'tools',     item: 9,  label: 'أدوات كافية ومتنوعة' },
-        { k: 'noTools',   item: 9,  label: 'نقص أدوات وانتظار الدور', neg: true }
+        { k: 'noTools',   item: 9,  label: 'نقص أدوات وانتظار الدور', neg: true },
+        { k: 'equip',     item: 9,  label: 'توقّف النشاط لتوزيع الأدوات أو جمعها', neg: true }
     ];
     const GROUPS = [
-        { title: 'التدريس', keys: ['demo', 'groups', 'games', 'stations', 'levels', 'include', 'out'] },
+        { title: 'التدريس', keys: ['demo', 'groups', 'games', 'stations', 'levels', 'discover', 'elim', 'include', 'out'] },
         { title: 'التقويم', keys: ['fbInd', 'fbGrp', 'ask', 'peer', 'fbMiss'] },
         { title: 'مهارات التعلم والقيم', keys: ['lead', 'team', 'tactic', 'praise', 'misbehave'] },
-        { title: 'السلامة والموارد', keys: ['safe', 'hazard', 'dish', 'tools', 'noTools'] }
+        { title: 'السلامة والموارد', keys: ['safe', 'hazard', 'dish', 'tools', 'noTools', 'equip'] }
     ];
     const TAG = {};
     TAGS.forEach(t => { TAG[t.k] = t; });
@@ -647,10 +650,16 @@
     // ── التشكيلات عبر الحصة ──
     // التشكيل الغالب كلّ عشر ثوانٍ، ثمّ المقاطع المتّصلة من عشرين ثانيةً فأكثر = تشكيلٌ استُعمل.
     function formationStats(secs) {
-        const win = [];
+        const win = [], qw = [];
         for (let t = 0; t < secs.length; t += 10) {
             const cnt = {};
-            secs.slice(t, t + 10).forEach(s => { const f = s && s.p && s.p.fm; if (f && f !== '-') cnt[f] = (cnt[f] || 0) + 1; });
+            let qn = 0, qs = 0;
+            secs.slice(t, t + 10).forEach(s => {
+                const p = s && s.p, f = p && p.fm;
+                if (f && f !== '-') cnt[f] = (cnt[f] || 0) + 1;
+                if (p && p.n) { qn++; qs += (p.q || 0) / p.n; }
+            });
+            qw.push(qn ? String(Math.min(9, Math.round(9 * qs / qn))) : '-');     // SOFIT+: نصيب المنتظرين دورهم ٠–٩
             const top = Object.keys(cnt).sort((p, q) => cnt[q] - cnt[p])[0];
             win.push(top && cnt[top] >= 2 ? top : '-');
         }
@@ -679,7 +688,7 @@
         });
         close();
         if (longRun) delete longRun.last;
-        return { segments: used, byType, types: Object.keys(byType), count: used.length, longLineSec, maxLine, longRun, windows: win.join('') };
+        return { segments: used, byType, types: Object.keys(byType), count: used.length, longLineSec, maxLine, longRun, windows: win.join(''), queue: qw.join('') };
     }
 
     // ── الحصة دقيقةً دقيقة: [حركة الطلبة٪ أو null، نشاط الصورة٪ أو null، العنصر الغالب أو null] ──
@@ -1658,6 +1667,8 @@
         games:    { pos: 'توظيف الألعاب الصغيرة والمنافسات لخدمة الهدف المهاري' },
         stations: { pos: 'تنفيذ التعلم بالمحطات بما يتيح ممارسة متزامنة لجميع الطلبة' },
         levels:   { pos: 'تكليف الطلبة بمهام متدرجة وفق مستوياتهم' },
+        discover: { pos: 'إتاحة مهام مفتوحة يكتشف فيها الطلبة حلولا حركية' },
+        elim:     { neg: 'توظيف ألعاب إقصاء تخرج الطلبة من الممارسة' },
         include:  { pos: 'إشراك الطلبة ذوي المستويات المختلفة بمهام تناسب قدراتهم' },
         out:      { neg: 'بقاء عدد من الطلبة خارج النشاط دون إشراك' },
         fbInd:    { pos: 'تقديم تغذية راجعة فردية فورية لتصحيح الأداء' },
@@ -1673,7 +1684,8 @@
         safe:     { pos: 'تهيئة الملعب والأدوات بصورة آمنة قبل الممارسة' },
         hazard:   { neg: 'حدوث موقف يهدد سلامة الطلبة أثناء الممارسة' },
         tools:    { pos: 'توفير أدوات كافية ومتنوعة تزيد فرص الممارسة' },
-        noTools:  { neg: 'نقص الأدوات بما يطيل انتظار الطلبة لأدوارهم' }
+        noTools:  { neg: 'نقص الأدوات بما يطيل انتظار الطلبة لأدوارهم' },
+        equip:    { neg: 'توقف النشاط لتوزيع الأدوات أو جمعها' }
     };
     const n_ = x => '(' + x + ')';
     // in: {ev: [{t, k}] اللمسات, counts, M: الملخّص, sample, follow: [{verdict}], marks: [{t, note, item}], ctx: {pupil}}
@@ -2017,6 +2029,119 @@
         return { step: SOFIT_STEP, n, min: Math.round(n * SOFIT_STEP / 60), ctx, act, teacher };
     }
 
+    // ── SOFIT+ (Weaver وFairclough وآخرون 2016–2018؛ التحقّق Crotti 2021) — تكييفٌ آليٌّ من أرقام الرصد المحفوظة (2026-10-29) ──
+    // يرصد ممارسات المعلّم التي ترفع نشاط الطلبة أو تحدّ منه، كلّ عشرين ثانية، بأبعادٍ أربعة: سياق الحصة، وسياق النشاط، وسلوك المعلّم،
+    // وإدارة النشاط — ومعها قائمة نهاية الحصة. ومن الأبعاد «مؤشّر الممارسات المجتمعة» (٠–٤) لكلّ عيّنة: سياقٌ نشط، وتشكيلٌ يُشرك الجميع
+    // (مجموعات أو انتشار — لا طابور)، ومعلّمٌ يشجّع أو يعلّم أثناء النشاط، ولا ممارسة تحدّ منه — والبحث وجد أنّ اجتماعها يرفع النشاط.
+    // المصادر: tl/tc/tm/tt، وM.forms.windows/queue (التشكيل والانتظار لكلّ عشر ثوانٍ)، وM.speech.tb/to (نوع كلام المعلّم ومخاطَبه)،
+    // ولمسات ev (الإقصاء والأدوات والاكتشاف) وcx (العناصر). ما لم يُحفظ في تقريرٍ قديمٍ يُترك بُعده ناقصاً لا يُخمَّن.
+    const SOFITP_LESSON = { M: 'إدارة وتنظيم', K: 'شرح ومعرفة', F: 'لياقة بدنية', S: 'تدريب مهاري', G: 'لعب وتطبيق', D: 'تعلّم بالاكتشاف' };
+    const SOFITP_ACT = { whole: 'الصف كلّه (دائرة)', groups: 'مجموعات', free: 'انتشارٌ حرّ / فرديّ', line: 'طوابير وقاطرات' };
+    const SOFITP_TCH = { promote: 'يشجّع ويحفّز', one: 'يعلّم طالباً', group: 'يعلّم مجموعة', class: 'يعلّم الصف', manage: 'ينظّم', observe: 'يراقب' };
+    const SOFITP_LIM = { queue: 'انتظار الدور في طابور', elim: 'لعبة إقصاء', equip: 'توقّفٌ لتوزيع الأدوات', wait: 'انتظارٌ بلا نشاط ولا شرح' };
+    const SOFITP_GAP = 15;       // أدنى فرقٍ في حركة الطلبة (نقاطاً) بين لحظتي المداولة
+    const SOFITP_SPAN = 180;      // اللعبة أو المهمّة المفتوحة تمتدّ من لمستها حتّى تغيّر العنصر أو ثلاث دقائق
+    function sofitPlus(d) {
+        const D = d || {}, M = D.M || {}, tl = String(D.tl || '');
+        if (!tl.length) return null;
+        const tc = String(D.tc || ''), tm = String(D.tm || ''), tt = String(D.tt || '');
+        const F = M.forms || {}, fw = String(F.windows || ''), qw = String(F.queue || '');
+        const SP = M.speech || {}, tb = String(SP.tb || ''), to = String(SP.to || '');
+        const dig = (str, i) => { const ch = str[i]; return ch && /[0-9]/.test(ch) ? Number(ch) : null; };
+        const camera = D.src !== 'none' && D.src !== 'taps' && /[ai]/.test(tl);
+        const ev = (D.ev || []).map(e => ({ t: Number(e[0]), k: e[1] })), cx = (D.cx || []).map(e => Number(e[0])).sort((a, b) => a - b);
+        const spanOf = k => ev.filter(e => e.k === k).map(e => { const nx = cx.find(c => c > e.t); return [e.t, Math.min(e.t + SOFITP_SPAN, nx == null ? Infinity : nx)]; });
+        const elimS = spanOf('elim'), discS = spanOf('discover'), equipT = ev.filter(e => e.k === 'equip').map(e => e.t);
+        const inS = (S, a, b) => S.some(x => x[0] < b && x[1] > a);
+        const rows = [];
+        const cnt = { lesson: {}, act: {}, tch: {}, lim: {} };
+        let nL = 0, nA = 0, nT = 0, nS = 0;
+        const inc = (o, k) => { o[k] = (o[k] || 0) + 1; };
+        for (let i = 0; i < tl.length; i += 2) {
+            const k = tl[i], c = tc[i] || '-', a = i * 10, b = a + 20;
+            if (camera && k === 'x') continue;
+            nS++;
+            // أوّل نصف دقيقةٍ من الرصد: كلّ طالبٍ متتبَّعٌ جديدٌ بلا سرعةٍ بعد فيُعدّ ساكناً — لا تُقارَن حركته ولا تكون منه «لحظة»
+            const talk = dig(tt, i), mv = camera && a >= 30 ? dig(tm, i) : null, roll = k === 'r' || c === 'r';
+            const active = camera ? k === 'a' : 'wfta'.includes(c);
+            // سياق الحصة
+            let L = null;
+            if (roll) L = 'M';
+            else if (inS(discS, a, b) && active && (c === 't' || c === 'a')) L = 'D';
+            else if (camera && k === 'i') L = talk != null && talk >= 3 ? 'K' : 'M';
+            else if (c === 'w' || c === 'f') L = 'F';
+            else if (c === 't') L = 'S';
+            else if (c === 'a') L = 'G';
+            else if (c === 'c') L = 'K';
+            if (L) { inc(cnt.lesson, L); nL++; }
+            // سياق النشاط (التشكيل الغالب من الكاميرا)
+            const f = fw[i] && fw[i] !== '-' ? fw[i] : fw[i + 1] && fw[i + 1] !== '-' ? fw[i + 1] : null;
+            const A = !roll && f ? ({ C: 'whole', G: 'groups', S: 'free', L: 'line' })[f] : null;
+            if (A) { inc(cnt.act, A); nA++; }
+            // سلوك المعلّم: نوع كلامه إن فُهم، وإلّا وجود كلامه
+            const kind = tb[i] && tb[i] !== '-' ? tb[i] : tb[i + 1] && tb[i + 1] !== '-' ? tb[i + 1] : null;
+            const who = to[i] && to[i] !== '-' ? to[i] : to[i + 1] && to[i + 1] !== '-' ? to[i + 1] : null;
+            let T = null;
+            if (kind === 'p') T = 'promote';
+            else if (kind === 'i') T = who === 's' ? 'one' : who === 'g' ? 'group' : 'class';
+            else if (kind === 'o' || (roll && talk != null && talk >= 3)) T = 'manage';
+            else if (talk != null) T = talk >= 3 ? (L === 'M' ? 'manage' : 'class') : 'observe';
+            if (T) { inc(cnt.tch, T); nT++; }
+            // ما يحدّ من النشاط
+            const lim = [];
+            const q = dig(qw, i);
+            if (!roll && ((q != null && q >= 4) || (f === 'L' && k === 'i'))) lim.push('queue');
+            if (inS(elimS, a, b)) lim.push('elim');
+            if (equipT.some(t => t >= a - 10 && t < b + 10)) lim.push('equip');
+            if (camera && !roll && k === 'i' && !(talk != null && talk >= 3)) lim.push('wait');
+            lim.forEach(x => inc(cnt.lim, x));
+            // مؤشّر الممارسات المجتمعة
+            if (roll) continue;
+            const pr = [];
+            if (active && L !== 'M' && L !== 'K') pr.push('ctx');
+            if (A === 'groups' || A === 'free') pr.push('form');
+            if (active && (T === 'promote' || T === 'one' || T === 'group' || T === 'class')) pr.push('teach');
+            if (!lim.length) pr.push('free');
+            rows.push({ t: a, mv: mv != null ? mv * 10 : null, idx: pr.length, pr, lim, L, A, T });
+        }
+        if (!rows.length && !nL) return null;
+        const pct = (o, n) => Object.keys(o).map(k => ({ k, pct: n ? Math.round(100 * o[k] / n) : 0 })).sort((x, y) => y.pct - x.pct);
+        const withLbl = (arr, L) => arr.map(r => Object.assign(r, { label: L[r.k] }));
+        const total = rows.length || 1;
+        // نشاط الطلبة بالمؤشّر: متوسّط حركتهم حين اجتمعت ثلاث ممارساتٍ فأكثر، وحين قلّت عن اثنتين
+        const mvRows = rows.filter(r => r.mv != null), avg = a => (a.length ? Math.round(a.reduce((s, r) => s + r.mv, 0) / a.length) : null);
+        const hi = mvRows.filter(r => r.idx >= 3), lo = mvRows.filter(r => r.idx <= 1);
+        const rel = hi.length >= 3 && lo.length >= 3 ? { hi: { n: hi.length, mv: avg(hi) }, lo: { n: lo.length, mv: avg(lo) } } : null;
+        // لحظتان للمداولة: أعلى المؤشّر بأعلى حركة، وأدناه بأدنى حركة
+        const best = mvRows.slice().sort((x, y) => y.idx - x.idx || y.mv - x.mv)[0] || null;
+        const worst = mvRows.slice().sort((x, y) => x.idx - y.idx || x.mv - y.mv)[0] || null;
+        const pairOk = !!(best && worst && best !== worst && best.idx > worst.idx && best.mv - worst.mv >= SOFITP_GAP);
+        const meanIdx = rows.length ? Math.round(10 * rows.reduce((s, r) => s + r.idx, 0) / rows.length) / 10 : null;
+        return {
+            step: 20, n: nS, camera,
+            lesson: nL >= 3 ? withLbl(pct(cnt.lesson, nL), SOFITP_LESSON) : null,
+            act: nA >= 6 ? withLbl(pct(cnt.act, nA), SOFITP_ACT) : null,
+            teacher: nT >= 6 ? withLbl(pct(cnt.tch, nT), SOFITP_TCH) : null,
+            teacherBy: tb.length ? 'speech' : 'talk',
+            limits: withLbl(Object.keys(cnt.lim).map(k => ({ k, n: cnt.lim[k], sec: cnt.lim[k] * 20, pct: Math.round(100 * cnt.lim[k] / total) })).sort((x, y) => y.n - x.n), SOFITP_LIM),
+            index: meanIdx, rel,
+            // اللحظتان حين يكون بينهما فرقٌ حقيقيّ في حركة الطلبة (١٥ نقطةً فأكثر) — وإلّا فسؤال «ما الذي كان يمكن تغييره» بلا معنى
+            best: pairOk ? best : null,
+            worst: pairOk ? worst : null,
+            mvpa: mvRows.length >= 6 ? avg(mvRows) : null,
+            exit: D.exit || null,
+            rows
+        };
+    }
+    // ما في اللحظة من الممارسات وما يحدّ منها — بكلماتٍ للمداولة
+    const SOFITP_PR = { ctx: 'نشاطٌ حركيّ', form: 'مجموعاتٌ أو انتشارٌ يُشرك الجميع', teach: 'تعليمٌ أو تشجيعٌ أثناء النشاط', free: 'لا ما يحدّ من النشاط' };
+    function sofitPlusWhy(r) {
+        if (!r) return '';
+        const yes = r.pr.filter(x => x !== 'free').map(x => SOFITP_PR[x]);
+        const no = r.lim.map(x => SOFITP_LIM[x]);
+        return [yes.length ? yes.join('، ') : '', no.length ? no.join('، ') : ''].filter(Boolean).join(' — ');
+    }
+
     const api = {
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
@@ -2030,7 +2155,7 @@
         MIN_SAMPLE, QUANT, quantScore, sampleStats, movingOf, minuteSeries, autoMoments,
         METRICS, METRIC, NEEDS, fmtTarget, targetCandidates, targetText, targetGoalText, targetCheck,
         ISSUES, issuesOf, patterns, EV_TAG, evidenceLog, officialFor,
-        SOFIT_STEP, SOFIT_CTX, SOFIT_TCH, sofit,
+        SOFIT_STEP, SOFIT_CTX, SOFIT_TCH, sofit, SOFITP_LESSON, SOFITP_ACT, SOFITP_TCH, SOFITP_LIM, SOFITP_PR, SOFITP_GAP, sofitPlus, sofitPlusWhy,
         VIG_SPEED, CROWD_DIST, BALL_MIN_SCORE, MVPA_GOAL, CROWD_BAD, teacherStep, pickNearest, teacherStats, whistleResponses, ballRatio, perPupils
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }

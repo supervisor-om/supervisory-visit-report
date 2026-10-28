@@ -2848,29 +2848,53 @@ function tagRowHtml(k) {
         }
 
         // التشكيلات والزيّ الرياضيّ
-        // منهجية SOFIT: سياق الحصة ونشاط الطلبة وسلوك المعلّم كلّ عشرين ثانية — من أرقام الرصد المحفوظة
+        // منهجية SOFIT+: ممارسات المعلّم التي ترفع نشاط الطلبة أو تحدّ منه، كلّ عشرين ثانية — من أرقام الرصد المحفوظة
         let sofitHtml = '';
-        const SF = E().sofit(data);
-        if (SF) {
-            const SC = { M: '#8492a6', K: '#d9a441', F: '#1d6b45', S: '#0f4c81', G: '#5b8fc7', still: '#cbd5e1', walk: '#5b8fc7', vig: '#0f4c81', teach: '#0f4c81', manage: '#8492a6', observe: '#cbd5e1' };
+        const SF = E().sofit(data), SP = E().sofitPlus(data);
+        if (SP || SF) {
+            const SC = { M: '#8492a6', K: '#d9a441', F: '#1d6b45', S: '#0f4c81', G: '#5b8fc7', D: '#9a6f24', still: '#cbd5e1', walk: '#5b8fc7', vig: '#0f4c81',
+                         whole: '#9a6f24', groups: '#0f4c81', free: '#5b8fc7', line: '#b5452f',
+                         promote: '#1d6b45', one: '#0f4c81', group: '#3a6ea5', class: '#5b8fc7', manage: '#8492a6', observe: '#cbd5e1' };
             const sbar = rows => `<div class="flex h-3 rounded-full overflow-hidden bg-slate-100">${rows.filter(r => r.pct > 0).map(r => `<i class="block h-full" style="width:${r.pct}%;background:${SC[r.k]}" title="${esc(r.label + ' ' + r.pct + '%')}"></i>`).join('')}</div>
                 <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-600">${rows.filter(r => r.pct > 0).map(r => `<span class="inline-flex items-center gap-1"><i class="inline-block w-2.5 h-2.5 rounded-sm" style="background:${SC[r.k]}"></i>${esc(r.label)} <b class="tabular-nums text-slate-900">${r.pct}%</b></span>`).join('')}</div>`;
-            const A = SF.act;
+            const A = SF && SF.act;
             const actRows = A ? [{ k: 'still', label: 'ساكن (جالس أو واقف)', pct: A.still }].concat(A.vig != null
                 ? [{ k: 'walk', label: 'معتدل (مشي وحركة)', pct: A.walk }, { k: 'vig', label: 'شديد (جري وتمرينٌ قويّ)', pct: A.vig }]
                 : [{ k: 'walk', label: 'معتدل فأشدّ', pct: A.mvpa }]) : null;
+            const block = (ttl, sub, inner) => `<div class="mt-4"><div class="flex flex-wrap items-baseline justify-between gap-2 mb-1.5"><b class="text-sm text-slate-900">${esc(ttl)}</b>${sub || ''}</div>${inner}</div>`;
+            const T = female() ? 'المعلّمة' : 'المعلّم';
+            const mom = (r, good) => r ? `<div class="flex gap-2 items-start text-sm leading-6"><span class="tabular-nums text-xs text-slate-500 mt-0.5">${mmss(r.t)}</span>
+                <span class="min-w-0"><b class="${good ? 'text-green-700' : 'text-red-700'}">${good ? 'أعلى' : 'أدنى'} مؤشّر (${r.idx} من 4) — حركة الطلبة ${r.mv}%</b><br><span class="text-slate-600">${esc(E().sofitPlusWhy(r) || '—')}</span></span></div>` : '';
+            const X = (SP && SP.exit) || {};
+            const opt = (id, cur, list) => `<select id="${id}" class="eye-exit w-full min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm"><option value="">—</option>${list.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
             sofitHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <div class="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 class="text-lg font-bold text-slate-900">وفق منهجية SOFIT</h2>
-                    <span class="text-xs text-slate-500">عيّنةٌ كلّ ${SF.step} ثانية · ${SF.n} عيّنة</span>
+                    <h2 class="text-lg font-bold text-slate-900">وفق منهجية SOFIT+</h2>
+                    <span class="text-xs text-slate-500">عيّنةٌ كلّ 20 ثانية${SP ? ' · ' + SP.n + ' عيّنة' : ''}</span>
                 </div>
-                <p class="text-xs text-slate-500 mt-1 leading-5">SOFIT أداةٌ محكَّمة عالميّاً لرصد حصص التربية البدنيّة: سياق الحصة، ونشاط الطلبة، وسلوك المعلّم في عيّناتٍ منتظمة.</p>
-                ${A ? `<div class="mt-4"><div class="flex flex-wrap items-baseline justify-between gap-2 mb-1.5"><b class="text-sm text-slate-900">نشاط الطلبة</b>
-                    <span class="text-sm ${A.ok ? 'text-green-700' : 'text-red-700'} font-bold">معتدلٌ فأشدّ ${A.mvpa}% <span class="font-normal text-slate-500">— المعيار ${A.goal}% فأكثر</span></span></div>${sbar(actRows)}</div>` : ''}
-                ${SF.ctx ? `<div class="mt-4"><b class="text-sm text-slate-900 block mb-1.5">سياق الحصة</b>${sbar(SF.ctx)}</div>` : ''}
-                ${SF.teacher ? `<div class="mt-4"><b class="text-sm text-slate-900 block mb-1.5">سلوك ${female() ? 'المعلّمة' : 'المعلّم'}</b>${sbar(SF.teacher)}</div>` : ''}
-                <p class="text-xs text-slate-500 mt-3 leading-5">تكييفٌ آليّ لـSOFIT من رصد العين، لا يغني عن ملاحظةٍ مدرَّبة: النشاط من كشف الطلبة في الصورة (لا يفرّق الجالس من الواقف)،
-                   والسياق من عناصر الحصة التي لمستها وتوقّف الطلبة، وسلوك المعلّم من وجود كلامه لا من مضمونه.</p>
+                <p class="text-xs text-slate-500 mt-1 leading-5">SOFIT+ أداةٌ محكَّمة ترصد ممارسات ${T} التي ترفع نشاط الطلبة أو تحدّ منه: سياق الحصة، وسياق النشاط، وسلوك ${T}، وإدارة النشاط.</p>
+                ${SP && SP.rel ? `<div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-slate-800 leading-7">حين اجتمعت <b>ثلاث ممارساتٍ داعمة فأكثر</b> كانت حركة الطلبة <b class="text-green-700">(${SP.rel.hi.mv}%)</b>، وحين قلّت عن اثنتين كانت <b class="text-red-700">(${SP.rel.lo.mv}%)</b>.
+                    <span class="block text-xs text-slate-600">الممارسات: نشاطٌ حركيّ، وتشكيلٌ يُشرك الجميع (مجموعات أو انتشار)، وتعليمٌ أو تشجيعٌ أثناء النشاط، ولا ما يحدّ منه.</span></div>` : ''}
+                ${SP && SP.index != null ? `<p class="text-sm text-slate-700 mt-3">مؤشّر الممارسات المجتمعة في الحصة: <b class="tabular-nums">${SP.index}</b> من 4</p>` : ''}
+                ${A ? block('نشاط الطلبة', `<span class="text-sm ${A.ok ? 'text-green-700' : 'text-red-700'} font-bold">معتدلٌ فأشدّ ${A.mvpa}% <span class="font-normal text-slate-500">— المعيار ${A.goal}% فأكثر</span></span>`, sbar(actRows)) : ''}
+                ${SP && SP.lesson ? block('سياق الحصة', '', sbar(SP.lesson)) : ''}
+                ${SP && SP.act ? block('سياق النشاط', '<span class="text-xs text-slate-500">من التشكيلات في الصورة</span>', sbar(SP.act)) : ''}
+                ${SP && SP.teacher ? block('سلوك ' + T, `<span class="text-xs text-slate-500">${SP.teacherBy === 'speech' ? 'من نوع كلامه ومخاطَبه' : 'من وجود كلامه لا مضمونه'}</span>`, sbar(SP.teacher)) : ''}
+                ${SP && SP.limits.length ? block('ما يحدّ من النشاط', '', `<div class="flex flex-wrap gap-1.5">${SP.limits.map(l => `<span class="text-xs rounded-lg border border-red-200 bg-red-50 text-red-800 px-2 py-1">${esc(l.label)} <b class="tabular-nums">${esc(D(l.sec))}</b></span>`).join('')}</div>`)
+                    : SP && SP.rows.length ? block('ما يحدّ من النشاط', '', '<p class="text-sm text-green-700">لم يُرصد طابورٌ ولا إقصاءٌ ولا توقّفٌ للأدوات.</p>') : ''}
+                ${SP && (SP.best || SP.worst) ? block('لحظتان للمداولة', '', `<div class="space-y-2">${mom(SP.best, true)}${mom(SP.worst, false)}</div>`) : ''}
+                <details id="eyeExit" class="mt-4 rounded-xl border border-slate-200 p-3"${X.loc || X.wx || X.eq ? '' : ' open'}>
+                    <summary class="cursor-pointer text-sm font-bold text-slate-900">قائمة نهاية الحصة <span class="font-normal text-xs text-slate-500">— من SOFIT+</span></summary>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm">
+                        <label class="block min-w-0"><span class="text-xs text-slate-600">المكان</span>${opt('eyeExitLoc', X.loc, ['ملعبٌ مكشوف', 'ملعبٌ مظلّل', 'صالةٌ مغطّاة', 'ساحة المدرسة'])}</label>
+                        <label class="block min-w-0"><span class="text-xs text-slate-600">الطقس</span>${opt('eyeExitWx', X.wx, ['معتدل', 'حارّ', 'حارٌّ جدّاً', 'رياحٌ أو غبار', 'ممطر'])}</label>
+                        <label class="block min-w-0"><span class="text-xs text-slate-600">كمية الأدوات</span>${opt('eyeExitEq', X.eq, ['أداةٌ لكلّ طالب', 'أداةٌ لكلّ طالبين', 'مشتركةٌ بين ثلاثةٍ فأكثر', 'غير متوفّرة'])}</label>
+                        <label class="block min-w-0"><span class="text-xs text-slate-600">نوع الأدوات</span><input id="eyeExitKind" class="eye-exit w-full min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" maxlength="80" value="${esc(X.kind || '')}" placeholder="كرات، أقماع، أطواق…"></label>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">محتوى الدرس: ${esc(info().topic || '—')}</p>
+                </details>
+                <p class="text-xs text-slate-500 mt-3 leading-5">تكييفٌ آليّ لـSOFIT+ من رصد العين، لا يغني عن ملاحظةٍ مدرَّبة: النشاط والتشكيل من الصورة، والسياق من عناصر الحصة التي لمستها،
+                   وسلوك ${T} من كلامه، والإقصاء والتوقّف للأدوات من لمساتك.</p>
             </div>`;
         }
 
@@ -3188,6 +3212,12 @@ function tagRowHtml(k) {
         $('eyeApply') && $('eyeApply').addEventListener('click', apply);
         $('eyeApproveSave') && $('eyeApproveSave').addEventListener('click', approveSave);
         bindDraft();
+        document.querySelectorAll('#eyeResult .eye-exit').forEach(el => el.addEventListener('change', () => {
+            const d = S.result;
+            if (!d) return;
+            d.exit = { loc: $('eyeExitLoc').value, wx: $('eyeExitWx').value, eq: $('eyeExitEq').value, kind: $('eyeExitKind').value.trim().slice(0, 80) };
+            save(d);
+        }));
         if (!box.dataset.lvBound) {                       // الحاوية تبقى بين إعادات الرسم — المستمعان مرّةً واحدة
             box.dataset.lvBound = '1';
             box.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.eye-lvb'); if (b && box.contains(b)) pickLevel(b); });
@@ -3495,7 +3525,12 @@ function tagRowHtml(k) {
             } catch (e) { level = ''; }
             return { id: it.id, standard: it.standard, title: it.title, score: s, level: pupil(level), ev: (S.reviewLog || {})[it.id] || [] };
         });
-        return { female: female(), lower: lower(), cls: I.cls, topic: I.topic, summary: S.result && S.result.summary, items };
+        // SOFIT+ في سطرٍ للمساعد: المقارنة وما حدّ من النشاط — أرقامٌ وتسمياتٌ بلا أسماء
+        const SP = S.result ? E().sofitPlus(S.result) : null;
+        const spLine = SP ? ['وفق SOFIT+:', SP.rel ? 'حين اجتمعت ممارساتٌ داعمة كانت حركة الطلبة (' + SP.rel.hi.mv + '%) وحين قلّت (' + SP.rel.lo.mv + '%)' : '',
+            SP.limits.length ? 'ومما حدّ من النشاط: ' + SP.limits.map(l => l.label).join('، ') : ''].filter(Boolean).join(' ') : '';
+        const summary = [S.result && S.result.summary, spLine.length > 14 ? spLine : ''].filter(Boolean).join(' ');
+        return { female: female(), lower: lower(), cls: I.cls, topic: I.topic, summary, items };
     }
     function draftMsg(text, kind) {
         const el = $('eyeDraftMsg');
@@ -3814,6 +3849,14 @@ function tagRowHtml(k) {
         const kv = (k, v) => `<div class="px-3 py-2"><div class="text-lg font-bold text-slate-900 tabular-nums">${esc(v)}</div><div class="text-[11px] text-slate-600">${esc(k)}</div></div>`;
         const mv = movingOf(M);
         const evTalk = debriefEvidence(d);
+        // SOFIT+: ممارساته ونشاط الطلبة — المقارنة ولحظتاها سؤالان للنقاش
+        const SPx = E().sofitPlus(d), fem = female();
+        const spHtml = SPx && (SPx.rel || SPx.best || SPx.worst) ? `<div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                <div class="text-[11px] font-bold text-blue-900 mb-1">من SOFIT+ — ممارساتك ونشاط الطلبة</div>
+                ${SPx.rel ? `<div class="text-sm text-slate-800 leading-7">حين اجتمعت ثلاث ممارساتٍ داعمة فأكثر كانت حركة الطلبة (${SPx.rel.hi.mv}%)، وحين قلّت كانت (${SPx.rel.lo.mv}%).</div>` : ''}
+                ${SPx.worst ? `<div class="text-sm text-slate-700 leading-7">• عند الدقيقة <span class="tabular-nums">${mmss(SPx.worst.t)}</span> كانت حركة الطلبة (${SPx.worst.mv}%)${E().sofitPlusWhy(SPx.worst) ? ': ' + esc(E().sofitPlusWhy(SPx.worst)) : ''}. ما الذي ${fem ? 'كنتِ تستطيعين' : 'كنتَ تستطيع'} تغييره في تلك اللحظة؟</div>` : ''}
+                ${SPx.best ? `<div class="text-sm text-slate-700 leading-7">• عند الدقيقة <span class="tabular-nums">${mmss(SPx.best.t)}</span> بلغت (${SPx.best.mv}%): ${esc(E().sofitPlusWhy(SPx.best) || '')}. كيف ${fem ? 'تجعلين' : 'تجعل'} هذا هو الغالب في حصصك؟</div>` : ''}
+            </div>` : '';
         return `<div class="bg-white rounded-2xl border border-slate-200 p-5">
             <div class="flex flex-wrap items-baseline justify-between gap-2"><h3 class="font-bold text-slate-800"><i class="fa-solid fa-eye ml-2 text-slate-500"></i>من عين المشرف</h3>
                 <button type="button" id="debriefEyeCard" class="svf-btn svf-btn-secondary svf-btn-sm">بطاقة التحليل للمعلّم</button></div>
@@ -3824,6 +3867,7 @@ function tagRowHtml(k) {
             ${M.speech && M.speech.clauses && SX() ? `<p class="text-sm text-slate-700 mt-3"><b class="text-slate-900">من كلامه:</b> ${esc(SX().line(M.speech))}</p>` : ''}
             ${det ? `<div class="flex flex-wrap gap-1.5 mt-3">${det.map(r => `<span class="text-xs rounded-lg border px-2 py-1 ${r.verdict === 'ok' ? 'border-green-200 text-green-800' : r.verdict === 'missing' ? 'border-red-200 text-red-800' : 'border-amber-200 text-amber-800'}">${esc(r.short)} ${r.minutes} د</span>`).join('')}</div>` : ''}
             ${evTalk}
+            ${spHtml}
             ${dp.good.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-green-700 mb-1">ما يُعزَّز</div>${dp.good.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${dp.ask.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-amber-700 mb-1">أسئلةٌ من الرصد</div>${dp.ask.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${mom.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-slate-600 mb-1">لحظاتٌ للنقاش</div>${mom.slice(0, 8).map(x => `<div class="text-sm text-slate-700 leading-7">

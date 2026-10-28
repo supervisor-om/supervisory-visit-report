@@ -24,6 +24,11 @@
         .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
         .replace(/[^ء-ي0-9a-zA-Z]+/g, ' ')
         .replace(/\s+/g, ' ').trim();
+    // SOFIT+: مخاطَب العبارة — الصف كلّه، أو مجموعة، أو طالبٌ بعينه («يا» ثمّ اسم)؛ على النصّ المسوّى
+    const TO_CLASS = /(^| )(يا )?(شباب|بنات|ابطال|اولاد|طلاب|الطلبه|الكل|كلكم|كلكن|جميعكم|الجميع|انتبهوا|انتبهن)( |$)/;
+    const TO_GROUP = /(^| )(ال)?(مجموعه|مجموعات|فريق|الفريقين|قاطره|القاطرات|صف الاول|الصف الثاني)( |$)/;
+    const TO_ONE = /(^| )يا [^ ]+/;
+    const addressee = s => (TO_CLASS.test(s) ? 'c' : TO_GROUP.test(s) ? 'g' : TO_ONE.test(s) ? 's' : '');
     const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // \b لا يعمل مع العربيّة في JS — الحدود مسافاتٌ في نصٍّ مسوّى، وتُقبل «و/ف» قبل الكلمة (وبعدها حرف جرٍّ للأسماء)
     function lex(words, nouns) {
@@ -195,6 +200,7 @@
         ['praise', 'corr', 'q', 'check', 'safe', 'org', 'values', 'health', 'harsh'].forEach(k => { cats[k] = { n: 0, ex: [] }; });
         cats.praise.spec = 0; cats.corr.spec = 0; cats.q.hi = 0; cats.q.hiEx = []; cats.praise.specEx = []; cats.corr.specEx = [];
         const parts = {};
+        const tb = [], to = [];                            // SOFIT+: سلوك المعلّم ومخاطَبه لكلّ عشر ثوانٍ (p يشجّع، i يعلّم، o ينظّم)
         let words = 0, n = 0, first = null, last = null, topicN = 0;
         const add = (k, t, x, sub) => {
             const c = cats[k];
@@ -251,6 +257,11 @@
                 if (L.org.test(s)) { add('org', t, cl); if (P) P.org++; }
                 if (L.values.test(s)) add('values', t, cl);
                 if (L.health.test(s)) add('health', t, cl);
+                const b = Math.floor(t / 10), rank = { p: 3, i: 2, o: 1 };
+                const kind = L.harsh.test(s) ? '' : L.praise.test(s) ? 'p' : (q || L.check.test(s) || L.corr.test(s) || isTech || isTopic) ? 'i' : L.org.test(s) ? 'o' : '';
+                if (kind && (rank[kind] > (rank[tb[b]] || 0))) tb[b] = kind;
+                const who = addressee(s);
+                if (who && !to[b]) to[b] = who;
                 Object.keys(FORM_CUES).forEach(k => {
                     if (!FORM_CUES[k].test(s)) return;
                     forms[k] = (forms[k] || 0) + 1;
@@ -265,7 +276,8 @@
             wpm: lesson >= 60 ? Math.round(words / (lesson / 60)) : null,
             orgShare: n ? Math.round(100 * cats.org.n / n) : 0,
             topic: { terms, n: topicN },
-            parts, admin, forms, formsEx
+            parts, admin, forms, formsEx,
+            tb: Array.from(tb, x => x || '-').join(''), to: Array.from(to, x => x || '-').join('')
         }, cats);
     }
 
@@ -292,7 +304,7 @@
         return B;
     }
 
-    const api = { norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, cues, FORM_LABEL };
+    const api = { addressee, norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, cues, FORM_LABEL };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEyeSpeech = api;
 })(typeof window !== 'undefined' ? window : this);
