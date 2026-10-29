@@ -162,7 +162,7 @@ function tagRowHtml(k) {
                     <label class="flex items-center gap-2 text-sm font-semibold text-slate-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                         <input type="checkbox" id="eyeConsent" class="w-5 h-5"> أُبلغ المعلّم بالرصد</label>
                     <button type="button" id="eyeGuideImport" class="svf-btn svf-btn-ghost svf-btn-sm" title="إضافة درسٍ من ملفّ دليل المعلّم (PDF) — يُحوَّل مرّةً ويُحفظ"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>دروس الدليل</span></button>
-                    <details id="eyeSettings" class="flex-1 min-w-0">
+                    <details id="eyeSettings" class="basis-full sm:basis-auto sm:flex-1 min-w-0">
                         <summary class="cursor-pointer select-none text-sm text-slate-700 flex items-center gap-2 py-1"><i class="fa-solid fa-sliders" aria-hidden="true"></i>
                             <b class="font-semibold">الإعدادات</b><span id="eyeSetSum" class="text-xs text-slate-500 truncate min-w-0"></span></summary>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 pt-3">

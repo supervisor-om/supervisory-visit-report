@@ -88,8 +88,9 @@ const UTILS = read('js/utils.js');
     vm.runInContext('renderSavedReports();', ctx);
 
     const html = cards.map(c => c.innerHTML).join('');
-    check('card: شارة المجموع تظهر لتقريرٍ محفوظٍ حديثاً',
-          /\b20 \/ 65\b/.test(html), (html.match(/\d+ \/ \d+/) || ['لا شارة'])[0]);
+    // الشارة صارت المستوى العامّ لا «المجموع / 65» (السلّم مقلوب، والمتصفّح كان يقلب الرقمين)
+    check('card: شارة المستوى تظهر لتقريرٍ محفوظٍ حديثاً (مجموع 20 من 13 بنداً ← جيد · 1.5)',
+          html.includes('جيد · <bdi>1.5</bdi>') && !/\d+ \/ 65/.test(html), (html.match(/متميز|جيد|ملائم[^<]*/) || ['لا شارة'])[0]);
     check('card: اسم المعلّم يدخل مُهرَّباً لا وسماً',
           html.includes('&lt;script&gt;') && !html.includes('<script>alert'), 'دخل خاماً');
     check('card: اقتباس اسم المدرسة مُهرَّب', html.includes('&quot;الاختبار&quot;'));

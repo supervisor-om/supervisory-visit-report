@@ -132,7 +132,15 @@
         // لا يُكتب فوق رقمٍ كتبه المشرف بنفسه.
         function suggestVisitNumber() {
             const field = document.querySelector('#visitNumber');
-            if (!field || field.value.trim()) return;
+            if (!field) return;
+            // ما اقترحناه نحن يُعاد حسابه حين يتغيّر المعلّم أو التاريخ (كان يُقترح «1» قبل كتابة التاريخ ثمّ يبقى)؛
+            // وما كتبه المشرف بيده لا يُمسّ
+            const ours = !currentEditingKey && field.dataset.suggested === '1' && field.value.trim() === (field.dataset.suggestedValue || '');
+            if (field.value.trim() && !ours) return;
+            if (!field.dataset.vnBound) {
+                field.dataset.vnBound = '1';
+                field.addEventListener('input', () => { field.dataset.suggested = ''; });
+            }
             const teacher = document.querySelector('#teacherName')?.value.trim();
             if (!teacher) return;
             const date = document.querySelector('#visitDate')?.value || '';
@@ -141,6 +149,7 @@
                 .filter(v => v.date && academicYearOf(v.date) === year && v.date <= (date || v.date));
             field.value = String(before.length + 1);
             field.dataset.suggested = '1';
+            field.dataset.suggestedValue = field.value;
         }
 
         // درجات آخر زيارةٍ لهذا المعلّم نقطةَ بدء — الأوصاف تُعاد صياغتها معها

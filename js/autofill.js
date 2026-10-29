@@ -29,6 +29,8 @@
         // غيره — نائباً عنه أو تقريراً لزميل — بقي ما كتب.
         function svfFillVisitor() {
             svfFillIfEmpty('visitorName', svfSupervisorName());
+            // الوظيفة تُطبع في الاستمارة الرسميّة «الوظيفة: …» وكانت تخرج فارغة — آخر ما كتبه المشرف في هذا الجهاز
+            try { svfFillIfEmpty('visitorPosition', localStorage.getItem('svf_visitor_position') || ''); } catch (e) {}
         }
 
         function svfDatalist(id) {
@@ -259,6 +261,23 @@
                 svfRefreshSuggestions();
                 svfFillVisitor();
             });
+
+            const pos = document.getElementById('visitorPosition');
+            if (pos) pos.addEventListener('change', () => {
+                try { const v = pos.value.trim(); if (v) localStorage.setItem('svf_visitor_position', v); } catch (e) {}
+            });
+
+            // اسم المدرسة في الزيارة المدرسيّة يُردّ إلى رسم القاعدة قبل مستمعات school.js (التقاطٌ على المستند):
+            // «محمد المنذري» كان يُحفظ كما كُتب فيختلف عن تقارير المدرسة الأخرى والتقرير الشهريّ والإشرافيّة.
+            const fixSchoolName = e => {
+                if (!e.target || e.target.id !== 'schoolName' || !svfLinked()) return;
+                const typed = e.target.value.trim();
+                if (!typed) return;
+                const schools = [...new Set(SupervisorIdentity.teachersOfSchool(typed).map(t => t.school))];
+                if (schools.length === 1 && schools[0] && schools[0] !== typed) e.target.value = schools[0];
+            };
+            document.addEventListener('change', fixSchoolName, true);
+            document.addEventListener('blur', fixSchoolName, true);
 
             const teacher = document.getElementById('teacherName');
             if (teacher) {

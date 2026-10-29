@@ -131,10 +131,10 @@
             const L = b.last;
             parts.push(`<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span class="font-bold text-slate-700">آخر زيارة: <bdi>${esc(L.date) || '—'}</bdi></span>
-                ${L.days != null ? `<span class="text-xs text-slate-500">قبل ${L.days} يوماً</span>` : ''}
+                ${L.days != null ? `<span class="text-xs text-slate-500">${L.days === 0 ? 'اليوم' : 'قبل ' + (L.days === 1 ? 'يومٍ واحد' : L.days === 2 ? 'يومين' : L.days <= 10 ? L.days + ' أيام' : L.days + ' يوماً')}</span>` : ''}
                 ${L.visitNo ? `<span class="text-xs text-slate-500">الزيارة (${esc(L.visitNo)})</span>` : ''}
                 ${L.label ? `<span class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">${esc(L.label)} — متوسّط ${L.avg}</span>` : ''}
-                <span class="text-xs text-slate-400">(${b.count} ${b.count === 1 ? 'زيارة' : 'زيارات'} في الأرشيف)</span>
+                <span class="text-xs text-slate-400">(${b.count === 1 ? 'زيارة واحدة' : b.count === 2 ? 'زيارتان' : b.count <= 10 ? b.count + ' زيارات' : b.count + ' زيارة'} في الأرشيف)</span>
             </div>`);
             if (L.lesson) parts.push(`<div class="text-xs text-slate-500">درسها: ${esc(L.lesson)}</div>`);
             if (L.weak.length) parts.push(`<div><div class="text-xs font-bold text-rose-700 mb-1">أضعف البنود فيها</div>

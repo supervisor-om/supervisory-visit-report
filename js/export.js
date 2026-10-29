@@ -562,8 +562,14 @@
                     // من الجذر وحده فلا تظهر الشارة لأيّ تقريرٍ حديث
                     const scoreList = typeof svfReportScores === 'function' ? svfReportScores(data) : [];
                     const scoreTotal = scoreList.length ? scoreList.reduce((s, v) => s + v, 0) : null;
-                    const scoreLabel = scoreTotal !== null
-                        ? `<span class="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full mt-1" title="مجموع البنود: ${scoreList.length} = متميّز في كلّها، ${scoreList.length * 5} = يحتاج تطويراً في كلّها">${scoreTotal} / ${scoreList.length * 5}</span>`
+                    // المستوى العامّ لا «المجموع / 65»: السلّم مقلوب (الأقلّ أفضل) فكان «19 / 65» يُقرأ ضعفاً
+                    // وهو أعلى تقدير، والمتصفّح يقلب الرقمين في سطرٍ عربيّ فيظهر «65 / 19».
+                    const LEVELS = ['متميز', 'جيد', 'ملائم', 'غير ملائم', 'تدخل سريع'];
+                    const avg = scoreTotal !== null ? scoreTotal / scoreList.length : null;
+                    const lvl = avg !== null ? Math.min(5, Math.max(1, Math.round(avg))) : 0;
+                    const lvlColor = (window.SVF_COLORS && SVF_COLORS.rating && SVF_COLORS.rating[lvl]) || '#0f4c81';
+                    const scoreLabel = avg !== null
+                        ? `<span class="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full mt-1 text-white self-start w-fit" style="background:${lvlColor}" title="متوسّط البنود ${avg.toFixed(1)} من 5 — 1 متميز و5 تدخل سريع">${LEVELS[lvl - 1]} · <bdi>${avg.toFixed(1)}</bdi></span>`
                         : '';
                     // مربّع الاختيار للرفع إلى البوّابة، والتحديد يبقى بعد إعادة الرسم
                     const picked = window.svfSelected ? window.svfSelected.has(key) : false;
