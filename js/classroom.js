@@ -130,7 +130,122 @@
     window.svfBindCvActions = function () {
         document.querySelectorAll('#classroomVisitsList .cv-sup-btn').forEach(b =>
             b.addEventListener('click', () => createSupervisory(+b.dataset.cv)));
+        renderOrphans();
     };
+
+    // ── (٣) العكس: تقريرٌ إشرافيٌّ في يوم الزيارة المدرسيّة ومدرستها وليس في مواقفها ──
+    // بلاغ المشرف (2026-10-29): تقرير «سوسن» بتاريخ ١ أكتوبر لم يُكتب في تقرير الزيارة
+    // المدرسيّة لذلك اليوم. يُقترح بلمسةٍ ويُسأل عنه عند الحفظ — لا يُضاف من تلقاء نفسه.
+    const STOP = new Set(['مدرسه', 'مدارس', 'بن', 'بنت', 'الخاصه']);
+    const norm = v => clean(v).replace(/[ـً-ْ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    const words = v => norm(v).replace(/\([^)]*\)/g, ' ').replace(/[0-9٠-٩\-–/]+/g, ' ')
+        .split(' ').filter(w => w && !STOP.has(w));
+    // مدرستان واحدة إن كانت كلمات إحداهما كلّها في الأخرى («محمد المنذري» و«محمد بن علي المنذري (5-10)»)
+    function sameSchool(a, b) {
+        const x = words(a), y = words(b);
+        if (!x.length || !y.length) return false;
+        const [s, l] = x.length <= y.length ? [x, y] : [y, x];
+        return s.every(w => l.includes(w));
+    }
+    // متوسّط الدرجات (١ متميّز) ← سلّم المواقف الصفّيّة
+    const RATING = ['ممتاز', 'جيد جداً', 'جيد', 'متوسط', 'ضعيف'];
+    function ratingOf(r) {
+        let sc = [];
+        try { sc = (typeof svfReportScores === 'function' ? svfReportScores(r) : []).filter(v => v != null && !isNaN(v)); } catch (e) {}
+        if (!sc.length) return 'جيد';
+        const avg = sc.reduce((a, b) => a + Number(b), 0) / sc.length;
+        return RATING[Math.min(4, Math.max(0, Math.round(avg) - 1))];
+    }
+    function covered(r, list) {
+        const want = normName(r.teacherName), fd = r.formData || {};
+        const hp = periodOf(fd.lesson), hg = gradeOf(fd['class']);
+        return list.some(cv => {
+            if (!cv || normName(cv.teacherName || cv.teacher) !== want) return false;
+            const wp = periodOf(cv.period), wg = gradeOf(cv.grade);
+            return !(wp && hp && wp !== hp) && !(wg && hg && wg !== hg);
+        });
+    }
+    function orphanReports() {
+        const date = clean(el('schoolVisitDate') && el('schoolVisitDate').value);
+        const school = clean(el('schoolName') && el('schoolName').value);
+        if (!date || !school) return [];
+        const list = Array.isArray(schoolClassroomVisits) ? schoolClassroomVisits : [];
+        const out = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || k.indexOf('supervision_v6_visit_') !== 0) continue;
+            try {
+                const r = JSON.parse(localStorage.getItem(k));
+                if (!r || r.deleted || clean(r.visitDate) !== date || !clean(r.teacherName)) continue;
+                const t = findTeacher(r.teacherName);
+                const rs = clean(r.school || (r.formData || {}).school) || (t && t.school) || '';
+                if (!sameSchool(rs, school) && !(t && sameSchool(t.school, school))) continue;
+                if (covered(r, list)) continue;
+                out.push({ key: k, r });
+            } catch (e) {}
+        }
+        return out.sort((a, b) => (periodOf((a.r.formData || {}).lesson) || '9').localeCompare(periodOf((b.r.formData || {}).lesson) || '9'));
+    }
+    function cvFromReport(o) {
+        const r = o.r, fd = r.formData || {};
+        const meta = window.svfCvMeta ? window.svfCvMeta(r.teacherName) : {};
+        return Object.assign({}, meta, {
+            teacher: meta.teacherName || clean(r.teacherName),
+            teacherName: meta.teacherName || clean(r.teacherName),
+            grade: clean(fd['class']), period: periodOf(fd.lesson) || clean(fd.lesson),
+            subject: clean(fd.topic) || clean(fd.subject) || 'الرياضة المدرسية',
+            rating: ratingOf(r), gender: meta.gender || '', supKey: o.key
+        });
+    }
+    function addOrphans(items) {
+        if (!items.length) return;
+        if (!Array.isArray(schoolClassroomVisits)) schoolClassroomVisits = [];
+        items.forEach(o => schoolClassroomVisits.push(cvFromReport(o)));
+        if (typeof renderSchoolClassroomVisits === 'function') renderSchoolClassroomVisits();
+        toast(items.length === 1 ? 'أُضيف الموقف الصفّيّ من التقرير الإشرافيّ' : 'أُضيفت ' + items.length + ' مواقف صفّيّة من التقارير الإشرافيّة');
+    }
+    function renderOrphans() {
+        const list = el('classroomVisitsList');
+        if (!list) return;
+        let box = el('cvFromSupervisory');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'cvFromSupervisory';
+            box.className = 'mt-3 hidden';
+            list.parentNode.insertBefore(box, list.nextSibling);
+            box.addEventListener('click', e => {
+                const b = e.target.closest('[data-orph]');
+                if (!b) return;
+                const all = orphanReports();
+                addOrphans(b.dataset.orph === 'all' ? all : all.filter(o => o.key === b.dataset.orph));
+            });
+        }
+        const items = orphanReports();
+        if (!items.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+        const E = s => (typeof svfEscapeHtml === 'function' ? svfEscapeHtml(s) : clean(s).replace(/[<>&"]/g, ''));
+        box.innerHTML = '<div class="border border-amber-300 bg-amber-50 rounded-lg p-3 text-sm">'
+            + '<div class="flex flex-wrap items-center justify-between gap-2 mb-2"><span class="font-bold text-amber-900">'
+            + (items.length === 1 ? 'تقرير إشرافيّ في هذا اليوم ليس في المواقف الصفّيّة' : 'تقارير إشرافيّة في هذا اليوم ليست في المواقف الصفّيّة (' + items.length + ')')
+            + '</span>' + (items.length > 1 ? '<button type="button" data-orph="all" class="svf-btn svf-btn-secondary svf-btn-sm">إضافتها كلّها</button>' : '') + '</div>'
+            + items.map(o => { const c = cvFromReport(o);
+                return '<div class="flex flex-wrap items-center justify-between gap-2 py-1 border-t border-amber-200 first:border-0">'
+                    + '<span><b>' + E(c.teacher) + '</b> · الصف <bdi>' + E(c.grade || '-') + '</bdi> · الحصة <bdi>' + E(c.period || '-') + '</bdi> · ' + E(c.subject) + ' · ' + E(c.rating) + '</span>'
+                    + '<button type="button" data-orph="' + E(o.key) + '" class="svf-btn svf-btn-secondary svf-btn-sm">إضافة إلى المواقف الصفّيّة</button></div>'; }).join('')
+            + '</div>';
+        box.classList.remove('hidden');
+    }
+    window.svfCvRenderOrphans = renderOrphans;
+    // عند حفظ التقرير المدرسيّ: سؤالٌ واحد قبل أن يُحفظ بلا مواقفه
+    window.svfCvOrphansPrompt = function () {
+        const items = orphanReports();
+        if (!items.length) return;
+        const names = items.map(o => clean(o.r.teacherName)).join('، ');
+        if (confirm(items.length === 1
+                ? 'في هذا اليوم تقرير إشرافيّ لهذه المدرسة ليس في المواقف الصفّيّة: ' + names + '.\nهل أضيفه إلى التقرير المدرسيّ قبل الحفظ؟'
+                : 'في هذا اليوم ' + items.length + ' تقارير إشرافيّة لهذه المدرسة ليست في المواقف الصفّيّة: ' + names + '.\nهل أضيفها إلى التقرير المدرسيّ قبل الحفظ؟'))
+            addOrphans(items);
+    };
+    window.svfCvSameSchool = sameSchool;
 
     // تصفيرٌ مقصورٌ على النموذج الإشرافيّ: performReset تمسح حقول الصفحة كلّها
     // — ومنها نموذج الزيارة المدرسيّة المفتوح خلفنا — فلا تصلح هنا.
@@ -228,5 +343,6 @@
         el('cvTeacher').addEventListener('change', onTeacherPicked);
         el('cvTeacher').addEventListener('blur', onTeacherPicked);
         if (el('cvGrade')) el('cvGrade').addEventListener('change', warnGradeMismatch);
+        ['schoolVisitDate', 'schoolName'].forEach(id => { const e = el(id); if (e) { e.addEventListener('change', renderOrphans); e.addEventListener('blur', renderOrphans); } });
     };
 })();

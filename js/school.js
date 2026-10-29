@@ -1212,6 +1212,8 @@
             document.querySelectorAll('#objectivesContainer .obj-editing').forEach(row => {
                 if (!row.classList.contains('hidden')) row.querySelector('.obj-edit-input')?.blur();
             });
+            // تقريرٌ إشرافيٌّ في اليوم والمدرسة نفسيهما وليس في المواقف الصفّيّة ← يُسأل عنه
+            try { if (typeof svfCvOrphansPrompt === 'function') svfCvOrphansPrompt(); } catch (e2) {}
             const formData = new FormData(reportForm);
             const objectives = [];
             reportForm.querySelectorAll('input[name="objectives"]:checked').forEach(cb => objectives.push(cb.value));
