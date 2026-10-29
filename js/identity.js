@@ -378,13 +378,41 @@
     const teacherKey = t => normName(typeof t === 'string' ? t : t.name);
     const schoolKey  = t => normalize(typeof t === 'string' ? t : t.school);
 
-    function findTeacher(name) {
-        const hits = matchBy(getTeachers(), name, teacherKey);
+    function findTeacher(name, school) {
+        const all = getTeachers();
+        let hits = matchBy(all, name, teacherKey);
+        // كلمات الاسم في غير ترتيبها المتّصل: «حسين العجمي» ← «حسين بن علي بن محمد العجمي»
+        if (!hits.length) {
+            const want = teacherKey(name).split(' ').filter(Boolean);
+            if (want.length >= 2) hits = all.filter(t => { const have = teacherKey(t).split(' '); return want.every(w => have.includes(w)); });
+        }
+        // الملتبس يُحسم بالمدرسة المكتوبة إن وُجدت — وإلّا يبقى ملتبساً
+        if (hits.length > 1 && school) {
+            const inSchool = teachersOfSchool(school);
+            const narrowed = hits.filter(t => inSchool.includes(t));
+            if (narrowed.length) hits = narrowed;
+        }
         return { matches: hits, teacher: hits.length === 1 ? hits[0] : null };
     }
 
+    // كلمات اسم المدرسة المميِّزة: بلا «مدرسة» ولا «بن» ولا نطاق الصفوف ولا الأرقام —
+    // فـ«مدرسة محمد المنذري» تجد «محمد بن علي المنذري (5-10)».
+    const SCHOOL_STOP = new Set(['مدرسه', 'مدارس', 'بن', 'بنت', 'لل', 'لتعليم', 'للتعليم']);
+    function schoolWords(v) {
+        return normalize(v).replace(/\([^)]*\)/g, ' ').replace(/[0-9٠-٩\-–/]+/g, ' ')
+            .split(' ').filter(w => w && !SCHOOL_STOP.has(w));
+    }
+
     function teachersOfSchool(school) {
-        return matchBy(getTeachers(), school, schoolKey);
+        const all = getTeachers();
+        const hits = matchBy(all, school, schoolKey);
+        if (hits.length) return hits;
+        // ثالثاً: كلّ الكلمات المكتوبة في اسم مدرسةٍ واحدة — والتعدّد لا يُختار منه
+        const want = schoolWords(school);
+        if (!want.length) return [];
+        const byWords = all.filter(t => { const have = schoolWords(t.school); return want.every(w => have.includes(w)); });
+        const schools = new Set(byWords.map(schoolKey));
+        return schools.size === 1 ? byWords : [];
     }
 
     // اسم المدير من سجلّات المدرسة: يُقبل حين تتّفق، ويُترك حين تختلف —

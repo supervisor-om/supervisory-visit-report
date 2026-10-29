@@ -274,11 +274,19 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
         const amb = api.findTeacher('سالم');
         check('find: الملتبس لا يُختار عنه بل يُعرض', !amb.teacher && amb.matches.length > 1,
               JSON.stringify(amb.matches.map(t => t.name)));
+        check('find: الاسم الأوّل والأخير يكفيان إن تفرّدا', api.findTeacher('هاشم الهاشمي').teacher?.fileNumber === '7788');
+        check('find: كلمةٌ واحدةٌ ملتبسة لا تُوسَّع بالكلمات', !api.findTeacher('سالم').teacher);
         check('find: ما ليس في القائمة لا يُطابَق', api.findTeacher('زائر غريب').matches.length === 0);
 
         check('school: المدرسة تُطابَق باختلاف الهمزة',
               api.teachersOfSchool('مدرسة الامام').length === 2 && api.teachersOfSchool('مدرسة الإمام').length === 2,
               api.teachersOfSchool('مدرسة الامام').length + '');
+        check('school: كلماتُ الاسم تكفي بلا «مدرسة» ونطاق الصفوف (محمد المنذري ← محمد بن علي المنذري (5-10))',
+              api.teachersOfSchool('مدرسه الوادي الخاصة (1-12)').length === 2
+              && api.teachersOfSchool('الخاصة الوادي').length === 2,
+              api.teachersOfSchool('الخاصة الوادي').length + '');
+        check('school: كلماتٌ لا تجتمع في مدرسةٍ واحدة لا تطابق', api.teachersOfSchool('الامام الوادي').length === 0);
+        check('school: «مدرسة» وحدها لا تطابق كلّ المدارس', api.teachersOfSchool('مدرسة (5-10)').length === 0);
         check('school: أسماء المدارس بلا تكرارٍ بعد التسوية', api.schoolNames().length === 2,
               api.schoolNames().join(' | '));
         check('school: أسماء المعلمين كلّها معروضة', api.teacherNames().length === SUP_A_COUNT);

@@ -80,7 +80,7 @@
         function svfRefreshSuggestions() {
             const on = svfLinked();
             if (on) {
-                svfSetOptions(SVF_TEACHER_LIST, SupervisorIdentity.teacherNames());
+                svfSupTeacherOptions();
                 svfSetOptions(SVF_SCHOOL_LIST,  SupervisorIdentity.schoolNames());
             }
             svfBindList('teacherName', SVF_TEACHER_LIST, on);   // الزيارة الإشرافيّة
@@ -92,6 +92,41 @@
 
             const btn = document.getElementById('pullRosterBtn');
             if (btn) btn.classList.toggle('hidden', !on);
+        }
+
+        // اقتراحات اسم المعلّم في الزيارة الإشرافيّة: إن كُتبت المدرسة أوّلاً فمعلّموها وحدهم،
+        // وإلّا الجميع — ومع كلّ اسمٍ مدرستُه فيُعرف من أيّ مدرسةٍ هو.
+        function svfSupTeacherOptions() {
+            if (!svfLinked()) return;
+            const school = svfValue('school');
+            const inSchool = school ? SupervisorIdentity.teachersOfSchool(school) : [];
+            const rows = inSchool.length ? inSchool : SupervisorIdentity.getTeachers();
+            const dl = svfDatalist(SVF_TEACHER_LIST);
+            dl.innerHTML = '';
+            const seen = new Set();
+            rows.slice().sort((a, b) => a.name.localeCompare(b.name, 'ar')).forEach(t => {
+                const k = SupervisorIdentity.normName(t.name);
+                if (!t.name || seen.has(k)) return;
+                seen.add(k);
+                const o = document.createElement('option');
+                o.value = t.name;
+                if (t.school) o.label = t.school;
+                dl.appendChild(o);
+            });
+        }
+
+        // المدرسة في الزيارة الإشرافيّة: «مدرسة محمد المنذري» تُردّ إلى رسمها في القاعدة
+        // («محمد بن علي المنذري (5-10)») حين تُطابق مدرسةً واحدة، وتُقصر اقتراحات المعلّم عليها
+        function svfApplySupSchool() {
+            if (!svfLinked()) return;
+            const el = document.getElementById('school');
+            const typed = (el?.value || '').trim();
+            if (typed) {
+                const rows = SupervisorIdentity.teachersOfSchool(typed);
+                const schools = [...new Set(rows.map(t => t.school))];
+                if (schools.length === 1 && schools[0] !== typed) el.value = schools[0];
+            }
+            svfSupTeacherOptions();
         }
 
         // اقتراحات اسم المعلّم داخل المدرسة الحاليّة: معلّموها أوّلاً، فإن لم
@@ -117,7 +152,7 @@
             const typed = (input?.value || '').trim();
             if (!typed) return;
 
-            const { matches, teacher } = SupervisorIdentity.findTeacher(typed);
+            const { matches, teacher } = SupervisorIdentity.findTeacher(typed, svfValue('school'));
             if (!teacher) {
                 if (matches.length > 1)
                     showToast('أكثر من معلّم بهذا الاسم — أكمل الاسم لتحديده', 'error');
@@ -229,6 +264,13 @@
             if (teacher) {
                 teacher.addEventListener('change', svfApplyTeacherFromDb);
                 teacher.addEventListener('blur', svfApplyTeacherFromDb);
+                teacher.addEventListener('focus', svfSupTeacherOptions);   // المدرسة قد تغيّرت أو صُفّرت
+            }
+
+            const supSchool = document.getElementById('school');
+            if (supSchool) {
+                supSchool.addEventListener('change', svfApplySupSchool);
+                supSchool.addEventListener('blur', svfApplySupSchool);
             }
 
             const schoolName = document.getElementById('schoolName');
