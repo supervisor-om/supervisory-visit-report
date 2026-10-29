@@ -179,6 +179,7 @@
             }
             const fileEl = document.getElementById('fileNumber');
             if (fileEl) {
+                if (!fileEl.dataset) fileEl.dataset = {};
                 const cur = fileEl.value.trim();
                 const auto = fileEl.dataset.svfAuto || '';
                 if (teacher.fileNumber && cur !== teacher.fileNumber) {
