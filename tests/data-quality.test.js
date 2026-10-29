@@ -28,7 +28,16 @@ const PORTAL = {
 const q = svfDataQuality(T, PORTAL, norm);
 
 check('total: السجلّ بلا اسم لا يُعدّ', q.total === 3);
-check('noFile: مريم وحدها', q.noFile.length === 1 && q.noFile[0].name === 'مريم مصطفى موسى');
+check('noFile: معلّمو المدارس الخاصّة ليس لهم رقم ملف فلا يُعدّون (مريم في «نور الإسلام الخاصة»)', q.noFile.length === 0);
+{
+    const q2 = svfDataQuality([
+        { name: 'حكوميّ بلا رقم', school: 'يزيد بن حاتم', schoolType: 'حكومية', fileNumber: '' },
+        { name: 'خاصٌّ بالنوع', school: 'مدرسة الأمل', schoolType: 'خاصة', fileNumber: '' },
+        { name: 'خاصٌّ بالاسم', school: 'زهور الخليج الخاصه (1-4)', fileNumber: '' }
+    ], {}, norm);
+    check('noFile: الحكوميّ بلا رقم يُعدّ، والخاصّ بنوعه أو باسمه لا يُعدّ',
+          q2.noFile.length === 1 && q2.noFile[0].name === 'حكوميّ بلا رقم', JSON.stringify(q2.noFile.map(t => t.name)));
+}
 check('noGender: منصور', q.noGender.length === 1 && q.noGender[0].name === 'منصور الهنائي');
 check('noGrades: منصور', q.noGrades.length === 1 && q.noGrades[0].name === 'منصور الهنائي');
 check('noPrincipal: مدرسةٌ لا يذكر أيٌّ من سجلّاتها المدير',
@@ -38,7 +47,7 @@ check('nameDiff: مريم — الاسم في البوّابة ورقمها',
       q.nameDiff.length === 1 && q.nameDiff[0].portal === 'مريم مصطفى محمد السيد' && q.nameDiff[0].emp === '32315171',
       JSON.stringify(q.nameDiff));
 check('nameDiff: فرق الياء والألف المقصورة وحده ليس اختلافاً', !q.nameDiff.some(d => d.name === 'سالم البوسعيدي'));
-check('issues: المجموع', q.issues === 1 + 1 + 1 + 1 + 1);
+check('issues: المجموع (بلا رقم ملفٍ لمعلّمة الخاصّة)', q.issues === 0 + 1 + 1 + 1 + 1);
 
 const empty = svfDataQuality([], {}, norm);
 check('empty: بلا معلّمين لا أخطاء', empty.total === 0 && empty.issues === 0);

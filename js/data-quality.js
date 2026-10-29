@@ -13,6 +13,9 @@
 
     const clean = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
 
+    // الخاصّة من «نوع المدرسة» في القاعدة، وإلّا من اسمها («… الخاصة»)
+    const isPrivate = t => /خاص/.test(clean(t.schoolType)) || (!clean(t.schoolType) && /الخاص[ةه]/.test(clean(t.school)));
+
     // دالّةٌ نقيّة: teachers من القاعدة، portal = { مفتاح: {site, portal, emp, school} }
     function svfDataQuality(teachers, portal, normName) {
         const norm = normName || clean;
@@ -20,7 +23,8 @@
         const out = { total: list.length, noFile: [], noGender: [], noGrades: [], noPrincipal: [], nameDiff: [] };
 
         list.forEach(t => {
-            if (!clean(t.fileNumber)) out.noFile.push(t);
+            // معلّمو المدارس الخاصّة ليس لهم رقم ملفٍّ وظيفيّ (طلب المشرف 2026-10-29) — لا يُعدّ نقصاً
+            if (!clean(t.fileNumber) && !isPrivate(t)) out.noFile.push(t);
             if (t.gender !== 'm' && t.gender !== 'f') out.noGender.push(t);
             if (!clean(t.grades)) out.noGrades.push(t);
         });
@@ -90,7 +94,7 @@
                     <div><span class="text-slate-500">في البوّابة:</span> <span class="font-bold text-emerald-700">${esc(d.portal)}</span>
                         ${d.emp ? '<span class="text-xs text-slate-500"> — الرقم الوظيفي <bdi>' + esc(d.emp) + '</bdi></span>' : ''}</div></div>`),
                 'fa-id-card'),
-            section('بلا رقم ملف', 'رقم الملف يجعل السكربت يختار المعلّم في البوّابة بيقين لا بالاسم.', q.noFile.map(teacherRow), 'fa-hashtag'),
+            section('بلا رقم ملف', 'رقم الملف يجعل السكربت يختار المعلّم في البوّابة بيقين لا بالاسم — ومعلّمو المدارس الخاصّة لا يُعدّون هنا (ليس لهم رقم ملف).', q.noFile.map(teacherRow), 'fa-hashtag'),
             section('بلا جنس معروف', 'الجنس يُشتقّ من «الحالة الاجتماعية» — وبدونه تُكتب الصياغة بالمذكّر.', q.noGender.map(teacherRow), 'fa-venus-mars'),
             section('بلا صفوف', 'الصفوف تُقترح عند إضافة الموقف الصفّيّ، ومنها عنوان الدرس من الخطة.', q.noGrades.map(teacherRow), 'fa-layer-group'),
             section('مدارس بلا اسم مدير', 'اسم المدير يُكتب في بند الالتقاء من رأي الزائر.',
