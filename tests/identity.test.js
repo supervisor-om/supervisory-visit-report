@@ -409,10 +409,15 @@ const rejects = async (p) => { try { await p; return null; } catch (e) { return 
             const t2 = autofillEnv();
             t2.run('initAutofillBindings()');
             await t2.api.link('code-a');
+            // مدرسةٌ بقيت من معلّمٍ سابق ليست مدرسة هذا المعلّم ← تُصحَّح (بلاغ 2026-10-29: زهور الخليج / انس بن مالك)
             t2.dom.els.school.value = 'مدرسة كتبتها بيدي';
             t2.dom.els.teacherName.value = 'الهاشمي';
             t2.run('svfApplyTeacherFromDb()');
-            check('autofill: لا يُطمس ما كتبه المستخدم', t2.dom.els.school.value === 'مدرسة كتبتها بيدي');
+            check('autofill: مدرسة معلّمٍ آخر تُصحَّح إلى مدرسته', t2.dom.els.school.value === 'مدرسة الإمام', t2.dom.els.school.value);
+            // ومدرسته مكتوبةً بغير رسم القاعدة تبقى كما كُتبت
+            t2.dom.els.school.value = 'الإمام';
+            t2.run('svfApplyTeacherFromDb()');
+            check('autofill: مدرسته المكتوبة بيده لا تُطمس', t2.dom.els.school.value === 'الإمام', t2.dom.els.school.value);
 
             // الملتبس يُبلَّغ ولا يُعبَّأ
             const t3 = autofillEnv();
