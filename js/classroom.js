@@ -185,8 +185,11 @@
                 const t = findTeacher(r.teacherName);
                 // مدرسة التقرير أوّلاً؛ ومدرسة المعلّم في القاعدة حين يخلو منها التقرير، أو حين
                 // تكون هي نفسها بنطاق صفوفها (التقرير كتب الاسم بلا نطاق)
-                let rs = clean(r.school || (r.formData || {}).school);
-                if (t && t.school && (!rs || (!range(rs) && sameSchool(t.school, rs)))) rs = t.school;
+                // المعلّم المعروف بالاسم نفسه في القاعدة يُحكم بمدرسته هو: تقرير «محمد» (انس بن مالك)
+                // حُفظ بمدرسة الزيارة السابقة «زهور الخليج» فظهر في زيارتها (بلاغ 2026-10-29).
+                // ومن ليس في القاعدة تُعتمد مدرسة تقريره.
+                const known = t && t.school && normName(t.name) === normName(r.teacherName);
+                const rs = known ? t.school : clean(r.school || (r.formData || {}).school);
                 if (!sameSchool(rs, school)) continue;
                 if (covered(r, list)) continue;
                 out.push({ key: k, r });
