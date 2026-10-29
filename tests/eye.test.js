@@ -1402,6 +1402,50 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: التشكيلات — لا «استُعمل 0 تشكيلات … :» بلا شيءٍ بعدها', /لم يثبت تشكيلٌ واحدٌ عشرين ثانيةً فأكثر/.test(UI));
 }
 
+/* ── ٣٧) دروس الدليل من ملفّه (2026-10-29): يُقرأ في المتصفّح، ويُحوَّل مرّةً ويُحفظ ── */
+{
+    const GI = require('../js/eye-guide-import.js');
+    // البصمة: النصّ نفسه بصمته واحدة مهما اختلف تقطيع أسطره أو تشكيله أو أشكال عرض حروفه
+    check('guide-import: البصمة لا تتأثّر بالأسطر والتشكيل وأشكال العرض', GI.textKey('مسك الكرة\nبالأصابع') === GI.textKey('مَسك  الكرة بالأصابع') && GI.textKey('ﻻ') === GI.textKey('لا') && GI.textKey('أ') !== GI.textKey('ب'));
+    // أسطر pdf.js: السطر العربيّ من اليمين لليسار، والأسطر من الأعلى
+    const items = [{ str: 'الكرة', transform: [1, 0, 0, 10, 100, 700], width: 30, height: 10 }, { str: 'مسك', transform: [1, 0, 0, 10, 140, 700], width: 20, height: 10 },
+                   { str: 'خطوة للأمام', transform: [1, 0, 0, 10, 120, 680], width: 50, height: 10 }, { str: ' ', transform: [1, 0, 0, 10, 0, 690], width: 2, height: 10 }];
+    check('guide-import: الأسطر من عناصر pdf.js بترتيب القراءة العربيّ', JSON.stringify(GI.linesFromItems(items)) === JSON.stringify(['مسك الكرة', 'خطوة للأمام']));
+    const R = GI.buildPrompt('نصّ', { grade: 7, topic: 'كرة السلة', pages: '1–3' });
+    check('guide-import: الطلب مهمّة «guide» ببنية البطاقة وبلا نقلٍ حرفيّ', R.task === 'guide' && /"skills"/.test(R.system) && /لا نقلٌ حرفيٌّ/.test(R.system) && /الصف: 7 — الموضوع: كرة السلة — الصفحات: 1–3/.test(R.user));
+    const raw = GI.parseReply('```json\n{"topic":"لعبة كرة السلة","grade":7,"parts":{"warm":5,"fit":5,"teach":15,"apply":12,"close":3,"x":9},'
+        + '"skills":[{"id":"chest pass","name":"التمريرة الصدرية","points":["مسك الكرة بالأصابع",{"text":"خطوة للأمام","cues":["خطوة"]}]},{"id":"","name":"التصويب <b>","knowledge":true,"points":[]}],'
+        + '"drills":[{"name":"ثنائيات","skills":["chestpass","zzz"],"form":"circle","per":"2","kind":"apply"}],"assess":["اشرح التمريرة الصدرية"]}\n```');
+    const T = GI.normalizeTopic(raw, { hash: 'abcd1234' });
+    check('guide-import: قراءة الردّ بين علامات ``` وتسويته بالبنية التي تقرؤها العين', T && T.id === 'u-g7-abcd1234' && T.user === true && T.skills[0].id === 'chestpass' && T.skills[1].id === 's2'
+          && T.skills[0].points.length === 2 && T.skills[0].points[0].cues.length > 0 && T.skills[1].knowledge === true && !/</.test(T.skills[1].name));
+    check('guide-import: التدريب — تشكيلٌ غير معروف ← انتشار حرّ، ومهارةٌ غير موجودة تُسقط، والعدد رقم', T.drills[0].form === 'free' && T.drills[0].per === 2 && T.drills[0].kind === 'apply' && JSON.stringify(T.drills[0].skills) === '["chestpass"]');
+    check('guide-import: زمن العناصر من الدليل بمفاتيحها الخمسة وحدها، وسؤال التقويم بألفاظه', T.parts && T.parts.teach === 15 && !('x' in T.parts) && T.assess[0].any.length && T.assess[0].with.includes('التمريرة'));
+    check('guide-import: بلا موضوعٍ أو صفّ ← لا بطاقة، والمشكلات تُذكر', GI.normalizeTopic({ skills: [] }, {}) === null && GI.problems(Object.assign({}, T, { drills: [], assess: [] })).length >= 2);
+    // الحفظ والبحث بالبصمة والضمّ إلى الدليل — على تخزينٍ مصنوع
+    const mem = {}; globalThis.localStorage = { get length() { return Object.keys(mem).length; }, key: i => Object.keys(mem)[i], getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: k => { delete mem[k]; } };
+    const LG = require('../js/lesson-guide.js');
+    globalThis.SvfLessonGuide = LG;
+    globalThis.SVF_LESSON_GUIDE = { topics: [{ id: 'g8-football', grade: 8, topic: 'لعبة كرة القدم', match: ['كرة القدم'], skills: [] }] };
+    const k1 = GI.save({ status: 'draft', topic: T, src: { hash: 'abcd1234', pages: '1–3' } });
+    check('guide-import: المسوّدة تُحفظ بمفتاحها وبصمتها، ولا تدخل الدليل قبل الاعتماد', k1 === 'supervision_v6_guide_u-g7-abcd1234' && GI.byHash('abcd1234').topic.topic === 'لعبة كرة السلة'
+          && GI.apply() === 0 && !LG.byId('u-g7-abcd1234'));
+    GI.save({ status: 'ok', topic: T, src: { hash: 'abcd1234' } });
+    check('guide-import: المعتمدة تنضمّ إلى الدليل المضمَّن ويجدها find من الصفّ وعنوان الدرس', GI.apply() === 1 && LG.byId('g8-football') && LG.find({ cls: '7/2', topic: 'التمريرة الصدرية' }) && LG.find({ cls: '7/2', topic: 'التمريرة الصدرية' }).guide.id === 'u-g7-abcd1234');
+    check('guide-import: الحذف يزيلها من الجهاز والدليل', GI.remove(k1) && GI.apply() === 0 && !LG.byId('u-g7-abcd1234') && !GI.list().length);
+    delete globalThis.localStorage; delete globalThis.SvfLessonGuide; delete globalThis.SVF_LESSON_GUIDE;
+    LG.setData(null);
+    const CL = read('js/cloud.js'), UI = read('js/eye.js'), H = read('reports.html'), SW = read('sw.js'), GIs = read('js/eye-guide-import.js'), WK = read('tools/claude-draft/worker.js');
+    check('wiring: البطاقات تتبع المشرف بين أجهزته بنوع «supervision» (القواعد كما هي)، والأرشيف لا يقرأ بادئتها', /guide: 'supervision_v6_guide_'/.test(CL) && /const DOC_KIND = \{ guide: 'supervision' \};/.test(CL) && (CL.match(/kind: docKind\(kind\)/g) || []).length === 2);
+    check('wiring: الملفّ يُقرأ في المتصفّح (pdf.js محلّيّ) ولا يُرفع — يُرسل النصّ وحده إلى الوسيط', /import\(base \+ 'pdf\.min\.mjs'\)/.test(GIs) && /pdf\.worker\.min\.mjs/.test(GIs) && fs.existsSync(path.join(ROOT, 'vendor/pdfjs/pdf.min.mjs'))
+          && fs.existsSync(path.join(ROOT, 'vendor/pdfjs/LICENSE')) && /JSON\.stringify\(buildPrompt\(text, M\)\)/.test(GIs) && !/FormData|arrayBuffer\(\)\)\s*\}/.test(GIs.replace(/const buf = await file\.arrayBuffer\(\);/, '')));
+    check('wiring: النصّ المحوَّل من قبل يُفتح ولا يُرسل ثانيةً، وردّ Claude يُحفظ مسوّدةً فوراً', /const saved = byHash\(textKey\(t\)\);\s*if \(saved\) \{ review\(saved\);/.test(GIs) && /status: 'draft', topic: T/.test(GIs));
+    check('wiring: الوسيط — مهمّة «guide» بحدودٍ أوسع، والتقرير كما كان', /guide: \{ in: 70000, out: 8000 \}/.test(WK) && /draft: \{ in: 24000, out: 2000 \}/.test(WK) && /max_tokens: lim\.out/.test(WK));
+    check('wiring: الملفّ بعد الدليل وقبل العين، وفي عامل الخدمة', /lesson-guide\.js"><\/script>\s*<script src="js\/eye-guide-import\.js"><\/script>/.test(H) && SW.includes("'./js/eye-guide-import.js'"));
+    check('wiring: زرّ «دروس الدليل» في بطاقة البدء وبطاقة الدليل، وتغيّر البطاقات يعيد كشف الدليل', /id="eyeGuideImport"/.test(UI) && /data-gimport/.test(UI) && /addEventListener\('svf-guides-changed'/.test(UI));
+    check('wiring: زمن العناصر من الدليل أوّلاً، وسطر الخطّة تحت عناصر الحصة', /if \(G && G\.parts\) return Object\.assign\(\{\}, G\.parts\);/.test(UI) && /id="eyePlanHint"/.test(UI) && /function planText\(G, k\)/.test(UI));
+}
+
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {
     console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
     process.exit(failures ? 1 : 0);

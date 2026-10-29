@@ -24,8 +24,15 @@
     // بادئات مفاتيح التقارير في المتصفّح — ما عداها لا يُرفع ولا يُنزَّل
     const KIND_PREFIX = {
         supervision: 'supervision_v6_visit_',
-        school: 'supervision_v6_school_report_'
+        school: 'supervision_v6_school_report_',
+        // بطاقات دروس دليل المعلّم التي حوّلها صاحب «عين المشرف» من ملفّ الدليل (js/eye-guide-import.js، منذ 2026-10-29):
+        // تُحوَّل مرّةً واحدةً ثمّ تتبعه بين أجهزته ولا تُحوَّل ثانيةً. ليست تقاريراً: الأرشيف لا يقرأ بادئتها
+        guide: 'supervision_v6_guide_'
     };
+    // نوع الوثيقة في السحابة: القواعد المنشورة تقبل «supervision» و«school» وحدهما، فالبطاقات تُرفع بنوع «supervision»
+    // ويُعرف نوعها الحقيقيّ هنا من بادئة مفتاحها (kindOf) — فلا يلزم تعديل القواعد
+    const DOC_KIND = { guide: 'supervision' };
+    const docKind = kind => DOC_KIND[kind] || kind;
 
     // المسار جزءٌ من عنوان الوثيقة، فيُتحقّق من شكله قبل استعماله
     const BUCKET_RE = /^[a-z][a-z0-9-]{1,30}$/;
@@ -135,7 +142,7 @@
             const me = identity();
             await fb.setDoc(itemDoc(fb, key), {
                 key: key,
-                kind: kind,
+                kind: docKind(kind),
                 supervisor: me ? me.name : '',
                 updatedAt: stamp(key, data),
                 json: JSON.stringify(data)
@@ -160,7 +167,7 @@
             const me = identity();
             const doc = {
                 key: key,
-                kind: kind,
+                kind: docKind(kind),
                 supervisor: me ? me.name : '',
                 updatedAt: Date.now(),
                 deleted: true

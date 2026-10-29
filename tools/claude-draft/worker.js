@@ -10,8 +10,11 @@
  *   MODEL              (اختياريّ) افتراضه claude-sonnet-5-5
  * التفاصيل في README.md بجانبه.
  */
-const MAX_IN = 24000;          // حرفاً للطلب كلّه — تقرير زيارةٍ كاملٌ أقلّ من ثلثها
-const MAX_TOKENS = 2000;
+// حدود كلّ مهمّة: «draft» صياغة التقرير، و«guide» تحويل صفحات دليل المعلّم إلى بطاقة درس (js/eye-guide-import.js) — مرّةً لكلّ موضوع
+const LIMITS = {
+    draft: { in: 24000, out: 2000 },      // تقرير زيارةٍ كاملٌ أقلّ من ثلث الحدّ
+    guide: { in: 70000, out: 8000 }       // موضوعٌ من ١٠–٢٠ صفحة وبطاقته بمهاراتها وتدريباتها
+};
 
 const json = (obj, status, headers) => new Response(JSON.stringify(obj), { status: status || 200, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8' }, headers) });
 
@@ -34,12 +37,13 @@ export default {
         let body;
         try { body = await req.json(); } catch (e) { return json({ error: 'طلبٌ غير مقروء' }, 400, cors); }
         const system = typeof body.system === 'string' ? body.system : '', user = typeof body.user === 'string' ? body.user : '';
-        if (!user || system.length + user.length > MAX_IN) return json({ error: 'الطلب فارغٌ أو أطول من المسموح' }, 400, cors);
+        const lim = LIMITS[body.task === 'guide' ? 'guide' : 'draft'];
+        if (!user || system.length + user.length > lim.in) return json({ error: 'الطلب فارغٌ أو أطول من المسموح' }, 400, cors);
 
         const r = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': env.API_VERSION || '2023-06-01', 'content-type': 'application/json' },
-            body: JSON.stringify({ model: env.MODEL || 'claude-sonnet-5-5', max_tokens: MAX_TOKENS, system, messages: [{ role: 'user', content: user }] })
+            body: JSON.stringify({ model: env.MODEL || 'claude-sonnet-5-5', max_tokens: lim.out, system, messages: [{ role: 'user', content: user }] })
         });
         let j = {};
         try { j = await r.json(); } catch (e) { /* يُبلَّغ أدناه */ }

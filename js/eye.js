@@ -43,7 +43,11 @@
     const ROLL_TINT = 'rgba(132,146,166,.22)';       // مساحة الحضور والزيّ في مجرى الحصة
     const FORM_COLOR = { L: '#0f4c81', C: '#246445', G: '#9a6f24', S: '#64748b' };
     const REC_KEY = 'svf_eye_rec';
-    const recPref = () => { try { const v = JSON.parse(localStorage.getItem(REC_KEY) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } };
+    // الزمن الموصى به لعناصر الحصة: ما حدّده دليل الدرس المختار أوّلاً (بطاقةٌ من ملفّ الدليل — js/eye-guide-import.js)، ثمّ اختيار المشرف
+    const recPref = () => {
+        try { const G = typeof guideOn === 'function' ? guideOn() : null; if (G && G.parts) return Object.assign({}, G.parts); } catch (e) { /* لا دليل */ }
+        try { const v = JSON.parse(localStorage.getItem(REC_KEY) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; }
+    };
 
     const W = 96;               // عرض الإطار المحلَّل
     const S = {
@@ -157,6 +161,7 @@ function tagRowHtml(k) {
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3">
                     <label class="flex items-center gap-2 text-sm font-semibold text-slate-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                         <input type="checkbox" id="eyeConsent" class="w-5 h-5"> أُبلغ المعلّم بالرصد</label>
+                    <button type="button" id="eyeGuideImport" class="svf-btn svf-btn-ghost svf-btn-sm" title="إضافة درسٍ من ملفّ دليل المعلّم (PDF) — يُحوَّل مرّةً ويُحفظ"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>دروس الدليل</span></button>
                     <details id="eyeSettings" class="flex-1 min-w-0">
                         <summary class="cursor-pointer select-none text-sm text-slate-700 flex items-center gap-2 py-1"><i class="fa-solid fa-sliders" aria-hidden="true"></i>
                             <b class="font-semibold">الإعدادات</b><span id="eyeSetSum" class="text-xs text-slate-500 truncate min-w-0"></span></summary>
@@ -270,6 +275,7 @@ function tagRowHtml(k) {
                                 ${[E().ROLL].concat(E().PARTS).map(c => `<button type="button" class="eye-ctx svf-btn svf-btn-secondary flex-col !gap-1 !px-1 !py-2.5 text-xs leading-4 text-center" data-ctx="${c.k}" aria-pressed="false" title="${esc(c.admin ? c.label + ' — بداية الحصة: لا يُحسب شرحاً ولا انتظاراً' : c.label)}">
                                     <i class="inline-block w-full h-1 rounded-sm" style="background:${CTX_COLOR[c.c]}" aria-hidden="true"></i>${esc(c.short)}</button>`).join('')}
                             </div>
+                            <p id="eyePlanHint" class="hidden text-xs text-blue-900 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1.5 mt-2 leading-5" aria-live="polite"></p>
                             <p class="eye-adv text-[11px] text-slate-500 mt-1.5 leading-4">«حضور وزيّ» لتسجيل الغياب والزيّ — لا يُحسب شرحاً ولا انتظاراً، وإن لم تلمسه عُدّت بداية الحصة قبل أوّل نشاطٍ كذلك.</p>
                         </div>
                         <p class="eye-adv text-xs text-slate-500 leading-5">لا يُسجَّل فيديو ولا صوت ولا تُرسَل صورة: تُحلَّل الإطارات في ذاكرة الجهاز ثمّ تُنسى، ونموذج كشف الطلبة يعمل في الجهاز نفسه.</p>
@@ -480,7 +486,16 @@ function tagRowHtml(k) {
         body.querySelectorAll('.eye-round').forEach(b => b.addEventListener('click', () => { S.sampleRound = b.dataset.round; renderSample(); }));
         $('eyeSampleChips').addEventListener('click', e => { const b = e.target.closest('[data-pupil]'); if (b) sampleTap(+b.dataset.pupil); });
         $('eyeSamplePts').addEventListener('click', e => { const b = e.target.closest('[data-spt]'); if (b) samplePoint(b.dataset.spt); });
+        // دروس الدليل من ملفّه (js/eye-guide-import.js): نافذةٌ تُفتح من بطاقة البدء أو من بطاقة الدليل
+        const openImport = () => { if (root.SvfGuideImport) root.SvfGuideImport.open(); else toast('أداة الدليل لم تُحمَّل — أعد تحميل الصفحة', 'error'); };
+        $('eyeGuideImport').addEventListener('click', openImport);
+        // بطاقةٌ اعتُمدت أو حُذفت أو نزلت من جهازٍ آخر: يُعاد كشف دليل الدرس (ما لم يكن تقريرٌ محفوظٌ اختار دليله)
+        document.addEventListener('svf-guides-changed', () => {
+            if (S.result && S.result.guide) { renderGuide(); return; }
+            S.gkey = null; detectGuide(); renderGuide(); renderSample(); planHint();
+        });
         $('eyeGuide').addEventListener('click', e => {
+            if (e.target.closest('[data-gimport]')) { openImport(); return; }
             const b = e.target.closest('[data-gskill],[data-gopen],[data-gmin]');
             if (!b || !S.guide) return;
             if (b.dataset.gskill) guideSkill(b.dataset.gskill);
@@ -577,6 +592,7 @@ function tagRowHtml(k) {
         }
         // لوحة النقاط لا تُرى إلّا أثناء الرصد: مسحُها بعد الإيقاف لم يكفِ — بقيت نقاط آخر لقطةٍ أحياناً حين انتهى المقطع وحده (فحص Chromium)
         $('eyeView').style.visibility = S.running ? '' : 'hidden';
+        planHint();
     }
     // شريط الرصد يلتصق تحت شريط التبويبات (وهو لاصقٌ أيضاً) فلا يختفي «إيقاف» و«علامة» عند التمرير
     function placeBar() {
@@ -902,6 +918,27 @@ function tagRowHtml(k) {
         S.ctxCur = k;
         S.ctxEvents.push({ t, k });
         renderCtx();
+        planHint();
+    }
+    // ما خطّطه الدليل للعنصر الجاري — سطرٌ تحت «عناصر الحصة» (يظهر في الوضع المبسّط أيضاً) فيُقارن المشرف ما أمامه بالخطّة فوراً
+    function planHint() {
+        const el = $('eyePlanHint');
+        if (!el) return;
+        const G = guideOn(), k = S.ctxCur;
+        const txt = G && S.running && k && E().PART[k] ? planText(G, k) : '';
+        el.textContent = txt;
+        el.classList.toggle('hidden', !txt);
+    }
+    function planText(G, k) {
+        const FORM = LG().FORM, ids = S.guide.skills.length ? S.guide.skills : G.skills.map(x => x.id);
+        const perTxt = n => (n === 1 ? 'كرةٌ لكلّ طالب' : n === 2 ? 'كرةٌ لكلّ طالبين' : n ? 'كرةٌ لكلّ (' + n + ') طلبة' : '');
+        const mins = G.parts && G.parts[k] ? ' · ' + G.parts[k] + ' د' : '';
+        if (k === 'teach' || k === 'apply') {
+            const ds = LG().drillsFor(G, ids).filter(d => d.kind === k).slice(0, 2);
+            if (!ds.length) return mins ? 'الدليل: ' + E().PART[k].label + mins : '';
+            return 'الدليل' + mins + ': ' + ds.map(d => d.name + ' (' + [FORM[d.form], perTxt(d.per)].filter(Boolean).join('، ') + ')').join(' — ');
+        }
+        return mins ? 'الدليل: ' + E().PART[k].label + mins : '';
     }
     // ما أعلنه المعلّم بصوته («نبدأ الإحماء»، «الحين النشاط التطبيقي»): **اقتراحٌ** يلمسه المشرف — لا يُسجَّل وحده، فالمحوِّل قد يخطئ
     // والمعلّم قد يذكر العنصر ولا يبدؤه. يُعرض دقيقتين، ولا يُقترح العنصر الجاري.
@@ -1091,6 +1128,7 @@ function tagRowHtml(k) {
     function guideChanged() {
         renderGuide();
         renderSample();
+        planHint();
         if (S.running && S.sp) S.sp.dirty = true;
         const d = S.result;
         if (!d || S.running) return;
@@ -1123,7 +1161,8 @@ function tagRowHtml(k) {
         const chosen = G.skills.filter(sk => sel.has(sk.id));
         const head = `<div class="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 class="font-bold text-slate-900"><i class="fa-solid fa-book-open ml-1.5 text-slate-500" aria-hidden="true"></i>دليل المعلّم — ${esc(G.topic)} · ${esc(gname)}</h2>
-                <span class="flex items-center gap-2 text-xs text-slate-500">${esc(G.sessions)} حصة · نموذجٌ تجريبيّ
+                <span class="flex items-center gap-2 text-xs text-slate-500">${G.sessions ? esc(G.sessions) + ' حصة · ' : ''}${G.user ? 'من ملفّ دليلك' : 'نموذجٌ تجريبيّ'}${G.parts ? ' · زمن العناصر من الدليل' : ''}
+                    <button type="button" data-gimport class="svf-btn svf-btn-ghost svf-btn-sm">دروس الدليل</button>
                     <button type="button" data-gmin class="svf-btn svf-btn-ghost svf-btn-sm" aria-expanded="${S.guide.min ? 'false' : 'true'}">${S.guide.min ? 'عرض' : 'طيّ'}</button></span></div>`;
         if (S.guide.min) {
             box.innerHTML = head + `<p class="text-sm text-slate-600 mt-1">مهارة الحصة: ${chosen.length ? esc(chosen.map(x => x.short).join('، ')) : 'لم تُختر'}</p>`;
@@ -1155,8 +1194,8 @@ function tagRowHtml(k) {
                 <div class="mt-2 space-y-2 leading-6">
                     <div><div class="text-xs font-bold text-slate-500">أسئلة التقويم — يتابعها «فهم الكلام»</div>${(G.assess || []).map((q, i) => `<div class="flex items-start gap-2"><span class="flex-1 text-slate-700">${esc(q.text)}</span><span class="flex-none" data-ga="${i}"></span></div>`).join('')}
                         ${G.assessGame ? `<p class="text-slate-700">${esc(G.assessGame)}</p>` : ''}</div>
-                    <div><div class="text-xs font-bold text-slate-500">المخرجات التعليميّة</div><p class="text-slate-700">${esc(G.outcomes.join('؛ '))}</p></div>
-                    <div><div class="text-xs font-bold text-slate-500">المفاهيم · الأدوات</div><p class="text-slate-700">${esc(G.concepts.join('، '))} · ${esc(G.tools.join('، '))}</p></div>
+                    ${(G.outcomes || []).length ? `<div><div class="text-xs font-bold text-slate-500">المخرجات التعليميّة</div><p class="text-slate-700">${esc(G.outcomes.join('؛ '))}</p></div>` : ''}
+                    ${(G.concepts || []).length || (G.tools || []).length ? `<div><div class="text-xs font-bold text-slate-500">المفاهيم · الأدوات</div><p class="text-slate-700">${esc((G.concepts || []).join('، '))} · ${esc((G.tools || []).join('، '))}</p></div>` : ''}
                     ${G.adapt && G.adapt.length ? `<div><div class="text-xs font-bold text-slate-500">تعديل القواعد لقدرات المرحلة</div><p class="text-slate-700">${esc(G.adapt.join('؛ '))}</p></div>` : ''}
                     ${G.note ? `<p class="text-xs text-slate-500">${esc(G.note)}</p>` : ''}
                 </div></details>`;
