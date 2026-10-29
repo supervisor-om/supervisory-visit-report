@@ -299,5 +299,17 @@ function buildEnv(extra) {
           /g === 'f' \? 'المعلمة ' : g === 'm' \? 'المعلم ' : ''/.test(school));
 }
 
+/* ── ٧) مطابقة المدرسة: نطاق الصفوف يفرّق مدرستين بالاسم نفسه ── */
+{
+    const { ctx } = makeEnv({});
+    const same = ctx.svfCvSameSchool;
+    check('مدرسة: «انس بن مالك (1-4)» غير «(5-12)»', same('انس بن مالك (1-4)', 'انس بن مالك (5-12)') === false);
+    check('مدرسة: بلا نطاقٍ في أحدهما = واحدة', same('مدرسة انس بن مالك', 'انس بن مالك (5-12)') === true);
+    check('مدرسة: النطاق نفسه بأرقامٍ عربيّة', same('انس بن مالك (١-٤)', 'انس بن مالك (1-4)') === true);
+    check('مدرسة: الكلمات الناقصة ما زالت تطابق', same('محمد المنذري', 'محمد بن علي المنذري (5-10)') === true);
+    const src = fs.readFileSync(path.join(ROOT, 'js/classroom.js'), 'utf8');
+    check('الأيتام: لا ملاذ بمدرسة المعلّم حين يكتب التقرير مدرسته', !/\|\| !\(t && sameSchool\(t\.school, school\)\)|!\(t && sameSchool\(t\.school, school\)\)/.test(src));
+}
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);

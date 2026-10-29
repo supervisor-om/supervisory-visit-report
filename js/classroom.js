@@ -141,7 +141,12 @@
     const words = v => norm(v).replace(/\([^)]*\)/g, ' ').replace(/[0-9٠-٩\-–/]+/g, ' ')
         .split(' ').filter(w => w && !STOP.has(w));
     // مدرستان واحدة إن كانت كلمات إحداهما كلّها في الأخرى («محمد المنذري» و«محمد بن علي المنذري (5-10)»)
+    // نطاق الصفوف يفرّق مدرستين بالاسم نفسه: «انس بن مالك (1-4)» غير «انس بن مالك (5-12)»
+    // (بلاغ المشرف 2026-10-29: ظهر معلّم الثانية في زيارة الأولى). الغائب لا يُفرّق.
+    const range = v => { const m = norm(v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).match(/\(\s*[^)]*?(\d+)\s*[-–]\s*(\d+)[^)]*\)/); return m ? m[1] + '-' + m[2] : ''; };
     function sameSchool(a, b) {
+        const ra = range(a), rb = range(b);
+        if (ra && rb && ra !== rb) return false;
         const x = words(a), y = words(b);
         if (!x.length || !y.length) return false;
         const [s, l] = x.length <= y.length ? [x, y] : [y, x];
@@ -178,8 +183,11 @@
                 const r = JSON.parse(localStorage.getItem(k));
                 if (!r || r.deleted || clean(r.visitDate) !== date || !clean(r.teacherName)) continue;
                 const t = findTeacher(r.teacherName);
-                const rs = clean(r.school || (r.formData || {}).school) || (t && t.school) || '';
-                if (!sameSchool(rs, school) && !(t && sameSchool(t.school, school))) continue;
+                // مدرسة التقرير أوّلاً؛ ومدرسة المعلّم في القاعدة حين يخلو منها التقرير، أو حين
+                // تكون هي نفسها بنطاق صفوفها (التقرير كتب الاسم بلا نطاق)
+                let rs = clean(r.school || (r.formData || {}).school);
+                if (t && t.school && (!rs || (!range(rs) && sameSchool(t.school, rs)))) rs = t.school;
+                if (!sameSchool(rs, school)) continue;
                 if (covered(r, list)) continue;
                 out.push({ key: k, r });
             } catch (e) {}
