@@ -84,3 +84,14 @@
            وما سواه يعود بزرّ «كل الأدوات» أو بعد الإيقاف. السمة يضعها layout() في js/eye.js */
         #eyeBody[data-eye-simple] .eye-adv { display: none !important; }
         #eyeBody:not([data-eye-simple]) .eye-simple-only { display: none !important; }
+        /* بعد الإيقاف (أو عند فتح نتيجةٍ محفوظة): النتيجة أوّلاً، ثمّ أدوات الرصد لتصحيح العدّادات، وبطاقة البدء مخفيّة حتّى «رصد جديد».
+           السمة data-eye-done يضعها layout() (2026-10-29) */
+        #eyeBody[data-eye-done] { display: flex; flex-direction: column; gap: 1.25rem; }
+        #eyeBody[data-eye-done] > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+        #eyeBody[data-eye-done] > #eyeSetup { display: none !important; }
+        #eyeBody[data-eye-done] > #eyeResult { order: 1; }
+        #eyeBody[data-eye-done] > #eyeWork { order: 2; }
+        #eyeBody[data-eye-done] > #eyeFocus, #eyeBody[data-eye-done] > #eyeGuide { order: 3; }
+        #eyeBody[data-eye-done] > #eyeAgree, #eyeBody[data-eye-done] > #eyePatterns { order: 4; }
+        #eyeBody:not([data-eye-done]) .eye-done-only { display: none !important; }
+        html[data-eye-running] #supervisoryVisitsApp header { position: static !important; }

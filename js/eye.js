@@ -37,6 +37,7 @@
     // ألوان عناصر الحصة (الحرف من PARTS.c) — والحروف القديمة للتقارير المحفوظة قبل العناصر الخمسة
     // و r: الحضور والزيّ (ليس عنصراً — رماديٌّ مزرقّ)
     // نقاط الطلبة فوق الصورة: ذهبيّ ينتقل، أخضر فاتح يتمرّن في مكانه، أبيض ساكن، طوبيّ خارج المنطقة
+    const DOT_FADE = 0.7, DOT_HIDE = 1.6;     // ثوانٍ منذ آخر لقطة: تبهت النقاط ثمّ تختفي (drawView)
     const DOT = { move: '#f0b44a', place: '#7fd1a4', still: '#e2e8f0', out: 'rgba(224,122,106,0.95)' };
     const CTX_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445', r: '#8492a6', e: '#64748b', o: '#b98a32', p: '#5b8fc7', g: '#246445' };
     const ROLL_TINT = 'rgba(132,146,166,.22)';       // مساحة الحضور والزيّ في مجرى الحصة
@@ -105,7 +106,7 @@ function tagRowHtml(k) {
                     <button type="button" class="eye-tag flex-1 min-w-0 flex items-center justify-between gap-2 text-right text-sm px-3 py-2 rounded-lg border bg-white transition-colors ${t.neg ? 'border-red-200 hover:border-red-500' : 'border-slate-200 hover:border-blue-500'}" data-tag="${k}">
                         <span class="min-w-0">${esc(t.label)}</span>
                         <b class="eye-count tabular-nums ${t.neg ? 'text-red-700' : 'text-blue-800'}" data-count="${k}">0</b></button>
-                    <button type="button" class="eye-dec hidden flex-none w-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-slate-400" data-dec="${k}" aria-label="إنقاص ${esc(t.label)}">−</button>
+                    <button type="button" class="eye-dec hidden flex-none w-11 text-lg rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-slate-400" data-dec="${k}" aria-label="إنقاص ${esc(t.label)}">−</button>
                 </div>`;
     }
 
@@ -116,7 +117,7 @@ function tagRowHtml(k) {
         const tagRow = tagRowHtml;
         const sel = (id, label, opts) => `<label class="flex items-center justify-between gap-2 text-sm text-slate-700">${label}
                     <select id="${id}" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm">${opts}</select></label>`;
-        const chk = (id, label, on, title) => `<label class="flex items-center gap-2 text-sm text-slate-700"${title ? ` title="${title}"` : ''}><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${label}</label>`;
+        const chk = (id, label, on, title) => `<label class="flex items-center gap-2 text-sm text-slate-700"${title ? ` title="${title}"` : ''}><input type="checkbox" class="w-5 h-5 flex-none" id="${id}"${on ? ' checked' : ''}> ${label}</label>`;
         const kpi = (id, label) => `<div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 min-w-0">
                     <div class="text-xs text-slate-600 truncate" id="${id}L">${label}</div><div class="text-lg font-bold text-slate-900 tabular-nums truncate" id="${id}">—</div></div>`;
         const card = (id, icon, name, sub, tag) => `<${tag === 'label' ? 'label for="eyeFile" role="button" tabindex="0"' : 'button type="button"'} id="${id}"
@@ -155,7 +156,7 @@ function tagRowHtml(k) {
                 <input type="file" id="eyeFile" accept="video/*" class="hidden">
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3">
                     <label class="flex items-center gap-2 text-sm font-semibold text-slate-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                        <input type="checkbox" id="eyeConsent"> أُبلغ المعلّم بالرصد</label>
+                        <input type="checkbox" id="eyeConsent" class="w-5 h-5"> أُبلغ المعلّم بالرصد</label>
                     <details id="eyeSettings" class="flex-1 min-w-0">
                         <summary class="cursor-pointer select-none text-sm text-slate-700 flex items-center gap-2 py-1"><i class="fa-solid fa-sliders" aria-hidden="true"></i>
                             <b class="font-semibold">الإعدادات</b><span id="eyeSetSum" class="text-xs text-slate-500 truncate min-w-0"></span></summary>
@@ -211,6 +212,10 @@ function tagRowHtml(k) {
             <p id="eyeMsg" class="hidden bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm" role="alert"></p>
 
             <div id="eyeWork" class="hidden space-y-5">
+                <div class="eye-done-only flex flex-wrap items-baseline justify-between gap-2 border-t border-slate-200 pt-4">
+                    <h2 class="text-lg font-bold text-slate-900">ما رُصد في الحصة</h2>
+                    <span class="text-xs text-slate-500">صحّح العدّادات أو العيّنة هنا فيُعاد الاقتراح أعلاه</span>
+                </div>
                 <section id="eyeLiveBar" class="hidden sticky z-30 rounded-2xl border border-slate-200 px-3 py-2 flex items-center gap-2 sm:gap-3" style="top:5rem;background-color:#fff;box-shadow:0 6px 18px rgba(8,39,66,.10)">
                     <span class="flex items-center gap-2"><i class="eye-rec inline-block w-2.5 h-2.5 rounded-full bg-red-600" aria-hidden="true"></i>
                         <b id="eyeLiveClock" class="text-xl tabular-nums text-slate-900">00:00</b></span>
@@ -233,14 +238,14 @@ function tagRowHtml(k) {
                                 <span class="w-2 h-2 rounded-full bg-red-500"></span><span id="eyeClock" class="tabular-nums">00:00</span><span class="opacity-60">|</span><span id="eyeState">—</span>
                                 <span id="eyeAiState" class="hidden opacity-80 text-xs border-r border-white/30 pr-2 mr-1"></span></div>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                            <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary svf-btn-sm" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
+                        <div class="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                            <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
                             <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
-                            <button type="button" id="eyeTeacherBtn" class="eye-adv svf-btn svf-btn-secondary svf-btn-sm" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
-                            <button type="button" id="eyeCamRestart" class="hidden svf-btn svf-btn-moe svf-btn-sm"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>إعادة تشغيل الكاميرا</button>
+                            <button type="button" id="eyeTeacherBtn" class="eye-adv svf-btn svf-btn-secondary" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
+                            <button type="button" id="eyeCamRestart" class="hidden svf-btn svf-btn-moe"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>إعادة تشغيل الكاميرا</button>
                             <span class="flex-1"></span>
-                            <label class="flex items-center gap-1.5" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" checked> إظهار الصورة</label>
-                            <label class="flex items-center gap-1.5"><input type="checkbox" id="eyeHeatToggle"> خريطة الحركة</label>
+                            <label class="flex items-center gap-2 min-h-[44px] px-1" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" class="w-5 h-5" checked> إظهار الصورة</label>
+                            <label class="flex items-center gap-2 min-h-[44px] px-1"><input type="checkbox" id="eyeHeatToggle" class="w-5 h-5"> خريطة الحركة</label>
                         </div>
                         <div id="eyeDotKey" class="eye-adv hidden flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600" aria-label="مفتاح نقاط الطلبة">
                             ${[['move', 'ينتقل في الملعب'], ['place', 'يتمرّن في مكانه'], ['still', 'ساكن'], ['out', 'خارج المنطقة']].map(([k, t]) =>
@@ -557,8 +562,12 @@ function tagRowHtml(k) {
         // وضع الحصة المبسّط: أثناء الرصد وحده — بعد الإيقاف تظهر النتيجة والأدوات كلّها
         const simple = S.running && S.simple !== false;
         $('eyeBody').toggleAttribute('data-eye-simple', simple);
+        // بعد الإيقاف: النتيجة أوّلاً (styles.css) — إلّا إن كانت لافتة الاستكمال ظاهرة (هي في بطاقة البدء)
+        $('eyeBody').toggleAttribute('data-eye-done', !S.running && !!S.result && !pairing && $('eyeResume').classList.contains('hidden'));
         $('eyeMore').setAttribute('aria-pressed', S.simple === false ? 'true' : 'false');
         $('eyeMoreL').textContent = S.simple === false ? 'مبسّط' : 'كل الأدوات';
+        // أثناء الرصد يبقى شريط الرصد وحده لاصقاً: شريط التبويبات اللاصق معه كان يأخذ ربع شاشة الجوّال (فحص 2026-10-29)
+        document.documentElement.toggleAttribute('data-eye-running', !!S.running);
         if (S.running) placeBar();
         else {
             // بعد الرصد: الشاشة فارغة (لا يُحفظ فيديو) — يُقال ذلك بدل تعليمات التركيب، وتُمسح أيّ نقاطٍ بقيت
@@ -581,16 +590,15 @@ function tagRowHtml(k) {
     const MV_COLOR = v => (v == null ? 'text-slate-900' : v >= 55 ? 'text-green-700' : v >= 40 ? 'text-slate-900' : v >= 25 ? 'text-amber-700' : 'text-red-700');
     const lessonMin = () => { const r = recPref(); return E().PARTS.reduce((s, x) => s + (r && r[x.k] > 0 ? Number(r[x.k]) : x.min), 0); };
     // زمن العناصر: الفعليّ مقابل الموصى به (الخطّ عند ثلثي الشريط)، والجاري بارز — {k, short, label, sec, rec (ثوانٍ), cur}
-    const recMin = s => String(Math.round(s / 6) / 10);
     function partsBars(list) {
         return list.map(x => {
             const scale = 1.5 * x.rec, w = scale ? Math.min(100, 100 * x.sec / scale) : 0, over = x.over != null ? x.over : x.sec > x.rec + 120;
             return `<div class="flex items-center gap-2 text-xs">
                 <span class="w-[4.5rem] flex-none truncate ${x.cur ? 'font-bold text-slate-900' : 'text-slate-600'}">${esc(x.short)}</span>
-                <span class="relative flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden" title="${esc(x.label + ': ' + mmss(x.sec) + ' من ' + recMin(x.rec) + ' د')}">
+                <span class="relative flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden" title="${esc(x.label + ': ' + mmss(x.sec) + ' من ' + mmss(x.rec))}">
                     <i class="absolute inset-y-0 right-0 rounded-full" style="width:${w}%;background:${CTX_COLOR[E().PART[x.k].c]}${x.cur ? '' : ';opacity:.85'}"></i>
                     <i class="absolute inset-y-0 w-0.5 bg-slate-600" style="right:${(100 / 1.5).toFixed(1)}%"></i></span>
-                <span class="w-[4.5rem] flex-none text-left tabular-nums ${over ? 'text-red-700 font-bold' : x.cur ? 'text-slate-900 font-bold' : 'text-slate-500'}">${mmss(x.sec)} / ${esc(recMin(x.rec))} د</span></div>`;
+                <span class="w-[5.75rem] flex-none text-left tabular-nums whitespace-nowrap ${over ? 'text-red-700 font-bold' : x.cur ? 'text-slate-900 font-bold' : 'text-slate-500'}" dir="ltr">${mmss(x.sec)} / ${mmss(x.rec)}</span></div>`;
         }).join('');
     }
     // الحضور والزيّ فوق أشرطة العناصر: سطرٌ خافت (ليس عنصراً، ولا زمن موصى به له)
@@ -636,7 +644,7 @@ function tagRowHtml(k) {
         $('eyeMonParts').innerHTML = (AD ? rollLine(AD.sec, false, AD.auto) : '')
             + (det ? partsBars(det.map(x => ({ k: x.k, short: x.short, label: x.label, sec: x.sec, rec: Math.round(x.rec * 60), cur: false, over: x.verdict === 'long' })))
             : '<p class="text-xs text-slate-500">لم تُلمس عناصر الحصة في هذا الرصد.</p>');
-        $('eyeAlerts').innerHTML = '<button type="button" id="eyeToResult" class="svf-btn svf-btn-secondary svf-btn-sm w-full"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>التحليل والتقييم المقترح</button>';
+        $('eyeAlerts').innerHTML = '<button type="button" id="eyeToResult" class="svf-btn svf-btn-secondary svf-btn-sm w-full"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i>التحليل والتقييم المقترح</button>';
         $('eyeToResult').addEventListener('click', () => $('eyeResult').scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
     function resetMonitor() {
@@ -758,12 +766,15 @@ function tagRowHtml(k) {
         g.lineWidth = 2; g.strokeStyle = '#ffffff'; g.stroke();
     }
 
+    // طول محور «مجرى الحصة» بمقاطع العشر ثوانٍ: أثناء الرصد بطول الحصة المتوقَّع (يمتلئ مع الوقت)، وبعده بطول ما رُصد فعلاً —
+    // كانت الحصة القصيرة تنضغط في زاوية (2026-10-29). الرسم والتلميح يقرآن الدالّة نفسها.
+    const tlLen = len => (S.running ? Math.max(len, Math.round(lessonMin() * 6), 24) : Math.max(len, 6));
     // تلميح مجرى الحصة: المقطع تحت المؤشّر
     function tlTip(e) {
         const c = $('eyeTimeline'), tip = $('eyeTlTip'), items = S.tl || [];
         if (!items.length) { tip.classList.add('hidden'); return; }
         const r = c.getBoundingClientRect(), x = e.clientX - r.left;
-        const n = Math.max(items.length, Math.round(lessonMin() * 6)), bw = r.width / n;
+        const n = tlLen(items.length), bw = r.width / n;
         const i = Math.floor((r.width - x) / bw);
         const b = items[i];
         if (!b) { tip.classList.add('hidden'); return; }
@@ -2181,7 +2192,7 @@ function tagRowHtml(k) {
         const big = S.running ? S.classMax : P ? P.classSize : 0;
         set('eyeKpiPupils', big ? String(big) : '—', snap ? 'الطلبة (الأكبر) · الآن ' + (snap.n + snap.o) : 'الطلبة (الأكبر)');
         set('eyeKpiOut', snap && snap.r ? String(snap.o) : P && P.roi ? String(P.outsideMed) : '—');
-        set('eyeKpiForm', snap && snap.fm && snap.fm !== '-' ? E().FORMS[snap.fm] : M.forms && M.forms.count ? String(M.forms.count) + ' تشكيلات' : '—');
+        set('eyeKpiForm', snap && snap.fm && snap.fm !== '-' ? E().FORMS[snap.fm] : M.forms && M.forms.count ? E().count(M.forms.count, 'تشكيلٌ واحد', 'تشكيلان', 'تشكيلات', 'تشكيلاً') : '—');
         set('eyeKpiDish', snap ? String(snap.d || 0) : P ? String(P.dishEst || 0) : '—');
         set('eyeKpiWaits', M.observed >= 20 ? String(M.waits) : '—');
         const resp = M.resp && M.resp.med != null ? ' · ' + M.resp.med + ' ث' : '';
@@ -2202,14 +2213,15 @@ function tagRowHtml(k) {
         const g = c.getContext('2d');
         g.setTransform(dpr, 0, 0, dpr, 0, 0);
         g.clearRect(0, 0, Wc, Hc);
-        const n = Math.max(items.length, Math.round(lessonMin() * 6), 24);
+        const n = tlLen(items.length);
+        const tick = n <= 60 ? 1 : 5;          // دقيقةٌ لكلّ خطّ في الرصد القصير، وخمسٌ في الحصة
         const bw = Wc / n, X = i => Wc - (i + 1) * bw;
         const P0 = 0, P1 = 6, M0 = 14, M1 = Hc - 44, S0 = M1 + 5, S1 = M1 + 11, T0 = M1 + 14, T1 = M1 + 19, AX = Hc - 4;
         const Y = v => M1 - (Math.max(0, Math.min(100, v)) / 100) * (M1 - M0);
         // الشبكة والمحور: كلّ خمس دقائق، والنسب ٠/٥٠/١٠٠
         g.font = '10px ' + "'IBM Plex Sans Arabic', Tahoma, sans-serif";
         g.fillStyle = '#94a3b8'; g.textAlign = 'center';
-        for (let m = 0; m * 6 <= n; m += 5) {
+        for (let m = 0; m * 6 <= n; m += tick) {
             const x = Wc - m * 6 * bw;
             g.fillStyle = 'rgba(15,23,42,.06)'; g.fillRect(Math.round(x), M0, 1, T1 - M0);
             g.fillStyle = '#94a3b8'; if (m) g.fillText(m + ' د', Math.max(12, Math.min(Wc - 12, x)), AX);
@@ -2349,8 +2361,12 @@ function tagRowHtml(k) {
             poly.forEach(p => { const [x, y] = P(p); g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); });
             g.restore();
         }
-        const snap = S.pSnap && now() - S.pSnapAt <= Math.max(2, AI.ttl) ? S.pSnap : null;
+        // النقطة موضع الطالب في آخر لقطة — والجاري يقطع أمتاراً في ثوانٍ، فتبهت بعد ثلثي ثانية وتختفي بعد ثانيةٍ ونصف
+        // (كانت تبقى حتّى ٤٫٥ ث فتُرسم في أماكن خالية — فحص 2026-10-29). العدّ والتحليل لا يتأثّران: هذا الرسم وحده.
+        const age = S.pSnap ? now() - S.pSnapAt : Infinity;
+        const snap = S.pSnap && age <= DOT_HIDE ? S.pSnap : null;
         if (snap) {
+            g.globalAlpha = age <= DOT_FADE ? 1 : 0.45;
             snap.dots.forEach(d => {
                 const [x, y] = P([d.x, d.y]);
                 if (d.tch) {                                   // المعلّم: مربّعٌ كحليّ بإطارٍ ذهبيّ
@@ -2364,6 +2380,7 @@ function tagRowHtml(k) {
                 g.fill();
                 g.lineWidth = 1.5; g.strokeStyle = '#082742'; g.stroke();
             });
+            g.globalAlpha = 1;
         }
     }
 
@@ -2823,12 +2840,12 @@ function tagRowHtml(k) {
                     <span class="text-xs text-slate-500">الشريط: الزمن الفعليّ · الخطّ الذهبيّ: الموصى به بنسبة زمن الحصة${M.parts && M.parts.orderOk === false ? ' · <b class="text-red-700">لم تأتِ بترتيبها</b>' : ''}</span></div>
                 <div class="mt-3 space-y-3">${det.map(r => {
                     const mv = r.moving != null ? r.moving : r.activePct;
-                    const [vt, vc] = VERD[r.verdict];
+                    const [vt, vc] = r.tiny ? ['قصير جدّاً', '#9a6f24'] : VERD[r.verdict];
                     return `<div>
                         <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                             <b class="text-slate-800"><i class="inline-block w-2.5 h-2.5 rounded-sm ml-1.5" style="background:${CTX_COLOR[E().PART[r.k].c]}"></i>${esc(r.label)}</b>
                             <span class="flex flex-wrap items-center gap-x-3 text-xs text-slate-600 tabular-nums">
-                                <span>${r.minutes} د من ${r.rec} د</span>
+                                <span>${mmss(r.sec)} من ${mmss(Math.round(r.rec * 60))}</span>
                                 ${mv != null && r.sec ? `<span${r.lowAct ? ' class="text-red-700 font-bold"' : ''}>الحركة ${mv}%</span>` : ''}
                                 ${r.explainSec >= 30 ? `<span>شرح ${esc(D(r.explainSec))}</span>` : ''}
                                 ${r.waitSec >= 30 ? `<span>انتظار ${esc(D(r.waitSec))}</span>` : ''}
@@ -2869,13 +2886,13 @@ function tagRowHtml(k) {
             const opt = (id, cur, list) => `<select id="${id}" class="eye-exit w-full min-w-0 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm"><option value="">—</option>${list.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
             sofitHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <div class="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 class="text-lg font-bold text-slate-900">وفق منهجية SOFIT+</h2>
-                    <span class="text-xs text-slate-500">عيّنةٌ كلّ 20 ثانية${SP ? ' · ' + SP.n + ' عيّنة' : ''}</span>
+                    <h2 class="text-lg font-bold text-slate-900">وفق منهجية <bdi dir="ltr">SOFIT+</bdi></h2>
+                    <span class="text-xs text-slate-500">عيّنةٌ كلّ 20 ثانية${SP ? ' · ' + E().count(SP.n, 'عيّنةٌ واحدة', 'عيّنتان', 'عيّنات', 'عيّنةً') : ''}</span>
                 </div>
-                <p class="text-xs text-slate-500 mt-1 leading-5">SOFIT+ أداةٌ محكَّمة ترصد ممارسات ${T} التي ترفع نشاط الطلبة أو تحدّ منه: سياق الحصة، وسياق النشاط، وسلوك ${T}، وإدارة النشاط.</p>
+                <p class="text-xs text-slate-500 mt-1 leading-5"><bdi dir="ltr">SOFIT+</bdi> أداةٌ محكَّمة ترصد ممارسات ${T} التي ترفع نشاط الطلبة أو تحدّ منه: سياق الحصة، وسياق النشاط، وسلوك ${T}، وإدارة النشاط.</p>
                 ${SP && SP.rel ? `<div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-slate-800 leading-7">حين اجتمعت <b>ثلاث ممارساتٍ داعمة فأكثر</b> كانت حركة الطلبة <b class="text-green-700">(${SP.rel.hi.mv}%)</b>، وحين قلّت عن اثنتين كانت <b class="text-red-700">(${SP.rel.lo.mv}%)</b>.
                     <span class="block text-xs text-slate-600">الممارسات: نشاطٌ حركيّ، وتشكيلٌ يُشرك الجميع (مجموعات أو انتشار)، وتعليمٌ أو تشجيعٌ أثناء النشاط، ولا ما يحدّ منه.</span></div>` : ''}
-                ${SP && SP.index != null ? `<p class="text-sm text-slate-700 mt-3">مؤشّر الممارسات المجتمعة في الحصة: <b class="tabular-nums">${SP.index}</b> من 4</p>` : ''}
+                ${SP && SP.index != null && SP.n >= 9 ? `<p class="text-sm text-slate-700 mt-3">مؤشّر الممارسات المجتمعة في الحصة: <b class="tabular-nums">${SP.index}</b> من 4</p>` : ''}
                 ${A ? block('نشاط الطلبة', `<span class="text-sm ${A.ok ? 'text-green-700' : 'text-red-700'} font-bold">معتدلٌ فأشدّ ${A.mvpa}% <span class="font-normal text-slate-500">— المعيار ${A.goal}% فأكثر</span></span>`, sbar(actRows)) : ''}
                 ${SP && SP.lesson ? block('سياق الحصة', '', sbar(SP.lesson)) : ''}
                 ${SP && SP.act ? block('سياق النشاط', '<span class="text-xs text-slate-500">من التشكيلات في الصورة</span>', sbar(SP.act)) : ''}
@@ -2884,7 +2901,7 @@ function tagRowHtml(k) {
                     : SP && SP.rows.length ? block('ما يحدّ من النشاط', '', '<p class="text-sm text-green-700">لم يُرصد طابورٌ ولا إقصاءٌ ولا توقّفٌ للأدوات.</p>') : ''}
                 ${SP && (SP.best || SP.worst) ? block('لحظتان للمداولة', '', `<div class="space-y-2">${mom(SP.best, true)}${mom(SP.worst, false)}</div>`) : ''}
                 <details id="eyeExit" class="mt-4 rounded-xl border border-slate-200 p-3"${X.loc || X.wx || X.eq ? '' : ' open'}>
-                    <summary class="cursor-pointer text-sm font-bold text-slate-900">قائمة نهاية الحصة <span class="font-normal text-xs text-slate-500">— من SOFIT+</span></summary>
+                    <summary class="cursor-pointer text-sm font-bold text-slate-900">قائمة نهاية الحصة <span class="font-normal text-xs text-slate-500">— من <bdi dir="ltr">SOFIT+</bdi></span></summary>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm">
                         <label class="block min-w-0"><span class="text-xs text-slate-600">المكان</span>${opt('eyeExitLoc', X.loc, ['ملعبٌ مكشوف', 'ملعبٌ مظلّل', 'صالةٌ مغطّاة', 'ساحة المدرسة'])}</label>
                         <label class="block min-w-0"><span class="text-xs text-slate-600">الطقس</span>${opt('eyeExitWx', X.wx, ['معتدل', 'حارّ', 'حارٌّ جدّاً', 'رياحٌ أو غبار', 'ممطر'])}</label>
@@ -2893,7 +2910,7 @@ function tagRowHtml(k) {
                     </div>
                     <p class="text-xs text-slate-500 mt-2">محتوى الدرس: ${esc(info().topic || '—')}</p>
                 </details>
-                <p class="text-xs text-slate-500 mt-3 leading-5">تكييفٌ آليّ لـSOFIT+ من رصد العين، لا يغني عن ملاحظةٍ مدرَّبة: النشاط والتشكيل من الصورة، والسياق من عناصر الحصة التي لمستها،
+                <p class="text-xs text-slate-500 mt-3 leading-5">تكييفٌ آليّ لـ<bdi dir="ltr">SOFIT+</bdi> من رصد العين، لا يغني عن ملاحظةٍ مدرَّبة: النشاط والتشكيل من الصورة، والسياق من عناصر الحصة التي لمستها،
                    وسلوك ${T} من كلامه، والإقصاء والتوقّف للأدوات من لمساتك.</p>
             </div>`;
         }
@@ -2904,8 +2921,9 @@ function tagRowHtml(k) {
             const segs = F ? F.segments.map(x => `<span class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs"><i class="inline-block w-2 h-2 rounded-full" style="background:${FORM_COLOR[x.type]}"></i>${esc(E().FORMS[x.type])} <span class="text-slate-500 tabular-nums">${esc(D(x.dur))}</span></span>`).join('<span class="text-slate-400 text-xs">←</span>') : '';
             formsHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">التشكيلات والزيّ الرياضيّ</h2>
-                ${F ? `<p class="text-sm text-slate-700 mt-2">استُعمل <b>${F.count}</b> ${F.count === 1 ? 'تشكيلٌ' : 'تشكيلات'} من <b>${F.types.length}</b> ${F.types.length === 1 ? 'نوع' : 'أنواع'}:
-                        ${F.types.map(t => esc(E().FORMS[t]) + ' (' + F.byType[t].count + ')').join('، ')}</p>
+                ${F ? `${F.count ? `<p class="text-sm text-slate-700 mt-2">استُعمل <b>${F.count}</b> ${F.count === 1 ? 'تشكيلٌ' : 'تشكيلات'} من <b>${F.types.length}</b> ${F.types.length === 1 ? 'نوع' : 'أنواع'}:
+                        ${F.types.map(t => esc(E().FORMS[t]) + ' (' + F.byType[t].count + ')').join('، ')}</p>`
+                    : '<p class="text-sm text-slate-600 mt-2">لم يثبت تشكيلٌ واحدٌ عشرين ثانيةً فأكثر ليُعدّ تشكيلاً مستعملاً — ما يلي لحظاتٌ عابرة.</p>'}
                     <div class="flex flex-wrap items-center gap-1.5 mt-2">${segs}</div>
                     ${F.maxLine > E().LONG_LINE ? `<p class="text-sm mt-2 ${F.longLineSec >= 60 ? 'text-red-700 font-bold' : 'text-slate-700'}">أطول قاطرة: ${F.maxLine} طلبة، ووقفت قاطراتٌ أطول من ${E().LONG_LINE} مدّة ${esc(D(F.longLineSec))}</p>`
                         : `<p class="text-sm text-slate-600 mt-2">لا قاطرة تزيد على ${E().LONG_LINE} طلبة${F.maxLine ? ' — أطولها ' + F.maxLine : ''}.</p>`}` : ''}
@@ -3084,7 +3102,7 @@ function tagRowHtml(k) {
                     const on = chosen.find(t => t.k === c.k), t = on || c, x = E().METRIC[c.k];
                     const isSec = c.unit === 'sec', gv = isSec ? Math.round(t.goal / 6) / 10 : t.goal;
                     return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0">
-                        <input type="checkbox" class="eye-target mt-1.5 w-4 h-4" data-k="${esc(c.k)}" ${on ? 'checked' : ''} aria-label="${esc(c.label)}">
+                        <input type="checkbox" class="eye-target mt-1 w-5 h-5" data-k="${esc(c.k)}" ${on ? 'checked' : ''} aria-label="${esc(c.label)}">
                         <div class="flex-1 min-w-0">
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                                 <b class="text-slate-900">${esc(c.label)}</b>
@@ -3107,8 +3125,10 @@ function tagRowHtml(k) {
         const items = sugg.map(s => {
             const curScore = formScore(s.id);
             const conf = s.conf && confText[s.conf] ? `<span class="inline-flex items-center gap-1 text-xs text-slate-600"><i class="inline-block w-2 h-2 rounded-full" style="background:${confColor[s.conf]}"></i>${esc(confText[s.conf])}</span>` : '';
+            // الاقتراح ضعيف الثقة لا يُحدَّد للتطبيق افتراضاً (2026-10-29) — الاستمارة رسميّة، فيعتمده المشرف بلمسة المستوى أو المربّع
+            const pre = curScore !== s.score && s.conf !== 'low';
             return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0">
-                <input type="checkbox" class="eye-apply mt-1.5 w-4 h-4" data-id="${s.id}" data-score="${s.score}" ${curScore === s.score ? '' : 'checked'} aria-label="تطبيق البند ${s.id} على النموذج">
+                <input type="checkbox" class="eye-apply mt-1 w-5 h-5" data-id="${s.id}" data-score="${s.score}" ${pre ? 'checked' : ''} aria-label="تطبيق البند ${s.id} على النموذج">
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
                         <b class="text-slate-900">${esc(title(s.id))}</b>
@@ -3117,6 +3137,7 @@ function tagRowHtml(k) {
                         ${applied.has(s.id) ? '<span class="text-xs font-bold text-green-700">طُبّق</span>' : ''}
                     </div>
                     <p class="text-sm text-slate-700 mt-1 leading-7">${esc(s.evidence)}</p>
+                    ${s.conf === 'low' && curScore !== s.score ? '<p class="text-xs text-amber-800 mt-1 leading-5">ثقةٌ منخفضة: لم يُحدَّد للتطبيق — حدِّد المربّع أو المس المستوى إن وافقتَ عليه.</p>' : ''}
                     ${evMini(LOG[s.id])}
                     ${levelPicker(s.id, s.score, s.score, curScore)}
                     <p class="eye-prev text-[11px] text-slate-600 mt-1 leading-5" data-id="${s.id}">${esc(previewText(s.id, s.score))}</p>
@@ -3127,7 +3148,7 @@ function tagRowHtml(k) {
         const others = un.map(u => {
             const curScore = formScore(u.id);
             return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0">
-                <input type="checkbox" class="eye-apply mt-1.5 w-4 h-4" data-id="${u.id}" data-score="${curScore || ''}" aria-label="تطبيق البند ${u.id} على النموذج">
+                <input type="checkbox" class="eye-apply mt-1 w-5 h-5" data-id="${u.id}" data-score="${curScore || ''}" aria-label="تطبيق البند ${u.id} على النموذج">
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2"><b class="text-slate-900">${esc(title(u.id))}</b>
                         ${applied.has(u.id) ? '<span class="text-xs font-bold text-green-700">طُبّق</span>' : ''}</div>
@@ -3152,15 +3173,8 @@ function tagRowHtml(k) {
                 </div>
             </div>
             ${followHtml}
-            ${momHtml}
-            ${partsHtml}
-            ${sofitHtml}
-            ${formsHtml}
-            ${speechHtml}
-            ${guideHtml}
-            ${talkHtml}
             ${targetsHtml}
-            <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <div id="eyeReview" class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
                 <p class="text-sm text-slate-600 mt-1 leading-6">لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
                    اقتراحٌ يُراجَع لا حكمٌ نهائيّ: يُقترح البند الذي عليه شاهدٌ من الرصد أو من لمساتك، ومع كلٍّ شاهده ودرجة الثقة فيه.
@@ -3196,7 +3210,17 @@ function tagRowHtml(k) {
                     <span class="flex-1"></span>
                     <button type="button" id="eyeNew" class="svf-btn svf-btn-ghost">رصد جديد</button>
                 </div>
-            </div>`;
+            </div>
+            ${talkHtml}
+            ${(() => {   // التفاصيل مطويّة (2026-10-29): المراجعة والحفظ والمداولة أوّلاً، والتحليل المفصّل لمن أراده
+                const parts = [momHtml, partsHtml, sofitHtml, formsHtml, speechHtml, guideHtml].filter(Boolean);
+                return parts.length ? `<details id="eyeDetails" class="group">
+                    <summary class="cursor-pointer select-none list-none bg-white rounded-2xl border border-slate-200 px-5 py-4 flex items-center justify-between gap-2">
+                        <span><b class="text-lg text-slate-900">تفاصيل التحليل</b>
+                            <span class="block text-xs text-slate-500 mt-0.5">${esc([momHtml && 'اللحظات', partsHtml && 'عناصر الحصة', sofitHtml && '\u2066SOFIT+\u2069', formsHtml && 'التشكيلات والزيّ', speechHtml && 'كلام المعلّم', guideHtml && 'دليل المعلّم'].filter(Boolean).join(' · '))}</span></span>
+                        <i class="fa-solid fa-chevron-down text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true"></i></summary>
+                    <div class="space-y-4 mt-4">${parts.join('')}</div></details>` : '';
+            })()}`;
         box.classList.remove('hidden');
 
         if (data.tl) {
@@ -3346,10 +3370,9 @@ function tagRowHtml(k) {
         const A = E().patterns(patternRows());
         const head = `<div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">أنماط رصدك</h2>
             <span class="text-xs text-slate-500">من التقارير المحفوظة في هذا العام الدراسيّ: ما يتكرّر عند معلّميك، ومنه موضوعات برنامجك التدريبيّ</span></div>`;
-        if (A.lessons < 2) {
-            box.innerHTML = head + `<p class="text-sm text-slate-600 mt-2 leading-6">تظهر الأنماط بعد حصّتين مرصودتين في تقارير محفوظة${A.lessons ? ' — لديك حصّةٌ واحدة' : ''}.</p>`;
-            return;
-        }
+        // بطاقةٌ فارغة لا تُعرض (2026-10-29): كانت تظهر تحت شاشة البدء قبل أيّ حصة
+        box.classList.toggle('hidden', A.lessons < 2);
+        if (A.lessons < 2) { box.innerHTML = ''; return; }
         const names = arr => arr.slice(0, 4).map(esc).join('، ') + (arr.length > 4 ? ' و(' + (arr.length - 4) + ') غيرهم' : '');
         const kv = (v, k) => `<div class="py-3 px-2"><div class="text-2xl font-bold tabular-nums text-slate-900">${v}</div><div class="text-xs text-slate-600">${k}</div></div>`;
         const topics = A.topics.filter(t => t.teachers.length >= 2).slice(0, 3);
@@ -3751,11 +3774,8 @@ function tagRowHtml(k) {
         const A = E().agreement(agreementRows());
         const head = `<div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">اتّفاق العين معك</h2>
             <span class="text-xs text-slate-500">من التقارير المحفوظة: ما اقترحته العين وما اعتمدتَه أنت</span></div>`;
-        if (!A.n) {
-            box.innerHTML = head + `<p class="text-sm text-slate-600 mt-2 leading-6">حين تحفظ تقاريرَ اقترحت فيها العين تقييماً، يظهر هنا مدى اتّفاقها معك في كلّ بند —
-                ومنه تُضبط عتباتها. بعد عشر حصصٍ تقريباً تصير الأرقام دالّة.</p>`;
-            return;
-        }
+        box.classList.toggle('hidden', !A.n);         // فارغةٌ لا تُعرض — تظهر بعد أوّل تقريرٍ محفوظٍ اقترحت فيه العين
+        if (!A.n) { box.innerHTML = ''; return; }
         const lean = b => (b >= 0.3 ? 'العين أكرم منك' : b <= -0.3 ? 'العين أشدّ منك' : 'متوازنة');
         box.innerHTML = head + `
             <div class="grid grid-cols-3 border border-slate-200 rounded-xl mt-3 text-center">
@@ -3852,7 +3872,7 @@ function tagRowHtml(k) {
         // SOFIT+: ممارساته ونشاط الطلبة — المقارنة ولحظتاها سؤالان للنقاش
         const SPx = E().sofitPlus(d), fem = female();
         const spHtml = SPx && (SPx.rel || SPx.best || SPx.worst) ? `<div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
-                <div class="text-[11px] font-bold text-blue-900 mb-1">من SOFIT+ — ممارساتك ونشاط الطلبة</div>
+                <div class="text-[11px] font-bold text-blue-900 mb-1">من <bdi dir="ltr">SOFIT+</bdi> — ممارساتك ونشاط الطلبة</div>
                 ${SPx.rel ? `<div class="text-sm text-slate-800 leading-7">حين اجتمعت ثلاث ممارساتٍ داعمة فأكثر كانت حركة الطلبة (${SPx.rel.hi.mv}%)، وحين قلّت كانت (${SPx.rel.lo.mv}%).</div>` : ''}
                 ${SPx.worst ? `<div class="text-sm text-slate-700 leading-7">• عند الدقيقة <span class="tabular-nums">${mmss(SPx.worst.t)}</span> كانت حركة الطلبة (${SPx.worst.mv}%)${E().sofitPlusWhy(SPx.worst) ? ': ' + esc(E().sofitPlusWhy(SPx.worst)) : ''}. ما الذي ${fem ? 'كنتِ تستطيعين' : 'كنتَ تستطيع'} تغييره في تلك اللحظة؟</div>` : ''}
                 ${SPx.best ? `<div class="text-sm text-slate-700 leading-7">• عند الدقيقة <span class="tabular-nums">${mmss(SPx.best.t)}</span> بلغت (${SPx.best.mv}%): ${esc(E().sofitPlusWhy(SPx.best) || '')}. كيف ${fem ? 'تجعلين' : 'تجعل'} هذا هو الغالب في حصصك؟</div>` : ''}

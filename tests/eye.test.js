@@ -416,7 +416,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           /async function startCamera\(\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
           && /function startFile\(file\) \{[\s\S]{0,120}if \(!needConsent\(true\)\) return;/.test(UI)
           && /if \(!needConsent\(wantMic \|\| checked\('eyeSpeech'\)\)\) return;/.test(UI) && UI.includes('id="eyeConsent"'));
-    check('wiring: الصورة طبيعيّةٌ افتراضاً (طلب المشرف)، وإخفاؤها اختيارٌ يُذكر', /<input type="checkbox" id="eyeShowVideo" checked>/.test(UI)
+    check('wiring: الصورة طبيعيّةٌ افتراضاً (طلب المشرف)، وإخفاؤها اختيارٌ يُذكر', /<input type="checkbox" id="eyeShowVideo"[^>]*checked>/.test(UI)
           && /localStorage\.getItem\('svf_eye_show'\) === '0'/.test(UI) && /v\.style\.opacity = S\.running && checked\('eyeShowVideo'\)/.test(UI));
     check('wiring: المسرح يأخذ شكل الصورة العموديّة', /function fitStage\(\)/.test(UI) && /v\.videoHeight > v\.videoWidth/.test(UI));
     check('wiring: خلفيّة الخصوصيّة أربعون بكسلاً رماديّة', /const pw = 40/.test(UI) && /imageSmoothingEnabled = false/.test(UI));
@@ -1279,7 +1279,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const X = E.sofit({ src: 'camera', tl: 'aaxxxxxx', tc: 'aaaaaaaa', tm: '55555555', tt: '' });
     check('sofit: الكاميرا المتحرّكة لا عيّنة منها، والقليل لا يُحكم منه', X === null && E.sofit({}) === null);
     const UI = read('js/eye.js');
-    check('wiring: قسم «وفق منهجية SOFIT+» في النتيجة بعد العناصر (ونشاط الطلبة من SOFIT)، بتنبيه أنّه تكييف', /const SF = E\(\)\.sofit\(data\), SP = E\(\)\.sofitPlus\(data\);/.test(UI) && /\$\{partsHtml\}\s*\$\{sofitHtml\}/.test(UI) && /تكييفٌ آليّ لـSOFIT/.test(UI));
+    check('wiring: قسم «وفق منهجية SOFIT+» في النتيجة بعد العناصر (ونشاط الطلبة من SOFIT)، بتنبيه أنّه تكييف', /const SF = E\(\)\.sofit\(data\), SP = E\(\)\.sofitPlus\(data\);/.test(UI) && /\[momHtml, partsHtml, sofitHtml,/.test(UI) && /تكييفٌ آليّ لـ<bdi dir="ltr">SOFIT\+<\/bdi>/.test(UI));
 }
 
 /* ── ٣٣) التتبّع على طريقة ByteTrack (2026-10-29) ── */
@@ -1368,6 +1368,38 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const UI = read('js/eye.js');
     check('wiring: قائمة النهاية تُحفظ مع النتيجة، ولحظتا SOFIT+ في المداولة بالجنس، وسطرها للمساعد', /d\.exit = \{ loc: \$\('eyeExitLoc'\)\.value/.test(UI) && /const spHtml = SPx && \(SPx\.rel \|\| SPx\.best \|\| SPx\.worst\)/.test(UI)
           && /\$\{evTalk\}\s*\$\{spHtml\}/.test(UI) && /كنتِ تستطيعين' : 'كنتَ تستطيع'/.test(UI) && /const spLine = SP \?/.test(UI));
+}
+
+/* ── ٣٦) نقد الواجهة (2026-10-29): الاستمارة الرسميّة أوّلاً، والنتيجة أوّلاً، والرسم لا يتأخّر عن الطلبة ── */
+{
+    const s8 = n => E.suggest(M2, n, {}).find(s => s.id === 8);
+    check('suggest ٨: لمسة استراتيجيّةٍ واحدة دليلٌ موجب ← «ملائم» لا «غير ملائم»، وبثقةٍ منخفضة', s8({ demo: 1 }).score === 3 && s8({ demo: 1 }).conf === 'low', JSON.stringify(s8({ demo: 1 })));
+    check('suggest ٨: استراتيجيّتان ← ملائم، وثلاث ← جيد، وأربع ← متميز', s8({ demo: 1, groups: 1 }).score === 3 && s8({ demo: 1, groups: 1, games: 1 }).score === 2 && s8({ demo: 1, groups: 1, games: 1, stations: 1 }).score === 1);
+    const s10 = n => E.suggest(M2, n, {}).find(s => s.id === 10);
+    check('suggest ١٠: خطأٌ واحدٌ لم يُصحَّح لا يحكم على الحصة ← ملائم، ومن خطأين ← غير ملائم', s10({ fbMiss: 1 }).score === 3 && s10({ fbMiss: 2 }).score === 4);
+    check('suggest ١٠: تغذيةٌ راجعة قليلة دليلٌ موجب ← لا تنزل دون «ملائم»', s10({ fbInd: 1 }).score === 3 && s10({ fbInd: 2 }).score === 3);
+    // عنصرٌ حضر أقلّ من نصف دقيقة «قصيرٌ جدّاً» لا «غائب»، وما دون عشر ثوانٍ لمسةٌ خاطئة ← غائب
+    const mk = secs => ({ parts: { list: [{ k: 'warm', sec: secs }, { k: 'fit', sec: 0 }, { k: 'teach', sec: 600 }, { k: 'apply', sec: 600 }, { k: 'close', sec: 120 }] } });
+    const dw = s => E.partsDetail(mk(s), null)[0];
+    check('parts: ١٧ ثانية ← «قصير جدّاً» (حاضرٌ لا غائب)', dw(17).verdict === 'short' && dw(17).tiny === true && E.partsDetail(mk(17), null)[1].verdict === 'missing');
+    check('parts: ٥ ثوانٍ لمسةٌ خاطئة ← غائب، ونصف دقيقة ← يُقاس بالزمن', dw(5).verdict === 'missing' && !dw(5).tiny && !dw(40).tiny);
+    const formsShort = E.targetCandidates ? null : null;
+    const fm = E.METRIC.forms.read({ M: { forms: { count: 0 }, people: { detSecs: 60 } } });
+    check('metric: التشكيلات لا تُقاس من رصدٍ قصير (لا «كان (0)» بعد دقيقة)', fm === null && E.METRIC.forms.read({ M: { forms: { count: 1 }, people: { detSecs: 900 } } }) === 1);
+    const UI = read('js/eye.js'), CSS = read('styles.css');
+    check('wiring: الاقتراح ضعيف الثقة لا يُحدَّد للتطبيق افتراضاً، ويُقال ذلك تحت البند', /const pre = curScore !== s\.score && s\.conf !== 'low';/.test(UI) && /ثقةٌ منخفضة: لم يُحدَّد للتطبيق/.test(UI));
+    check('wiring: بعد الإيقاف النتيجة أوّلاً — data-eye-done يخفي بطاقة البدء ويقدّم النتيجة', /toggleAttribute\('data-eye-done'/.test(UI) && /#eyeBody\[data-eye-done\] > #eyeSetup \{ display: none !important; \}/.test(CSS)
+          && /#eyeBody\[data-eye-done\] > #eyeResult \{ order: 1; \}/.test(CSS));
+    check('wiring: المراجعة والحفظ قبل المداولة، والتفاصيل مطويّة بعدها', UI.indexOf('id="eyeReview"') < UI.indexOf('${talkHtml}') && /<details id="eyeDetails"/.test(UI) && UI.indexOf('${talkHtml}') < UI.indexOf('<details id="eyeDetails"'));
+    check('wiring: النقاط تبهت ثمّ تختفي (لا تبقى ٤٫٥ ث في أماكن خالية)', /const DOT_FADE = 0\.7, DOT_HIDE = 1\.6;/.test(UI) && /age <= DOT_HIDE/.test(UI) && !/Math\.max\(2, AI\.ttl\) \? S\.pSnap/.test(UI));
+    check('wiring: أثناء الرصد شريط الرصد وحده لاصق', /toggleAttribute\('data-eye-running'/.test(UI) && /html\[data-eye-running\] #supervisoryVisitsApp header \{ position: static !important; \}/.test(CSS));
+    check('wiring: مجرى الحصة بطول ما رُصد بعد الإيقاف، والرسم والتلميح بالدالّة نفسها', /const tlLen = len =>/.test(UI) && (UI.match(/tlLen\(items\.length\)/g) || []).length === 2);
+    check('wiring: الزمن بالدقائق والثواني في الفعليّ والموصى به', /\$\{mmss\(x\.sec\)\} \/ \$\{mmss\(x\.rec\)\}/.test(UI) && /\$\{mmss\(r\.sec\)\} من \$\{mmss\(Math\.round\(r\.rec \* 60\)\)\}/.test(UI) && !/recMin\(/.test(UI));
+    check('wiring: «قصير جدّاً» في النتيجة وبطاقة المعلّم', /r\.tiny \? \['قصير جدّاً'/.test(UI) && /r\.tiny \? \['قصير جدّاً'/.test(read('js/eye-report.js')));
+    check('wiring: SOFIT+ معزولٌ عن اتّجاه العربيّة، و«عيّنات» بالعدد، والمؤشّر من تسع عيّنات', UI.split('\n').filter(l => /SOFIT\+/.test(l) && !/^\s*\/\//.test(l) && !/<bdi dir="ltr">SOFIT\+<\/bdi>|\\u2066SOFIT\+\\u2069|'وفق SOFIT\+:'/.test(l)).length === 0
+          && /E\(\)\.count\(SP\.n, 'عيّنةٌ واحدة'/.test(UI) && /SP\.index != null && SP\.n >= 9/.test(UI));
+    check('wiring: بطاقتا الاتّفاق والأنماط لا تُعرضان فارغتين', /box\.classList\.toggle\('hidden', !A\.n\)/.test(UI) && /box\.classList\.toggle\('hidden', A\.lessons < 2\)/.test(UI));
+    check('wiring: التشكيلات — لا «استُعمل 0 تشكيلات … :» بلا شيءٍ بعدها', /لم يثبت تشكيلٌ واحدٌ عشرين ثانيةً فأكثر/.test(UI));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {

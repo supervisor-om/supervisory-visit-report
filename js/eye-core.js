@@ -121,6 +121,7 @@
     ];
     const PART = {};
     PARTS.forEach(x => { PART[x.k] = x; });
+    const TINY_PART = 10;        // عنصرٌ أقلّ من عشر ثوانٍ لمسةٌ خاطئة = غائب؛ ومن عشرٍ إلى ثلاثين «قصير جدّاً» (partsDetail)
     // الحضور والزيّ (2026-10-27، طلب المشرف): «يسجّل المعلّم في بداية الحصة غياب الطلبة والزيّ — لا يُحسب ذلك من شرحه».
     // ليس عنصراً من الخمسة (لا زمن موصى به ولا «غائب»)، وثوانيه حالةٌ مستقلّة 'r': لا شرح ولا انتظار ولا نشاط، ولا تدخل حركة الطلبة
     // ولا التشكيلات (طابور الحضور ليس قاطرة) ولا تحليل الكلام — ويبقى منها عدد الطلبة والزيّ (يُرون فيها واقفين).
@@ -641,8 +642,11 @@
         const scale = total && sumRec ? total / 60 / sumRec : 1;
         return P.list.map(r => {
             const want = recMin[r.k] * scale, have = r.sec / 60, tol = Math.max(2, 0.4 * want);
-            const verdict = r.sec < 30 ? 'missing' : have - want > tol ? 'long' : want - have > tol ? 'short' : 'ok';
-            return Object.assign({}, r, { label: PART[r.k].label, short: PART[r.k].short, rec: Math.round(want * 10) / 10, minutes: Math.round(have * 10) / 10, verdict,
+            // «غائب» لما لم يُلمس أو لُمس خطأً (أقلّ من ١٠ ث)، و«قصير جدّاً» لما حضر أقلّ من نصف دقيقة — كان كلاهما «غائباً» فسُئل المعلّم
+            // في المداولة «لم يظهر الإحماء» عن إحماءٍ رآه المشرف (2026-10-29)
+            const tiny = r.sec >= TINY_PART && r.sec < 30;
+            const verdict = r.sec < TINY_PART ? 'missing' : tiny ? 'short' : have - want > tol ? 'long' : want - have > tol ? 'short' : 'ok';
+            return Object.assign({}, r, { label: PART[r.k].label, short: PART[r.k].short, rec: Math.round(want * 10) / 10, minutes: Math.round(have * 10) / 10, verdict, tiny,
                 lowAct: PART[r.k].act != null && r.sec >= 60 && (r.moving != null ? r.moving : r.activePct) != null && (r.moving != null ? r.moving : r.activePct) < PART[r.k].act });
         });
     }
@@ -1140,7 +1144,9 @@
         // ٨ استراتيجيّات التدريس — تسجيلات المشرف، والشرح الطويل (من السياق أو الصوت) ينقصها
         const strat = ['demo', 'groups', 'games', 'stations', 'levels'].filter(k => c(k) > 0);
         if (strat.length) {
-            let s = strat.length >= 4 ? 1 : strat.length === 3 ? 2 : strat.length === 2 ? 3 : 4;
+            // دليلٌ موجبٌ لا يُنتج «غير ملائم» (2026-10-29): لمسةٌ واحدة تعني أنّ المشرف رأى الاستراتيجيّة، لا أنّها وحدها في الحصة —
+            // فأدنى ما تقترحه اللمسات «ملائم»، وما دونه من الشرح الطويل (أدناه) أو من لمساتٍ سالبة على البند
+            let s = strat.length >= 4 ? 1 : strat.length === 3 ? 2 : 3;
             let e = '{نوّع المعلم|نوّعت المعلمة} بين: ' + list(strat.map(k => TAG[k].label));
             if (strat.length === 1) e = '{وظّف المعلم|وظّفت المعلمة}: ' + TAG[strat[0]].label;
             const longAudio = (m.observed || 0) >= MIN_OBSERVE && m.explainPct > 40;
@@ -1159,7 +1165,8 @@
             add(10, r >= 6 ? (top ? 1 : 2) : r >= 3 ? 3 : 4, 'speech', speechFbText(SP) + coverText(GD) + '.');
         }
         if (fbTotal || c('fbMiss')) {
-            let s = !fbTotal ? 4 : fbTotal >= 8 && kinds >= 3 ? 1 : fbTotal >= 6 && kinds >= 2 ? 2 : fbTotal >= 3 ? 3 : 4;
+            // خطأٌ واحدٌ لم يُصحَّح لا يحكم على الحصة كلّها، والتغذية الراجعة القليلة دليلٌ موجبٌ لا يُنزل دون «ملائم» (2026-10-29)
+            let s = !fbTotal ? (c('fbMiss') >= 2 ? 4 : 3) : fbTotal >= 8 && kinds >= 3 ? 1 : fbTotal >= 6 && kinds >= 2 ? 2 : 3;
             const bits = [];
             if (c('fbInd')) bits.push('تغذية راجعة فردية ' + times(c('fbInd')));
             if (c('fbGrp')) bits.push('جماعية ' + times(c('fbGrp')));
@@ -1537,7 +1544,8 @@
           goal: b => Math.min(5, Math.max(4, b + 1)),
           text: (b, t) => 'الالتزام بالزمن الموصى به لعناصر الحصة: (' + t + ') عناصر من خمسة على الأقلّ — كانت (' + b + ')' },
         { k: 'forms', w: 1, item: 8, label: 'التشكيلات المستعملة', unit: 'n', dir: 1, good: 2, needs: 'ai',
-          read: d => (d.M && d.M.forms ? d.M.forms.count : null), goal: b => Math.max(2, b + 1),
+          // لا يُقاس من رصدٍ قصير: «كان (0)» بعد دقيقةٍ رصدٍ حكمٌ بلا شاهد (2026-10-29)
+          read: d => (d.M && d.M.forms && (d.M.people && d.M.people.detSecs) >= MIN_OBSERVE / 2 ? d.M.forms.count : null), goal: b => Math.max(2, b + 1),
           text: (b, t) => 'التنويع في تشكيلات الطلبة بما يناسب المهارة: ' + count(t, 'تشكيلٌ واحد', 'تشكيلان', 'تشكيلات', 'تشكيلاً') + ' على الأقلّ في الحصة — كان (' + b + ')' },
         { k: 'dish', w: 1, item: 5, label: 'المشاركون بغير الزيّ الرياضيّ', unit: 'n', dir: -1, good: 1, needs: 'tag',
           read: d => { const c = (d.counts || {}).dish; return c != null ? c : (d.M && d.M.people ? 0 : null); }, goal: () => 0,

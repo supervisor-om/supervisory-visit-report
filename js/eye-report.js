@@ -20,6 +20,7 @@
     const FORM_COLOR = { L: '#0f4c81', C: '#246445', G: '#9a6f24', S: '#64748b' };
     const FONT = '"IBM Plex Sans Arabic", Tahoma, Arial, sans-serif';
     const font = (w, px) => w + ' ' + px + 'px ' + FONT;
+    const ms = s => { s = Math.max(0, Math.round(s || 0)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 
     async function fontsReady() {
         try {
@@ -113,10 +114,10 @@
                 g.fillStyle = C.gold; g.fillRect(mx - 2, y, 5, 46);
                 const mv = r.moving != null ? r.moving : r.activePct;
                 g.textAlign = 'left'; g.font = font(600, 24);
-                const [vt, vc] = VERD[r.verdict];
+                const [vt, vc] = r.tiny ? ['قصير جدّاً', C.warn] : VERD[r.verdict];
                 g.fillStyle = vc; g.fillText(vt, PAD, y + 22);
                 g.fillStyle = C.muted; g.font = font(400, 22);
-                g.fillText(r.minutes + ' د / ' + r.rec + ' د' + (mv != null && r.sec ? '  ·  ' + P('حركة') + ' ' + mv + '%' : ''), PAD, y + 50);
+                g.fillText(ms(r.sec) + ' / ' + ms(Math.round(r.rec * 60)) + (mv != null && r.sec ? '  ·  ' + P('حركة') + ' ' + mv + '%' : ''), PAD, y + 50);
                 g.textAlign = 'right';
                 y += 74;
             });
