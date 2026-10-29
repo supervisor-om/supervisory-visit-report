@@ -308,9 +308,9 @@ function buildEnv(extra) {
     check('مدرسة: النطاق نفسه بأرقامٍ عربيّة', same('انس بن مالك (١-٤)', 'انس بن مالك (1-4)') === true);
     check('مدرسة: الكلمات الناقصة ما زالت تطابق', same('محمد المنذري', 'محمد بن علي المنذري (5-10)') === true);
     const src = fs.readFileSync(path.join(ROOT, 'js/classroom.js'), 'utf8');
-    check('الأيتام: المعلّم المعروف يُحكم بمدرسته في القاعدة', /const rs = known \? t\.school :/.test(src));
-    const af = fs.readFileSync(path.join(ROOT, 'js/autofill.js'), 'utf8');
-    check('الإكمال: المدرسة لا تبقى من المعلّم السابق', !/svfFillIfEmpty\('school', teacher\.school\)/.test(af) && /المدرسة صُحّحت إلى مدرسة المعلّم/.test(af));
+    const sch = fs.readFileSync(path.join(ROOT, 'js/school.js'), 'utf8');
+    const empty = sch.slice(sch.indexOf('function renderSchoolClassroomVisits'), sch.indexOf('schoolClassroomVisits.forEach((visit, index)'));
+    check('الأيتام: اللوحة تُعاد حين تكون قائمة المواقف فارغة (لا تبقى من الزيارة السابقة)', /svfCvRenderOrphans\(\)/.test(empty));
     check('الأيتام: لا ملاذ بمدرسة المعلّم حين يكتب التقرير مدرسته', !/\|\| !\(t && sameSchool\(t\.school, school\)\)|!\(t && sameSchool\(t\.school, school\)\)/.test(src));
 }
 

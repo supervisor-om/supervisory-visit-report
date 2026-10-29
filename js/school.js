@@ -387,6 +387,9 @@
             classroomVisitsList.innerHTML = '';
             if (!Array.isArray(schoolClassroomVisits) || schoolClassroomVisits.length === 0) {
                 classroomVisitsList.innerHTML = '<p class="text-xs text-slate-400 italic p-2">لم تتم إضافة أي مواقف صفية بعد.</p>';
+                // لوحة «تقرير إشرافيّ ليس في المواقف الصفّيّة» تُحسب هنا أيضاً: كانت لا تُعاد إلّا مع قائمةٍ غير
+                // فارغة، فبقيت من الزيارة المفتوحة قبلها — ظهر «محمد» (انس بن مالك 5/10) في زيارة زهور الخليج 1/10
+                if (typeof svfCvRenderOrphans === 'function') svfCvRenderOrphans();
                 return;
             }
             schoolClassroomVisits.forEach((visit, index) => {

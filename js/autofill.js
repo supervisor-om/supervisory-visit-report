@@ -163,32 +163,8 @@
             input.value = teacher.name;      // التهجئة المعتمدة في قاعدة المعلمين
 
             const filled = [];
-            // المدرسة ورقم الملف يتبعان المعلّم: بقيا من زيارةٍ سابقة فكُتب تقرير «محمد» (انس بن مالك)
-            // بمدرسة «سوسن» (زهور الخليج) ورقم ملفّها — بلاغ المشرف 2026-10-29. المدرسة المكتوبة تبقى
-            // إن كان المعلّم من معلّميها، وإلّا تُستبدل بمدرسته في القاعدة مع تنبيه.
-            const schoolEl = document.getElementById('school');
-            const curSchool = svfValue('school');
-            const wantName = SupervisorIdentity.normName(teacher.name);
-            const inCur = curSchool && SupervisorIdentity.teachersOfSchool(curSchool)
-                .some(t => SupervisorIdentity.normName(t.name) === wantName && t.school === teacher.school);
-            if (schoolEl && teacher.school && !inCur) {
-                if (curSchool) showToast('المدرسة صُحّحت إلى مدرسة المعلّم: ' + teacher.school + ' (كانت: ' + curSchool + ')', 'error');
-                else filled.push('المدرسة');
-                schoolEl.value = teacher.school;
-                svfSupTeacherOptions();
-            }
-            const fileEl = document.getElementById('fileNumber');
-            if (fileEl) {
-                if (!fileEl.dataset) fileEl.dataset = {};
-                const cur = fileEl.value.trim();
-                const auto = fileEl.dataset.svfAuto || '';
-                if (teacher.fileNumber && cur !== teacher.fileNumber) {
-                    if (!cur || cur === auto || !inCur) { fileEl.value = teacher.fileNumber; filled.push('رقم الملف'); }
-                } else if (!teacher.fileNumber && cur && (cur === auto || !inCur)) {
-                    fileEl.value = '';      // معلّم مدرسةٍ خاصّة بلا رقم: لا يبقى رقم المعلّم السابق
-                }
-                fileEl.dataset.svfAuto = teacher.fileNumber || '';
-            }
+            if (svfFillIfEmpty('school', teacher.school)) filled.push('المدرسة');
+            if (svfFillIfEmpty('fileNumber', teacher.fileNumber)) filled.push('رقم الملف');
             if (teacher.gender) {
                 const radio = document.getElementById(teacher.gender === 'm' ? 'genderMale' : 'genderFemale');
                 if (radio && !radio.checked) {
