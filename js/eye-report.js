@@ -82,7 +82,8 @@
             ['عدد الطلبة', people ? String(people.classSize || people.inside) : '—'],
             [P('حركة الطلبة'), moving != null ? moving + '%' : '—'],
             ['زمن الرصد', Y.dur(M.observed || M.seconds || 0)],
-            ['بغير الزيّ الرياضيّ', String(((data && data.counts) || {}).dish || 0)]
+            Y.isAdv && !Y.isAdv() ? ['أطول انتظار', M.longestIdle ? ms(M.longestIdle) : '—']       // الزيّ من لون الملابس متقدّم
+                : ['بغير الزيّ الرياضيّ', String(((data && data.counts) || {}).dish || 0)]
         ];
         const kw = (W - 2 * PAD - 3 * 20) / 4;
         kpis.forEach((k, i) => {
@@ -151,15 +152,22 @@
 
         // ٤ب) الحركة والتنظيم: شدّة النشاط، والاستجابة للصفّارة، والكرات، والتزاحم، وموقع المعلّم
         const mvI = people ? (people.movingPlay != null ? people.movingPlay : people.movingAll) : null;
-        const vgI = people ? (people.vigPlay != null ? people.vigPlay : people.vigAll) : null;
-        const RS = M.resp && M.resp.med != null ? M.resp : null, ratio = Y.ballRatio ? Y.ballRatio(M) : null, TS = people && people.teacher;
+        const ADV = !Y.isAdv || Y.isAdv();                 // الأدوات المتقدّمة (شدّة النشاط، التزاحم، موقع المعلّم، التشكيلات)
+        const vgI = ADV && people ? (people.vigPlay != null ? people.vigPlay : people.vigAll) : null;
+        const RS = M.resp && M.resp.med != null ? M.resp : null, ratio = Y.ballRatio ? Y.ballRatio(M) : null, TS = ADV && people && people.teacher;
         const org = [];
         if (RS) org.push(P('الاستجابة لإشارة الصفّارة: ' + RS.med + ' ث في المتوسّط (' + RS.n + (RS.n >= 3 && RS.n <= 10 ? ' إشارات)' : ' إشارة)')));
         if (ratio) org.push(P('الكرات: كرةٌ لكلّ ' + Y.perPupils(ratio)));
-        if (people && people.crowdPct != null) org.push(P('التزاحم أثناء الحركة: ' + people.crowdPct + '% من المتحرّكين'));
+        if (ADV && people && people.crowdPct != null) org.push(P('التزاحم أثناء الحركة: ' + people.crowdPct + '% من المتحرّكين'));
         if (TS && TS.edgePct != null) org.push((info.female ? 'المعلمة' : 'المعلم') + P(' على أطراف الطلبة ' + TS.edgePct + '% من الوقت') + (TS.cover != null ? '، وتنقّل' + (info.female ? 'ت' : '') + ' في ' + TS.cover + '% من المساحة' : ''));
+        // الحرارة والماء، وغير المشاركين بعذر (بطاقة «الحرارة والمشاركة»)
+        const FD = Y.fieldOf ? Y.fieldOf(data && data.field, M, (data && data.counts) || {}) : null;
+        if (FD && FD.hi != null && FD.cat) org.push('الحرارة المحسوسة ' + FD.hi + '° (' + FD.catLabel + ') — استراحات الماء ' + FD.water + (FD.expect ? ' من ' + FD.expect + ' متوقّعة' : '') + (FD.hit ? '، وعلامات إجهادٍ حراريّ: ' + FD.hit : ''));
+        if (FD && FD.exc) org.push(P('غير المشاركين بعذر: ' + FD.exc + '، منهم ' + FD.role + ' بأدوارٍ في الحصة') + (FD.roles.length ? ' (' + FD.roles.map(k => Y.EXC_ROLES[k]).join('، ') + ')' : ''));
+        const F0 = M.forms;
+        if (!ADV && F0 && F0.maxLine > Y.LONG_LINE && F0.longLineSec >= 60) org.push(P('أطول قاطرة: (' + F0.maxLine + ') طلبة، ووقفت قاطراتٌ أطول من (' + Y.LONG_LINE + ') مدّة ' + Y.dur(F0.longLineSec) + '.'));
         if ((mvI != null && vgI != null) || org.length) {
-            y = heading(g, 'الحركة والتنظيم', y + 20) + 16;
+            y = heading(g, FD && (FD.cat || FD.exc) ? 'الحركة والتنظيم والسلامة' : 'الحركة والتنظيم', y + 20) + 16;
             if (mvI != null && vgI != null) {
                 const segs = [[P('ساكن'), 100 - mvI, '#cbd5e1'], [P('معتدل'), Math.max(0, mvI - vgI), '#5b8fc7'], [P('شديد'), vgI, C.navy]];
                 const bw = W - 2 * PAD;
@@ -175,7 +183,7 @@
 
         // ٥) التشكيلات
         const F = M.forms;
-        if (F && F.count) {
+        if (ADV && F && F.count) {
             y = heading(g, 'التشكيلات', y + 20) + 16;
             g.font = font(400, 26);
             let x = W - PAD;

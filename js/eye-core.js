@@ -96,6 +96,9 @@
         { k: 'safe',      item: 5,  label: 'تهيئة آمنة للمكان والأدوات' },
         { k: 'hazard',    item: 5,  label: 'موقف خطر', neg: true },
         { k: 'dish',      item: 5,  label: 'بغير الزي الرياضي (عددهم)', neg: true, qty: true },
+        { k: 'water',     item: 5,  label: 'استراحة ماء' },
+        { k: 'shade',     item: 5,  label: 'الشرح أو الانتظار في الظلّ' },
+        { k: 'heatHit',   item: 5,  label: 'علامات إجهادٍ حراريّ على طالب', neg: true },
         { k: 'tools',     item: 9,  label: 'أدوات كافية ومتنوعة' },
         { k: 'noTools',   item: 9,  label: 'نقص أدوات وانتظار الدور', neg: true },
         { k: 'equip',     item: 9,  label: 'توقّف النشاط لتوزيع الأدوات أو جمعها', neg: true }
@@ -104,7 +107,7 @@
         { title: 'التدريس', keys: ['demo', 'groups', 'games', 'stations', 'levels', 'discover', 'elim', 'include', 'out'] },
         { title: 'التقويم', keys: ['fbInd', 'fbGrp', 'ask', 'peer', 'fbMiss'] },
         { title: 'مهارات التعلم والقيم', keys: ['lead', 'team', 'tactic', 'praise', 'misbehave'] },
-        { title: 'السلامة والموارد', keys: ['safe', 'hazard', 'dish', 'tools', 'noTools', 'equip'] }
+        { title: 'السلامة والموارد', keys: ['safe', 'hazard', 'water', 'shade', 'heatHit', 'dish', 'tools', 'noTools', 'equip'] }
     ];
     const TAG = {};
     TAGS.forEach(t => { TAG[t.k] = t; });
@@ -143,6 +146,54 @@
         12: 'الالتزام بالأخلاقيات واللوائح يُقدَّر من السجلات والمتابعة',
         13: 'المبادرات والأنشطة في المجتمع المدرسي خارج الحصة'
     };
+
+    // ── الأدوات المتقدّمة (2026-10-30، قرار المشرف بعد مراجعته العين «كمشرفٍ خبير») ──
+    // ما ثقته ضعيفةٌ من كاميرا واحدةٍ بلا عمق: الزيّ من لون الملابس، وأنواع التشكيلات وعددها، وعدّ الكرات بالكاميرا، والتزاحم وشدّة
+    // النشاط، وموقع المعلّم، وSOFIT+ — يُخفى افتراضاً: **لا يُعرض ولا يدخل الاقتراح ولا الأدلّة ولا المداولة ولا الأهداف ولا الأنماط ولا
+    // البطاقة**، ويُحسب كما كان (فيظهر كلّه حين يُفعَّل). يبقى: القاطرة الطويلة وانتظار الدور، وما يكتبه المشرف بيده (عدد الكرات، وسم الزيّ).
+    // الافتراض هنا مفعَّل (الاختبارات القديمة)، وeye.js يضبطه من إعداد «الأدوات المتقدّمة» (مطفأٌ افتراضاً).
+    let ADV = true;
+    const setAdv = v => { ADV = v !== false; return ADV; };
+    const isAdv = () => ADV;
+
+    // ── الحرارة والسلامة في الملعب، والطلبة غير المشاركين بعذر (2026-10-30) ──
+    // الحرارة المحسوسة من الحرارة والرطوبة (معادلة Rothfusz لخدمة الأرصاد الأمريكيّة NWS)، وفئاتها عندها (°ف 80/91/104/125 ← °م):
+    // حذر ٢٧ · حذرٌ شديد ٣٣ · خطر ٤٠ · خطرٌ شديد ٥٢. وفي الحرّ يُنتظر استراحة ماءٍ كلّ عشرين دقيقةً على الأقلّ — إرشادات رياضة
+    // اليافعين تقول كلّ ١٠–٣٠ دقيقة بحسب الحرارة — **أوّليّ** حتّى تُعرف تعليمات الوزارة. الصالة المغطّاة لا تُقاس حرارتها.
+    const HEAT_CATS = [{ min: 52, k: 4, label: 'خطرٌ شديد' }, { min: 40, k: 3, label: 'خطر' }, { min: 33, k: 2, label: 'حذرٌ شديد' }, { min: 27, k: 1, label: 'حذر' }];
+    const WATER_EVERY = 20;       // دقائق
+    const PLACES = { open: 'ملعبٌ مكشوف', shade: 'ملعبٌ مظلّل', indoor: 'صالةٌ مغطّاة' };
+    const PLACE_IN = { open: 'ملعبٍ مكشوف', shade: 'ملعبٍ مظلّل', indoor: 'صالةٍ مغطّاة' };   // بعد «في»
+    // أدوار الطلبة غير المشاركين بعذر (البند ٢: مراعاة الفروق والاحتياجات) — يختارها المشرف
+    const EXC_ROLES = { ref: 'التحكيم', score: 'التسجيل والتوقيت', equip: 'تنظيم الأدوات', peer: 'ملاحظة أداء الزملاء', cheer: 'التشجيع' };
+    function heatIndex(t, rh) {
+        t = Number(t);
+        if (!(t > -30 && t < 65)) return null;
+        if (rh == null || rh === '' || !(Number(rh) >= 0 && Number(rh) <= 100) || t < 27) return Math.round(t);   // بلا رطوبة أو دون ٢٧° فالحرارة نفسها
+        const T = t * 9 / 5 + 32, R = Number(rh);
+        let H = -42.379 + 2.04901523 * T + 10.14333127 * R - 0.22475541 * T * R - 0.00683783 * T * T - 0.05481717 * R * R
+            + 0.00122874 * T * T * R + 0.00085282 * T * R * R - 0.00000199 * T * T * R * R;
+        if (R < 13 && T >= 80 && T <= 112) H -= ((13 - R) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
+        else if (R > 85 && T >= 80 && T <= 87) H += ((R - 85) / 10) * ((87 - T) / 5);
+        return Math.round(Math.max(t, (H - 32) * 5 / 9));
+    }
+    // field: {place, temp, rh, exc, excRole, roles} من بطاقة «الحرارة والمشاركة»؛ counts: الوسوم (water/shade/heatHit)
+    function fieldOf(field, M, counts) {
+        const f = field || {}, c = counts || {};
+        const num = v => (v === '' || v == null || !isFinite(Number(v)) ? null : Number(v));
+        const temp = num(f.temp), rh = num(f.rh);
+        const indoor = f.place === 'indoor';
+        const hi = temp == null ? null : heatIndex(temp, rh);
+        const cat = hi == null || indoor ? null : HEAT_CATS.find(x => hi >= x.min) || null;
+        const lessonMin = Math.floor(lessonSecOf(M || {}) / 60);
+        const water = c.water || 0;
+        const expect = cat && lessonMin >= WATER_EVERY ? Math.floor(lessonMin / WATER_EVERY) : 0;
+        const exc = Math.max(0, Math.round(num(f.exc) || 0));
+        const role = Math.min(exc, Math.max(0, Math.round(num(f.excRole) || 0)));
+        return { place: PLACES[f.place] ? f.place : '', temp, rh, hi, indoor, cat: cat ? cat.k : 0, catLabel: cat ? cat.label : '', lessonMin,
+                 water, expect, shade: c.shade || 0, hit: c.heatHit || 0, exc, role, roles: (f.roles || []).filter(k => EXC_ROLES[k]) };
+    }
+    const heatOnOf = F => F.cat >= 1 && F.lessonMin >= WATER_EVERY;      // حصةٌ في الحرّ طالت عشرين دقيقة
 
     // ── منطقة الصفّ ──
     // poly: نقاطٌ [x, y] نسبةً إلى الإطار (٠–١)
@@ -1022,9 +1073,10 @@
 
     // الاستجابة للصفّارة حين تكفي (ثلاث إشاراتٍ قيست)، والمعلّم حين رُصد خمس دقائق
     const respOf = M => { const R = M && M.resp; return R && R.med != null && R.list.filter(x => x[2] >= 0).length >= 3 ? R : null; };
-    const teacherOf = M => { const T = M && M.people && M.people.teacher; return T && T.secs >= 300 ? T : null; };
+    const teacherOf = M => { const T = ADV && M && M.people && M.people.teacher; return T && T.secs >= 300 ? T : null; };   // متقدّم
     // طلبةٌ لكلّ كرة (العدد الأكبر ÷ الكرات) — حين تُرى الكرات
-    const ballRatio = M => { const P = M && M.people; return P && P.balls ? Math.max(1, Math.round((P.classSize || P.inside || 0) / P.balls)) : null; };
+    // بالكاميرا متقدّم؛ وما كتبه المشرف بيده (ballsSet) يُعتدّ به دائماً
+    const ballRatio = M => { const P = M && M.people; return P && P.balls && (ADV || P.ballsSet) ? Math.max(1, Math.round((P.classSize || P.inside || 0) / P.balls)) : null; };
     // «كرةٌ لكلّ طالبين / (٤) طلبة» — بالجرّ بعد «لكلّ»
     const perPupils = r => (r === 1 ? 'طالب' : r === 2 ? 'طالبين' : '(' + r + ') ' + (r <= 10 ? 'طلبة' : 'طالباً'));
 
@@ -1081,7 +1133,7 @@
                 s = p >= T[0] ? 1 : p >= T[1] ? 2 : p >= T[2] ? 3 : p >= T[3] ? 4 : 5;
                 e = 'تحرّك الطلبة (' + p + '%) من ' + (core ? 'زمن الإحماء والإعداد البدني والأنشطة' : 'زمن الرصد' + rollNote(m)) + ' في المتوسّط، وعددهم ' + pupilsN(classN);
                 const vg = core ? people.vigPlay : people.vigAll;
-                if (vg != null && p >= 10) e += '، منها (' + vg + '%) جرياً أو نشاطاً شديداً';
+                if (ADV && vg != null && p >= 10) e += '، منها (' + vg + '%) جرياً أو نشاطاً شديداً';
                 basis = 'ai';
             } else {
                 const p = m.activePct;
@@ -1239,7 +1291,8 @@
         // (عددهم من المشرف، وتقترحه الكاميرا)
         const inc = c('include') + c('levels'), outN = c('out');
         const prog = SS && SS.both >= MIN_SAMPLE ? SS : null;
-        if (inc || outN || prog) {
+        const FD = fieldOf(ctx.field, m, counts);
+        if (inc || outN || prog || FD.exc) {
             let s = prog ? quantScore(prog.progress) : inc ? (inc >= 2 ? 1 : 2) : 0;
             const bits = [];
             if (prog) {
@@ -1253,16 +1306,39 @@
                 s = Math.max(s, outN >= 3 ? 4 : 3);
                 bits.push((bits.length ? 'و' : '') + 'ظلّ ' + pupilsN(outN) + ' خارج النشاط');
             }
-            add(2, s, prog ? (inc || outN ? 'both' : 'sample') : 'taps', bits.join('، ') + '.', prog ? nConf(prog.both) : null);
+            // غير المشاركين بعذر: بأدوارٍ كلّهم يشهد للبند، وبلا دورٍ ينزل به إلى «ملائم»
+            if (FD.exc) {
+                const full = FD.role >= FD.exc, none = !FD.role;
+                s = none ? Math.max(s, 3) : full ? (s || 2) : Math.max(s, 2);
+                const rl = FD.roles.length ? ': ' + list(FD.roles.map(k => EXC_ROLES[k])) : '';
+                bits.push((bits.length ? 'و' : '') + (none ? 'بقي غير المشاركين بعذر (' + FD.exc + ') بلا دورٍ في الحصة'
+                    : '{أشرك المعلم|أشركت المعلمة} ' + (full ? 'غير المشاركين بعذر (' + FD.exc + ')' : '(' + FD.role + ') من غير المشاركين بعذر (' + FD.exc + ')') + ' بأدوارٍ في الحصة' + rl));
+            }
+            const only = !prog && !inc && !outN;
+            add(2, s, prog ? (inc || outN || FD.exc ? 'both' : 'sample') : only ? 'field' : 'taps', bits.join('، ') + '.', prog ? nConf(prog.both) : only ? 'medium' : null);
         }
 
         // ٥ الأمن والسلامة — ومنها الزيّ الرياضيّ: «بغير الزيّ» عددٌ يقترحه كشف الطلبة ويؤكّده المشرف،
         // والتزاحم أثناء الحركة (الاستمارة: «توزيع الطلبة في مسافات آمنة» / «تزاحم الطلبة في مساحات ضيقة»)
-        const crowd = people && people.crowdPct != null ? people.crowdPct : null;
+        const crowd = ADV && people && people.crowdPct != null ? people.crowdPct : null;        // متقدّم
         const crowdText = v => (v >= CROWD_BAD ? 'وتزاحم الطلبة أثناء الحركة: (' + v + '%) منهم كان زميلٌ ملاصقاً له'
                                                : 'وتوزّع الطلبة في مسافاتٍ آمنة أثناء الحركة (التزاحم ' + v + '%)');
         const dishN = c('dish');
-        if (c('safe') || c('hazard') || dishN) {
+        // الحرارة: حصةٌ في الحرّ بلا ماءٍ «غير ملائم» (حذرٌ شديد فأعلى) أو «ملائم» (حذر)، وماءٌ أقلّ من المتوقّع «ملائم»،
+        // وعلامات إجهادٍ حراريّ «غير ملائم» إلّا إن أُتيح ماءٌ أو ظلّ — والدرجة اقتراحٌ يعتمده المشرف
+        const heatOn = heatOnOf(FD), hb = [];
+        let hs = 0;
+        if (heatOn || c('water') || c('shade') || c('heatHit')) {
+            if (FD.hi != null && !FD.indoor && FD.cat) hb.push('كانت الحرارة المحسوسة (' + FD.hi + '°) — ' + FD.catLabel + (FD.place ? ' — في ' + PLACE_IN[FD.place] : ''));
+            if (c('water')) hb.push('{أتاح المعلم|أتاحت المعلمة} ' + count(c('water'), 'استراحة ماءٍ واحدة', 'استراحتي ماء', 'استراحات ماء', 'استراحة ماء') + (FD.lessonMin >= 5 ? ' في ' + durG(FD.lessonMin * 60) : ''));
+            else if (heatOn) hb.push('لم تُتح استراحة ماءٍ في ' + durG(FD.lessonMin * 60));
+            if (c('shade')) hb.push('وُظّف الظلّ أثناء الشرح والانتظار');
+            if (c('heatHit')) hb.push('ظهرت علامات إجهادٍ حراريّ على ' + (c('heatHit') === 1 ? 'طالب' : pupilsN(c('heatHit'))));
+            if (heatOn && FD.cat >= 2) hs = !c('water') ? 4 : c('water') < FD.expect ? 3 : 0;
+            else if (heatOn && !c('water')) hs = 3;
+            if (c('heatHit')) hs = Math.max(hs, c('water') || c('shade') ? 3 : 4);
+        }
+        if (c('safe') || c('hazard') || dishN || hb.length) {
             const p = c('safe'), n = c('hazard');
             let s = n >= 2 ? (p ? 4 : 5) : n === 1 ? (p ? 3 : 4) : 2;
             const bits = [];
@@ -1280,7 +1356,10 @@
                 if (crowd >= CROWD_BAD) s = Math.max(s, crowd >= 40 ? 4 : 3);
                 bits.push(crowdText(crowd));
             }
-            add(5, s, crowd != null ? 'both' : 'taps', bits.join('، ') + '.');
+            hb.forEach(t => bits.push((bits.length ? 'و' : '') + t));
+            s = Math.max(s, hs);
+            const tapped = c('safe') || c('hazard') || dishN || c('water') || c('shade') || c('heatHit');
+            add(5, s, crowd != null ? 'both' : tapped ? 'taps' : 'field', bits.join('، ') + '.', tapped ? null : 'medium');
         } else if (crowd != null && crowd >= CROWD_BAD) {
             add(5, crowd >= 40 ? 4 : 3, 'ai', crowdText(crowd).replace(/^و/, '') + '.');
         } else if (SP && SP.safe.n >= 2) {
@@ -1343,7 +1422,10 @@
         } else if (M.observed) bits.push('بلغ زمن النشاط الحركي للطلبة (' + M.activePct + '%)');
         const det = M.ctx && M.ctx.covered >= 60 ? partsDetail(M, M.rec) : null;
         if (det) bits.push((bits.length ? 'و' : '') + 'توزّع زمنها: ' + partsText(det));
-        if (M.forms && M.forms.count) bits.push('واستُعمل ' + count(M.forms.count, 'تشكيلٌ واحد', 'تشكيلان', 'تشكيلات', 'تشكيلاً'));
+        if (ADV && M.forms && M.forms.count) bits.push('واستُعمل ' + count(M.forms.count, 'تشكيلٌ واحد', 'تشكيلان', 'تشكيلات', 'تشكيلاً'));
+        const FD = fieldOf(ctx && ctx.field, M, ctx && ctx.counts);
+        if (FD.cat && heatOnOf(FD)) bits.push('وكانت الحرارة المحسوسة (' + FD.hi + '°)' + (FD.water ? ' مع ' + count(FD.water, 'استراحة ماءٍ واحدة', 'استراحتي ماء', 'استراحات ماء', 'استراحة ماء') : ' بلا استراحة ماء'));
+        if (FD.exc) bits.push('وكان غير المشاركين بعذر (' + FD.exc + ')' + (FD.role ? '، منهم (' + FD.role + ') بأدوارٍ في الحصة' : ' بلا دور'));
         if (M.waits) bits.push('وتخلّلتها ' + count(M.waits, 'فترة انتظار واحدة', 'فترتا انتظار', 'فترات انتظار', 'فترة انتظار') + ' أطولها ' + dur(M.longestIdle));
         if (M.explainSec >= 60 && !det) bits.push('واستغرق الشرح والتوجيه ' + dur(M.explainSec));
         if (M.admin && M.admin.sec >= ROLL_LONG) bits.push('واستغرق تسجيل الحضور والزيّ ' + durG(M.admin.sec));
@@ -1357,7 +1439,7 @@
         if (FL.length) bits.push((bits.length ? 'و' : '') + 'تحقّق (' + FL.filter(f => f.verdict === 'met').length + ') من (' + FL.length + ') من أهداف الزيارة السابقة');
         if (!bits.length) return '';
         // أوّل الجمل بلا واو العطف (بلا كاميرا قد يكون أوّلها «واستُعملت الصفّارة» أو «واستغرق تسجيل الحضور»)
-        bits[0] = bits[0].replace(/^و(?=استُعمل|تخلّل|استغرق|استجاب|سُمع|تحرّك)/, '');
+        bits[0] = bits[0].replace(/^و(?=استُعمل|تخلّل|استغرق|استجاب|سُمع|تحرّك|كان)/, '');
         return P(g('رُصدت الحصة بعين المشرف' + (span >= 60 ? ' ' + dur(span) : '') + ': ' + bits.join('، ') + '.', F));
     }
 
@@ -1383,10 +1465,19 @@
             ask.push('وقفت قاطرةٌ من ' + pupilsN(FM.maxLine) + ' مدّة ' + dur(FM.longLineSec) + '.'
                 + (GD && GD.formsText && GD.formsText.length && !(GD.forms || []).includes('lines') ? ' وتدريبات المهارة في دليل المعلّم: ' + list(GD.formsText) + '.' : '')
                 + ' كيف {تعيد|تعيدين} تنظيمها ليقلّ زمن الانتظار؟');
-        if (FM && FM.count === 1 && FM.segments[0]) ask.push('استُعمل تشكيلٌ واحد («' + FORMS[FM.segments[0].type] + '») طوال الحصة. أيّ تشكيلٍ آخر يناسب المهارة؟');
-        if (FM && FM.types && FM.types.length >= 3) good.push('{نوّع المعلم|نوّعت المعلمة} التشكيلات: ' + list(FM.types.map(t => FORMS[t])) + '.');
+        if (ADV && FM && FM.count === 1 && FM.segments[0]) ask.push('استُعمل تشكيلٌ واحد («' + FORMS[FM.segments[0].type] + '») طوال الحصة. أيّ تشكيلٍ آخر يناسب المهارة؟');
+        if (ADV && FM && FM.types && FM.types.length >= 3) good.push('{نوّع المعلم|نوّعت المعلمة} التشكيلات: ' + list(FM.types.map(t => FORMS[t])) + '.');
         if (c('dish')) ask.push('شارك ' + pupilsN(c('dish')) + ' بغير الزيّ الرياضيّ. ما الإجراء المتّفق عليه مع الإدارة وأولياء الأمور؟');
         if (c('out')) ask.push('ظلّ ' + pupilsN(c('out')) + ' خارج النشاط. كيف {تشركهم|تشركينهم} ولو بدورٍ مساعد؟');
+        // الحرارة والماء، وغير المشاركين بعذر
+        const FD = fieldOf(ctx.field, m, counts);
+        if (heatOnOf(FD) && FD.cat >= 2 && !FD.water) ask.push('كانت الحرارة المحسوسة (' + FD.hi + '°) ولم تُتح استراحة ماءٍ في ' + durG(FD.lessonMin * 60) + '. ما {خطّتك|خطّتكِ} للماء والظلّ وشدّة النشاط في حصص الحرّ؟');
+        else if (heatOnOf(FD) && FD.water && FD.water < FD.expect) ask.push('كانت ' + count(FD.water, 'استراحة ماءٍ واحدة', 'استراحتا ماء', 'استراحات ماء', 'استراحة ماء') + ' في ' + durG(FD.lessonMin * 60) + ' والحرارة المحسوسة (' + FD.hi + '°). كم مرّةً {تتيحها|تتيحينها} في الحرّ؟');
+        else if (heatOnOf(FD) && FD.water >= FD.expect) good.push('{أتحت|أتحتِ} استراحات ماءٍ منتظمة (' + FD.water + ') والحرارة المحسوسة (' + FD.hi + '°).');
+        if (FD.hit) ask.push('ظهرت علامات إجهادٍ حراريّ على ' + (FD.hit === 1 ? 'طالب' : pupilsN(FD.hit)) + '. ما الذي {تفعله|تفعلينه} فوراً، وما الذي يمنع تكراره؟');
+        if (FD.exc && !FD.role) ask.push('كان غير المشاركين بعذر (' + FD.exc + ') بلا دور. أيّ دورٍ (التحكيم، أو التسجيل والتوقيت، أو تنظيم الأدوات) {تسنده|تسندينه} إليهم في الحصة القادمة؟');
+        else if (FD.exc && FD.role < FD.exc) ask.push('{أشركت|أشركتِ} (' + FD.role + ') من غير المشاركين بعذر (' + FD.exc + ') بأدوار. ما دور الباقين؟');
+        else if (FD.exc) good.push('{أشركت|أشركتِ} غير المشاركين بعذر (' + FD.exc + ') بأدوارٍ في الحصة' + (FD.roles.length ? ': ' + list(FD.roles.map(k => EXC_ROLES[k])) : '') + '.');
         if (m.waits && m.longestIdle >= 180) ask.push('أطول فترة انتظارٍ بين نشاطين بلغت ' + dur(m.longestIdle) + '. ما الذي كان يحدث فيها؟');
         // الحضور والزيّ: إجراءٌ لازمٌ لا يُحسب شرحاً — ويُسأل عنه حين يطول
         const AD = m.admin;
@@ -1420,8 +1511,8 @@
             const mv = movingOf(m), vg = PP.vigPlay != null ? PP.vigPlay : PP.vigAll;
             if (mv != null && mv < MVPA_GOAL && !(det && det.some(r => r.lowAct)))
                 ask.push('كان الطلبة في نشاطٍ معتدلٍ فأشدّ (' + mv + '%) من الزمن، والمعيار المتداول نصفه على الأقلّ. أيّ جزءٍ من الحصة يتحوّل إلى ممارسة؟');
-            if (vg != null && vg >= 25) good.push('كان (' + vg + '%) من زمن الطلبة جرياً أو نشاطاً شديداً.');
-            if (PP.crowdPct != null && PP.crowdPct >= CROWD_BAD) ask.push('تزاحم الطلبة أثناء الحركة (' + PP.crowdPct + '%). كيف {توزّع|توزّعين} المساحة ليعمل كلٌّ في مسافةٍ آمنة؟');
+            if (ADV && vg != null && vg >= 25) good.push('كان (' + vg + '%) من زمن الطلبة جرياً أو نشاطاً شديداً.');
+            if (ADV && PP.crowdPct != null && PP.crowdPct >= CROWD_BAD) ask.push('تزاحم الطلبة أثناء الحركة (' + PP.crowdPct + '%). كيف {توزّع|توزّعين} المساحة ليعمل كلٌّ في مسافةٍ آمنة؟');
             const ratio = ballRatio(m);
             const want = GD && GD.per ? GD.per : 0;   // الدليل يبني تدريبات المهارة على كرةٍ لكلّ (want)
             if (ratio && want && ratio > 2 * want) ask.push('تدريبات المهارة في دليل المعلّم بكرةٍ لكلّ ' + perPupils(want) + '، وكانت كرةٌ لكلّ ' + perPupils(ratio) + '. كيف {تزيد|تزيدين} الكرات أو المحطّات ليقترب منه؟');
@@ -1545,10 +1636,10 @@
           text: (b, t) => 'الالتزام بالزمن الموصى به لعناصر الحصة: (' + t + ') عناصر من خمسة على الأقلّ — كانت (' + b + ')' },
         { k: 'forms', w: 1, item: 8, label: 'التشكيلات المستعملة', unit: 'n', dir: 1, good: 2, needs: 'ai',
           // لا يُقاس من رصدٍ قصير: «كان (0)» بعد دقيقةٍ رصدٍ حكمٌ بلا شاهد (2026-10-29)
-          read: d => (d.M && d.M.forms && (d.M.people && d.M.people.detSecs) >= MIN_OBSERVE / 2 ? d.M.forms.count : null), goal: b => Math.max(2, b + 1),
+          read: d => (ADV && d.M && d.M.forms && (d.M.people && d.M.people.detSecs) >= MIN_OBSERVE / 2 ? d.M.forms.count : null), goal: b => Math.max(2, b + 1),
           text: (b, t) => 'التنويع في تشكيلات الطلبة بما يناسب المهارة: ' + count(t, 'تشكيلٌ واحد', 'تشكيلان', 'تشكيلات', 'تشكيلاً') + ' على الأقلّ في الحصة — كان (' + b + ')' },
         { k: 'dish', w: 1, item: 5, label: 'المشاركون بغير الزيّ الرياضيّ', unit: 'n', dir: -1, good: 1, needs: 'tag',
-          read: d => { const c = (d.counts || {}).dish; return c != null ? c : (d.M && d.M.people ? 0 : null); }, goal: () => 0,
+          read: d => { const c = (d.counts || {}).dish; return c != null ? c : (ADV && d.M && d.M.people ? 0 : null); }, goal: () => 0,
           text: (b) => 'متابعة التزام الطلبة بالزيّ الرياضيّ مع الإدارة وأولياء الأمور حتّى يشارك الجميع به — شارك (' + b + ') بغيره' },
         { k: 'out', w: 1.5, item: 2, label: 'الطلبة خارج النشاط', unit: 'n', dir: -1, good: 0, needs: 'tag',
           read: d => { const c = (d.counts || {}).out; return c != null ? c : (d.M && d.M.people && d.M.people.roi ? 0 : null); }, goal: () => 0,
@@ -1569,7 +1660,7 @@
           read: d => { const R = respOf(d.M); return R ? R.med : null; }, goal: b => Math.max(4, Math.round(b / 2)),
           text: (b, t) => 'تدريب الطلبة على الاستجابة لإشارة الصفّارة لتكون خلال ' + dur(t) + ' على الأكثر — كانت ' + dur(b) },
         { k: 'crowd', w: 2, item: 5, label: 'التزاحم أثناء الحركة', unit: '%', dir: -1, good: 15, needs: 'ai',
-          read: d => (d.M && d.M.people && d.M.people.detSecs >= MIN_OBSERVE / 2 && d.M.people.crowdPct != null ? d.M.people.crowdPct : null), goal: b => Math.max(10, b - 15),
+          read: d => (ADV && d.M && d.M.people && d.M.people.detSecs >= MIN_OBSERVE / 2 && d.M.people.crowdPct != null ? d.M.people.crowdPct : null), goal: b => Math.max(10, b - 15),
           text: (b, t) => 'توزيع الطلبة في مسافاتٍ آمنة أثناء الحركة ليقلّ التزاحم من (' + b + '%) إلى (' + t + '%) على الأكثر' },
         { k: 'balls', w: 1.5, item: 9, label: 'طلبةٌ لكلّ كرة', unit: 'n', dir: -1, good: 3, needs: 'ai',
           read: d => ballRatio(d.M), goal: b => Math.max(2, Math.min(3, Math.round(b * 0.6))),
@@ -1577,6 +1668,12 @@
         { k: 'tEdge', w: 2, item: 7, label: 'وقوف المعلّم على أطراف الطلبة', unit: '%', dir: 1, good: 60, needs: 'teacher',
           read: d => { const T = teacherOf(d.M); return T && T.edgePct != null ? T.edgePct : null; }, goal: b => Math.min(80, ceil5(b + 20)),
           text: (b, t) => '{وقوف المعلم|وقوف المعلمة} على أطراف الطلبة حيث {يراهم|تراهم} جميعاً (' + t + '%) من الوقت على الأقلّ — كان (' + b + '%)' },
+        { k: 'water', w: 2, item: 5, label: 'استراحات الماء في الحرّ (من المتوقّع)', unit: '%', dir: 1, good: 100, needs: 'field',
+          read: d => { const F = fieldOf(d.field, d.M, d.counts); return F.expect ? Math.min(100, Math.round(100 * F.water / F.expect)) : null; }, goal: () => 100,
+          text: b => 'إتاحة استراحة ماءٍ كلّ (' + WATER_EVERY + ') دقيقةً على الأقلّ في حصص الحرّ، والشرح والانتظار في الظلّ — كانت (' + b + '%) من المتوقّع' },
+        { k: 'excRole', w: 1.5, item: 2, label: 'غير المشاركين بعذر بأدوارٍ في الحصة', unit: '%', dir: 1, good: 100, needs: 'field',
+          read: d => { const F = fieldOf(d.field, d.M, d.counts); return F.exc ? Math.round(100 * F.role / F.exc) : null; }, goal: () => 100,
+          text: b => 'إسناد أدوارٍ في الحصة (التحكيم، التسجيل والتوقيت، تنظيم الأدوات) إلى جميع الطلبة غير المشاركين بعذر — كانوا (' + b + '%)' },
         { k: 'mastery', w: 3, item: 1, label: 'إتقان عيّنة الطلبة للمهارة', unit: '%', dir: 1, good: 75, needs: 'sample',
           read: d => { const SS = sampleStats(d.sample); return SS && SS.final ? SS.final.pct : null; }, goal: b => Math.min(90, ceil5(b + 15)),
           text: (b, t) => 'رفع نسبة إتقان الطلبة للمهارة في آخر الحصة من (' + b + '%) إلى (' + t + '%) على الأقلّ، بالتدرّج في تعليمها وتكرار ممارستها' }
@@ -1584,7 +1681,7 @@
     const METRIC = {};
     METRICS.forEach(x => { METRIC[x.k] = x; });
     const NEEDS = { camera: 'الكاميرا', ai: 'الكاميرا و«كشف الطلبة»', parts: 'لمس «عناصر الحصة»', tag: 'الوسم أو كشف الطلبة', speech: '«فهم الكلام»', sample: '«عيّنة الطلبة»',
-                    teacher: 'الكاميرا و«تحديد المعلّم»' };
+                    teacher: 'الكاميرا و«تحديد المعلّم»', field: 'بطاقة «الحرارة والمشاركة»' };
 
     function fmtTarget(unit, v) {
         if (v == null) return '—';
@@ -1693,7 +1790,10 @@
         hazard:   { neg: 'حدوث موقف يهدد سلامة الطلبة أثناء الممارسة' },
         tools:    { pos: 'توفير أدوات كافية ومتنوعة تزيد فرص الممارسة' },
         noTools:  { neg: 'نقص الأدوات بما يطيل انتظار الطلبة لأدوارهم' },
-        equip:    { neg: 'توقف النشاط لتوزيع الأدوات أو جمعها' }
+        equip:    { neg: 'توقف النشاط لتوزيع الأدوات أو جمعها' },
+        water:    { pos: 'إتاحة استراحات لشرب الماء أثناء الممارسة' },
+        shade:    { pos: 'توظيف الظل أثناء الشرح والانتظار تجنبا لأشعة الشمس المباشرة' },
+        heatHit:  { neg: 'ظهور علامات إجهاد حراري على بعض الطلبة أثناء الممارسة' }
     };
     const n_ = x => '(' + x + ')';
     // in: {ev: [{t, k}] اللمسات, counts, M: الملخّص, sample, follow: [{verdict}], marks: [{t, note, item}], ctx: {pupil}}
@@ -1734,12 +1834,12 @@
                 neg: i === 0 ? 'بطء استجابة الطلبة لإشارات البدء والتوقف' : undefined }));
             const LR = M.forms && M.forms.longRun;
             if (LR && LR.sec >= 30) add(7, { t: LR.at, src: 'ai', text: 'قاطرةٌ من ' + pupilsN(LR.size) + ' مدّة ' + dur(LR.sec), neg: 'وقوف الطلبة في قاطرات طويلة ' + n_(LR.size + ' طلبة') + ' تطيل انتظار الدور' });
-            const pp = M.people || {}, T = pp.teacher;
+            const pp = M.people || {}, T = ADV ? pp.teacher : null;          // موقع المعلّم والتزاحم متقدّمان
             if (T && T.edgePct != null) {
                 if (T.edgePct >= 60) add(7, { src: 'ai', text: 'على أطراف الطلبة ' + T.edgePct + '% من الوقت', pos: 'اختيار موقع يكشف جميع الطلبة أثناء النشاط' });
                 else if (T.edgePct < 35) add(7, { src: 'ai', text: 'وسط الطلبة ' + (100 - T.edgePct) + '% من الوقت', neg: 'الوقوف وسط الطلبة في موقع لا يكشفهم جميعا' });
             }
-            if (pp.crowdPct != null) {
+            if (ADV && pp.crowdPct != null) {
                 if (pp.crowdPct >= 25) add(5, { src: 'ai', text: 'متحرّكون متلاصقون ' + pp.crowdPct + '% أثناء النشاط', neg: 'تزاحم الطلبة في مساحات ضيقة أثناء التطبيق' });
                 else if (pp.crowdPct <= 10) add(5, { src: 'ai', text: 'التلاصق أثناء الحركة ' + pp.crowdPct + '% فقط', pos: 'توزيع الطلبة في مسافات آمنة أثناء التطبيق' });
             }
@@ -1784,7 +1884,18 @@
         const met = F.filter(f => f.verdict === 'met').length;
         if (F.length && met) add(11, { src: 'follow', text: 'تحقّق ' + met + ' من ' + F.length + ' من أهداف الزيارة السابقة', pos: 'العمل بتوجيهات الزيارة السابقة وتحقق ' + n_(met) + ' من أهدافها' });
         else if (F.length) add(11, { src: 'follow', text: 'لم يتحقّق هدفٌ من أهداف الزيارة السابقة (' + F.length + ')', neg: 'عدم تحقق أهداف الزيارة السابقة' });
-        // ٧) علامات المشرف التي نسبها إلى بند — ملاحظته نصّاً، بلا عبارة تقرير
+        // ٧) بطاقة «الحرارة والمشاركة»: الحرارة المحسوسة والماء (البند ٥)، وغير المشاركين بعذر (البند ٢)
+        const FD = fieldOf(I.field, M, c);
+        if (FD.hi != null && FD.cat && !FD.indoor) {
+            add(5, { src: 'field', text: 'الحرارة ' + FD.temp + '°' + (FD.rh != null ? ' والرطوبة ' + FD.rh + '%' : '') + ' — المحسوسة ' + FD.hi + '° (' + FD.catLabel + ')' + (FD.place ? '، ' + PLACES[FD.place] : '') });
+            if (heatOnOf(FD) && FD.water >= FD.expect) add(5, { src: 'field', text: 'استراحات ماء (' + FD.water + ') في ' + dur(FD.lessonMin * 60), pos: 'تنظيم استراحات منتظمة لشرب الماء تناسب حرارة الجو' });
+            else if (heatOnOf(FD) && FD.cat >= 2 && !FD.water) add(5, { src: 'field', text: 'لا استراحة ماء في ' + dur(FD.lessonMin * 60), neg: 'عدم إتاحة استراحة لشرب الماء في حرارة محسوسة بلغت ' + n_(FD.hi + '°') });
+            if (FD.cat >= 3 && FD.place === 'open' && !FD.shade) add(5, { src: 'field', text: 'ملعبٌ مكشوف بلا ظلٍّ للشرح والانتظار', neg: 'ممارسة النشاط تحت أشعة الشمس المباشرة دون توظيف الظل في حرارة مرتفعة' });
+        }
+        if (FD.exc) add(2, { src: 'field', text: 'غير مشاركين بعذر (' + FD.exc + ')، منهم بأدوار (' + FD.role + ')' + (FD.roles.length ? ': ' + FD.roles.map(k => EXC_ROLES[k]).join('، ') : ''),
+            pos: FD.role >= FD.exc ? 'إشراك الطلبة غير المشاركين في الممارسة بأدوار مساندة كالتحكيم والتسجيل' : undefined,
+            neg: !FD.role ? 'ترك الطلبة غير المشاركين في الممارسة دون دور في الحصة' : undefined });
+        // ٨) علامات المشرف التي نسبها إلى بند — ملاحظته نصّاً، بلا عبارة تقرير
         (I.marks || []).forEach(m => { if (m && m.item >= 1 && m.item <= 13) add(m.item, { t: m.t, src: 'mark', text: m.note ? String(m.note).slice(0, 160) : 'علامةٌ للمداولة' }); });
         Object.keys(log).forEach(k => log[k].sort((a, b) => (a.t == null ? 1e9 : a.t) - (b.t == null ? 1e9 : b.t)));
         return log;
@@ -1804,7 +1915,7 @@
         { k: 'longIdle', label: 'انتظارٌ بين نشاطين (3) دقائق فأكثر', topic: 'إدارة الانتقالات وتجهيز الأدوات', test: d => d.M && d.M.observed >= MIN_OBSERVE && d.M.longestIdle >= 180 },
         { k: 'longLine', label: 'قاطراتٌ طويلة (أكثر من ستّة طلبة)', topic: 'تشكيلاتٌ تقلّل انتظار الدور', test: d => { const f = d.M && d.M.forms; return !!f && f.longLineSec >= 60 && f.maxLine > LONG_LINE; } },
         { k: 'queue', label: 'انتظار الدور (40%) فأكثر من الطلبة', topic: 'تشكيلاتٌ تقلّل انتظار الدور', test: d => { const p = d.M && d.M.people; return !!p && p.detSecs >= MIN_OBSERVE / 2 && p.queuePct >= 40; } },
-        { k: 'oneForm', label: 'تشكيلٌ واحد طوال الحصة', topic: 'تنويع التشكيلات بما يناسب المهارة', test: d => !!(d.M && d.M.forms) && d.M.forms.count === 1 },
+        { k: 'oneForm', label: 'تشكيلٌ واحد طوال الحصة', topic: 'تنويع التشكيلات بما يناسب المهارة', test: d => ADV && !!(d.M && d.M.forms) && d.M.forms.count === 1 },
         { k: 'partMissing', label: 'عنصرٌ من عناصر الحصة غائب', topic: 'بناء الدرس بعناصره الخمسة وتوزيع زمنه', test: d => { const M = d.M; if (!M || !M.ctx || M.ctx.covered < MIN_STRUCTURE) return false; const det = partsDetail(M, M.rec); return !!det && det.some(r => r.verdict === 'missing'); } },
         { k: 'partTime', label: 'عنصران فأكثر خارج زمنهما الموصى به', topic: 'بناء الدرس بعناصره الخمسة وتوزيع زمنه', test: d => { const M = d.M; if (!M || !M.ctx || M.ctx.covered < MIN_STRUCTURE) return false; const det = partsDetail(M, M.rec); return !!det && det.filter(r => r.verdict === 'long' || r.verdict === 'short').length >= 2; } },
         { k: 'dish', label: 'مشاركةٌ بغير الزيّ الرياضيّ', topic: 'متابعة الزيّ الرياضيّ مع الإدارة وأولياء الأمور', test: d => ((d.counts || {}).dish || 0) >= 2 },
@@ -1816,9 +1927,12 @@
         { k: 'noCheck', label: 'لا تحقّق من فهم الطلبة', topic: 'التحقّق من الفهم قبل التطبيق', test: d => { const SP = spOf(d); return !!SP && SP.words >= 300 && !SP.check.n && !SP.q.n; } },
         { k: 'orgHeavy', label: 'غلبة التعليمات التنظيميّة على الكلام', topic: 'تقليل التعليمات وزيادة زمن الممارسة', test: d => { const SP = spOf(d); return !!SP && SP.clauses >= 20 && SP.orgShare >= 50; } },
         { k: 'slowResp', label: 'استجابةٌ بطيئة لإشارة الصفّارة (10 ثوانٍ فأكثر)', topic: 'إشارات البدء والتوقّف وروتين الانتقال', test: d => { const R = respOf(d.M); return !!R && R.med >= 10; } },
-        { k: 'crowd', label: 'تزاحمٌ أثناء الحركة', topic: 'تنظيم المساحة والسلامة أثناء الممارسة', test: d => { const P = d.M && d.M.people; return !!P && P.detSecs >= MIN_OBSERVE / 2 && P.crowdPct != null && P.crowdPct >= CROWD_BAD; } },
+        { k: 'crowd', label: 'تزاحمٌ أثناء الحركة', topic: 'تنظيم المساحة والسلامة أثناء الممارسة', test: d => { const P = d.M && d.M.people; return ADV && !!P && P.detSecs >= MIN_OBSERVE / 2 && P.crowdPct != null && P.crowdPct >= CROWD_BAD; } },
         { k: 'fewBalls', label: 'كرةٌ لكلّ أكثر من أربعة طلبة', topic: 'توفير الأدوات وتعدّد المحطّات', test: d => { const r = ballRatio(d.M); return !!r && r > 4; } },
         { k: 'teacherCenter', label: 'المعلّم في وسط الطلبة أغلب الوقت', topic: 'الإشراف النشط وموقع المعلّم', test: d => { const T = teacherOf(d.M); return !!T && T.edgePct != null && T.edgePct < 35; } },
+        { k: 'noWater', label: 'حصةٌ في الحرّ بلا استراحة ماء', topic: 'السلامة في الحرّ: الماء والظلّ وتخفيف الشدّة', test: d => { const F = fieldOf(d.field, d.M, d.counts); return heatOnOf(F) && F.cat >= 2 && !F.water; } },
+        { k: 'heatHit', label: 'علامات إجهادٍ حراريّ على طلبة', topic: 'السلامة في الحرّ: الماء والظلّ وتخفيف الشدّة', test: d => ((d.counts || {}).heatHit || 0) >= 1 },
+        { k: 'excIdle', label: 'غير مشاركين بعذر بلا دور', topic: 'إشراك جميع الطلبة ومراعاة الفروق', test: d => { const F = fieldOf(d.field, d.M, d.counts); return F.exc > 0 && !F.role; } },
         { k: 'longRoll', label: 'تسجيل الحضور والزيّ (5) دقائق فأكثر', topic: 'بداية الحصة: تسجيل الحضور والزيّ دون هدر زمن التعلّم', test: d => !!(d.M && d.M.admin && d.M.admin.sec >= ROLL_LONG) },
         { k: 'lowMastery', label: 'إتقان العيّنة أقلّ من (50%)', topic: 'التدرّج في تعليم المهارة', test: d => { const SS = sampleStats(d.sample); return !!(SS && SS.final) && SS.final.pct < 50; } },
         { k: 'noProgress', label: 'تقدّمٌ محدود في عيّنة الطلبة', topic: 'التدرّج في تعليم المهارة', test: d => { const SS = sampleStats(d.sample); return !!SS && SS.both >= MIN_SAMPLE && SS.progress < 50; } }
@@ -1959,7 +2073,8 @@
         const alerts = [];
         const add = (k, level, text) => alerts.push({ k, level, text });
         if (state === 'i' && run >= ALERT_IDLE) add('idle', run >= ALERT_IDLE_BAD ? 'bad' : 'warn', 'انتظارٌ منذ ' + dur(run) + ' — الطلبة بلا نشاط');
-        if (state === 'x' && run >= 10 && !o.phone && !o.frozen) add('shake', 'warn', 'الكاميرا تتحرّك — ثبّتها على الحامل؛ هذه الثواني لا تُحسب');
+        // بلا كاميرا كلّ الثواني «غير محسوبة» — ليس اهتزازاً
+        if (state === 'x' && run >= 10 && !o.phone && !o.frozen && o.camera !== false) add('shake', 'warn', 'الكاميرا تتحرّك — ثبّتها على الحامل؛ هذه الثواني لا تُحسب');
         if (rollNow && run >= ROLL_LONG) add('roll', 'info', 'تسجيل الحضور والزيّ منذ ' + dur(run));
         if (recent && recent.n >= 30 && recent.pct < ALERT_MOVE && n - since >= 60 && !(state === 'i' && run >= ALERT_IDLE)) add('move', 'warn', 'حركة الطلبة ' + recent.pct + '% في «' + PART[part].label + '» (آخر دقيقتين)');
         if (lineSec >= ALERT_LINE && !rollNow) add('line', 'warn', 'قاطرةٌ من ' + pupilsN(lineLen) + ' منذ ' + dur(lineSec) + ' — قسّمها');
@@ -1974,6 +2089,11 @@
         else if (o.camera === false && !((rec && rec.ctx) || []).length && n < ROLL_LONG) add('rollTouch', 'hint', 'يسجّل المعلّم الحضور والزيّ؟ المس «حضور وزيّ» — وإلّا عُدّ ما قبل لمسة «الإحماء» كذلك');
         else if (!part && n >= 120 && !rollNow) add('parts', 'hint', 'المس عنصر الحصة الجاري ليُقاس زمنه وحركة الطلبة فيه');
         if (o.camera && o.ai && !o.roi && n >= 60) add('roi', 'hint', 'حدّد منطقة الصف ليُعدّ من هم خارجها وتدقّ الأرقام');
+        // الحرّ (o.wx: {cat, hi, last} من بطاقة «الحرارة والمشاركة»): عشرون دقيقةً بلا استراحة ماء
+        if (o.wx && o.wx.cat >= 1) {
+            const since = n - Math.max(0, o.wx.last != null ? o.wx.last : 0);
+            if (since >= WATER_EVERY * 60) add('water', o.wx.cat >= 3 ? 'bad' : 'warn', 'مضت ' + dur(since) + ' بلا استراحة ماء — الحرارة المحسوسة (' + o.wx.hi + '°)');
+        }
         const rank = { bad: 0, warn: 1, info: 2, hint: 3 };
         alerts.sort((a, b) => rank[a.level] - rank[b.level]);
         return {
@@ -2164,7 +2284,8 @@
         METRICS, METRIC, NEEDS, fmtTarget, targetCandidates, targetText, targetGoalText, targetCheck,
         ISSUES, issuesOf, patterns, EV_TAG, evidenceLog, officialFor,
         SOFIT_STEP, SOFIT_CTX, SOFIT_TCH, sofit, SOFITP_LESSON, SOFITP_ACT, SOFITP_TCH, SOFITP_LIM, SOFITP_PR, SOFITP_GAP, sofitPlus, sofitPlusWhy,
-        VIG_SPEED, CROWD_DIST, BALL_MIN_SCORE, MVPA_GOAL, CROWD_BAD, teacherStep, pickNearest, teacherStats, whistleResponses, ballRatio, perPupils
+        VIG_SPEED, CROWD_DIST, BALL_MIN_SCORE, MVPA_GOAL, CROWD_BAD, teacherStep, pickNearest, teacherStats, whistleResponses, ballRatio, perPupils,
+        setAdv, isAdv, HEAT_CATS, WATER_EVERY, PLACES, EXC_ROLES, heatIndex, fieldOf
     };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEye = api;

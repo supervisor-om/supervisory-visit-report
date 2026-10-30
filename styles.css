@@ -84,6 +84,8 @@
            وما سواه يعود بزرّ «كل الأدوات» أو بعد الإيقاف. السمة يضعها layout() في js/eye.js */
         #eyeBody[data-eye-simple] .eye-adv { display: none !important; }
         #eyeBody:not([data-eye-simple]) .eye-simple-only { display: none !important; }
+        /* الأدوات المتقدّمة (2026-10-30): ما ثقته ضعيفةٌ من كاميرا واحدة مخفيٌّ حتّى يُفعَّل من الإعدادات — السمة يضعها applyAdv() في eye.js */
+        #eyeBody:not([data-eye-pro]) .eye-advtool { display: none !important; }
         /* بعد الإيقاف (أو عند فتح نتيجةٍ محفوظة): النتيجة أوّلاً، ثمّ أدوات الرصد لتصحيح العدّادات، وبطاقة البدء مخفيّة حتّى «رصد جديد».
            السمة data-eye-done يضعها layout() (2026-10-29) */
         #eyeBody[data-eye-done] { display: flex; flex-direction: column; gap: 1.25rem; }

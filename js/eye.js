@@ -50,6 +50,8 @@
     };
 
     const W = 96;               // عرض الإطار المحلَّل
+    // بطاقة «الحرارة والمشاركة» (2026-10-30): المكان والحرارة والرطوبة، وغير المشاركين بعذر ومن له منهم دور، وأدوارهم
+    const freshField = () => ({ place: '', temp: null, rh: null, exc: 0, excRole: 0, roles: [] });
     const S = {
         bound: false, running: false, src: null, stream: null, video: null, canvas: null, cx: null, prev: null, h: 72,
         grid: null, secs: [], acc: null, events: [], counts: {}, t0: 0, lastSec: 0, timers: [], audio: null, ast: {},
@@ -60,6 +62,7 @@
         sp: null, speechConsent: false,
         simple: true, tagFreq: {},                         // وضع الحصة المبسّط، وكم لمس المشرف كلّ وسم (لاختيار «أهمّ ما تلمسه»)
         sample: null, sampleRound: 'a', marks: [],         // عيّنة الطلبة، وعلامات المشرف بأوقاتها
+        field: freshField(),
         teacher: null, pickTeacher: false,                 // المعلّم يُحدَّد بلمسة: يُستثنى من الطلبة ويُرصد موضعه
         // كاميرا الهاتف (js/eye-link.js): الصورة من الـiPhone، والصوت والكلام من ميكروفون هذا الجهاز
         via: null, link: null, linkGen: 0, linkSup: '', linkDown: false, lastFrameAt: 0, rvfc: false, frameTok: null,
@@ -96,7 +99,7 @@
     const suggCtx = () => ({ female: female(), pupil });
     // مع العيّنة ومتابعة أهداف الزيارة السابقة — لكلّ ما يُبنى من بيانات رصدٍ محفوظة (الاقتراح، الملخّص، المداولة، البطاقة)
     const ctxOf = d => Object.assign(suggCtx(), { sample: d && d.sample, follow: d && d.follow ? d.follow.list : null, followDate: d && d.follow ? d.follow.date : null,
-                                                  guide: d && d.guide && LG() ? LG().guideCtx(d) : null });
+                                                  guide: d && d.guide && LG() ? LG().guideCtx(d) : null, field: d && d.field, counts: d && d.counts });
     const standardOf = id => { const it = typeof evaluationItems !== 'undefined' ? evaluationItems.find(x => x.id === id) : null; return it ? it.standard : 'البند ' + id; };
     const freshSample = n => ({ n: n || 8, a: '', b: '' });
     const hasSample = sm => !!(sm && /[123]/.test(String(sm.a || '') + String(sm.b || '')));
@@ -122,7 +125,7 @@ function tagRowHtml(k) {
         const sel = (id, label, opts) => `<label class="flex items-center justify-between gap-2 text-sm text-slate-700">${label}
                     <select id="${id}" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm">${opts}</select></label>`;
         const chk = (id, label, on, title) => `<label class="flex items-center gap-2 text-sm text-slate-700"${title ? ` title="${title}"` : ''}><input type="checkbox" class="w-5 h-5 flex-none" id="${id}"${on ? ' checked' : ''}> ${label}</label>`;
-        const kpi = (id, label) => `<div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 min-w-0">
+        const kpi = (id, label, adv) => `<div class="${adv ? 'eye-advtool ' : ''}rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 min-w-0">
                     <div class="text-xs text-slate-600 truncate" id="${id}L">${label}</div><div class="text-lg font-bold text-slate-900 tabular-nums truncate" id="${id}">—</div></div>`;
         const card = (id, icon, name, sub, tag) => `<${tag === 'label' ? 'label for="eyeFile" role="button" tabindex="0"' : 'button type="button"'} id="${id}"
                     class="eye-src flex flex-col items-start gap-1 text-right rounded-xl border border-slate-200 bg-white p-4 min-w-0 cursor-pointer transition-colors hover:border-blue-500">
@@ -179,6 +182,11 @@ function tagRowHtml(k) {
                                 <select id="eyeMicDev" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" aria-label="الميكروفون"><option value="">الميكروفون الافتراضي</option></select>
                                 ${chk('eyeTeacherMic', 'الميكروفون على المعلّم (لاسلكيّ)', false, 'ميكروفونٌ لاسلكيٌّ على ياقة المعلّم: يصير الكلام المرصود كلامه')}
                                 <label id="eyeSpeechLbl" class="flex items-center gap-2 text-sm text-slate-700" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech"> فهم الكلام (بإذن المعلّم)</label>
+                            </div>
+                            <div class="space-y-1 sm:col-span-2">
+                                <div class="text-xs font-bold text-slate-500">الأدوات المتقدّمة</div>
+                                ${chk('eyeAdv', 'إظهار الأدوات المتقدّمة (تجريبيّة)', false, 'تحليلاتٌ ثقتها ضعيفةٌ من كاميرا واحدة — مخفيّةٌ ولا تدخل التقييم حتّى تُفعَّل')}
+                                <p class="text-xs text-slate-500 leading-5">الزيّ من لون الملابس، وأنواع التشكيلات وعددها، وعدّ الكرات بالكاميرا، والتزاحم وشدّة النشاط، وموقع المعلّم، و<bdi dir="ltr">SOFIT+</bdi>. وهي مخفيّة لا تُعرض ولا تدخل التقييم ولا المداولة حتّى تُفعَّل، وما تكتبه بيدك (عدد الكرات، ووسم الزيّ) يُعتدّ به دائماً.</p>
                             </div>
                             <div class="space-y-2 sm:col-span-2">
                                 <div class="text-xs font-bold text-slate-500">مساعد الصياغة (Claude) — اختياريّ</div>
@@ -246,7 +254,7 @@ function tagRowHtml(k) {
                         <div class="flex flex-wrap items-center gap-2 text-sm text-slate-700">
                             <button type="button" id="eyeRoiBtn" class="svf-btn svf-btn-secondary" disabled><i class="fa-solid fa-draw-polygon" aria-hidden="true"></i>تحديد منطقة الصف</button>
                             <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
-                            <button type="button" id="eyeTeacherBtn" class="eye-adv svf-btn svf-btn-secondary" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
+                            <button type="button" id="eyeTeacherBtn" class="eye-adv eye-advtool svf-btn svf-btn-secondary" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
                             <button type="button" id="eyeCamRestart" class="hidden svf-btn svf-btn-moe"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>إعادة تشغيل الكاميرا</button>
                             <span class="flex-1"></span>
                             <label class="flex items-center gap-2 min-h-[44px] px-1" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" class="w-5 h-5" checked> إظهار الصورة</label>
@@ -333,14 +341,40 @@ function tagRowHtml(k) {
                             </div>
                             <div class="grid grid-cols-2 gap-2">
                                 ${kpi('eyeKpiPupils', 'الطلبة (الأكبر)')}${kpi('eyeMonIdle', 'الانتظار')}
-                                ${kpi('eyeKpiForm', 'التشكيل')}${kpi('eyeKpiWhistle', 'الصفّارة')}
-                                ${kpi('eyeKpiOut', 'خارج المنطقة')}${kpi('eyeKpiDish', 'بغير الزيّ (تقديري)')}
+                                ${kpi('eyeKpiForm', 'التشكيل', true)}${kpi('eyeKpiWhistle', 'الصفّارة')}
+                                ${kpi('eyeKpiOut', 'خارج المنطقة')}${kpi('eyeKpiDish', 'بغير الزيّ (تقديري)', true)}
                             </div>
                             <div>
                                 <div class="flex items-baseline justify-between gap-2 mb-2"><b class="text-sm text-slate-900">زمن عناصر الحصة</b><span class="text-[11px] text-slate-500">الخطّ: الموصى به</span></div>
                                 <div id="eyeMonParts" class="space-y-1.5"></div>
                             </div>
                             <div id="eyeAlerts" class="space-y-1.5" aria-live="polite"></div>
+                        </section>
+                        <section id="eyeField" class="bg-white rounded-2xl border border-slate-200 p-3 space-y-2.5 mt-3">
+                            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                <b class="text-sm text-slate-900">الحرارة والمشاركة</b>
+                                <span class="text-[11px] text-slate-500">الأمن والسلامة (٥) · الفروق والاحتياجات (٢)</span>
+                            </div>
+                            <div class="grid gap-2" style="grid-template-columns:1.5fr 1fr 1fr">
+                                <label class="block min-w-0 text-[11px] text-slate-600">المكان
+                                    <select id="eyeWxPlace" class="eye-fld w-full min-w-0 bg-white border border-slate-300 rounded-lg px-1.5 py-1.5 text-sm mt-0.5"><option value="">—</option>${Object.entries(E().PLACES).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
+                                <label class="block min-w-0 text-[11px] text-slate-600">الحرارة °م
+                                    <input type="number" id="eyeWxTemp" min="0" max="60" step="1" inputmode="numeric" placeholder="—" class="eye-fld w-full min-w-0 border border-slate-300 rounded-lg px-1.5 py-1.5 text-sm mt-0.5 text-center"></label>
+                                <label class="block min-w-0 text-[11px] text-slate-600">الرطوبة %
+                                    <input type="number" id="eyeWxRh" min="0" max="100" step="1" inputmode="numeric" placeholder="—" class="eye-fld w-full min-w-0 border border-slate-300 rounded-lg px-1.5 py-1.5 text-sm mt-0.5 text-center"></label>
+                            </div>
+                            <p id="eyeWxCat" class="hidden text-xs rounded-lg border px-2.5 py-1.5 leading-5"></p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-1.5">${['water', 'shade', 'heatHit'].map(tagRowHtml).join('')}</div>
+                            <p id="eyeWxLast" class="hidden text-[11px] leading-5"></p>
+                            <div class="pt-2 border-t border-slate-100 space-y-1.5">
+                                ${['eyeExcN|غير مشاركين بعذر', 'eyeExcRole|منهم بدورٍ في الحصة'].map(x => { const [id, lb] = x.split('|'); return `<div class="flex items-center justify-between gap-2">
+                                    <span class="text-sm text-slate-700 min-w-0">${lb}</span>
+                                    <span class="flex items-center gap-1 flex-none"><button type="button" class="eye-step svf-btn svf-btn-ghost svf-btn-sm" data-step="${id}" data-d="-1" aria-label="إنقاص">−</button>
+                                    <b id="${id}" class="w-8 text-center tabular-nums text-slate-900">0</b>
+                                    <button type="button" class="eye-step svf-btn svf-btn-secondary svf-btn-sm" data-step="${id}" data-d="1" aria-label="زيادة">+</button></span></div>`; }).join('')}
+                                <div id="eyeExcRoles" class="flex flex-wrap gap-1.5" role="group" aria-label="أدوارهم">${Object.entries(E().EXC_ROLES).map(([k, v]) =>
+                                    `<button type="button" class="eye-role text-xs rounded-full border border-slate-300 px-2.5 py-1 text-slate-700" data-role="${k}" aria-pressed="false">${esc(v)}</button>`).join('')}</div>
+                            </div>
                         </section>
                     </aside>
                 </div>
@@ -456,6 +490,26 @@ function tagRowHtml(k) {
         $('eyeRoiBtn').addEventListener('click', toggleRoiMode);
         $('eyeRoiClear').addEventListener('click', () => setRoi(null));
         $('eyeTeacherBtn').addEventListener('click', toggleTeacherPick);
+        // الأدوات المتقدّمة: تُظهر وتُدخل التقييم ما ثقته ضعيفة — وإعادة الاقتراح على النتيجة المعروضة
+        $('eyeAdv').addEventListener('change', () => { applyAdv(); if (S.result && !S.running) resuggest(); });
+        // بطاقة «الحرارة والمشاركة»
+        document.querySelectorAll('#eyeField .eye-fld').forEach(el => el.addEventListener('change', fieldChanged));
+        $('eyeField').addEventListener('click', e => {
+            const st = e.target.closest && e.target.closest('.eye-step');
+            if (st) {
+                const k = st.dataset.step === 'eyeExcN' ? 'exc' : 'excRole', F = S.field;
+                F[k] = Math.max(0, Math.min(60, (F[k] || 0) + Number(st.dataset.d)));
+                if (k === 'exc') F.excRole = Math.min(F.excRole || 0, F.exc); else F.excRole = Math.min(F.excRole, F.exc || 0);
+                fieldChanged(true);
+                return;
+            }
+            const r = e.target.closest && e.target.closest('.eye-role');
+            if (r) {
+                const F = S.field, k = r.dataset.role;
+                F.roles = F.roles.includes(k) ? F.roles.filter(x => x !== k) : F.roles.concat(k);
+                fieldChanged(true);
+            }
+        });
         $('eyeView').addEventListener('pointerdown', roiPoint);
         $('eyeConsent').addEventListener('change', () => { if (checked('eyeConsent')) message(''); });
         // فهم الكلام: متاحٌ حيث يدعم المتصفّح التعرّف على الكلام (Chrome، Edge، Safari)
@@ -510,6 +564,7 @@ function tagRowHtml(k) {
         }));
         // الإعدادات تُذكر في هذا المتصفّح، فلا تُضبط في كلّ حصة
         loadPrefs();
+        applyAdv();
         PREF_IDS.forEach(id => { const el = $(id); if (el) el.addEventListener('change', savePrefs); });
         setSummary();
         // مجرى الحصة: المرور (أو اللمس) يعرض وقت المقطع وعنصره وحالته وأرقامه
@@ -523,14 +578,22 @@ function tagRowHtml(k) {
         renderQuick();
         renderSample();
         renderMarks();
+        renderField();
         S.bound = true;
         layout();
     }
 
     // ── الإعدادات المحفوظة ──
     const PREF_KEY = 'svf_eye_prefs';
-    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey'];
+    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv'];
     function readPrefs() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); return p && typeof p === 'object' ? p : null; } catch (e) { return null; } }
+    // الأدوات المتقدّمة تُضبط في المحرّك من أوّل تحميلٍ للصفحة — قبل أن تُفتح العين (أدلّة الاستمارة تُقرأ منه أيضاً)
+    try { if (E()) E().setAdv(!!(readPrefs() || {}).eyeAdv); } catch (e) { /* الافتراض */ }
+    function applyAdv() {
+        if (!E()) return;
+        E().setAdv(checked('eyeAdv'));
+        if ($('eyeBody')) $('eyeBody').toggleAttribute('data-eye-pro', checked('eyeAdv'));
+    }
     function loadPrefs() {
         const p = readPrefs();
         if (!p) return;
@@ -563,6 +626,7 @@ function tagRowHtml(k) {
             checked('eyeAI') ? 'كشف الطلبة' : 'بلا كشف الطلبة',
             checked('eyeMic') ? 'الصوت' + (checked('eyeTeacherMic') ? ' من ميكروفون المعلّم' : micName ? ': ' + micName : '') : 'بلا صوت',
             checked('eyeSpeech') ? 'فهم الكلام' : '',
+            checked('eyeAdv') ? 'الأدوات المتقدّمة' : '',
             draftLinked() ? 'مساعد الصياغة مربوط' : ''
         ].filter(Boolean).join(' · ');
     }
@@ -600,6 +664,63 @@ function tagRowHtml(k) {
         let top = 8;
         try { if (head && getComputedStyle(head).position === 'sticky') top = (parseFloat(getComputedStyle(head).top) || 0) + head.offsetHeight + 8; } catch (e) { /* الافتراض */ }
         bar.style.top = top + 'px';
+    }
+
+    // ── بطاقة «الحرارة والمشاركة» (2026-10-30) ──
+    // المشرف يكتب المكان والحرارة (والرطوبة إن عرفها) فتُحسب الحرارة المحسوسة وفئتها، ويلمس «استراحة ماء» و«الظلّ» و«إجهاد حراريّ»
+    // بأوقاتها؛ ويعدّ غير المشاركين بعذر ومن أُسند إليه منهم دور. تُحفظ مع النتيجة (data.field) وتدخل الاقتراح والأدلّة والمداولة والبطاقة.
+    const HEAT_STYLE = { 0: 'border-slate-200 bg-slate-50 text-slate-700', 1: 'border-amber-200 bg-amber-50 text-amber-900', 2: 'border-amber-300 bg-amber-50 text-amber-900',
+                         3: 'border-red-200 bg-red-50 text-red-800', 4: 'border-red-300 bg-red-100 text-red-900' };
+    function fieldChanged(fromClick) {
+        const F = S.field, num = id => { const v = String($(id).value || '').trim(); return v === '' || !isFinite(Number(v)) ? null : Number(v); };
+        if (fromClick !== true) {
+            F.place = $('eyeWxPlace').value;
+            const t = num('eyeWxTemp'), h = num('eyeWxRh');
+            F.temp = t != null && t >= 0 && t <= 60 ? t : null;
+            F.rh = h != null && h >= 0 && h <= 100 ? h : null;
+        }
+        renderField();
+        if (S.result && !S.running) { S.result.field = JSON.parse(JSON.stringify(F)); resuggest(); }
+        else if (S.running) refreshEvidence(E().summarize(recNow()));
+    }
+    function renderField() {
+        if (!$('eyeField')) return;
+        const F = S.field, set = (id, v) => { const el = $(id); if (el && document.activeElement !== el) el.value = v == null ? '' : String(v); };
+        set('eyeWxPlace', F.place); set('eyeWxTemp', F.temp); set('eyeWxRh', F.rh);
+        $('eyeExcN').textContent = F.exc || 0; $('eyeExcRole').textContent = F.excRole || 0;
+        document.querySelectorAll('#eyeExcRoles .eye-role').forEach(b => {
+            const on = F.roles.includes(b.dataset.role);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            b.style.background = on ? '#e8f0f8' : ''; b.style.borderColor = on ? '#0f4c81' : ''; b.style.color = on ? '#082742' : '';
+            b.style.fontWeight = on ? '700' : '';
+        });
+        const D = E().fieldOf(F, { seconds: S.running ? S.lastSec : ((S.result && S.result.M && S.result.M.seconds) || 0) }, S.counts);
+        const cat = $('eyeWxCat');
+        let txt = '';
+        if (F.place === 'indoor') txt = 'صالةٌ مغطّاة — لا تُحسب الحرارة';
+        else if (D.hi != null) txt = 'الحرارة المحسوسة ' + D.hi + '°' + (D.cat ? ' — ' + D.catLabel + ': استراحة ماءٍ كلّ ' + E().WATER_EVERY + ' دقيقةً على الأقلّ' + (D.cat >= 2 ? '، والشرح والانتظار في الظلّ' : '') + (D.cat >= 3 ? '، وخفّف شدّة النشاط' : '') : ' — معتدلة');
+        cat.textContent = txt;
+        cat.className = 'text-xs rounded-lg border px-2.5 py-1.5 leading-5 ' + HEAT_STYLE[D.cat || 0];
+        cat.classList.toggle('hidden', !txt);
+        renderWxLast();
+    }
+    // آخر استراحة ماء — أثناء الرصد في الحرّ
+    function wxLive() {
+        const D = E().fieldOf(S.field, { seconds: S.lastSec }, S.counts);
+        if (!D.cat) return null;
+        let last = null;
+        S.events.forEach(e => { if (e.k === 'water' && e.t != null) last = e.t; });
+        return { cat: D.cat, hi: D.hi, last };
+    }
+    function renderWxLast() {
+        const el = $('eyeWxLast');
+        if (!el) return;
+        const W = S.running ? wxLive() : null;
+        el.classList.toggle('hidden', !W);
+        if (!W) return;
+        const since = Math.max(0, S.lastSec - (W.last != null ? W.last : 0)), late = since >= E().WATER_EVERY * 60;
+        el.textContent = W.last != null ? 'آخر استراحة ماء: منذ ' + mmss(since) : 'لم تُتح استراحة ماء منذ بداية الرصد (' + mmss(since) + ')';
+        el.className = 'text-[11px] leading-5 ' + (late ? 'text-red-700 font-bold' : 'text-slate-500');
     }
 
     // ── المتابعة الحيّة ──
@@ -1895,6 +2016,7 @@ function tagRowHtml(k) {
         S.consent = src !== 'none' || !!S.audio || checked('eyeSpeech') ? checked('eyeConsent') : false;
         S.sp = null;
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
+        S.field = freshField();
         S.teacher = null; S.pickTeacher = false;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
         S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0; S.ckWarned = false;
@@ -2201,7 +2323,7 @@ function tagRowHtml(k) {
         if (S.via === 'phone') $('eyeRelink').classList.toggle('hidden', !($('eyePair').classList.contains('hidden')
             && (!S.link || S.linkFailed || (phoneFrozen() && performance.now() - Math.max(S.lastFrameAt, S.linkAt || 0) > 10000))));
         // المتابعة الحيّة: سلسلةٌ لكلّ عشر ثوانٍ و«الآن» والتنبيهات (eye-core: live)
-        const L = S.live = E().live(recNow(), M, { rec: recPref(), phone: S.via === 'phone', frozen: S.camFrozenFor > 0, camera: S.src !== 'none', ai: checked('eyeAI') && AI.ok, roi: !!S.roi });
+        const L = S.live = E().live(recNow(), M, { rec: recPref(), phone: S.via === 'phone', frozen: S.camFrozenFor > 0, camera: S.src !== 'none', ai: checked('eyeAI') && AI.ok, roi: !!S.roi, wx: wxLive() });
         drawTimeline(L.series.map(liveItem));
         renderMonitor(L, M);
         drawSpark();
@@ -2211,6 +2333,7 @@ function tagRowHtml(k) {
         if (S.lastSec % 5 === 0) refreshEvidence(M);
         if (S.via === 'phone') $('eyeWide').classList.toggle('hidden', !wideStep());
         renderSpeechLive();
+        renderWxLast();
     }
     // مقطع السلسلة الحيّة بشكل مجرى الحصة (والمحفوظ مثله: tl/tv/tc/tm/tt)
     const liveItem = b => ({ k: b.k, v: b.act != null ? b.act : 0, c: b.c ? E().PART[b.c].c : '-', mv: b.mv, talk: b.talk, w: b.w });
@@ -2494,7 +2617,7 @@ function tagRowHtml(k) {
         }
         // «بغير الزيّ الرياضيّ»: يقترحه كشف الطلبة (ما ثبت في اللقطات) ويصحّحه المشرف بالوسم
         let dishAuto = 0;
-        if (M.people && M.people.dishEst > 0 && !(S.counts.dish > 0)) {
+        if (E().isAdv() && M.people && M.people.dishEst > 0 && !(S.counts.dish > 0)) {        // متقدّم
             dishAuto = M.people.dishEst;
             S.counts.dish = dishAuto;
             renderCounts();
@@ -2531,6 +2654,7 @@ function tagRowHtml(k) {
             sample: hasSample(S.sample) ? JSON.parse(JSON.stringify(S.sample)) : null,
             guide: GD ? { id: GD.id, skills: S.guide.skills.slice() } : null,
             marks: S.marks.map(markRow),
+            field: JSON.parse(JSON.stringify(S.field)),
             targets: [],
             applied: []
         };
@@ -2574,7 +2698,7 @@ function tagRowHtml(k) {
             speechConsent: !!S.speechConsent, form: formSig(),
             secs: S.secs, grid: S.grid ? Array.from(S.grid) : null, events: S.events, counts: S.counts, ctx: S.ctxEvents, ctxCur: S.ctxCur,
             lost: S.lostSec || 0, gap: S.gapSec || 0, resumes: S.resumes || 0, spOff: S.spOff || 0, classMax: S.classMax || 0,
-            roi: S.roi, sample: S.sample, sampleRound: S.sampleRound, marks: S.marks,
+            roi: S.roi, sample: S.sample, sampleRound: S.sampleRound, marks: S.marks, field: S.field,
             guide: S.guide ? { id: S.guide.id, skills: (S.guide.skills || []).slice() } : null,
             sp: sp ? { mode: sp.mode, lang: sp.lang, segs: sp.segs } : null
         };
@@ -2593,6 +2717,7 @@ function tagRowHtml(k) {
         S.spOff = (R.spOff || 0) + (R.sp ? gap : 0);
         S.classMax = R.classMax || 0;
         S.sample = R.sample || null; S.sampleRound = R.sampleRound || 'a'; S.marks = R.marks || [];
+        S.field = Object.assign(freshField(), R.field || {});
         S.hadAudio = S.hadAudio || !!R.hadAudio; S.consent = S.consent || !!R.consent;
         S.speechConsent = S.speechConsent || !!R.speechConsent;
         S.spSeed = R.sp && R.sp.segs && R.sp.segs.length ? { mode: R.sp.mode, lang: R.sp.lang, segs: R.sp.segs } : null;
@@ -2748,7 +2873,7 @@ function tagRowHtml(k) {
         return ph.length ? 'يُكتب في الوصف: «…ويتضح ذلك من خلال ' + ph.join('، و') + '»' : 'لا دليل من الحصة لهذا المستوى — يُكتب دليلٌ من قائمة البند كما كان';
     }
     const basisText = { camera: 'من الكاميرا', ai: 'من كشف الطلبة', ctx: 'من سياق الحصة', taps: 'من لمساتك', both: 'من لمساتك والرصد', speech: 'من كلام المعلّم',
-                        sample: 'من عيّنة الطلبة', follow: 'من متابعة أهداف الزيارة السابقة' };
+                        sample: 'من عيّنة الطلبة', follow: 'من متابعة أهداف الزيارة السابقة', field: 'من بطاقة الحرارة والمشاركة' };
     const VERDICT = { met: ['تحقّق', '#1d6b45'], better: ['تحسّن', '#9a6f24'], same: ['لم يتغيّر', '#64748b'], worse: ['تراجع', '#b5452f'], na: ['لم يُقس', '#94a3b8'] };
     const confText = { high: 'ثقة عالية', medium: 'ثقة متوسطة', low: 'ثقة منخفضة' };
     const confColor = { high: '#1d6b45', medium: '#9a6f24', low: '#b5452f' };
@@ -2790,9 +2915,11 @@ function tagRowHtml(k) {
         const okN = det => (det ? det.filter(r => r.verdict === 'ok').length : null);
         if (prev.d.M.ctx && prev.d.M.ctx.covered >= 60 && data.M.ctx && data.M.ctx.covered >= 60) out.push('العناصر في زمنها الموصى به: ' + okN(pa) + ' ← ' + okN(pb) + ' من ٥');
         const fa = prev.d.M.forms, fb = data.M.forms;
-        if (fa && fb) out.push('التشكيلات المستعملة: ' + fa.count + ' ← ' + fb.count);
+        if (E().isAdv() && fa && fb) out.push('التشكيلات المستعملة: ' + fa.count + ' ← ' + fb.count);   // متقدّم
         const da = (prev.d.counts || {}).dish, db = (data.counts || {}).dish;
         if (da != null || db != null) out.push('بغير الزيّ الرياضيّ: ' + (da || 0) + ' ← ' + (db || 0));
+        const xa = E().fieldOf(prev.d.field, prev.d.M, prev.d.counts), xb = E().fieldOf(data.field, data.M, data.counts);
+        if (xa.exc && xb.exc) out.push('غير المشاركين بعذر بأدوار: ' + xa.role + ' من ' + xa.exc + ' ← ' + xb.role + ' من ' + xb.exc);
         return out;
     }
 
@@ -2832,14 +2959,16 @@ function tagRowHtml(k) {
                 if (P.roi) rows.push(row('خارج منطقة الصف', esc(String(P.outsideMed)) + (data.outAuto ? small('اقتُرح منه «طلبة خارج النشاط»') : '')));
                 rows.push(row('حركة الطلبة', P.movingAll + '%' + (P.movingPlay != null ? small('في العناصر النشطة ' + P.movingPlay + '%') : small('من زمن الرصد'))));
                 const mv = P.movingPlay != null ? P.movingPlay : P.movingAll, vg = P.vigPlay != null ? P.vigPlay : P.vigAll;
-                if (vg != null && mv != null) rows.push(row('شدّة النشاط', `<span class="inline-flex flex-wrap gap-x-3 justify-end"><span>ساكن ${100 - mv}%</span><span>معتدل ${Math.max(0, mv - vg)}%</span><span>شديد ${vg}%</span></span>`
+                if (E().isAdv() && vg != null && mv != null) rows.push(row('شدّة النشاط', `<span class="inline-flex flex-wrap gap-x-3 justify-end"><span>ساكن ${100 - mv}%</span><span>معتدل ${Math.max(0, mv - vg)}%</span><span>شديد ${vg}%</span></span>`
                     + small('المعيار المتداول: نصف الزمن نشاطاً معتدلاً فأشدّ' + (mv >= E().MVPA_GOAL ? ' — بلغه' : ' — دونه'))));
                 rows.push(row('انتظار الدور', P.queuePct + '%' + small('من الطلبة أثناء النشاط')));
-                if (P.crowdPct != null) rows.push(row('التزاحم أثناء الحركة', P.crowdPct + '%' + small('من المتحرّكين كان زميلٌ ملاصقاً له')));
+                if (E().isAdv() && P.crowdPct != null) rows.push(row('التزاحم أثناء الحركة', P.crowdPct + '%' + small('من المتحرّكين كان زميلٌ ملاصقاً له')));
                 const ratio = E().ballRatio(M);
-                rows.push(row('الكرات في النشاط', `<input type="number" id="eyeBalls" min="0" max="60" value="${esc(P.balls != null ? String(P.balls) : '')}" placeholder="—" class="w-16 text-center border border-slate-300 rounded-md py-0.5" aria-label="عدد الكرات">`
-                    + small(ratio ? 'كرةٌ لكلّ ' + E().perPupils(ratio) + ' — صحّح العدد إن لزم' : 'لم تُرَ كرات — اكتب عددها إن كانت حصّة كرة')));
-                const TS = P.teacher;
+                // عدّ الكرات بالكاميرا متقدّم؛ وما يكتبه المشرف يُعتدّ به دائماً
+                const ballsV = P.balls != null && (E().isAdv() || P.ballsSet) ? String(P.balls) : '';
+                rows.push(row('الكرات في النشاط', `<input type="number" id="eyeBalls" min="0" max="60" value="${esc(ballsV)}" placeholder="—" class="w-16 text-center border border-slate-300 rounded-md py-0.5" aria-label="عدد الكرات">`
+                    + small(ratio ? 'كرةٌ لكلّ ' + E().perPupils(ratio) + ' — صحّح العدد إن لزم' : E().isAdv() ? 'لم تُرَ كرات — اكتب عددها إن كانت حصّة كرة' : 'اكتب عددها إن كانت حصّة كرة')));
+                const TS = E().isAdv() ? P.teacher : null;
                 if (TS) rows.push(row(female() ? 'موقع المعلمة' : 'موقع المعلم', (TS.edgePct != null ? 'على أطراف الطلبة ' + TS.edgePct + '%' : '—')
                     + small('يتنقّل ' + TS.movePct + '%' + (TS.cover != null ? ' · غطّى ' + TS.cover + '% من مساحة النشاط' : ''))));
             } else {
@@ -2865,6 +2994,12 @@ function tagRowHtml(k) {
             const fin = SSr.final || (SSr.b.rated ? SSr.b : SSr.a);
             rows.push(row('عيّنة الطلبة', 'إتقان ' + fin.pct + '%' + small((SSr.both ? 'تقدّم ' + SSr.improved + ' من ' + SSr.both + ' · ' : '') + 'قُيّم ' + fin.rated + (SSr.final ? '' : ' — أقلّ من ' + E().MIN_SAMPLE))));
         }
+        // بطاقة «الحرارة والمشاركة»
+        const FD = E().fieldOf(data.field, M, data.counts);
+        if (FD.indoor) rows.push(row('المكان', 'صالةٌ مغطّاة'));
+        else if (FD.hi != null) rows.push(row('الحرارة المحسوسة', FD.hi + '°' + small([FD.catLabel || 'معتدلة', FD.place ? E().PLACES[FD.place] : '',
+            'استراحات الماء ' + FD.water + (FD.expect ? ' من ' + FD.expect + ' متوقّعة' : ''), FD.shade ? 'الظلّ ' + FD.shade : '', FD.hit ? '<b class="text-red-700">إجهاد حراريّ ' + FD.hit + '</b>' : ''].filter(Boolean).join(' · '))));
+        if (FD.exc) rows.push(row('غير المشاركين بعذر', FD.exc + small(FD.role ? 'منهم ' + FD.role + ' بأدوار' + (FD.roles.length ? ': ' + esc(FD.roles.map(k => E().EXC_ROLES[k]).join('، ')) : '') : '<b class="text-amber-800">بلا دور</b>')));
         if (data.consent) rows.push(row(female() ? 'أُبلغت المعلمة بالرصد' : 'أُبلغ المعلم بالرصد', 'نعم'));
         const metrics = rows.length ? rows.join('') : `<p class="text-sm text-slate-600 py-2">لم تُشغَّل الكاميرا — الاقتراح من لمساتك وحدها.</p>`;
 
@@ -2906,7 +3041,7 @@ function tagRowHtml(k) {
         // التشكيلات والزيّ الرياضيّ
         // منهجية SOFIT+: ممارسات المعلّم التي ترفع نشاط الطلبة أو تحدّ منه، كلّ عشرين ثانية — من أرقام الرصد المحفوظة
         let sofitHtml = '';
-        const SF = E().sofit(data), SP = E().sofitPlus(data);
+        const SF = E().isAdv() ? E().sofit(data) : null, SP = E().isAdv() ? E().sofitPlus(data) : null;   // متقدّم
         if (SP || SF) {
             const SC = { M: '#8492a6', K: '#d9a441', F: '#1d6b45', S: '#0f4c81', G: '#5b8fc7', D: '#9a6f24', still: '#cbd5e1', walk: '#5b8fc7', vig: '#0f4c81',
                          whole: '#9a6f24', groups: '#0f4c81', free: '#5b8fc7', line: '#b5452f',
@@ -2956,7 +3091,12 @@ function tagRowHtml(k) {
 
         let formsHtml = '';
         const dishN = (data.counts || {}).dish || 0;
-        if (F || (P && (P.dishEst || dishN))) {
+        if (!E().isAdv()) {
+            // بلا الأدوات المتقدّمة: القاطرة الطويلة وحدها (انتظار الدور) — لا أنواع التشكيلات ولا الزيّ من لون الملابس
+            if (F && F.maxLine > E().LONG_LINE) formsHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
+                <h2 class="text-lg font-bold text-slate-900">القاطرات وانتظار الدور</h2>
+                <p class="text-sm mt-2 ${F.longLineSec >= 60 ? 'text-red-700 font-bold' : 'text-slate-700'}">أطول قاطرة: ${F.maxLine} طلبة، ووقفت قاطراتٌ أطول من ${E().LONG_LINE} مدّة ${esc(D(F.longLineSec))}</p></div>`;
+        } else if (F || (P && (P.dishEst || dishN))) {
             const segs = F ? F.segments.map(x => `<span class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs"><i class="inline-block w-2 h-2 rounded-full" style="background:${FORM_COLOR[x.type]}"></i>${esc(E().FORMS[x.type])} <span class="text-slate-500 tabular-nums">${esc(D(x.dur))}</span></span>`).join('<span class="text-slate-400 text-xs">←</span>') : '';
             formsHtml = `<div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">التشكيلات والزيّ الرياضيّ</h2>
@@ -3197,6 +3337,7 @@ function tagRowHtml(k) {
                 </div></li>`;
         }).join('');
 
+        const detOpen = !!($('eyeDetails') && $('eyeDetails').open);       // يبقى مفتوحاً بعد إعادة الرسم (تبديل الأدوات المتقدّمة)
         box.innerHTML = `
             <div class="bg-white rounded-2xl border border-slate-200 p-5">
                 <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
@@ -3252,8 +3393,12 @@ function tagRowHtml(k) {
             </div>
             ${talkHtml}
             ${(() => {   // التفاصيل مطويّة (2026-10-29): المراجعة والحفظ والمداولة أوّلاً، والتحليل المفصّل لمن أراده
-                const parts = [momHtml, partsHtml, sofitHtml, formsHtml, speechHtml, guideHtml].filter(Boolean);
-                return parts.length ? `<details id="eyeDetails" class="group">
+                // الأدوات المتقدّمة تُبدَّل من هنا أيضاً: بطاقة البدء (وفيها الإعدادات) مخفيّةٌ بعد الرصد
+                const advT = `<label class="flex items-start gap-2 bg-white rounded-2xl border border-slate-200 px-5 py-3 text-sm text-slate-700 leading-6">
+                    <input type="checkbox" id="eyeAdvR" class="w-5 h-5 flex-none mt-0.5"${E().isAdv() ? ' checked' : ''}>
+                    <span>إظهار الأدوات المتقدّمة (تجريبيّة) <span class="block text-xs text-slate-500">الزيّ من لون الملابس، وأنواع التشكيلات، والكرات بالكاميرا، والتزاحم وشدّة النشاط، وموقع المعلّم، و<bdi dir="ltr">SOFIT+</bdi> — ثقتها ضعيفة، فلا تُعرض ولا تدخل التقييم حتّى تُفعَّل.</span></span></label>`;
+                const parts = [momHtml, partsHtml, sofitHtml, formsHtml, speechHtml, guideHtml].filter(Boolean).concat(advT);
+                return parts.length ? `<details id="eyeDetails" class="group"${detOpen ? ' open' : ''}>
                     <summary class="cursor-pointer select-none list-none bg-white rounded-2xl border border-slate-200 px-5 py-4 flex items-center justify-between gap-2">
                         <span><b class="text-lg text-slate-900">تفاصيل التحليل</b>
                             <span class="block text-xs text-slate-500 mt-0.5">${esc([momHtml && 'اللحظات', partsHtml && 'عناصر الحصة', sofitHtml && '\u2066SOFIT+\u2069', formsHtml && 'التشكيلات والزيّ', speechHtml && 'كلام المعلّم', guideHtml && 'دليل المعلّم'].filter(Boolean).join(' · '))}</span></span>
@@ -3289,6 +3434,7 @@ function tagRowHtml(k) {
         applyCount();
         $('eyeToNotes') && $('eyeToNotes').addEventListener('click', () => toNotes(data.summary));
         $('eyeNew').addEventListener('click', () => { lastClear(); reset(); });
+        $('eyeAdvR') && $('eyeAdvR').addEventListener('change', e => { $('eyeAdv').checked = e.target.checked; savePrefs(); applyAdv(); resuggest(); });
         $('eyeCard').addEventListener('click', () => shareCard('share'));
         $('eyePrint').addEventListener('click', () => shareCard('print'));
         $('eyeToDebrief') && $('eyeToDebrief').addEventListener('click', () => { if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('debrief-view'); });
@@ -3296,6 +3442,7 @@ function tagRowHtml(k) {
             const raw = String(e.target.value || '').trim(), v = Math.round(Number(raw));
             if (!S.result || !S.result.M || !S.result.M.people || (raw && !(v >= 0 && v <= 60))) return;
             S.result.M.people.balls = raw && v > 0 ? v : null;
+            S.result.M.people.ballsSet = !!(raw && v > 0);
             resuggest();
         });
         $('eyeClassSize') && $('eyeClassSize').addEventListener('change', e => {
@@ -3449,12 +3596,12 @@ function tagRowHtml(k) {
     function logOf(d) {
         if (!d) return {};
         return E().evidenceLog({ ev: (d.ev || []).map(e => ({ t: e[0], k: e[1] })), counts: d.counts || {}, M: d.M || {}, sample: d.sample,
-            follow: d.follow && d.follow.list, marks: (d.marks || []).map(m => ({ t: m[0], note: m[1], item: m[2] })), ctx: ctxOf(d) });
+            follow: d.follow && d.follow.list, marks: (d.marks || []).map(m => ({ t: m[0], note: m[1], item: m[2] })), field: d.field, ctx: ctxOf(d) });
     }
     function liveLog(M) {
         const sp = S.sp && S.sp.A;
         return E().evidenceLog({ ev: S.events, counts: S.counts, M: sp ? Object.assign({}, M, { speech: sp }) : M, sample: S.sample,
-            marks: S.marks, ctx: suggCtx() });
+            marks: S.marks, field: S.field, ctx: suggCtx() });
     }
     function currentLog() {
         if (S.running) return S.log || {};
@@ -3462,7 +3609,7 @@ function tagRowHtml(k) {
         try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
         return logOf(d);
     }
-    const SRC_TEXT = { tap: 'لمستك', mark: 'علامتك', cam: 'الكاميرا', ai: 'كشف الطلبة', ctx: 'عناصر الحصة', speech: 'كلام المعلّم', sample: 'عيّنة الطلبة', follow: 'أهداف الزيارة السابقة' };
+    const SRC_TEXT = { tap: 'لمستك', mark: 'علامتك', cam: 'الكاميرا', ai: 'كشف الطلبة', ctx: 'عناصر الحصة', speech: 'كلام المعلّم', sample: 'عيّنة الطلبة', follow: 'أهداف الزيارة السابقة', field: 'بطاقة الحرارة والمشاركة' };
     function refreshEvidence(M) {
         if (!S.running) return;
         S.log = liveLog(M || E().summarize(recNow()));
@@ -3588,7 +3735,7 @@ function tagRowHtml(k) {
             return { id: it.id, standard: it.standard, title: it.title, score: s, level: pupil(level), ev: (S.reviewLog || {})[it.id] || [] };
         });
         // SOFIT+ في سطرٍ للمساعد: المقارنة وما حدّ من النشاط — أرقامٌ وتسمياتٌ بلا أسماء
-        const SP = S.result ? E().sofitPlus(S.result) : null;
+        const SP = S.result && E().isAdv() ? E().sofitPlus(S.result) : null;   // متقدّم
         const spLine = SP ? ['وفق SOFIT+:', SP.rel ? 'حين اجتمعت ممارساتٌ داعمة كانت حركة الطلبة (' + SP.rel.hi.mv + '%) وحين قلّت (' + SP.rel.lo.mv + '%)' : '',
             SP.limits.length ? 'ومما حدّ من النشاط: ' + SP.limits.map(l => l.label).join('، ') : ''].filter(Boolean).join(' ') : '';
         const summary = [S.result && S.result.summary, spLine.length > 14 ? spLine : ''].filter(Boolean).join(' ');
@@ -3768,6 +3915,7 @@ function tagRowHtml(k) {
         S.rollSpans = []; S.rollSig = '';
         S.sp = null; S.speechConsent = false;
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
+        S.field = freshField();
         S.via = null; S.lostSec = 0; S.phoneCams = null;
         S.resume = null; S.spSeed = null; S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0;
         S.guide = null; S.gkey = '';
@@ -3777,6 +3925,7 @@ function tagRowHtml(k) {
         renderCtx();
         renderSample();
         renderMarks();
+        renderField();
         $('eyeResult').classList.add('hidden');
         $('eyeResult').innerHTML = '';
         $('eyeIdle').classList.remove('hidden');
@@ -3878,6 +4027,8 @@ function tagRowHtml(k) {
             S.events = (data.ev || []).map(e => ({ t: e[0], k: e[1] }));
             S.sample = data.sample ? JSON.parse(JSON.stringify(data.sample)) : null;
             S.marks = (data.marks || []).map(m => ({ t: m[0], note: m[1] || '', item: m[2] || null }));
+            S.field = Object.assign(freshField(), data.field || {});
+            renderField();
             if (data.guide && LG() && LG().byId(data.guide.id)) {
                 const I = info();
                 S.guide = { id: data.guide.id, skills: (data.guide.skills || []).slice(), sure: true, on: true, min: false };
@@ -3909,7 +4060,7 @@ function tagRowHtml(k) {
         const mv = movingOf(M);
         const evTalk = debriefEvidence(d);
         // SOFIT+: ممارساته ونشاط الطلبة — المقارنة ولحظتاها سؤالان للنقاش
-        const SPx = E().sofitPlus(d), fem = female();
+        const SPx = E().isAdv() ? E().sofitPlus(d) : null, fem = female();   // متقدّم
         const spHtml = SPx && (SPx.rel || SPx.best || SPx.worst) ? `<div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
                 <div class="text-[11px] font-bold text-blue-900 mb-1">من <bdi dir="ltr">SOFIT+</bdi> — ممارساتك ونشاط الطلبة</div>
                 ${SPx.rel ? `<div class="text-sm text-slate-800 leading-7">حين اجتمعت ثلاث ممارساتٍ داعمة فأكثر كانت حركة الطلبة (${SPx.rel.hi.mv}%)، وحين قلّت كانت (${SPx.rel.lo.mv}%).</div>` : ''}
@@ -3921,7 +4072,8 @@ function tagRowHtml(k) {
                 <button type="button" id="debriefEyeCard" class="svf-btn svf-btn-secondary svf-btn-sm">بطاقة التحليل للمعلّم</button></div>
             <div class="grid grid-cols-2 sm:grid-cols-4 border border-slate-200 rounded-xl mt-3 divide-x divide-x-reverse divide-slate-200">
                 ${kv('عدد الطلبة', P ? String(P.classSize || P.inside) : '—')}${kv('حركة الطلبة', mv != null ? mv + '%' : '—')}
-                ${kv('التشكيلات', M.forms ? String(M.forms.count) : '—')}${kv('بغير الزيّ', String((d.counts || {}).dish || 0))}
+                ${E().isAdv() ? kv('التشكيلات', M.forms ? String(M.forms.count) : '—') + kv('بغير الزيّ', String((d.counts || {}).dish || 0))
+                    : kv('أطول انتظار', M.longestIdle ? E().dur(M.longestIdle) : '—') + kv('غير المشاركين بعذر', (() => { const X = E().fieldOf(d.field, M, d.counts); return X.exc ? X.role + ' من ' + X.exc + ' بدور' : '—'; })())}
             </div>
             ${M.speech && M.speech.clauses && SX() ? `<p class="text-sm text-slate-700 mt-3"><b class="text-slate-900">من كلامه:</b> ${esc(SX().line(M.speech))}</p>` : ''}
             ${det ? `<div class="flex flex-wrap gap-1.5 mt-3">${det.map(r => `<span class="text-xs rounded-lg border px-2 py-1 ${r.verdict === 'ok' ? 'border-green-200 text-green-800' : r.verdict === 'missing' ? 'border-red-200 text-red-800' : 'border-amber-200 text-amber-800'}">${esc(r.short)} ${r.minutes} د</span>`).join('')}</div>` : ''}

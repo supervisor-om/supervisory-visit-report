@@ -431,7 +431,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
           && (UI.match(/localStorage\.setItem\(/g) || []).length === 5 && /localStorage\.setItem\('svf_eye_show'/.test(UI)
           && /localStorage\.setItem\(CK_KEY, JSON\.stringify\(ck\)\)/.test(UI) && /localStorage\.setItem\(LAST_KEY, JSON\.stringify\(\{ at: Date\.now\(\), form: formSig\(\), data \}\)\)/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI)
-          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey'\];/.test(UI));
+          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv'\];/.test(UI));
 }
 
 /* ── ١٦) التوصيل — العناصر والبطاقة والمداولة والنموذج ── */
@@ -714,8 +714,8 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /S\.teacher = E\(\)\.teacherStep\(AI\.T, S\.teacher, t\);\s*\n\s*S\.pSnap = E\(\)\.peopleSnapshot\(AI\.T, t, S\.roi, S\.teacher\);\s*\n\s*S\.pSnap\.b = balls;/.test(UI));
     check('wiring: كلّ ثانيةٍ تحفظ الشدّة والتزاحم والكرات وموضع المعلّم', /vg: p\.vg, cr: p\.cr, b: p\.b(, e: p\.e)? \}/.test(UI) && /p\.tc \? \{ t: \[p\.tc\.x, p\.tc\.y, p\.tc\.mv \? 1 : 0, p\.tc\.edge == null \? -1 : p\.tc\.edge \? 1 : 0\] \}/.test(UI));
     check('wiring: المعلّم بلمسةٍ أثناء الرصد بالكشف وحده، ويُصفَّر مع رصدٍ جديد', /if \(!S\.running \|\| !S\.video \|\| !AI\.ok\)/.test(UI) && /const id = E\(\)\.pickNearest\(S\.pSnap, x, y\);/.test(UI) && /S\.teacher = null; S\.pickTeacher = false;\s*\n\s*setRoi\(null\);/.test(UI));
-    check('wiring: عدد الكرات يُصحَّح فيُعاد الاقتراح', /\$\('eyeBalls'\)[\s\S]{0,400}S\.result\.M\.people\.balls = raw && v > 0 \? v : null;\s*\n\s*resuggest\(\);/.test(UI));
-    check('wiring: البطاقة فيها «الحركة والتنظيم»', /heading\(g, 'الحركة والتنظيم'/.test(RP) && /Y\.ballRatio/.test(RP));
+    check('wiring: عدد الكرات يُصحَّح فيُعاد الاقتراح', /\$\('eyeBalls'\)[\s\S]{0,400}S\.result\.M\.people\.balls = raw && v > 0 \? v : null;\s*\n\s*S\.result\.M\.people\.ballsSet = !!\(raw && v > 0\);\s*\n\s*resuggest\(\);/.test(UI));
+    check('wiring: البطاقة فيها «الحركة والتنظيم»', /heading\(g, [^\n]*'الحركة والتنظيم'/.test(RP) && /Y\.ballRatio/.test(RP));
     check('moments: أبطأ استجابةٍ للصفّارة لحظةٌ بوقتها', AM.some(x => x.k === 'resp' && x.t === 900 && /لم يستجب الطلبة لإشارة الصفّارة/.test(x.text)), JSON.stringify(AM));
 }
 
@@ -1279,7 +1279,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const X = E.sofit({ src: 'camera', tl: 'aaxxxxxx', tc: 'aaaaaaaa', tm: '55555555', tt: '' });
     check('sofit: الكاميرا المتحرّكة لا عيّنة منها، والقليل لا يُحكم منه', X === null && E.sofit({}) === null);
     const UI = read('js/eye.js');
-    check('wiring: قسم «وفق منهجية SOFIT+» في النتيجة بعد العناصر (ونشاط الطلبة من SOFIT)، بتنبيه أنّه تكييف', /const SF = E\(\)\.sofit\(data\), SP = E\(\)\.sofitPlus\(data\);/.test(UI) && /\[momHtml, partsHtml, sofitHtml,/.test(UI) && /تكييفٌ آليّ لـ<bdi dir="ltr">SOFIT\+<\/bdi>/.test(UI));
+    check('wiring: قسم «وفق منهجية SOFIT+» في النتيجة بعد العناصر (ونشاط الطلبة من SOFIT)، بتنبيه أنّه تكييف', /const SF = E\(\)\.isAdv\(\) \? E\(\)\.sofit\(data\) : null, SP = E\(\)\.isAdv\(\) \? E\(\)\.sofitPlus\(data\) : null;/.test(UI) && /\[momHtml, partsHtml, sofitHtml,/.test(UI) && /تكييفٌ آليّ لـ<bdi dir="ltr">SOFIT\+<\/bdi>/.test(UI));
 }
 
 /* ── ٣٣) التتبّع على طريقة ByteTrack (2026-10-29) ── */
@@ -1444,6 +1444,101 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: الملفّ بعد الدليل وقبل العين، وفي عامل الخدمة', /lesson-guide\.js"><\/script>\s*<script src="js\/eye-guide-import\.js"><\/script>/.test(H) && SW.includes("'./js/eye-guide-import.js'"));
     check('wiring: زرّ «دروس الدليل» في بطاقة البدء وبطاقة الدليل، وتغيّر البطاقات يعيد كشف الدليل', /id="eyeGuideImport"/.test(UI) && /data-gimport/.test(UI) && /addEventListener\('svf-guides-changed'/.test(UI));
     check('wiring: زمن العناصر من الدليل أوّلاً، وسطر الخطّة تحت عناصر الحصة', /if \(G && G\.parts\) return Object\.assign\(\{\}, G\.parts\);/.test(UI) && /id="eyePlanHint"/.test(UI) && /function planText\(G, k\)/.test(UI));
+}
+
+/* ── ٣٨) الأدوات المتقدّمة مخفيّة، والحرارة والماء، وغير المشاركين بعذر (2026-10-30) ── */
+{
+    // حصّةٌ فيها كلّ المتقدّم: شدّةٌ وتزاحمٌ وكراتٌ بالكاميرا ومعلّمٌ محدَّد وتشكيلات
+    const secs = [];
+    const ev = [[0, 'warm'], [360, 'fit'], [600, 'teach'], [1260, 'apply'], [1740, 'close']].map(([t, k]) => ({ t, k }));
+    for (let t = 0; t < 1920; t++) {
+        const cyc = t % 180, act = !(cyc >= 144 && cyc < 173);
+        secs.push({ m: act ? 0.05 : 0.004, v: false, w: cyc === 140 || cyc === 170,
+            p: { n: 22, mv: act ? 15 : 1, o: 1, q: 0, r: true, fm: t % 400 < 200 ? 'S' : 'G', ln: 0, d: 2, vg: act ? 5 : 0, cr: act ? 6 : 0, b: t > 1260 && t < 1740 ? 4 : 0, t: [0.5, 0.6, 1, 0] } });
+    }
+    const M = E.summarize({ secs, grid: Array(108).fill(10), sens: 'medium', ctx: ev, mic: 'device' });
+    const P = M.people;
+    const slowM = Object.assign({}, M, { people: Object.assign({}, P, { teacher: Object.assign({}, P.teacher || {}, { edgePct: 20, secs: 900, cover: 30, movePct: 50 }) }) });
+    check('adv: مفعَّلٌ افتراضاً في المحرّك (الاختبارات القديمة)، وsetAdv يضبطه', E.isAdv() === true && E.setAdv(false) === false && E.isAdv() === false);
+    const sg = E.suggest(slowM, {}, {}), by = id => sg.find(x => x.id === id);
+    check('adv off: البند ٧ بلا شدّة النشاط ولا موقع المعلّم', !/جرياً أو نشاطاً شديداً|أطراف الطلبة/.test(by(7).evidence), by(7).evidence);
+    check('adv off: التزاحم لا يقترح البند ٥، والكرات بالكاميرا لا تقترح البند ٩', !by(5) && !by(9) && E.ballRatio(M) === null);
+    const Mset = Object.assign({}, M, { people: Object.assign({}, P, { balls: 12, ballsSet: true }) });
+    check('adv off: ما كتبه المشرف من الكرات يُعتدّ به', E.ballRatio(Mset) === 2 && /كرةٌ لكلّ طالبين/.test(E.suggest(Mset, {}, {}).find(x => x.id === 9).evidence));
+    check('adv off: الملخّص بلا عدد التشكيلات', !/تشكيل/.test(E.summaryText(M, {})));
+    const dp0 = E.debriefPrompts(slowM, {}, { female: true });
+    check('adv off: المداولة بلا تزاحمٍ ولا تشكيلٍ ولا شدّةٍ ولا موقع معلّم', !dp0.ask.concat(dp0.good).some(t => /توزّعين المساحة|تشكيل|جرياً|وسط الطلبة|كرةٌ لكلّ/.test(t)), JSON.stringify(dp0));
+    const C0 = E.targetCandidates({ M: slowM, counts: {} }, 20).map(t => t.k);
+    check('adv off: لا أهداف للتشكيلات والتزاحم والكرات وموقع المعلّم', !['forms', 'crowd', 'balls', 'tEdge'].some(k => C0.includes(k)), C0.join(','));
+    check('adv off: ولا أنماط لها', !['oneForm', 'crowd', 'fewBalls', 'teacherCenter'].some(k => E.issuesOf({ M: slowM }).includes(k)));
+    const L0 = E.evidenceLog({ M: slowM, counts: {} });
+    check('adv off: الأدلّة بلا موقع المعلّم والتزاحم والكرات', !JSON.stringify(L0).match(/أطراف الطلبة|وسط الطلبة|متلاصقون|التلاصق|كرةٌ لكلّ/));
+    check('adv off: وسم الزيّ بيد المشرف يبقى، والزيّ من الكشف لا يُعدّ صفراً', E.METRIC.dish.read({ M, counts: {} }) === null && E.METRIC.dish.read({ M, counts: { dish: 2 } }) === 2);
+    E.setAdv(true);
+    check('adv on: يعود كلّ شيء', /جرياً أو نشاطاً شديداً/.test(E.suggest(M, {}, {}).find(x => x.id === 7).evidence) && E.ballRatio(M) === 6 && E.isAdv());
+
+    // الحرارة المحسوسة (NWS): ٣٥° ورطوبة ٥٠٪ ← ٤١° (جدولها: 95°ف/50% ← 107°ف)، ودون ٢٧° أو بلا رطوبة فالحرارة نفسها
+    check('heat: الحرارة المحسوسة وفئاتها', E.heatIndex(35, 50) === 41 && E.heatIndex(25, 80) === 25 && E.heatIndex(33, null) === 33 && E.heatIndex(30, 70) === 35
+          && E.fieldOf({ temp: 38, rh: 40 }, {}).catLabel === 'خطر' && E.fieldOf({ temp: 30 }, {}).cat === 1 && E.fieldOf({ temp: 45, place: 'indoor' }, {}).cat === 0);
+    const L40 = { seconds: 2400 };
+    const F1 = E.fieldOf({ place: 'open', temp: 38, rh: 40 }, L40, { water: 1 });
+    check('heat: استراحة ماءٍ متوقّعة كلّ عشرين دقيقة', F1.lessonMin === 40 && F1.expect === 2 && F1.water === 1);
+    const s5 = (cnt, f) => E.suggest(L40, cnt, { field: f }).find(x => x.id === 5);
+    const hot = { place: 'open', temp: 38, rh: 40 };
+    check('suggest ٥: حرٌّ شديدٌ بلا ماء ← غير ملائم (من البطاقة، ثقةٌ متوسّطة)', s5({}, hot).score === 4 && s5({}, hot).basis === 'field' && s5({}, hot).conf === 'medium'
+          && /كانت الحرارة المحسوسة \(43°\) — خطر — في ملعبٍ مكشوف، ولم تُتح استراحة ماءٍ في \(40\) دقيقة/.test(s5({}, hot).evidence), s5({}, hot).evidence);
+    check('suggest ٥: ماءٌ أقلّ من المتوقّع ← ملائم، وبقدره مع الظلّ ← جيد', s5({ water: 1 }, hot).score === 3 && s5({ water: 2, shade: 1 }, hot).score === 2 && /ووُظّف الظلّ/.test(s5({ water: 2, shade: 1 }, hot).evidence));
+    check('suggest ٥: إجهادٌ حراريّ ← غير ملائم، ومع ماءٍ أو ظلّ ← ملائم', s5({ heatHit: 1 }, { temp: 25 }).score === 4 && s5({ heatHit: 1, water: 2 }, hot).score === 3);
+    check('suggest ٥: حرٌّ خفيف (حذر) بلا ماء ← ملائم، والصالة لا تُحسب', s5({}, { temp: 29 }).score === 3 && !s5({}, { temp: 45, place: 'indoor' }));
+    check('suggest ٥: والحرّ يُضاف إلى لمسات السلامة', /هُيّئ المكان والأدوات تهيئةً آمنة، وكانت الحرارة المحسوسة/.test(s5({ safe: 1 }, hot).evidence) && s5({ safe: 1 }, hot).score === 4);
+    const s2 = f => E.suggest(L40, {}, { field: f }).find(x => x.id === 2);
+    check('suggest ٢: غير مشاركين بعذرٍ بلا دور ← ملائم', s2({ exc: 3 }).score === 3 && /بقي غير المشاركين بعذر \(3\) بلا دورٍ في الحصة/.test(s2({ exc: 3 }).evidence) && s2({ exc: 3 }).basis === 'field');
+    check('suggest ٢: كلّهم بأدوار ← جيد وأدوارهم في الشاهد، وبعضهم ← جيد أيضاً بذكر العدد', s2({ exc: 2, excRole: 2, roles: ['ref', 'score'] }).score === 2
+          && /أشرك المعلم غير المشاركين بعذر \(2\) بأدوارٍ في الحصة: التحكيم، والتسجيل والتوقيت/.test(s2({ exc: 2, excRole: 2, roles: ['ref', 'score'] }).evidence)
+          && /\(1\) من غير المشاركين بعذر \(3\)/.test(s2({ exc: 3, excRole: 1 }).evidence), s2({ exc: 2, excRole: 2, roles: ['ref', 'score'] }).evidence);
+    check('suggest ٢: «منهم بدور» لا يزيد على عددهم', E.fieldOf({ exc: 2, excRole: 5 }, {}).role === 2);
+    const LG = E.evidenceLog({ M: L40, counts: {}, field: { place: 'open', temp: 41, rh: 30, exc: 2, excRole: 0 } });
+    check('evidence ٥: الحرارة دليلٌ بلا حكم، وبلا ماءٍ وظلٍّ في الخطر عبارتان سالبتان', LG[5].some(e => /^الحرارة 41° والرطوبة 30% — المحسوسة 45° \(خطر\)/.test(e.text) && !e.pos && !e.neg)
+          && E.officialFor(LG, 5, 4).length === 2 && E.officialFor(LG, 5, 4)[0] === 'عدم إتاحة استراحة لشرب الماء في حرارة محسوسة بلغت (45°)', JSON.stringify(LG[5]));
+    check('evidence ٢: غير المشاركين بلا دور عبارةٌ سالبة، وبأدوارٍ موجبة', E.officialFor(LG, 2, 4)[0] === 'ترك الطلبة غير المشاركين في الممارسة دون دور في الحصة'
+          && E.officialFor(E.evidenceLog({ M: L40, counts: {}, field: { exc: 2, excRole: 2 } }), 2, 2)[0] === 'إشراك الطلبة غير المشاركين في الممارسة بأدوار مساندة كالتحكيم والتسجيل');
+    check('evidence: لمسة «استراحة ماء» بوقتها عبارةٌ موجبة', E.evidenceLog({ ev: [{ t: 600, k: 'water' }], counts: { water: 1 }, M: L40 })[5].some(e => e.t === 600 && e.pos === 'إتاحة استراحات لشرب الماء أثناء الممارسة'));
+    const dpH = E.debriefPrompts(L40, { heatHit: 1 }, { female: true, field: { place: 'open', temp: 38, rh: 40, exc: 2 } });
+    check('debrief: حرٌّ بلا ماء، وإجهادٌ حراريّ، ومعفون بلا دور — أسئلةٌ بصيغة المخاطَب', dpH.ask.some(t => /ولم تُتح استراحة ماءٍ في \(40\) دقيقة\. ما خطّتكِ للماء والظلّ/.test(t))
+          && dpH.ask.some(t => /ظهرت علامات إجهادٍ حراريّ على طالب\. ما الذي تفعلينه فوراً/.test(t)) && dpH.ask.some(t => /أيّ دورٍ \(التحكيم، أو التسجيل والتوقيت، أو تنظيم الأدوات\) تسندينه/.test(t)), JSON.stringify(dpH));
+    const dpG = E.debriefPrompts(L40, { water: 2 }, { field: { place: 'open', temp: 38, rh: 40, exc: 2, excRole: 2, roles: ['ref'] } });
+    check('debrief: ماءٌ منتظم وأدوارٌ للجميع إجادتان', dpG.good.some(t => /أتحت استراحات ماءٍ منتظمة \(2\)/.test(t)) && dpG.good.some(t => /أشركت غير المشاركين بعذر \(2\) بأدوارٍ في الحصة: التحكيم/.test(t)));
+    check('summary: الحرارة والماء وغير المشاركين في سطر الملاحظات', /وكانت الحرارة المحسوسة \(43°\) مع استراحة ماءٍ واحدة، وكان غير المشاركين بعذر \(3\)، منهم \(1\) بأدوارٍ في الحصة/.test(E.summaryText(Object.assign({ observed: 2400, activePct: 50 }, L40), { field: { place: 'open', temp: 38, rh: 40, exc: 3, excRole: 1 }, counts: { water: 1 } })));
+    const TC = E.targetCandidates({ M: L40, counts: { water: 1 }, field: { place: 'open', temp: 38, rh: 40, exc: 3, excRole: 1 } }, 20);
+    check('targets: استراحات الماء وأدوار غير المشاركين أهدافٌ تُقاس', TC.some(t => t.k === 'water' && t.base === 50 && t.goal === 100) && TC.some(t => t.k === 'excRole' && t.base === 33)
+          && E.targetCheck({ k: 'water', base: 50, goal: 100 }, { M: L40, counts: {}, field: { temp: 22 } }).verdict === 'na' && E.NEEDS.field);
+    check('patterns: حصةٌ حارّة بلا ماء، وإجهادٌ حراريّ، ومعفون بلا دور', ['noWater', 'heatHit', 'excIdle'].every(k => E.issuesOf({ M: L40, counts: { heatHit: 1 }, field: { place: 'open', temp: 38, rh: 40, exc: 2 } }).includes(k)));
+    // الحيّ: عشرون دقيقةً بلا ماءٍ في الحرّ
+    const rec = { secs: Array.from({ length: 1260 }, () => ({ m: 0.05, v: false, w: false })), sens: 'medium' };
+    const LV = E.live(rec, E.summarize(rec), { wx: { cat: 3, hi: 43, last: null } });
+    check('live: عشرون دقيقةً بلا استراحة ماءٍ في الخطر ← تنبيهٌ أحمر', LV.alerts.some(a => a.k === 'water' && a.level === 'bad' && /مضت \(21\) دقيقة بلا استراحة ماء — الحرارة المحسوسة \(43°\)/.test(a.text)), JSON.stringify(LV.alerts));
+    check('live: بلا كاميرا لا تنبيه «الكاميرا تتحرّك» (كلّ الثواني غير محسوبة)', !E.live({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }, E.summarize({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }), { camera: false }).alerts.some(a => a.k === 'shake')
+          && E.live({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }, E.summarize({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }), {}).alerts.some(a => a.k === 'shake'));
+    check('live: واستراحةٌ قريبة تُسكته', !E.live(rec, E.summarize(rec), { wx: { cat: 3, hi: 43, last: 1000 } }).alerts.some(a => a.k === 'water'));
+    check('tags: الماء والظلّ والإجهاد الحراريّ في «السلامة والموارد» للبند ٥', ['water', 'shade', 'heatHit'].every(k => E.TAG[k] && E.TAG[k].item === 5 && E.GROUPS[3].keys.includes(k)) && E.TAG.heatHit.neg);
+
+    // التوصيل
+    const UI = read('js/eye.js'), RP = read('js/eye-report.js'), CSS = read('styles.css');
+    check('wiring: «الأدوات المتقدّمة» في الإعدادات (مطفأةٌ افتراضاً، محفوظة)، والمحرّك يُضبط منها من أوّل تحميل', /chk\('eyeAdv', 'إظهار الأدوات المتقدّمة \(تجريبيّة\)', false/.test(UI)
+          && /try \{ if \(E\(\)\) E\(\)\.setAdv\(!!\(readPrefs\(\) \|\| \{\}\)\.eyeAdv\); \}/.test(UI) && /loadPrefs\(\);\s*\n\s*applyAdv\(\);/.test(UI) && /toggleAttribute\('data-eye-pro', checked\('eyeAdv'\)\)/.test(UI));
+    check('wiring: المخفيّ بقاعدةٍ واحدة: «تحديد المعلّم» وبطاقتا التشكيل والزيّ', /#eyeBody:not\(\[data-eye-pro\]\) \.eye-advtool \{ display: none !important; \}/.test(CSS) && /id="eyeTeacherBtn" class="eye-adv eye-advtool/.test(UI)
+          && /kpi\('eyeKpiForm', 'التشكيل', true\)/.test(UI) && /kpi\('eyeKpiDish', 'بغير الزيّ \(تقديري\)', true\)/.test(UI));
+    check('wiring: الزيّ من الكشف لا يُقترح، وSOFIT+ والشدّة والتزاحم وموقع المعلّم لا تُعرض بلا المتقدّم', /if \(E\(\)\.isAdv\(\) && M\.people && M\.people\.dishEst > 0/.test(UI)
+          && /if \(E\(\)\.isAdv\(\) && vg != null && mv != null\) rows\.push\(row\('شدّة النشاط'/.test(UI) && /const TS = E\(\)\.isAdv\(\) \? P\.teacher : null;/.test(UI)
+          && /const SPx = E\(\)\.isAdv\(\) \? E\(\)\.sofitPlus\(d\) : null/.test(UI) && /const SP = S\.result && E\(\)\.isAdv\(\) \? E\(\)\.sofitPlus\(S\.result\) : null;/.test(UI));
+    check('wiring: بطاقة «الحرارة والمشاركة» في العمود الجانبيّ (تظهر في الوضع المبسّط): المكان والحرارة والرطوبة، والوسوم الثلاثة، والعدّادان والأدوار', /<section id="eyeField" class="bg-white/.test(UI)
+          && ['eyeWxPlace', 'eyeWxTemp', 'eyeWxRh', 'eyeWxCat', 'eyeWxLast', 'eyeExcRoles'].every(id => UI.includes('id="' + id + '"')) && /\['water', 'shade', 'heatHit'\]\.map\(tagRowHtml\)/.test(UI));
+    check('wiring: تُحفظ مع النتيجة وفي النسخة الاحتياطيّة، وتعود عند الفتح والاستكمال، وتُصفَّر', /field: JSON\.parse\(JSON\.stringify\(S\.field\)\),/.test(UI) && /marks: S\.marks, field: S\.field,/.test(UI)
+          && /S\.field = Object\.assign\(freshField\(\), R\.field \|\| \{\}\);/.test(UI) && /S\.field = Object\.assign\(freshField\(\), data\.field \|\| \{\}\);/.test(UI) && (UI.match(/S\.field = freshField\(\);/g) || []).length === 2);
+    check('wiring: الاقتراح والأدلّة والمداولة تقرأ البطاقة، وتعديلها بعد الرصد يعيد الاقتراح', /field: d && d\.field, counts: d && d\.counts \}\);/.test(UI) && /marks: S\.marks, field: S\.field, ctx: suggCtx\(\)/.test(UI)
+          && /field: d\.field, ctx: ctxOf\(d\)/.test(UI) && /if \(S\.result && !S\.running\) \{ S\.result\.field = JSON\.parse\(JSON\.stringify\(F\)\); resuggest\(\); \}/.test(UI));
+    check('wiring: تنبيه الماء الحيّ من البطاقة، والبطاقة للمعلّم فيها الحرارة وغير المشاركين بلا المتقدّم', /roi: !!S\.roi, wx: wxLive\(\) \}\);/.test(UI)
+          && /Y\.fieldOf\(data && data\.field/.test(RP) && /const ADV = !Y\.isAdv \|\| Y\.isAdv\(\);/.test(RP) && /if \(ADV && F && F\.count\)/.test(RP));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {
