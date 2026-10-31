@@ -3540,7 +3540,7 @@ function tagRowHtml(k) {
                     <div id="eyeDraftOut" class="hidden mt-3 space-y-3"></div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 mt-4">
-                    <button type="button" id="eyeApproveSave" class="svf-btn svf-btn-primary"><i class="fa-solid fa-check-double" aria-hidden="true"></i>اعتماد وحفظ في الأرشيف</button>
+                    <button type="button" id="eyeApproveSave" class="svf-btn svf-btn-primary"><i class="fa-solid fa-check-double" aria-hidden="true"></i>اعتماد وحفظ في زياراتي</button>
                     <button type="button" id="eyeApply" class="svf-btn svf-btn-secondary">تطبيق المحدَّد فقط</button>
                     <span id="eyeApplyN" class="text-xs text-slate-500"></span>
                     <span class="flex-1"></span>
@@ -4038,7 +4038,7 @@ function tagRowHtml(k) {
         const trialNote = (T && T.eyeN && !T.supN ? '\nلم تكتب عدد الطلبة الفعليّ — لا يُقاس خطأ العدّ في هذه الحصة.' : '')
             + (BLd && !Object.keys(S.result.blind.sup || {}).length ? '\nلم تقيّم البنود قبل كشف اقتراح العين — لا يُقاس الاتّفاق في هذه الحصة.' : '');
         const msg = (picks.length ? 'يُطبَّق ما راجعته (' + picks.length + (picks.length > 10 ? ' بنداً' : ' بنود') + ')' : 'لا تغيير على الدرجات') + '، '
-            + (edited.length ? 'وما كتبته بيدك في «' + edited.join('» و«') + '» يبقى كما هو' : 'ويُولَّد التقرير') + '، ثمّ يُحفظ في الأرشيف.'
+            + (edited.length ? 'وما كتبته بيدك في «' + edited.join('» و«') + '» يبقى كما هو' : 'ويُولَّد التقرير') + '، ثمّ يُحفظ في «زياراتي الإشرافية».'
             + (rest.length ? '\nبنودٌ تبقى بدرجتها الحاليّة في النموذج: ' + rest.join('، ') + '.' : '') + trialNote + '\n\nمتابعة؟';
         let ok = false;
         try { ok = root.confirm(msg); } catch (e) { ok = false; }

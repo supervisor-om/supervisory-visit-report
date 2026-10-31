@@ -192,7 +192,7 @@ function harness() {
     ctx.svfMarkSent([{ teacher: 'علي سالم', date: '26/10/2026', key: 'k2' }]);
     check('sent: التأكيد اليدويّ يكتب مفتاح التقرير مع «المعلّم|التاريخ»',
           ctx.svfIsSentReport('k2') && !ctx.svfIsSentReport('k1') && ctx.svfIsSent('علي سالم', '26/10/2026'));
-    check('sent: الطابور يحمل مفتاح كلّ تقرير', /ready\.push\(\{ key, visit: Object\.assign\(v, \{ key \}\) \}\)/.test(Q));
+    check('sent: الطابور يحمل مفتاح كلّ تقرير', /ready\.push\(\{ key, visit: Object\.assign\(v, \{ key, sent: isSentVisit\(key, v, counts\) \}\) \}\)/.test(Q));
     check('sent: التصدير المفرد يحمل المفتاح إن كان النموذج زيارته المحفوظة نفسها',
           /function svfFormReportKey\(\)[\s\S]{0,700}supVisitChanges\(saved/.test(EXP) && /if \(formKey\) exportData\.key = formKey;/.test(EXP)
           && /closest\('#exportToMoeBtn'\);\s*\n\s*if \(b\) b\.dataset\.svfKey = svfFormReportKey\(\);/.test(EXP));
@@ -227,7 +227,7 @@ function harness() {
     check('script: الضخّ إلى الموقع يشمل svf_sent_reports', /svfMergeInto\(SITE_SENT_REPORTS_KEY, svfSavedReportsList\(\)\)/.test(S)
           && /const SITE_SENT_REPORTS_KEY = 'svf_sent_reports';/.test(S));
     check('script: التصدير من النموذج يقرأ المفتاح من سمة الزرّ', /key: \(\$\('#exportToMoeBtn'\)\?\.dataset\?\.svfKey \|\| ''\)\.trim\(\)/.test(S));
-    check('script: الإصدار 17.4', /@version\s+17\.4\b/.test(S));
+    check('script: الإصدار 17.4 فأحدث', /@version\s+17\.([4-9]|\d\d)\b/.test(S));
 })();
 
 console.log(failures === 0 ? '\nALL PASS' : '\n' + failures + ' FAILED');

@@ -443,7 +443,7 @@
             const delta = n > 1 && P.first.mean != null && lv.mean != null ? r1(P.first.mean - lv.mean) : null;
             body = `
                 <section class="bg-white rounded-2xl border border-slate-200 grid grid-cols-2 lg:grid-cols-4 divide-slate-200 lg:divide-x lg:divide-x-reverse">
-                    ${tile(String(n), 'زياراته في الأرشيف', `${visitWord(yearN)} في ${esc(R.year.label)}`)}
+                    ${tile(String(n), 'زياراته المحفوظة', `${visitWord(yearN)} في ${esc(R.year.label)}`)}
                     ${tile(`<bdi>${fmtDate(lv.date)}</bdi>`, 'آخر زيارة', since >= 0 ? (since === 0 ? 'اليوم' : 'قبل ' + since + ' يوماً') : '', since > 42 ? 'bad' : '')}
                     ${tile(String(lv.weak), 'بنودٌ تحتاج في آخر زيارة', '«غير ملائم» فأدنى', lv.weak ? 'bad' : 'good')}
                     ${tile(delta == null ? '—' : delta >= 0.2 ? 'تحسّن ' + delta : delta <= -0.2 ? 'تراجع ' + Math.abs(delta) : 'ثابت', 'منذ أوّل زيارة', delta == null ? 'يظهر من الزيارة الثانية' : 'في متوسّط المستوى (' + r1(P.first.mean) + ' ← ' + r1(lv.mean) + ')', delta == null ? '' : delta >= 0.2 ? 'good' : delta <= -0.2 ? 'bad' : '')}

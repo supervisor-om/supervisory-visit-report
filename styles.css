@@ -99,3 +99,31 @@
         #eyeBody[data-eye-done] > #eyeAgree, #eyeBody[data-eye-done] > #eyeTrialBox, #eyeBody[data-eye-done] > #eyePatterns { order: 4; }
         #eyeBody:not([data-eye-done]) .eye-done-only { display: none !important; }
         html[data-eye-running] #supervisoryVisitsApp header { position: static !important; }
+
+        /* التنقّل بين الزيارات من داخل الزيارة المفتوحة (js/visit-nav.js — 2026-10-31): «الأحدث/الأقدم» وموضعها، وبحثٌ يفتح زيارةً أخرى.
+           معتمٌ كبطاقات الزجاج، ومرفوعٌ (z-index) لتطفو قائمة النتائج فوق البطاقات التي بعده (لكلٍّ منها سياق تراصّ من backdrop-filter) */
+        .svf-vnav { position: relative; z-index: 30; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            background: var(--svf-glass, rgba(255,255,255,.86)); border: 1px solid #e2e8f0; border-radius: 16px; padding: 8px 10px; }
+        #schoolFormView > .svf-vnav { margin-bottom: 1.25rem; }
+        .svf-vnav:not(.is-open) .vnav-newer, .svf-vnav:not(.is-open) .vnav-older, .svf-vnav:not(.is-open) .vnav-pos { display: none; }
+        .svf-vnav .svf-btn:disabled { opacity: .4; cursor: default; }
+        .svf-vnav .vnav-pos { white-space: nowrap; }
+        .svf-vnav .vnav-find { position: relative; flex: 1 1 240px; min-width: 0; }
+        .svf-vnav .vnav-find > i { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px; pointer-events: none; }
+        .svf-vnav .vnav-q { width: 100%; height: 38px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; color: #0f172a;
+            font-size: 14px; padding: 0 34px 0 10px; }
+        .svf-vnav .vnav-q:focus { outline: 2px solid #0f4c81; outline-offset: 0; background: #fff; }
+        .svf-vnav .vnav-res { position: absolute; top: calc(100% + 4px); right: 0; left: 0; z-index: 50; background: #fff; border: 1px solid #e2e8f0;
+            border-radius: 12px; box-shadow: 0 12px 32px rgba(8,39,66,.18); max-height: 340px; overflow: auto; }
+        .svf-vnav .vnav-hit { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: right;
+            padding: 9px 12px; border-top: 1px solid #f1f5f9; background: #fff; }
+        .svf-vnav .vnav-hit:first-child { border-top: 0; }
+        .svf-vnav .vnav-hit:hover, .svf-vnav .vnav-hit.is-sel { background: #eef4fb; }
+        .svf-vnav .vnav-hit-name { font-weight: 700; color: #0f172a; font-size: 14px; }
+        .svf-vnav .vnav-hit-name em { font-style: normal; font-size: 11px; font-weight: 700; color: #0f4c81; background: #e0ebf6; border-radius: 999px; padding: 0 7px; margin-right: 4px; }
+        .svf-vnav .vnav-hit-sub { font-size: 12px; color: #64748b; }
+        .svf-vnav .vnav-none { padding: 10px 12px; font-size: 13px; color: #64748b; }
+        @media (max-width: 639px) {
+            .svf-vnav .vnav-find { order: -1; flex-basis: 100%; }
+            .svf-vnav .vnav-newer, .svf-vnav .vnav-older { flex: 1 1 0; justify-content: center; }
+        }

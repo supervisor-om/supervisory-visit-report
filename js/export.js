@@ -503,6 +503,8 @@
             const filterMonth = document.querySelector('#filter-reports-month')?.value || '';
 
             if (!listContainer) return;
+            // نتيجة آخر رفعٍ إلى البوّابة (queue-export.js) — أعلى القائمة حتّى يُخفيها المشرف
+            try { if (window.svfRenderUploadReport) window.svfRenderUploadReport('sup'); } catch (e) {}
 
             listContainer.innerHTML = '';
             let reports = [];
@@ -579,12 +581,14 @@
                     let confirmSentBtn = '';
                     const twin = twins.get(tdOf(tName, visitDate)) || { n: 1, keyed: false };
                     const byTD = !!(window.svfIsSent && window.svfIsSent(tName, portalDate));
+                    // إزالة الوسم (2026-10-31): زيارةٌ حُذفت من البوّابة أو وُسمت خطأً تعود عاديّةً فتُرفع من جديد
+                    const unmarkBtn = `<button type="button" class="unmark-sent-btn text-[11px] font-bold text-slate-400 hover:text-red-700 hover:underline" data-teacher="${esc(tName)}" data-date="${esc(portalDate)}" data-key="${esc(key)}" title="أزل وسم «حُفظت في البوابة» عن هذه الزيارة لتُرفع من جديد">إزالة الوسم</button>`;
                     if (byReport(key) || (byTD && twin.n === 1)) {
-                        stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`;
+                        stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>` + unmarkBtn;
                     } else {
                         if (byTD && !twin.keyed) {
                             // سجلٌّ قديمٌ يقول إنّ زيارةً لهذا المعلّم بهذا التاريخ حُفظت — ولا يقول أيّها
-                            stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full" title="للمعلم أكثر من زيارة في هذا اليوم، وحُفظت إحداها في البوابة ولا يُعرف أيّها — أكّد هذه إن كانت محفوظة">حُفظت إحدى زيارات اليوم</span>`;
+                            stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full" title="للمعلم أكثر من زيارة في هذا اليوم، وحُفظت إحداها في البوابة ولا يُعرف أيّها — أكّد هذه إن كانت محفوظة">حُفظت إحدى زيارات اليوم</span>` + unmarkBtn;
                         } else if (window.svfIsQueued && window.svfIsQueued(key)) {
                             stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
                         }

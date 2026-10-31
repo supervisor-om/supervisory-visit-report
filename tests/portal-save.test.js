@@ -389,7 +389,7 @@ function load(els) {
           ['بعد كتابته', 'بعد الاستمارة', 'بعد بيانات المعلّم', 'قبل «إضافة»']
             .every(s => SRC.includes("supEnsureDate('" + s + "')")));
     check('date: وإن لم يثبت قبل «إضافة» يتوقّف ولا يضغط',
-          /if \(!supEnsureDate\('قبل «إضافة»'\)\) \{[\s\S]{0,300}return;\s*\n\s*\}/.test(SRC));
+          /if \(!supEnsureDate\('قبل «إضافة»'\)\) \{[\s\S]{0,420}return;\s*\n\s*\}/.test(SRC));
 
     const texts = between('const TEXTS = [', '];');
     const row = n => (texts.match(new RegExp("\\{ name: '" + n + "'[^\\n]*")) || [''])[0];
@@ -418,13 +418,13 @@ function load(els) {
     check('stage: بنودٌ والرأس مكتمل ← المرحلة ٢', ctx.supStage() === 2);
 
     check('form: عددُ بنودٍ يخالف التقرير يوقف الحفظ',
-          /if \(evals\.length !== \(sup\.ratings \|\| \[\]\)\.length\) \{[\s\S]{0,700}return;\s*\n\s*\}/.test(SRC));
+          /if \(evals\.length !== \(sup\.ratings \|\| \[\]\)\.length\) \{[\s\S]{0,900}return;\s*\n\s*\}/.test(SRC));
     check('form: والفحص قبل تعبئة الدرجات',
           SRC.indexOf('if (evals.length !== (sup.ratings || []).length)') < SRC.indexOf('(sup.ratings || []).forEach((score, i)'));
     check('form: الاستمارة المختارة مسبقاً تُستبدل إن لم تكن استمارة المعلّم',
           /const curOk = [\s\S]{0,200}supIsTeacherForm\(curForm\.text\)/.test(SRC) && /if \(forms && !curOk\) \{/.test(SRC));
     check('teacher: المعلّم المختار يدويّاً لا يُعاد البحث عنه',
-          /المعلّم مختارٌ أصلاً/.test(SRC) && SRC.indexOf('المعلّم مختارٌ أصلاً') < SRC.indexOf('const terms = searchTerms(sup.teacher);'));
+          /المعلّم مختارٌ أصلاً/.test(SRC) && SRC.indexOf('المعلّم مختارٌ أصلاً') < SRC.indexOf('const terms = searchVariants(sup.teacher);'));
     check('texts: الخانات بلا تكرار، والفارغ في التقرير يُقال',
           /\.filter\(\(b, i, a\) => a\.indexOf\(b\) === i\)/.test(SRC) && /فارغٌ في التقرير/.test(SRC));
 }
@@ -478,7 +478,7 @@ function load(els) {
           /if \(!supCheckLength\(target, t\.val, t\.name, tooLong\)\) return;\s*\n\s*setVal\(target, t\.val\)/.test(SRC));
     check('len: وفي أوصاف البنود', /supCheckLength\(box, note, 'وصف البند ' \+ n, tooLong\)\) \{\s*\n\s*setVal\(box, note\)/.test(SRC));
     check('len: والزائد يوقف الحفظ قبل supSave',
-          /if \(tooLong\.length\) \{[\s\S]{0,600}return;\s*\n\s*\}/.test(SRC)
+          /if \(tooLong\.length\) \{[\s\S]{0,800}return;\s*\n\s*\}/.test(SRC)
           && SRC.indexOf('if (tooLong.length) {') < SRC.lastIndexOf('await supSave(written);'));
 }
 

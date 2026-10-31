@@ -324,6 +324,7 @@
             });
 
             document.querySelector(`#${viewId}`)?.classList.remove('hidden');
+            if (viewId === 'form-view') { try { if (typeof svfVisitNavRefresh === 'function') svfVisitNavRefresh('sup'); } catch (e) {} }
 
             document.querySelectorAll('.nav-tab').forEach(tab => {
                 tab.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
@@ -560,7 +561,9 @@
                 const d = (data && data.visitDate) || '';
                 label.textContent = [t, d].filter(Boolean).join(' — ') || 'تقرير محفوظ';
             }
-            if (saveBtn) saveBtn.textContent = key ? 'حفظ التعديلات' : 'حفظ بالأرشيف';
+            if (saveBtn) saveBtn.textContent = key ? 'حفظ التعديلات' : 'حفظ في زياراتي';
+            // شريط التنقّل بين الزيارات (visit-nav.js): الموضع، وما في النموذج الآن هو المحفوظ
+            try { if (typeof svfVisitNavRefresh === 'function') svfVisitNavRefresh('sup', { rebase: true }); } catch (e) {}
         }
 
         // ─────────────────────────────────────────────────────────────────

@@ -134,7 +134,7 @@
                 ${L.days != null ? `<span class="text-xs text-slate-500">${L.days === 0 ? 'اليوم' : 'قبل ' + (L.days === 1 ? 'يومٍ واحد' : L.days === 2 ? 'يومين' : L.days <= 10 ? L.days + ' أيام' : L.days + ' يوماً')}</span>` : ''}
                 ${L.visitNo ? `<span class="text-xs text-slate-500">الزيارة (${esc(L.visitNo)})</span>` : ''}
                 ${L.label ? `<span class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">${esc(L.label)} — متوسّط ${L.avg}</span>` : ''}
-                <span class="text-xs text-slate-400">(${b.count === 1 ? 'زيارة واحدة' : b.count === 2 ? 'زيارتان' : b.count <= 10 ? b.count + ' زيارات' : b.count + ' زيارة'} في الأرشيف)</span>
+                <span class="text-xs text-slate-400">(المحفوظ: ${b.count === 1 ? 'زيارة واحدة' : b.count === 2 ? 'زيارتان' : b.count <= 10 ? b.count + ' زيارات' : b.count + ' زيارة'})</span>
             </div>`);
             if (L.lesson) parts.push(`<div class="text-xs text-slate-500">درسها: ${esc(L.lesson)}</div>`);
             if (L.weak.length) parts.push(`<div><div class="text-xs font-bold text-rose-700 mb-1">أضعف البنود فيها</div>
@@ -143,7 +143,7 @@
             if (L.recs.length) parts.push(`<div><div class="text-xs font-bold text-amber-700 mb-1">توصياتها — للمتابعة اليوم</div>
                 <ul class="text-xs text-slate-700 space-y-0.5">${L.recs.slice(0, 5).map(r => `<li>• ${esc(r)}</li>`).join('')}</ul></div>`);
         } else {
-            parts.push('<div class="font-bold text-emerald-700">الزيارة الأولى لهذا المعلّم في الأرشيف.</div>');
+            parts.push('<div class="font-bold text-emerald-700">الزيارة الأولى لهذا المعلّم في زياراتك المحفوظة.</div>');
         }
         const t = b.teacher;
         if (t) parts.push(`<div class="text-xs text-slate-600">من القاعدة: ${esc(t.school) || '—'}

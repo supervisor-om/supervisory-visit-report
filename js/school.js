@@ -651,6 +651,8 @@
         function renderSchoolReportsList() {
             const reportsListContainer = document.querySelector('#schoolDashboardView #reportsListContainer');
             if(!reportsListContainer) return;
+            // نتيجة آخر رفعٍ إلى البوّابة (queue-export.js) — أعلى السجلّ حتّى يُخفيها المشرف
+            try { if (window.svfRenderUploadReport) window.svfRenderUploadReport('school'); } catch (e) {}
             
             reportsListContainer.innerHTML = '';
             const reports = [];
@@ -693,7 +695,9 @@
                 let stateBadge = '';
                 let confirmSentBtn = '';
                 if (window.svfSchoolIsSent && window.svfSchoolIsSent(report.schoolName || '', portalDate)) {
-                    stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`;
+                    stateBadge = `<span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">حُفظت في البوابة</span>`
+                        // إزالة الوسم (2026-10-31): زيارةٌ حُذفت من البوّابة أو وُسمت خطأً تعود عاديّةً فتُرفع من جديد
+                        + `<button type="button" class="unmark-sent-school-btn text-[11px] font-bold text-slate-400 hover:text-red-700 hover:underline" data-school="${schoolRouteEsc(report.schoolName || '')}" data-date="${schoolRouteEsc(portalDate)}" data-key="${schoolRouteEsc(report.key)}" title="أزل وسم «حُفظت في البوابة» عن هذه الزيارة لتُرفع من جديد">إزالة الوسم</button>`;
                 } else {
                     if (window.svfSchoolIsQueued && window.svfSchoolIsQueued(report.key)) {
                         stateBadge = `<span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full" title="رُفعت إلى البوابة من هنا — تأكيد الحفظ يحدث داخل البوابة">سبق رفعها</span>`;
@@ -1331,6 +1335,7 @@
 
                 restoreSchoolObjectives(report);
                 showSchoolForm();
+                try { if (typeof svfVisitNavRefresh === 'function') svfVisitNavRefresh('school', { rebase: true }); } catch (e) {}
             } catch(e) {
                 showToast('خطأ في استرجاع التقرير', 'error');
             }
@@ -1712,5 +1717,6 @@
             document.getElementById('reportPreviewContainer')?.classList.add('hidden');
             renderSchoolRoute();
             renderSchoolTimeOverlap();
+            try { if (typeof svfVisitNavRefresh === 'function') svfVisitNavRefresh('school'); } catch (e) {}
         }
 

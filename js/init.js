@@ -137,6 +137,17 @@
                             window.svfMarkSent([{ teacher: confirmBtn.dataset.teacher, date: confirmBtn.dataset.date, key: confirmBtn.dataset.key }]);
                             renderSavedReports();
                         }
+                        // إزالة وسم «حُفظت»: الزيارة تعود عاديّةً فتُرفع مع المحدَّد (البوّابة نفسها لا تُمسّ)
+                        const unmarkBtn = e.target.closest('.unmark-sent-btn');
+                        if (unmarkBtn && window.svfUnmarkSent) {
+                            const d = unmarkBtn.dataset;
+                            if (confirm('إزالة وسم «حُفظت في البوابة» عن زيارة ' + (d.teacher || '') + ' (' + (d.date || '') + ')؟\n\n'
+                                + 'تعود الزيارة عاديّةً فتُرفع من جديد مع المحدَّد. لا يحذف هذا شيئاً من البوابة: إن كانت ما زالت محفوظةً هناك فرفعها ثانيةً يكرّرها.')) {
+                                window.svfUnmarkSent(d.teacher, d.date, d.key);
+                                renderSavedReports();
+                                if (typeof showToast === 'function') showToast('أُزيل الوسم — يمكنك رفعها من جديد', 'success');
+                            }
+                        }
                     });
                 }
                 
@@ -258,7 +269,10 @@
                 document.addEventListener('svf-cloud-changed', () => {
                     try { renderSavedReports(); } catch (e) {}
                     try { renderSchoolReportsList(); } catch (e) {}
+                    try { if (typeof svfVisitNavRefresh === 'function') { svfVisitNavRefresh('sup'); svfVisitNavRefresh('school'); } } catch (e) {}
                 });
+                // شريط التنقّل بين الزيارات أعلى النموذج الإشرافيّ (visit-nav.js)
+                try { if (typeof svfVisitNavRefresh === 'function') svfVisitNavRefresh('sup', { rebase: true }); } catch (e) {}
 
                 // الإكمال التلقائيّ — يُربط بعد مستمعات النماذج كلّها ليجري بعدها
                 try { if (typeof initAutofillBindings === 'function') initAutofillBindings(); }
@@ -332,6 +346,7 @@
                             if(visSelect && visSelect.options.length > 0) visSelect.selectedIndex = 0;
 
                             showSchoolForm();
+                            try { if (typeof svfVisitNavRefresh === 'function') svfVisitNavRefresh('school', { rebase: true }); } catch (e) {}
                         } catch(err) {
                             console.error("New Report Error: ", err);
                             showToast('حدث خطأ أثناء محاولة فتح التقرير', 'error');
@@ -513,6 +528,16 @@
                         if (confirmBtn && window.svfSchoolMarkSent) {
                             window.svfSchoolMarkSent([{ school: confirmBtn.dataset.school, date: confirmBtn.dataset.date }]);
                             renderSchoolReportsList();
+                        }
+                        const unmarkBtn = e.target.closest('.unmark-sent-school-btn');
+                        if (unmarkBtn && window.svfSchoolUnmarkSent) {
+                            const d = unmarkBtn.dataset;
+                            if (confirm('إزالة وسم «حُفظت في البوابة» عن زيارة ' + (d.school || '') + ' (' + (d.date || '') + ')؟\n\n'
+                                + 'تعود الزيارة عاديّةً فتُرفع من جديد مع المحدَّد. لا يحذف هذا شيئاً من البوابة: إن كانت ما زالت محفوظةً هناك فرفعها ثانيةً يكرّرها.')) {
+                                window.svfSchoolUnmarkSent(d.school, d.date, d.key);
+                                renderSchoolReportsList();
+                                if (typeof showToast === 'function') showToast('أُزيل الوسم — يمكنك رفعها من جديد', 'success');
+                            }
                         }
                     });
                 }

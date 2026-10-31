@@ -45,13 +45,17 @@ const check = (name, ok, detail) => {
 
     check('export.js: confirm-sent-btn داخل الفرع "غير محفوظة" لا الفرع "محفوظة"',
           // منذ 2026-10-26 «محفوظة» = مفتاح التقرير نفسه، أو «المعلّم|التاريخ» لزيارةٍ وحيدةٍ في يومها
-          /const byTD = !!\(window\.svfIsSent[\s\S]{0,120}if \(byReport\(key\) \|\| \(byTD && twin\.n === 1\)\) \{[\s\S]{0,300}\} else \{[\s\S]{0,1600}confirm-sent-btn/.test(exp));
+          /const byTD = !!\(window\.svfIsSent[\s\S]{0,800}if \(byReport\(key\) \|\| \(byTD && twin\.n === 1\)\) \{[\s\S]{0,300}\} else \{[\s\S]{0,1600}confirm-sent-btn/.test(exp)
+          && (() => { const i = exp.indexOf('if (byReport(key) || (byTD && twin.n === 1)) {'); const br = exp.slice(i, exp.indexOf('} else {', i));
+                      return i > 0 && !br.includes('confirm-sent-btn') && br.includes('unmarkBtn'); })());
     check('export.js: الزرّ يحمل المعلّم والتاريخ نفسيهما اللذين تُبنى منهما svfIsSent',
           /data-teacher="\$\{attrTeacher\}" data-date="\$\{attrDate\}"/.test(exp)
           && /const attrTeacher = .*tName/.test(exp) && /const attrDate = .*portalDate/.test(exp));
 
     check('school.js: confirm-sent-school-btn داخل الفرع "غير محفوظة" لا الفرع "محفوظة"',
-          /if \(window\.svfSchoolIsSent[\s\S]{0,300}\} else \{[\s\S]{0,900}confirm-sent-school-btn/.test(sch));
+          /if \(window\.svfSchoolIsSent[\s\S]{0,900}\} else \{[\s\S]{0,900}confirm-sent-school-btn/.test(sch)
+          && (() => { const i = sch.indexOf('if (window.svfSchoolIsSent'); const br = sch.slice(i, sch.indexOf('} else {', i));
+                      return i > 0 && !br.includes('confirm-sent-school-btn') && br.includes('unmark-sent-school-btn'); })());
     check('school.js: الزرّ يحمل المدرسة والتاريخ نفسيهما اللذين تُبنى منهما svfSchoolIsSent',
           /data-school="\$\{attrSchool\}" data-date="\$\{attrDate\}"/.test(sch)
           && /const attrSchool = .*report\.schoolName/.test(sch));

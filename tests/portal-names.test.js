@@ -68,7 +68,7 @@ const ONCLICK = "DisplayInfo('مريم مصطفى محمد السيد','معلم
 
 check('wiring: يُحفظ عند تثبيت الاختيار في الفرعين',
       (SRC.match(/slog\('تُبِّت اختيار المعلّم[^']*', 'success'\); remember\(el\); return true;/g) || []).length === 2);
-check('wiring: البحث يبدأ باسم البوّابة إن عُرف', /terms\.unshift\(knownName\)/.test(SRC));
+check('wiring: البحث يبدأ باسم البوّابة إن عُرف — بهمزته كما كتبته البوّابة (v17.5)', /if \(knownName\) \{[\s\S]{0,400}const kp = lightAr\(known\.portal\)[\s\S]{0,300}terms\.unshift\(t\)/.test(SRC));
 check('wiring: والمطابقة البديلة تأخذ الرقم المحفوظ',
       /supAltTeacherRow\(want, \(sup && sup\.fileNumber\) \|\| \(known && known\.emp\)\)/.test(SRC));
 check('wiring: الضخّ إلى الموقع مع سجلّ المحفوظ', /function svfSyncSaved\(\) \{\s*\n\s*try \{ svfMergePortalNames\(\); \}/.test(SRC));

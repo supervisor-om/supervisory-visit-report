@@ -189,7 +189,7 @@
         const box = $('debriefBody');
         if (!box || !D()) return;
         const v = visit(), st = readState();
-        if (!v.teacher) { box.innerHTML = '<div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">اكتب اسم المعلّم وقيّم البنود في «نموذج التقييم»، أو افتح زيارةً محفوظةً من الأرشيف، ثمّ عد إلى هنا.</div>'; return; }
+        if (!v.teacher) { box.innerHTML = '<div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">اكتب اسم المعلّم وقيّم البنود في «نموذج التقييم»، أو افتح زيارةً من «زياراتي الإشرافية»، ثمّ عد إلى هنا.</div>'; return; }
         const plan = D().buildPlan(v, { method: st.method, focus: st.focus, strengths: st.strengths });
         const allThree = v.items.length && v.items.every(x => x.score === 3);
         const chip = (x, on, kind) => `<button type="button" data-${kind}="${x.id}" class="text-xs rounded-full px-3 py-1 border font-bold ${on ? (kind === 'focus' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-600 text-white border-emerald-600') : 'bg-white text-slate-600 border-slate-200'}">${esc(x.standard)} <span class="opacity-70 font-normal">${esc(D().LEVELS[x.score] || '')}</span></button>`;

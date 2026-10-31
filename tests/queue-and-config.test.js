@@ -565,26 +565,30 @@ const between = (a, b) => {
             setTimeout: fn => fn(), runAutoFull: d => runs.push(d && d.school),
             DATA_KEY: 'svf_school_visit_data', refreshDataBox: () => {},
             svfRecordSavedSchool: v => { store.__recorded = (store.__recorded || []).concat(v.school); return true; },
+            svfQlogAdd: (k, r) => qlog.push(r), svfQlogShow: () => { shown++; },
+            svfQlogFinish: (k, total) => ({ total, rows: qlog, count: { saved: qlog.filter(r => r.status === 'saved').length } }),
+            clearSavePending: () => {}, normEdu: x => x, svfSavedSchoolList: () => [], DUP_MSG_RE: /مكرر/,
+            location: { pathname: '/p', search: '', set href(v) { nav++; } },
             out: null
         };
+        let nav = 0, shown = 0; const qlog = [];
         vm.runInNewContext(gate + '\nout = schoolQueueGate();', c);
-        return { out: c.out, store, logs, runs };
+        return { out: c.out, store, logs, runs, qlog, get nav() { return nav; }, get shown() { return shown; } };
     }
     let g = runGate({ autoSave: false, store: { svf_school_queue_i: 0 } });
     check('سكربت: الطابور المدرسيّ بلا حفظٍ تلقائيٍّ يمنع التعبئة',
           g.out === false && g.logs.some(l => l.includes('الحفظ التلقائي فقط')), g.logs.join(' | '));
-    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 1, svf_school_hold: 1 } });
-    check('سكربت: زيارةٌ حُفظت يدوياً تُتخطّى وتبدأ التالية',
-          g.out === false && Number(g.store.svf_school_queue_i) === 2 && g.runs[0] === 'ج', 'المؤشّر ' + g.store.svf_school_queue_i + ' / شُغّل ' + g.runs);
-    g = runGate({ autoSave: true, userSaysSaved: false, store: { svf_school_queue_i: 1, svf_school_hold: 1 } });
-    check('سكربت: زيارةٌ لم تُحفظ تُعاد في مكانها',
-          g.out === true && Number(g.store.svf_school_queue_i) === 1 && !('svf_school_hold' in g.store), 'المؤشّر ' + g.store.svf_school_queue_i);
-    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 2, svf_school_hold: 2 } });
-    check('سكربت: آخر زيارةٍ تُنهي الطابور وتمسحه',
-          !('svf_school_queue' in g.store) && g.runs.length === 0 && g.logs.some(l => l.includes('اكتمل الطابور')), g.logs.join(' | '));
-
-    // بعد التقدّم تصير الزيارة التالية هي بيانات التصدير، فتبقى إن أُعيد تحميل الصفحة
-    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 0, svf_school_hold: 0 } });
+    // v17.5: زيارةٌ معلّقة (بلغت النموذج ولم يتأكّد حفظها) لا يُسأل عنها فيقف الطابور — تُسجَّل «لم يتأكّد حفظها» وتبدأ
+    // التالية في صفحةٍ جديدة، ولا تُعاد (قد تكون حُفظت) ولا تُوسم. التفصيل في tests/queue-continue.test.js
+    g = runGate({ autoSave: true, store: { svf_school_queue_i: 1, svf_school_hold: 1 } });
+    check('سكربت: زيارةٌ معلّقةٌ تُتخطّى «لم يتأكّد» وتنتقل إلى التالية',
+          g.out === false && Number(g.store.svf_school_queue_i) === 2 && !('svf_school_hold' in g.store)
+          && g.qlog[0] && g.qlog[0].status === 'unsure' && !g.store.__recorded && g.nav === 1,
+          'المؤشّر ' + g.store.svf_school_queue_i + ' / ' + JSON.stringify(g.qlog));
+    g = runGate({ autoSave: true, store: { svf_school_queue_i: 2, svf_school_hold: 2 } });
+    check('سكربت: آخر زيارةٍ تُنهي الطابور وتمسحه وتعرض التقرير',
+          !('svf_school_queue' in g.store) && g.runs.length === 0 && g.logs.some(l => l.includes('اكتمل الطابور')) && g.shown === 1, g.logs.join(' | '));
+    g = runGate({ autoSave: true, store: { svf_school_queue_i: 0, svf_school_hold: 0 } });
     check('سكربت: الزيارة التالية تُحفظ بيانات تصديرٍ حاليّة',
           JSON.parse(g.store.svf_school_visit_data || '{}').school === 'ب', g.store.svf_school_visit_data);
 
@@ -634,6 +638,8 @@ const between = (a, b) => {
             svfRecordSavedSchool: v => { calls.push('record:' + v.school); return true; },
             schoolQueueInfo: () => (o.queue ? { i: 0, total: 2 } : null),
             schoolQueueAdvance: () => calls.push('advance'),
+            autoSaveOn: () => !!o.autoSave,
+            schoolSkip: (why, st) => { calls.push('skip:' + st + ':' + why); return true; },
             api: null
         };
         vm.runInNewContext(saveCode + '\napi = { fresh: freshPortalMessages, resolve: resolvePendingSaveAfterReload, mark: markSavePending };', c);
@@ -668,6 +674,8 @@ const between = (a, b) => {
     check('حفظ: علامةٌ لزيارةٍ أخرى ← لا حكم', s.api.resolve() === false && !s.calls.includes('advance'));
     s = saveEnv({ queue: true, labels: ['لم يتم الحفظ'], ss: { svf_save_pending: pendingOf() } });
     check('حفظ: عودةٌ مع رسالة رفض ← لا حكم', s.api.resolve() === false && !s.calls.includes('advance'), s.logs.join(' | '));
+    s = saveEnv({ queue: true, autoSave: true, labels: ['لم يتم الحفظ: الزيارة مكررة'], ss: { svf_save_pending: pendingOf() } });
+    check('حفظ (v17.5): عودةٌ مع رسالة رفضٍ في الطابور ← تُتخطّى بسببها ويكمل', s.api.resolve() === true && s.calls.some(c => /^skip:dup:رفضت البوّابة الحفظ: لم يتم الحفظ/.test(c)) && !s.calls.includes('advance'), s.calls.join(' | '));
     s = saveEnv({ queue: true, ss: {} });
     check('حفظ: تحميلٌ عاديٌّ بلا علامة لا يتأثّر', s.api.resolve() === false && s.calls.length === 0);
 
@@ -678,9 +686,9 @@ const between = (a, b) => {
           /if \(resolvePendingSaveAfterReload\(\)\) return;[\s\S]{0,200}const phase = sessionStorage\.getItem\('svf_pilot_phase'\)/.test(src),
           'غير موصول');
 
-    // ── تأكيد المستخدم يُسجّل الزيارة محفوظة ──
-    g = runGate({ autoSave: true, userSaysSaved: true, store: { svf_school_queue_i: 0, svf_school_hold: 0 } });
-    check('سكربت: «موافق» على «هل هي محفوظة؟» يضع وسم «حُفظت»', (g.store.__recorded || [])[0] === 'أ', JSON.stringify(g.store.__recorded));
+    // ── v17.5: لا سؤال «هل هي محفوظة؟» — المعلّقة لا تُوسم «حُفظت» (لم يتأكّد حفظها) ──
+    g = runGate({ autoSave: true, store: { svf_school_queue_i: 0, svf_school_hold: 0 } });
+    check('سكربت: المعلّقة لا يُوضع عليها وسم «حُفظت» ولا يُسأل عنها', !g.store.__recorded && g.qlog[0].status === 'unsure', JSON.stringify(g.store.__recorded));
 
     // ── السجلّ يبقى بعد إعادة التحميل، وله زرّ نسخ ──
     check('سكربت: السجلّ يُحفظ في الجلسة ويُستعاد', /sessionStorage\.setItem\(LOG_STORE/.test(src) && /restoreLog\(\);/.test(src), 'لا يُحفظ');
@@ -924,8 +932,17 @@ pending.push((function testQueueGate() {
             supAddBtn: () => ({ click: () => {} }),
             waitForSupForm: () => Promise.resolve(true),
             supStage1: () => Promise.resolve(),
+            svfQlogAdd: (k, r) => qlog.push(r), svfQlogShow: () => { ctx.shown = (ctx.shown || 0) + 1; },
+            svfQlogFinish: (k, total) => ({ total, rows: qlog, count: { saved: qlog.filter(r => r.status === 'saved').length } }),
+            svfSavedReportsList: () => [], svfSavedList: () => [], svfNameKey: x => x, supPortalErrors: () => [],
+            DUP_MSG_RE: /مكرر/, SUP_KEY: 'svf_supervision_visit_data', SUP_DONE: 'd', SUP_PILOT: 'p',
+            sessionStorage: { removeItem: () => {} },
+            setTimeout: fn => fn(),
+            location: { pathname: '/p', search: '', set href(v) { ctx.nav = (ctx.nav || 0) + 1; } },
             out: null
         };
+        const qlog = [];
+        ctx.qlog = qlog;
         vm.runInNewContext(code + '\nqueueGate().then(r => { out = r; });', ctx);
         return { store, logs, ctx, done: new Promise(r => setImmediate(() => setImmediate(() => r())))};
     }
@@ -943,19 +960,15 @@ pending.push((function testQueueGate() {
         await e.done;
         check('gate: المسار الطبيعيّ يمرّ', e.ctx.out === true, 'أعادت ' + e.ctx.out);
 
-        // ج) زيارةٌ معلّقةٌ والمستخدم يؤكّد حفظها يدوياً — تُتخطّى ولا تُعبَّأ ثانيةً
-        e = env({ autoSave: true, userSaysSaved: true, store: { svf_queue_i: 1, svf_queue_hold: 1 } });
+        // ج) زيارةٌ معلّقةٌ (بلغت التقييم ولم يتأكّد حفظها) — v17.5: لا سؤال يُوقف الطابور؛ «لم يتأكّد حفظها» في التقرير،
+        //     وتبدأ التالية في صفحةٍ جديدة، ولا تُعاد (قد تكون حُفظت فتتكرّر) ولا تُوسم
+        e = env({ autoSave: true, store: { svf_queue_i: 1, svf_queue_hold: 1 } });
         await e.done;
-        check('gate: زيارةٌ حُفظت يدوياً لا تُعبَّأ مرّةً ثانية', e.ctx.out === false, 'أعادت ' + e.ctx.out);
+        check('gate: زيارةٌ معلّقةٌ لا تُعبَّأ مرّةً ثانية', e.ctx.out === false, 'أعادت ' + e.ctx.out);
         check('gate: المؤشّر تقدّم إلى التالية', Number(e.store.svf_queue_i) === 2, 'المؤشّر ' + e.store.svf_queue_i);
         check('gate: العلامة مُسحت بعد التقدّم', !('svf_queue_hold' in e.store), 'باقية');
-
-        // د) زيارةٌ معلّقةٌ والمستخدم يقول لم تُحفظ — تُعاد تعبئتها في مكانها
-        e = env({ autoSave: true, userSaysSaved: false, store: { svf_queue_i: 1, svf_queue_hold: 1 } });
-        await e.done;
-        check('gate: زيارةٌ لم تُحفظ تُعاد تعبئتها', e.ctx.out === true, 'أعادت ' + e.ctx.out);
-        check('gate: المؤشّر لم يتقدّم', Number(e.store.svf_queue_i) === 1, 'المؤشّر ' + e.store.svf_queue_i);
-        check('gate: العلامة مُسحت قبل الإعادة', !('svf_queue_hold' in e.store), 'باقية');
+        check('gate: وسُجّلت «لم يتأكّد حفظها» وأُعيد تحميل الصفحة للتالية', e.ctx.qlog[0] && e.ctx.qlog[0].status === 'unsure' && e.ctx.nav === 1,
+              JSON.stringify(e.ctx.qlog));
 
         // هـ) التوصيل: البوّابة أوّل ما في supFill، والعلامة تُوضع ببلوغ التقييم
         check('gate: queueGate أوّل ما يُنفَّذ في supFill',
@@ -994,7 +1007,7 @@ pending.push((function testQueueGate() {
 
     // التوصيل: البحث يُعاد بالصيغ، والمطابقة بـ normName لا normAr
     check('search: supPickTeacher يمرّ على الصيغ واحدةً بعد أخرى',
-          /async function supPickTeacher\(\)[\s\S]{0,1500}searchTerms\(sup\.teacher\)[\s\S]{0,400}for \(let i[\s\S]{0,300}supRunSearch\(terms\[i\]\)[\s\S]{0,200}supAwaitTeacherRow\(want/.test(src),
+          /async function supPickTeacher\(\)[\s\S]{0,1600}searchVariants\(sup\.teacher\)[\s\S]{0,800}for \(let i[\s\S]{0,300}supRunSearch\(terms\[i\]\)[\s\S]{0,200}supAwaitTeacherRow\(want/.test(src),
           'الترتيب غير موصول');
     check('search: اختيار الصفّ يطابق الاسم كاملاً لا الصيغة المختصرة',
           /async function supAwaitTeacherRow\(want, ms\)[\s\S]{0,1800}txt\.includes\(want\)/.test(src),
