@@ -2388,7 +2388,130 @@
         return [yes.length ? yes.join('، ') : '', no.length ? no.join('، ') : ''].filter(Boolean).join(' — ');
     }
 
+    // ── التجربة الميدانيّة (2026-10-31) — المرحلة الأولى من خارطة Eye v2 ──
+    // قبل أيّ ميزةٍ جديدة: هل تقيس العين ما تقول إنّها تقيسه، في ملعبٍ حقيقيٍّ وعلى جهاز المشرف؟ لكلّ حصةٍ في وضع التجربة يُحفظ
+    // (data.trial): زمن الكشف على الجهاز، وعدد الطلبة الذي رصدته العين مقابل العدد الفعليّ الذي يكتبه المشرف، والصفّارات التي التقطتها
+    // مقابل ما لمسه المشرف حين سمعها؛ و(data.blind): ما قيّمه المشرف **قبل** أن يرى اقتراح العين. ومن الحصص المحفوظة تُحسب «البوابة
+    // الأولى» ومرحلة كلّ بند (M1 اقتراحٌ أعمى ← M2 ظاهر ← M3 محدَّدٌ للتطبيق). العتبات من وثيقة «عين المشرف v2».
+    const TRIAL = {
+        LESSONS: 5,            // حصصٌ يُقاس فيها المعيار قبل الحكم عليه
+        COUNT_ERR: 15,         // متوسّط خطأ عدّ الطلبة٪ على الأكثر
+        WHISTLE: 90,           // التقاط الصفّارة وصحّته٪ على الأقلّ
+        MIN_TAPS: 15,          // صفّاراتٌ لمسها المشرف في الحصص كلّها قبل الحكم
+        FRAME_MS: 400,         // وسيط زمن الكشف للّقطة (م.ث) على الأكثر
+        TOL: 3,                // ثوانٍ بين لمسة المشرف والصفّارة التي التقطتها العين
+        M2_N: 30, M2_K: 0.6,   // اقتراحٌ ظاهر: ٣٠ حصّةً للبند، وكابا الموزون ≥ ٠٫٦
+        M3_N: 100, M3_K: 0.75, // محدَّدٌ للتطبيق: ١٠٠ حصّة، وكابا ≥ ٠٫٧٥
+        BIAS: 0.3,             // والميل (المشرف − العين) لا يتجاوز ٠٫٣ درجة
+        BIN: 20, BINS: 250     // مدرّج زمن الكشف: خاناتٌ من ٢٠ م.ث حتّى ٥ ثوانٍ
+    };
+    // الصفّارة حدثٌ واحد وإن امتدّت ثانيتين (ثوانٍ متتالية أو بينها ثانيةٌ واحدة)
+    function whistleEvents(secs) {
+        const out = [];
+        let last = -9;
+        (secs || []).forEach((s, t) => { if (s && s.w) { if (t - last > 2) out.push(t); last = t; } });
+        return out;
+    }
+    // كم حدثاً في a يقابله حدثٌ في b خلال tol ثانية — مطابقةٌ واحدٌ لواحد بالأقرب زمناً
+    function matchTimes(a, b, tol) {
+        const T = tol == null ? TRIAL.TOL : tol;
+        const A = (a || []).slice().sort((p, q) => p - q), B = (b || []).slice().sort((p, q) => p - q), used = new Array(B.length).fill(false);
+        let tp = 0;
+        A.forEach(t => {
+            let best = -1, d = Infinity;
+            B.forEach((u, j) => { const x = Math.abs(u - t); if (!used[j] && x <= T && x < d) { d = x; best = j; } });
+            if (best >= 0) { used[best] = true; tp++; }
+        });
+        return tp;
+    }
+    const histNew = () => new Array(TRIAL.BINS + 1).fill(0);
+    function histAdd(h, ms) { if (h && isFinite(ms) && ms >= 0) h[Math.min(TRIAL.BINS, Math.floor(ms / TRIAL.BIN))]++; return h; }
+    // المئين q من المدرّج (منتصف الخانة)، و[الوسيط، المئين ٩٠، العدد]
+    function histQ(h, q) {
+        const n = (h || []).reduce((s, v) => s + v, 0);
+        if (!n) return null;
+        let c = 0;
+        for (let i = 0; i < h.length; i++) { c += h[i]; if (c >= q * n) return Math.round((i + 0.5) * TRIAL.BIN); }
+        return Math.round((h.length - 0.5) * TRIAL.BIN);
+    }
+    const histSum = h => { const n = (h || []).reduce((s, v) => s + v, 0); return n ? [histQ(h, 0.5), histQ(h, 0.9), n] : null; };
+    // كابا كوهين الموزون (أوزانٌ تربيعيّة — السلّم مرتّب) على المستويات ١–٥؛ null حين لا تباين
+    function wkappa(pairs) {
+        const P = (pairs || []).filter(p => p && p[0] >= 1 && p[0] <= 5 && p[1] >= 1 && p[1] <= 5);
+        const N = P.length;
+        if (!N) return null;
+        const O = Array.from({ length: 5 }, () => new Array(5).fill(0)), r = new Array(5).fill(0), c = new Array(5).fill(0);
+        P.forEach(p => { O[p[0] - 1][p[1] - 1]++; r[p[0] - 1]++; c[p[1] - 1]++; });
+        let num = 0, den = 0;
+        for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+            const w = (i - j) * (i - j) / 16;
+            num += w * O[i][j];
+            den += w * r[i] * c[j] / N;
+        }
+        return den ? Math.round(100 * (1 - num / den)) / 100 : null;
+    }
+    function maturity(st) {
+        if (!st || !st.n) return 'M1';
+        const ok = (n, k) => st.n >= n && st.kappa != null && st.kappa >= k && Math.abs(st.bias || 0) <= TRIAL.BIAS;
+        return ok(TRIAL.M3_N, TRIAL.M3_K) ? 'M3' : ok(TRIAL.M2_N, TRIAL.M2_K) ? 'M2' : 'M1';
+    }
+    // ما قِيس في حصّةٍ واحدة (من #eyeData)
+    function trialLesson(d) {
+        const T = d && d.trial;
+        if (!T) return null;
+        const cnt = T.eyeN > 0 && T.supN > 0 ? { eye: T.eyeN, sup: T.supN, err: Math.round(1000 * Math.abs(T.eyeN - T.supN) / T.supN) / 10 } : null;
+        const taps = Array.isArray(T.wTap) ? T.wTap : [], eyeW = Array.isArray(T.wEye) ? T.wEye : [];
+        // الصفّارة تُقاس حين حُلّل الصوت، ولمس المشرف كلّ ما سمعه (أو قال إنّها لم تُستعمل)
+        const wh = T.audio && T.wOk !== false && (taps.length || T.wNone) ? { tap: taps.length, eye: eyeW.length, tp: matchTimes(taps, eyeW) } : null;
+        const ms = Array.isArray(T.ms) && T.ms[2] >= 10 ? { med: T.ms[0], p90: T.ms[1], n: T.ms[2] } : null;
+        const BP = d.blind && d.blind.pairs ? d.blind.pairs : {};
+        const pairs = Object.keys(BP).map(k => ({ id: Number(k), sup: Number(BP[k][0]), eye: Number(BP[k][1]) }))
+            .filter(p => p.sup >= 1 && p.sup <= 5 && p.eye >= 1 && p.eye <= 5);
+        return { dev: T.dev || '', det: T.det || null, src: d.via === 'phone' ? 'phone' : d.src || '', cnt, wh, ms, pairs, slow: !!T.slow };
+    }
+    const medOf = arr => { const a = arr.slice().sort((p, q) => p - q), n = a.length; return n ? (n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2) : null; };
+    // rows: [{date, d}] من التقارير المحفوظة ← البوابة الأولى ومرحلة كلّ بند
+    function trialReport(rows) {
+        const L = (rows || []).map(r => { const x = trialLesson(r && r.d); return x ? Object.assign({ date: (r && r.date) || '' }, x) : null; }).filter(Boolean)
+            .sort((p, q) => String(p.date).localeCompare(String(q.date)));
+        const st = (n, ok) => (n < TRIAL.LESSONS ? 'wait' : ok ? 'pass' : 'fail');
+        const fr = L.filter(x => x.ms), frMed = medOf(fr.map(x => x.ms.med));
+        const frame = { lessons: fr.length, value: frMed, status: st(fr.length, frMed != null && frMed <= TRIAL.FRAME_MS) };
+        const ct = L.filter(x => x.cnt), err = ct.length ? Math.round(10 * ct.reduce((s, x) => s + x.cnt.err, 0) / ct.length) / 10 : null;
+        const count = { lessons: ct.length, value: err, status: st(ct.length, err != null && err <= TRIAL.COUNT_ERR) };
+        const wl = L.filter(x => x.wh), tap = wl.reduce((s, x) => s + x.wh.tap, 0), ey = wl.reduce((s, x) => s + x.wh.eye, 0), tp = wl.reduce((s, x) => s + x.wh.tp, 0);
+        const recall = tap ? Math.round(100 * tp / tap) : null, precision = ey ? Math.round(100 * tp / ey) : null;
+        const whistle = { lessons: wl.length, tap, eye: ey, tp, recall, precision,
+            status: wl.length < TRIAL.LESSONS || tap < TRIAL.MIN_TAPS ? 'wait' : recall >= TRIAL.WHISTLE && precision != null && precision >= TRIAL.WHISTLE ? 'pass' : 'fail' };
+        const S3 = [frame.status, count.status, whistle.status];
+        const gate = S3.every(s => s === 'pass') ? 'pass' : S3.includes('fail') ? 'fail' : 'wait';
+        // الاتّفاق لكلّ بندٍ من التقييم الأعمى وحده (ما قيّمه المشرف قبل أن يرى الاقتراح)
+        const by = {};
+        L.forEach(x => x.pairs.forEach(p => { (by[p.id] = by[p.id] || []).push([p.sup, p.eye]); }));
+        const pc = (a, b) => (b ? Math.round(100 * a / b) : 0);
+        const items = Object.keys(by).map(Number).sort((a, b) => a - b).map(id => {
+            const P = by[id], n = P.length;
+            const it = { id, n, exact: pc(P.filter(p => p[0] === p[1]).length, n), near: pc(P.filter(p => Math.abs(p[0] - p[1]) <= 1).length, n),
+                         kappa: wkappa(P), bias: Math.round(10 * P.reduce((s, p) => s + (p[0] - p[1]), 0) / n) / 10 };
+            it.level = maturity(it);
+            return it;
+        });
+        const all = [].concat(...Object.keys(by).map(k => by[k]));
+        return { lessons: L, n: L.length, frame, count, whistle, gate, items,
+                 blind: { n: all.length, lessons: L.filter(x => x.pairs.length).length, exact: pc(all.filter(p => p[0] === p[1]).length, all.length), kappa: wkappa(all) } };
+    }
+    // الأرقام وحدها لملفٍّ يُرسَل أو يُحلَّل — بلا اسم معلّمٍ ولا مدرسةٍ ولا نصّ
+    function trialCsv(R) {
+        const head = ['date', 'source', 'device', 'model', 'det_median_ms', 'det_p90_ms', 'det_frames', 'det_slow', 'count_eye', 'count_actual', 'count_err_pct', 'whistle_taps', 'whistle_eye', 'whistle_matched', 'blind_pairs'];
+        const q = v => (v == null ? '' : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
+        const rows = ((R && R.lessons) || []).map(x => [x.date, x.src, x.dev, x.det, x.ms && x.ms.med, x.ms && x.ms.p90, x.ms && x.ms.n, x.slow ? 1 : 0,
+            x.cnt && x.cnt.eye, x.cnt && x.cnt.sup, x.cnt && x.cnt.err, x.wh && x.wh.tap, x.wh && x.wh.eye, x.wh && x.wh.tp,
+            x.pairs.map(p => p.id + ':' + p.sup + '/' + p.eye).join(' ')].map(q).join(','));
+        return [head.join(',')].concat(rows).join('\n');
+    }
+
     const api = {
+        TRIAL, whistleEvents, matchTimes, histNew, histAdd, histQ, histSum, wkappa, maturity, trialLesson, trialReport, trialCsv,
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
         PARTS, PART, ACTIVE_PARTS, ROLL, ROLL_START, ROLL_AUTO_MAX, ROLL_MIN, ROLL_LONG, rollSpans, inSpans, lessonSecOf, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,

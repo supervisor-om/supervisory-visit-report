@@ -432,7 +432,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
           && (UI.match(/localStorage\.setItem\(/g) || []).length === 5 && /localStorage\.setItem\('svf_eye_show'/.test(UI)
           && /localStorage\.setItem\(CK_KEY, JSON\.stringify\(ck\)\)/.test(UI) && /localStorage\.setItem\(LAST_KEY, JSON\.stringify\(\{ at: Date\.now\(\), form: formSig\(\), data \}\)\)/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI)
-          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv'\];/.test(UI));
+          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv', 'eyeTrial'\];/.test(UI));
 }
 
 /* ── ١٦) التوصيل — العناصر والبطاقة والمداولة والنموذج ── */
@@ -1389,7 +1389,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const fm = E.METRIC.forms.read({ M: { forms: { count: 0 }, people: { detSecs: 60 } } });
     check('metric: التشكيلات لا تُقاس من رصدٍ قصير (لا «كان (0)» بعد دقيقة)', fm === null && E.METRIC.forms.read({ M: { forms: { count: 1 }, people: { detSecs: 900 } } }) === 1);
     const UI = read('js/eye.js'), CSS = read('styles.css');
-    check('wiring: الاقتراح ضعيف الثقة لا يُحدَّد للتطبيق افتراضاً، ويُقال ذلك تحت البند', /const pre = curScore !== s\.score && s\.conf !== 'low';/.test(UI) && /ثقةٌ منخفضة: لم يُحدَّد للتطبيق/.test(UI));
+    check('wiring: الاقتراح ضعيف الثقة لا يُحدَّد للتطبيق افتراضاً، ويُقال ذلك تحت البند', /const pre = chosen != null && curScore !== chosen && \(was \? true : lvl === 'M3' && s\.conf !== 'low'\);/.test(UI) && /const lvOf = id => \(BL \? \(S\.levels \|\| \{\}\)\[id\] \|\| 'M1' : 'M3'\);/.test(UI) && /ثقةٌ منخفضة: لم يُحدَّد للتطبيق/.test(UI));
     check('wiring: بعد الإيقاف النتيجة أوّلاً — data-eye-done يخفي بطاقة البدء ويقدّم النتيجة', /toggleAttribute\('data-eye-done'/.test(UI) && /#eyeBody\[data-eye-done\] > #eyeSetup \{ display: none !important; \}/.test(CSS)
           && /#eyeBody\[data-eye-done\] > #eyeResult \{ order: 1; \}/.test(CSS));
     check('wiring: المراجعة والحفظ قبل المداولة، والتفاصيل مطويّة بعدها', UI.indexOf('id="eyeReview"') < UI.indexOf('${talkHtml}') && /<details id="eyeDetails"/.test(UI) && UI.indexOf('${talkHtml}') < UI.indexOf('<details id="eyeDetails"'));
@@ -1665,6 +1665,78 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: الخطّة من term-plan.js (الصفّ والتاريخ والعنوان من النموذج)، وما ليس واضحاً باختيار المشرف لعنوانٍ بعينه', /function planInfo\(\)/.test(UI) && /TP\.lessonsFor\(PLN, grade, date, ''\)/.test(UI)
           && /const ov = d && d\.planOk && d\.planOk\.topic === p\.topic \? d\.planOk\.v : null;/.test(UI) && /const suggCtx = \(\) => \(\{ female: female\(\), pupil, plan: planCtx\(null\) \}\);/.test(UI));
     check('wiring: صفّ «الخطة الفصليّة» في النتيجة يعيد الاقتراح، والمصدر «الخطة الفصليّة»', /id="eyePlanOk"/.test(UI) && /S\.result\.planOk = \{ v, topic: p\.topic \}; else delete S\.result\.planOk;\s*\n\s*resuggest\(\);/.test(UI) && /plan: 'الخطة الفصليّة' \};/.test(UI));
+}
+
+/* ── ٤٠) التجربة الميدانيّة والوضع الأعمى (2026-10-31) ── */
+{
+    const X = E.TRIAL;
+    // الصفّارة: ثوانٍ متتالية حدثٌ واحد
+    const secs = Array.from({ length: 60 }, (_, t) => ({ w: [5, 6, 7, 20, 22, 40].includes(t) }));
+    check('trial: الصفّارة الممتدّة (ثوانٍ متتالية أو بينها ثانية) حدثٌ واحد', JSON.stringify(E.whistleEvents(secs)) === '[5,20,40]', JSON.stringify(E.whistleEvents(secs)));
+    check('trial: المطابقة واحدٌ لواحد خلال ٣ ثوانٍ', E.matchTimes([6, 21, 50], [5, 20, 40]) === 2 && E.matchTimes([5, 6], [5]) === 1 && E.matchTimes([10], [14]) === 0 && E.matchTimes([10], [13]) === 1 && E.matchTimes([], [1]) === 0);
+    const h = E.histNew();
+    [100, 120, 140, 160, 900].forEach(ms => E.histAdd(h, ms));
+    const hs = E.histSum(h);
+    check('trial: مدرّج زمن الكشف ← الوسيط والمئين ٩٠ والعدد', hs[0] === 150 && hs[1] === 910 && hs[2] === 5 && E.histSum(E.histNew()) === null, JSON.stringify(hs));
+    E.histAdd(h, 99999);
+    check('trial: الزمن الطويل جدّاً في آخر خانة لا يكسر المدرّج', h[X.BINS] === 1);
+    // كابا الموزون
+    check('trial: كابا الموزون — تطابقٌ تامٌّ بتباين ← ١، وبلا تباين ← null', E.wkappa([[1, 1], [2, 2], [3, 3], [4, 4]]) === 1 && E.wkappa([[2, 2], [2, 2]]) === null && E.wkappa([]) === null);
+    const kNear = E.wkappa([[1, 2], [2, 3], [3, 4], [4, 5], [2, 2], [3, 3]]), kFar = E.wkappa([[1, 5], [5, 1], [2, 4], [4, 2], [3, 3]]);
+    check('trial: الخلاف بدرجةٍ واحدة أخفّ من الخلاف البعيد (أوزانٌ تربيعيّة)', kNear > 0.5 && kFar < 0, kNear + ' ' + kFar);
+    check('trial: المرحلة — دون ٣٠ حصّة أعمى، و٣٠ بكابا ٠٫٦ وميلٍ صغير ظاهر، و١٠٠ بكابا ٠٫٧٥ محدَّد، والميل الكبير يمنع', E.maturity({ n: 29, kappa: 0.9, bias: 0 }) === 'M1'
+          && E.maturity({ n: 30, kappa: 0.6, bias: 0.3 }) === 'M2' && E.maturity({ n: 30, kappa: 0.59, bias: 0 }) === 'M1' && E.maturity({ n: 100, kappa: 0.8, bias: -0.1 }) === 'M3'
+          && E.maturity({ n: 100, kappa: 0.7, bias: 0 }) === 'M2' && E.maturity({ n: 40, kappa: 0.9, bias: 0.5 }) === 'M1' && E.maturity(null) === 'M1');
+    // الحصّة الواحدة
+    const lesson = (o) => ({ src: 'camera', trial: Object.assign({ v: 1, dev: 'iPad', det: 'yolox', ms: [180, 260, 900], eyeN: 22, supN: 24, audio: true, wEye: [10, 100, 200, 300], wTap: [11, 101, 201, 301] }, o || {}),
+                             blind: { sup: { 7: 2, 8: 3 }, rev: true, pairs: { 7: [2, 2], 8: [3, 4] } } });
+    const L1 = E.trialLesson(lesson());
+    check('trial: الحصّة ← الخطأ٪ والصفّارة والزمن والأزواج', L1.cnt.err === 8.3 && L1.wh.tp === 4 && L1.wh.tap === 4 && L1.ms.med === 180 && L1.pairs.length === 2 && L1.pairs[1].eye === 4, JSON.stringify(L1));
+    check('trial: بلا عددٍ فعليّ لا يُقاس العدّ، وبلا صوت لا تُقاس الصفّارة، وقليل اللقطات لا يُقاس الزمن', E.trialLesson(lesson({ supN: null })).cnt === null
+          && E.trialLesson(lesson({ audio: false })).wh === null && E.trialLesson(lesson({ ms: [100, 120, 5] })).ms === null && E.trialLesson({}) === null);
+    check('trial: «لم ألمس كلّ صفّارة» يُخرج الحصّة من قياس الصفّارة، وبلا لمساتٍ تُقاس فقط إن قال إنّها لم تُستعمل', E.trialLesson(lesson({ wOk: false })).wh === null
+          && E.trialLesson(lesson({ wTap: [] })).wh === null && E.trialLesson(lesson({ wTap: [], wNone: true })).wh.eye === 4);
+    // البوابة الأولى
+    const rows = n => Array.from({ length: n }, (_, i) => ({ date: '2026-11-' + String(10 + i), d: lesson() }));
+    const R4 = E.trialReport(rows(4)), R5 = E.trialReport(rows(5));
+    check('trial: أربع حصص ← «يحتاج حصصاً»، وخمسٌ جيّدة ← اجتازت', R4.gate === 'wait' && R4.frame.status === 'wait' && R5.gate === 'pass' && R5.frame.value === 180 && R5.count.value === 8.3
+          && R5.whistle.recall === 100 && R5.whistle.precision === 100 && R5.whistle.tap === 20, JSON.stringify([R4.gate, R5.gate, R5.count, R5.whistle]));
+    const bad = rows(5).map((r, i) => (i < 2 ? { date: r.date, d: lesson({ eyeN: 30, supN: 20 }) } : r));
+    check('trial: عدٌّ يخطئ ٥٠٪ في حصّتين يرفع المتوسّط فوق الحدّ ← لم تجتز', E.trialReport(bad).count.value === 25 && E.trialReport(bad).count.status === 'fail' && E.trialReport(bad).gate === 'fail');
+    const fa = rows(5).map(r => ({ date: r.date, d: lesson({ wEye: [10, 50, 100, 150, 200, 250, 300, 350] }) }));
+    check('trial: إنذاراتٌ خاطئة للصفّارة تُنزل «الصحّة» وإن التقطت كلّ ما لمسه المشرف', E.trialReport(fa).whistle.recall === 100 && E.trialReport(fa).whistle.precision === 50 && E.trialReport(fa).whistle.status === 'fail');
+    const few = rows(5).map(r => ({ date: r.date, d: lesson({ wTap: [11], wEye: [10] }) }));
+    check('trial: الصفّارة لا يُحكم عليها قبل ١٥ لمسة', E.trialReport(few).whistle.status === 'wait' && E.trialReport(few).gate === 'wait');
+    const slow = rows(5).map(r => ({ date: r.date, d: lesson({ ms: [520, 700, 400] }) }));
+    check('trial: زمن الكشف فوق ٤٠٠ م.ث ← لم يجتز', E.trialReport(slow).frame.status === 'fail');
+    const it7 = R5.items.find(x => x.id === 7), it8 = R5.items.find(x => x.id === 8);
+    check('trial: الاتّفاق لكلّ بندٍ من الأزواج العمياء وحدها (والميل = المشرف − العين)', it7.n === 5 && it7.exact === 100 && it8.exact === 0 && it8.near === 100 && it8.bias === -1 && it7.level === 'M1'
+          && R5.blind.n === 10 && R5.blind.lessons === 5, JSON.stringify(R5.items));
+    check('trial: الحصص مرتّبةً بالتاريخ، والتقرير بلا تجربةٍ لا يدخل', E.trialReport([{ date: '2026-11-20', d: lesson() }, { date: '2026-11-02', d: lesson() }, { date: '2026-11-03', d: { M: {} } }]).lessons.map(x => x.date).join() === '2026-11-02,2026-11-20');
+    const csv = E.trialCsv(R5);
+    check('trial: ملفّ الأرقام بسطرٍ لكلّ حصّة وبلا اسمٍ ولا نصّ', csv.split('\n').length === 6 && /^date,source,device,model,det_median_ms/.test(csv) && /2026-11-10,camera,iPad,yolox,180,260,900,0,22,24,8.3,4,4,4,7:2\/2 8:3\/4/.test(csv)
+          && !/teacher|school|معلم|مدرسة/.test(E.trialCsv.toString()), csv.split('\n')[1]);
+
+    // التوصيل
+    const UI = read('js/eye.js'), CSS = read('styles.css');
+    check('wiring: إعداد «التجربة الميدانيّة» محفوظ ومفعَّلٌ افتراضاً، ويُقرأ عند البدء', /chk\('eyeTrial', '[^']+', true,/.test(UI) && /S\.trialOn = checked\('eyeTrial'\); S\.wTaps = \[\]; S\.detH = E\(\)\.histNew\(\);/.test(UI));
+    check('wiring: زرّ «صفّارة» في شريط الرصد يحفظ الوقت وحده، و«−» يحذف آخر لمسة', /id="eyeWhistleTap"/.test(UI) && /S\.wTaps\.push\(Math\.floor\(now\(\)\)\);/.test(UI) && /function undoWhistle\(\)/.test(UI)
+          && /b\.classList\.toggle\('hidden', !\(S\.running && S\.trialOn && S\.audio\)\);/.test(UI));
+    check('wiring: زمن الكشف بعد التهيئة يدخل المدرّج، وإطفاؤه لبطء الجهاز يُسجَّل', /if \(AI\.count > 2 && S\.detH\) E\(\)\.histAdd\(S\.detH, AI\.lastMs\);/.test(UI) && /aiState\(''\); S\.detSlow = true;/.test(UI));
+    check('wiring: النتيجة تحفظ data.trial (أرقامٌ وأوقات) وdata.blind، والنسخة الاحتياطيّة تحمل اللمسات والمدرّج', /data\.trial = \{\s*\n\s*v: 1, dev: devLabel\(\)/.test(UI) && /wEye: E\(\)\.whistleEvents\(S\.secs\)\.slice\(0, 400\), wTap: S\.wTaps\.slice\(0, 400\)/.test(UI)
+          && /data\.blind = \{ sup: \{\}, rev: false \};/.test(UI) && /trial: S\.trialOn \? \{ taps: S\.wTaps, h: S\.detH, slow: !!S\.detSlow \} : null/.test(UI) && /if \(R\.trial\) \{/.test(UI));
+    check('wiring: الوضع الأعمى — البند M1 بلا مستوى مقترحٍ ولا شاهد حتّى الكشف، وتقييم المشرف يُحفظ', /if \(blindIds\.includes\(s\.id\)\) \{/.test(UI) && /\$\{levelPicker\(s\.id, mine, null, curScore\)\}/.test(UI)
+          && /d\.blind\.sup\[id\] = n;/.test(UI) && /id="eyeBlindReveal"/.test(UI) && /d\.blind\.pairs = pairs; d\.blind\.rev = true;/.test(UI));
+    const blindBranch = UI.slice(UI.indexOf('if (blindIds.includes(s.id)) {'), UI.indexOf("const lvl = lvOf(s.id)"));
+    check('wiring: فرع البند المحجوب لا يذكر المقترح ولا شاهده ولا ثقته', blindBranch.length > 100 && !/s\.score|s\.evidence|s\.conf|basisText/.test(blindBranch), blindBranch.slice(0, 120));
+    check('wiring: شارة «عين المشرف» تحت البند في النموذج محجوبةٌ قبل الكشف', /const hidden = blindOpen\(d\) && \(\(S\.levels \|\| \{\}\)\[id\] \|\| 'M1'\) === 'M1';/.test(UI) && /if \(!s \|\| hidden\) \{ if \(b\) b\.remove\(\); return; \}/.test(UI));
+    check('wiring: الحفظ والتطبيق يسجّلان الأزواج — ولا يُنهى الوضع الأعمى بلا تقييم', /if \(blindOpen\(d\) && Object\.keys\(d\.blind\.sup \|\| \{\}\)\.length\) blindRecord\(d\);/.test(UI)
+          && (UI.match(/blindRecord\(S\.result\); save\(S\.result\);/g) || []).length === 2);
+    check('wiring: بعد الكشف يُحدَّد تقييم المشرف لا المقترح، وفي «ظاهر» لا يُحدَّد شيء', /const chosen = was \|\| \(lvl === 'M2' \? curScore : s\.score\);/.test(UI));
+    check('wiring: العدد الفعليّ يُكتب في النتيجة ويصير عدد الطلبة للاقتراح', /id="eyeTrialN"/.test(UI) && /d\.trial\.supN = raw \? v : null;/.test(UI) && /if \(raw && d\.M && d\.M\.people\) d\.M\.people\.classSize = v;/.test(UI));
+    check('wiring: لوحة «التجربة الميدانيّة» بعد «اتّفاق العين معك» وتُعرض مع النتيجة، والملفّ بلا أسماء', /<section id="eyeTrialBox" class="eye-adv hidden/.test(UI) && /const box = \$\('eyeTrialBox'\);/.test(UI) && /renderAgreement\(\); renderTrial\(\); renderPatterns\(\);/.test(UI)
+          && /#eyeBody\[data-eye-done\] > #eyeTrialBox,/.test(CSS) && /E\(\)\.trialCsv\(E\(\)\.trialReport\(trialRows\(\)\)\)/.test(UI) && !/teacherName/.test(UI.slice(UI.indexOf('function trialRows'), UI.indexOf('function itemLevels'))));
+    check('wiring: لا وسيط ولا صورة في التجربة — لا toDataURL ولا رفع', !/toDataURL|MediaRecorder|toBlob|fetch\(/.test(UI.slice(UI.indexOf('// ── التجربة الميدانيّة (2026-10-31)'), UI.indexOf('// ── اتّفاق العين معك'))));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {

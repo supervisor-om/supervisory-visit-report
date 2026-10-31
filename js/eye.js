@@ -70,7 +70,9 @@
         // دليل المعلّم (js/lesson-guide.js): {id, skills, sure, on} — من الصفّ وعنوان الدرس، ومهارة الحصة يختارها المشرف
         guide: null, gkey: '', samplePick: -1,
         // الانقطاع (2026-10-28): رصدٌ يُكمَل من نسخته الاحتياطيّة، والمدّة الضائعة، وثواني توقّف الكاميرا، وانقطاع فهم الكلام
-        resume: null, spSeed: null, gapSec: 0, resumes: 0, spOff: 0, lastCk: 0, ckWarned: false, camFrozenFor: 0
+        resume: null, spSeed: null, gapSec: 0, resumes: 0, spOff: 0, lastCk: 0, ckWarned: false, camFrozenFor: 0,
+        // التجربة الميدانيّة (2026-10-31): الوضع عند البدء، ولمسات «صفّارة» بأوقاتها، ومدرّج زمن الكشف، وهل أُطفئ الكشف لبطء الجهاز
+        trialOn: false, wTaps: [], detH: null, detSlow: false, wUndoT: null
     };
     const IDLE_TEXT = 'ضع الجهاز أفقيّاً على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.';
     const SAMPLE_HINT = 'طلبةٌ متفاوتون تقيّمهم في أوّل التطبيق ثمّ في آخره: المس الرقم ليتبدّل لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ و٢.';
@@ -206,6 +208,11 @@ function tagRowHtml(k) {
                                 <label id="eyeSpeechLbl" class="flex items-center gap-2 text-sm text-slate-700" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech"> فهم الكلام (بإذن المعلّم)</label>
                             </div>
                             <div class="space-y-1 sm:col-span-2">
+                                <div class="text-xs font-bold text-slate-500">التجربة الميدانيّة</div>
+                                ${chk('eyeTrial', 'قِس دقّة العين، وأخفِ اقتراحها حتّى تقيّم أنت', true, 'زمن الكشف على جهازك، وعدد الطلبة مقابل العدد الفعليّ، والصفّارة مقابل لمساتك — ويُحجب المستوى المقترح حتّى تقيّم البند بنفسك')}
+                                <p class="text-xs text-slate-500 leading-5">أثناء الحصة المس «صفّارة» في شريط الرصد كلّما سمعتها، وبعدها اكتب عدد الطلبة الفعليّ وقيّم البنود قبل أن تكشف اقتراح العين. من حصصك تُحسب «البوابة الأولى» في لوحة «التجربة الميدانيّة».</p>
+                            </div>
+                            <div class="space-y-1 sm:col-span-2">
                                 <div class="text-xs font-bold text-slate-500">الأدوات المتقدّمة</div>
                                 ${chk('eyeAdv', 'إظهار الأدوات المتقدّمة (تجريبيّة)', false, 'تحليلاتٌ ثقتها ضعيفةٌ من كاميرا واحدة — مخفيّةٌ ولا تدخل التقييم حتّى تُفعَّل')}
                                 <p class="text-xs text-slate-500 leading-5">الزيّ من لون الملابس، وأنواع التشكيلات وعددها، وعدّ الكرات بالكاميرا، والتزاحم وشدّة النشاط، وموقع المعلّم، و<bdi dir="ltr">SOFIT+</bdi>. وهي مخفيّة لا تُعرض ولا تدخل التقييم ولا المداولة حتّى تُفعَّل، وما تكتبه بيدك (عدد الكرات، ووسم الزيّ) يُعتدّ به دائماً.</p>
@@ -257,8 +264,10 @@ function tagRowHtml(k) {
                     <span id="eyeLivePart" class="flex-1 text-sm text-slate-700 min-w-0 truncate"></span>
                     <span id="eyeLiveSrc" class="hidden md:inline text-xs text-slate-500"></span>
                     <button type="button" id="eyeMore" class="svf-btn svf-btn-ghost" aria-pressed="false" title="إظهار كلّ أدوات الرصد أو العودة إلى الوضع المبسّط"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span id="eyeMoreL" class="hidden sm:inline">كل الأدوات</span></button>
+                    <button type="button" id="eyeWhistleUndo" class="hidden svf-btn svf-btn-ghost" style="min-width:40px;font-size:18px;line-height:1" aria-label="حذف آخر لمسة صفّارة" title="حذف آخر لمسة صفّارة">−</button>
+                    <button type="button" id="eyeWhistleTap" class="hidden svf-btn svf-btn-secondary" aria-label="سمعتُ صفّارة الآن" title="التجربة الميدانيّة: المسه كلّما سمعت الصفّارة"><span>صفّارة</span><b id="eyeWhistleN" class="tabular-nums">0</b></button>
                     <button type="button" id="eyeMark" class="svf-btn svf-btn-secondary" aria-label="علامة الآن"><i class="fa-solid fa-bookmark" aria-hidden="true"></i><span class="hidden sm:inline">علامة</span></button>
-                    <button type="button" id="eyeStop" class="hidden svf-btn svf-btn-primary"><i class="fa-solid fa-stop" aria-hidden="true"></i>إيقاف وتحليل</button>
+                    <button type="button" id="eyeStop" class="hidden svf-btn svf-btn-primary" aria-label="إيقاف وتحليل"><i class="fa-solid fa-stop" aria-hidden="true"></i><span class="sm:hidden">إيقاف</span><span class="hidden sm:inline">إيقاف وتحليل</span></button>
                 </section>
 
                 <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
@@ -461,6 +470,7 @@ function tagRowHtml(k) {
 
             <section id="eyeResult" class="hidden space-y-4" aria-live="polite"></section>
             <section id="eyeAgree" class="eye-adv bg-white rounded-2xl border border-slate-200 p-5"></section>
+            <section id="eyeTrialBox" class="eye-adv hidden bg-white rounded-2xl border border-slate-200 p-5"></section>
             <section id="eyePatterns" class="eye-adv bg-white rounded-2xl border border-slate-200 p-5"></section>`;
 
         S.canvas = document.createElement('canvas');
@@ -543,6 +553,8 @@ function tagRowHtml(k) {
         $('eyeCueOk').addEventListener('click', () => { const c = S.cue; if (c) { setCtx(c.k, c.t); flash($('eyeCueOk'), '#1d6b45', 300); } });
         $('eyeCueNo').addEventListener('click', () => { S.cue = null; renderCue(); });
         $('eyeMark').addEventListener('click', addMark);
+        $('eyeWhistleTap').addEventListener('click', tapWhistle);
+        $('eyeWhistleUndo').addEventListener('click', undoWhistle);
         $('eyeMore').addEventListener('click', () => { S.simple = !S.simple; savePrefs(); layout(); if (!S.simple) { drawTimeline(); drawSpark(); drawView(); } });
         // «أهمّ ما تلمسه» يُرسم من جديد في كلّ رصد، فالأحداث بالتفويض لا على أزرارٍ تُستبدل
         $('eyeQuickTags').addEventListener('click', e => {
@@ -607,7 +619,7 @@ function tagRowHtml(k) {
 
     // ── الإعدادات المحفوظة ──
     const PREF_KEY = 'svf_eye_prefs';
-    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv'];
+    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv', 'eyeTrial'];
     function readPrefs() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); return p && typeof p === 'object' ? p : null; } catch (e) { return null; } }
     // الأدوات المتقدّمة تُضبط في المحرّك من أوّل تحميلٍ للصفحة — قبل أن تُفتح العين (أدلّة الاستمارة تُقرأ منه أيضاً)
     try { if (E()) E().setAdv(!!(readPrefs() || {}).eyeAdv); } catch (e) { /* الافتراض */ }
@@ -649,6 +661,7 @@ function tagRowHtml(k) {
             checked('eyeMic') ? 'الصوت' + (checked('eyeTeacherMic') ? ' من ميكروفون المعلّم' : micName ? ': ' + micName : '') : 'بلا صوت',
             checked('eyeSpeech') ? 'فهم الكلام' : '',
             checked('eyeAdv') ? 'الأدوات المتقدّمة' : '',
+            checked('eyeTrial') ? 'التجربة الميدانيّة' : '',
             draftLinked() ? 'مساعد الصياغة مربوط' : ''
         ].filter(Boolean).join(' · ');
     }
@@ -1113,6 +1126,48 @@ function tagRowHtml(k) {
             b.classList.toggle('svf-btn-secondary', !on);
             b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
+    }
+
+    // ── التجربة الميدانيّة: الصفّارة كما سمعها المشرف ──
+    // لمسةٌ لكلّ صفّارة، بوقتها — تُقارَن بما التقطته العين (±٣ ث). و«−» يظهر خمس ثوانٍ بعد اللمسة لمن لمس خطأً.
+    function tapWhistle() {
+        if (!S.running || !S.trialOn) return;
+        if (S.wTaps.length >= 400) return;
+        S.wTaps.push(Math.floor(now()));
+        renderWhistle();
+        flash($('eyeWhistleTap'), '#f0b44a', 250);
+        whistleUndo(true);
+        clearTimeout(S.wUndoT);
+        S.wUndoT = setTimeout(() => whistleUndo(false), 5000);
+    }
+    // «−» يحلّ محلّ «كل الأدوات» خمس ثوانٍ — فلا يتّسع شريط الرصد على الجوّال
+    function whistleUndo(on) {
+        $('eyeWhistleUndo').classList.toggle('hidden', !on);
+        $('eyeMore').classList.toggle('hidden', !!on);
+    }
+    function undoWhistle() {
+        if (!S.running || !S.wTaps.length) return;
+        S.wTaps.pop();
+        renderWhistle();
+        clearTimeout(S.wUndoT);
+        whistleUndo(false);
+    }
+    function renderWhistle() {
+        const b = $('eyeWhistleTap');
+        if (!b) return;
+        b.classList.toggle('hidden', !(S.running && S.trialOn && S.audio));
+        $('eyeWhistleN').textContent = String(S.wTaps.length);
+        if (!S.running) { clearTimeout(S.wUndoT); whistleUndo(false); }
+    }
+    function devLabel() {
+        const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+        if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iPad';
+        if (/iPhone/.test(ua)) return 'iPhone';
+        if (/Android/.test(ua)) return /Mobile/.test(ua) ? 'Android phone' : 'Android tablet';
+        if (/Macintosh/.test(ua)) return 'Mac';
+        if (/Windows/.test(ua)) return 'Windows';
+        if (/Linux/.test(ua)) return 'Linux';
+        return 'other';
     }
 
     // ── لحظات للمداولة: علامات المشرف بأوقاتها ──
@@ -2047,6 +2102,7 @@ function tagRowHtml(k) {
         S.teacher = null; S.pickTeacher = false;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
         S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0; S.ckWarned = false;
+        S.trialOn = checked('eyeTrial'); S.wTaps = []; S.detH = E().histNew(); S.detSlow = false;
         // رصدٌ يُكمَل من نسخته الاحتياطيّة: أرقامه ولمساته تعود، والمدّة منذ آخر نسخةٍ «غير محسوبة»، والساعة تكمل
         const RS = S.resume; S.resume = null;
         let resumed = null;
@@ -2083,6 +2139,7 @@ function tagRowHtml(k) {
         if (video && checked('eyeAI')) startAI(r);
         if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(w => { S.wake = w; }).catch(() => {});
         layout();
+        renderWhistle();
         renderResume();
         if (resumed) { renderGuide(); renderFocus(); toast('أُكمل الرصد من ' + mmss(resumed.from) + ' — ' + (resumed.gap ? 'استُبعدت ' + E().dur(resumed.gap) + ' ضائعة. ' : '')
             + (S.roi ? 'تأكّد أنّ منطقة الصفّ ما زالت على الملعب، ' : '') + (src !== 'none' && checked('eyeAI') ? 'وحدّد المعلّم من جديد.' : ''), 'info'); drawView(); return; }
@@ -2233,9 +2290,10 @@ function tagRowHtml(k) {
             // جهازٌ بطيءٌ جدّاً (أكثر من ثانيةٍ ونصف للّقطة ثلاث مرّاتٍ متتالية بعد التهيئة) ← حركة الصورة وحدها
             AI.lastMs = performance.now() - t0;
             AI.count++;
+            if (AI.count > 2 && S.detH) E().histAdd(S.detH, AI.lastMs);      // التجربة الميدانيّة: زمن اللقطة على هذا الجهاز (بعد التهيئة)
             AI.slow = AI.count > 2 && AI.lastMs > 1500 ? AI.slow + 1 : 0;
             if (AI.slow >= 3 && !root.SVF_EYE_SLOW_OK) {
-                AI.ok = false; aiState('');
+                AI.ok = false; aiState(''); S.detSlow = true;
                 message('الجهاز بطيءٌ على كشف الطلبة — يكمل الرصد بحركة الصورة. جرّب جهازاً أحدث أو متصفّح Chrome.');
                 return;
             }
@@ -2335,6 +2393,7 @@ function tagRowHtml(k) {
         // فهم الكلام عبر خدمة المتصفّح بلا إنترنت: ثوانٍ لا تُحسب في معدّلات الكلام
         if (S.sp && S.sp.on && S.sp.mode !== 'local' && (navigator.onLine === false || Date.now() - (S.sp.netAt || 0) < 5000)) S.spOff++;
         renderKpis(M, S.lastSec);
+        if (S.trialOn) renderWhistle();          // الصوت قد يبدأ أو يُعاد بعد البدء (كاميرا الهاتف، إعادة الكاميرا)
         // ثواني الحضور والزيّ تتغيّر حيّاً (التلقائيّ يمتدّ حتّى أوّل نشاط): الكلام يُعاد تحليله بلاها
         const rs = (M.admin && M.admin.spans) || [], sig = JSON.stringify(rs);
         if (sig !== S.rollSig) { S.rollSig = sig; S.rollSpans = rs; if (S.sp) S.sp.dirty = true; }
@@ -2621,6 +2680,7 @@ function tagRowHtml(k) {
         $('eyeRelink').classList.add('hidden');
         lensUi();
         teacherUi();
+        renderWhistle();
         renderSpeechLive();
         applyVideoVisibility();
         fitStage();
@@ -2689,6 +2749,16 @@ function tagRowHtml(k) {
         if (S.via === 'phone' && M.observed) { data.via = 'phone'; data.lost = S.lostSec || 0; }
         else if (M.observed && S.lostSec) data.lost = S.lostSec;                 // ثواني توقّف كاميرا الجهاز
         if (S.gapSec || S.resumes) data.gap = { sec: S.gapSec || 0, n: S.resumes || 0 };   // توقّف الرصد (إغلاق الصفحة) ثمّ أُكمل
+        // التجربة الميدانيّة: ما يُقارَن بالواقع — أرقامٌ وأوقاتٌ لا صورة فيها ولا صوت. العدد الفعليّ يكتبه المشرف في النتيجة،
+        // والتقييم الأعمى (data.blind) يُملأ بلمساته قبل أن يكشف اقتراح العين
+        if (S.trialOn) {
+            data.trial = {
+                v: 1, dev: devLabel(), det: S.src !== 'none' && AI.engine && AI.count ? AI.engine.name : null, ms: S.detH ? E().histSum(S.detH) : null, slow: !!S.detSlow,
+                eyeN: keep.people && keep.people.classSize > 0 ? keep.people.classSize : null, supN: null,
+                audio: !!S.hadAudio, wEye: E().whistleEvents(S.secs).slice(0, 400), wTap: S.wTaps.slice(0, 400)
+            };
+            data.blind = { sup: {}, rev: false };
+        }
         // أهداف الزيارة السابقة للمعلّم نفسه تُقاس على رصد اليوم (والبند ١١ منها)
         const prev = prevEye();
         if (prev && Array.isArray(prev.d.targets) && prev.d.targets.length)
@@ -2727,7 +2797,8 @@ function tagRowHtml(k) {
             lost: S.lostSec || 0, gap: S.gapSec || 0, resumes: S.resumes || 0, spOff: S.spOff || 0, classMax: S.classMax || 0,
             roi: S.roi, sample: S.sample, sampleRound: S.sampleRound, marks: S.marks, field: S.field,
             guide: S.guide ? { id: S.guide.id, skills: (S.guide.skills || []).slice() } : null,
-            sp: sp ? { mode: sp.mode, lang: sp.lang, segs: sp.segs } : null
+            sp: sp ? { mode: sp.mode, lang: sp.lang, segs: sp.segs } : null,
+            trial: S.trialOn ? { taps: S.wTaps, h: S.detH, slow: !!S.detSlow } : null
         };
         try { localStorage.setItem(CK_KEY, JSON.stringify(ck)); }
         catch (e) { if (!S.ckWarned) { S.ckWarned = true; toast('تعذّر الحفظ الاحتياطيّ للرصد (تخزين المتصفّح ممتلئ) — الرصد مستمرّ', 'error'); } }
@@ -2750,6 +2821,11 @@ function tagRowHtml(k) {
         S.spSeed = R.sp && R.sp.segs && R.sp.segs.length ? { mode: R.sp.mode, lang: R.sp.lang, segs: R.sp.segs } : null;
         if (R.guide && LG() && LG().byId(R.guide.id)) S.guide = { id: R.guide.id, skills: R.guide.skills.slice(), sure: true, on: true, min: false };
         if (R.roi) setRoi(R.roi);
+        if (R.trial) {
+            S.trialOn = true; S.wTaps = Array.isArray(R.trial.taps) ? R.trial.taps.slice() : [];
+            S.detH = Array.isArray(R.trial.h) && R.trial.h.length === E().TRIAL.BINS + 1 ? R.trial.h.slice() : E().histNew();
+            S.detSlow = !!R.trial.slow;
+        } else if (!resuming) S.trialOn = false;
     }
     function renderResume() {
         const box = $('eyeResume');
@@ -2878,6 +2954,15 @@ function tagRowHtml(k) {
         });
         const cb = document.querySelector('#eyeResult .eye-apply[data-id="' + id + '"]');
         if (cb) { cb.dataset.score = String(n); cb.checked = n !== Number(lv.dataset.cur); }
+        // الوضع الأعمى: تقييمك قبل الكشف يُحفظ مع النتيجة — هو ما يُقارَن باقتراح العين
+        const d = S.result;
+        if (d && blindOpen(d) && (S.blindIds || []).includes(Number(id))) {
+            d.blind.sup[id] = n;
+            save(d);
+            const st = document.querySelector('#eyeResult [data-blind="' + id + '"] .eye-blind-st');
+            if (st) { st.textContent = 'قيّمتَه'; st.className = 'eye-blind-st text-xs text-green-800'; }
+            blindProgress();
+        }
         let pv = document.querySelector('#eyeResult .eye-prev[data-id="' + id + '"]');
         if (!pv) { pv = document.createElement('p'); pv.className = 'eye-prev text-[11px] text-slate-600 mt-1 leading-5'; pv.dataset.id = id; lv.parentNode.appendChild(pv); }
         pv.textContent = previewText(Number(id), n);
@@ -3337,13 +3422,37 @@ function tagRowHtml(k) {
         const applied = new Set(data.applied || []);
         const LOG = S.reviewLog = logOf(data);              // أدلّة الحصة لكلّ بند (مساعد الأدلّة)
         const formScore = id => { const el = document.querySelector('#score-' + id); const n = el ? Number(el.textContent) : NaN; return n >= 1 && n <= 5 ? n : null; };
+        // التجربة الميدانيّة: مرحلة كلّ بندٍ من تقييمك الأعمى في الحصص المحفوظة — M1 يُحجب اقتراحه حتّى تقيّم وتكشف،
+        // وM2 يظهر ولا يُحدَّد، وM3 كما كان (يُحدَّد للتطبيق). بلا وضع التجربة (data.blind غائب) كلّ البنود كما كانت.
+        const BL = data.blind || null, sup = (BL && BL.sup) || {}, bpairs = (BL && BL.pairs) || {};
+        if (BL) S.levels = itemLevels();
+        const lvOf = id => (BL ? (S.levels || {})[id] || 'M1' : 'M3');
+        const blindIds = S.blindIds = blindOpen(data) ? sugg.filter(s => lvOf(s.id) === 'M1').map(s => s.id) : [];
         const items = sugg.map(s => {
             const curScore = formScore(s.id);
+            const mine = Number(sup[s.id]) >= 1 && Number(sup[s.id]) <= 5 ? Number(sup[s.id]) : null;
+            if (blindIds.includes(s.id)) {
+                return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0" data-blind="${s.id}">
+                <input type="checkbox" class="eye-apply mt-1 w-5 h-5" data-id="${s.id}" data-score="${mine || ''}" ${mine && mine !== curScore ? 'checked' : ''} aria-label="تطبيق البند ${s.id} على النموذج">
+                <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <b class="text-slate-900">${esc(title(s.id))}</b>
+                        <span class="eye-blind-st text-xs ${mine ? 'text-green-800' : 'text-blue-900'}">${mine ? 'قيّمتَه' : 'قيّمه أنت أوّلاً'}</span>
+                    </div>
+                    ${evMini(LOG[s.id])}
+                    ${levelPicker(s.id, mine, null, curScore)}
+                    ${mine ? `<p class="eye-prev text-[11px] text-slate-600 mt-1 leading-5" data-id="${s.id}">${esc(previewText(s.id, mine))}</p>` : ''}
+                </div></li>`;
+            }
+            const lvl = lvOf(s.id), was = bpairs[s.id] ? Number(bpairs[s.id][0]) : null;
+            const chosen = was || (lvl === 'M2' ? curScore : s.score);
             const conf = s.conf && confText[s.conf] ? `<span class="inline-flex items-center gap-1 text-xs text-slate-600"><i class="inline-block w-2 h-2 rounded-full" style="background:${confColor[s.conf]}"></i>${esc(confText[s.conf])}</span>` : '';
             // الاقتراح ضعيف الثقة لا يُحدَّد للتطبيق افتراضاً (2026-10-29) — الاستمارة رسميّة، فيعتمده المشرف بلمسة المستوى أو المربّع
-            const pre = curScore !== s.score && s.conf !== 'low';
+            // وبعد الكشف يُحدَّد تقييمك أنت؛ وفي مرحلة «ظاهر» (M2) لا يُحدَّد شيء حتّى تلمس
+            const pre = chosen != null && curScore !== chosen && (was ? true : lvl === 'M3' && s.conf !== 'low');
+            const vs = was ? `<p class="text-xs mt-1 leading-5 ${was === s.score ? 'text-green-800' : 'text-slate-700'}">قيّمتَه قبل الكشف «${esc(E().LEVELS[was])}» · اقترحت العين «${esc(E().LEVELS[s.score])}»${was === s.score ? ' — تطابق' : Math.abs(was - s.score) === 1 ? ' — في حدود درجة' : ''}</p>` : '';
             return `<li class="py-3 flex gap-3 items-start border-b border-slate-100 last:border-0">
-                <input type="checkbox" class="eye-apply mt-1 w-5 h-5" data-id="${s.id}" data-score="${s.score}" ${pre ? 'checked' : ''} aria-label="تطبيق البند ${s.id} على النموذج">
+                <input type="checkbox" class="eye-apply mt-1 w-5 h-5" data-id="${s.id}" data-score="${chosen || ''}" ${pre ? 'checked' : ''} aria-label="تطبيق البند ${s.id} على النموذج">
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
                         <b class="text-slate-900">${esc(title(s.id))}</b>
@@ -3352,12 +3461,21 @@ function tagRowHtml(k) {
                         ${applied.has(s.id) ? '<span class="text-xs font-bold text-green-700">طُبّق</span>' : ''}
                     </div>
                     <p class="text-sm text-slate-700 mt-1 leading-7">${esc(s.evidence)}</p>
-                    ${s.conf === 'low' && curScore !== s.score ? '<p class="text-xs text-amber-800 mt-1 leading-5">ثقةٌ منخفضة: لم يُحدَّد للتطبيق — حدِّد المربّع أو المس المستوى إن وافقتَ عليه.</p>' : ''}
+                    ${vs}
+                    ${!was && lvl === 'M3' && s.conf === 'low' && curScore !== s.score ? '<p class="text-xs text-amber-800 mt-1 leading-5">ثقةٌ منخفضة: لم يُحدَّد للتطبيق — حدِّد المربّع أو المس المستوى إن وافقتَ عليه.</p>' : ''}
                     ${evMini(LOG[s.id])}
-                    ${levelPicker(s.id, s.score, s.score, curScore)}
-                    <p class="eye-prev text-[11px] text-slate-600 mt-1 leading-5" data-id="${s.id}">${esc(previewText(s.id, s.score))}</p>
+                    ${levelPicker(s.id, chosen, s.score, curScore)}
+                    ${chosen ? `<p class="eye-prev text-[11px] text-slate-600 mt-1 leading-5" data-id="${s.id}">${esc(previewText(s.id, chosen))}</p>` : ''}
                 </div></li>`;
         }).join('');
+        const bp = Object.keys(bpairs).map(k => bpairs[k]);
+        const blindHtml = blindIds.length ? `<div id="eyeBlindBar" class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                <p class="text-sm text-blue-950 leading-6"><b>التجربة الميدانيّة — قيّم أنت أوّلاً.</b> اقتراح العين مخفيٌّ في ${esc(E().count(blindIds.length, 'بندٍ واحد', 'بندين', 'بنود', 'بنداً'))} حتّى تكشفه،
+                    فيُقاس اتّفاقها معك بصدق. المس مستوى كلّ بندٍ كما رأيته في الحصة${blindIds.length < sugg.length ? '، وما بلغ مرحلة الاقتراح الظاهر يظهر اقتراحه' : ''}.</p>
+                <div class="flex flex-wrap items-center gap-2 mt-2"><button type="button" id="eyeBlindReveal" class="svf-btn svf-btn-secondary svf-btn-sm" disabled>اكشف اقتراح العين</button>
+                    <span id="eyeBlindN" class="text-xs text-blue-900"></span></div></div>`
+            : BL && BL.rev && bp.length ? `<p class="mt-3 text-sm text-slate-700 leading-6 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">كُشف اقتراح العين بعد تقييمك:
+                تطابقت في ${bp.filter(p => p[0] === p[1]).length} من ${bp.length}، وفي حدود درجةٍ ${bp.filter(p => Math.abs(p[0] - p[1]) <= 1).length} — يدخل في لوحة «التجربة الميدانيّة» بعد حفظ التقرير.</p>` : '';
         const un = E().unsupported(sugg, M);
         // الاستمارة المصغّرة (2026-10-27): البنود الأخرى تُقيَّم من هنا أيضاً — المحدَّد فيها درجة النموذج الآن، ولا يُطبَّق إلّا ما غيّرته
         const others = un.map(u => {
@@ -3388,13 +3506,15 @@ function tagRowHtml(k) {
                     </div>
                 </div>
             </div>
+            ${trialCardHtml(data)}
             ${followHtml}
             ${targetsHtml}
             <div id="eyeReview" class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
-                <p class="text-sm text-slate-600 mt-1 leading-6">لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
+                <p class="text-sm text-slate-600 mt-1 leading-6">${blindIds.length ? 'لكلّ بندٍ أدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ للمستوى الذي تختاره' : 'لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ'}. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
                    اقتراحٌ يُراجَع لا حكمٌ نهائيّ: يُقترح البند الذي عليه شاهدٌ من الرصد أو من لمساتك، ومع كلٍّ شاهده ودرجة الثقة فيه.
                    صحّح العدّادات إن لزم فيُعاد الاقتراح، ثمّ حدِّد ما تعتمده وطبّقه على نموذج التقييم — ويظهر الشاهد تحت البند فيه.</p>
+                ${blindHtml}
                 ${sugg.length ? `<ul class="mt-2">${items}</ul>` : '<p class="text-sm text-slate-600 py-4">لا بند عليه شاهدٌ كافٍ بعد. ارصد عشر دقائق على الأقلّ، أو المس عناصر الحصة والوسوم أثناءها.</p>'}
                 ${un.length ? `<details id="eyeOthers" class="mt-3 text-sm"${sugg.length ? '' : ' open'}>
                     <summary class="cursor-pointer text-slate-700 font-semibold">البنود الأخرى — قيّمها من هنا (${un.length})</summary>
@@ -3468,6 +3588,8 @@ function tagRowHtml(k) {
             box.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('eye-apply')) applyCount(); });
         }
         applyCount();
+        if ($('eyeBlindReveal')) { $('eyeBlindReveal').addEventListener('click', blindReveal); blindProgress(); }
+        bindTrialCard();
         $('eyeToNotes') && $('eyeToNotes').addEventListener('click', () => toNotes(data.summary));
         $('eyeNew').addEventListener('click', () => { lastClear(); reset(); });
         $('eyeAdvR') && $('eyeAdvR').addEventListener('change', e => { $('eyeAdv').checked = e.target.checked; savePrefs(); applyAdv(); resuggest(); });
@@ -3688,7 +3810,9 @@ function tagRowHtml(k) {
             evList(card, id, LOG[id] || []);
             let b = card.querySelector('.eye-badge');
             const s = by[id];
-            if (!s) { if (b) b.remove(); return; }
+            // الوضع الأعمى: المستوى المقترح لا يظهر تحت البند حتّى يكشفه المشرف (ما لم يبلغ البند مرحلة الاقتراح الظاهر)
+            const hidden = blindOpen(d) && ((S.levels || {})[id] || 'M1') === 'M1';
+            if (!s || hidden) { if (b) b.remove(); return; }
             if (!b) {
                 b = document.createElement('div');
                 b.className = 'eye-badge mt-2 text-xs text-slate-600 leading-5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5';
@@ -3910,12 +4034,16 @@ function tagRowHtml(k) {
         const picks = pickedRows();
         const rest = Array.from(document.querySelectorAll('#eyeOthers .eye-apply:not(:checked)')).map(c => +c.dataset.id);
         const edited = editedReportFields();
+        const T = S.result && S.result.trial, BLd = S.result && blindOpen(S.result);
+        const trialNote = (T && T.eyeN && !T.supN ? '\nلم تكتب عدد الطلبة الفعليّ — لا يُقاس خطأ العدّ في هذه الحصة.' : '')
+            + (BLd && !Object.keys(S.result.blind.sup || {}).length ? '\nلم تقيّم البنود قبل كشف اقتراح العين — لا يُقاس الاتّفاق في هذه الحصة.' : '');
         const msg = (picks.length ? 'يُطبَّق ما راجعته (' + picks.length + (picks.length > 10 ? ' بنداً' : ' بنود') + ')' : 'لا تغيير على الدرجات') + '، '
             + (edited.length ? 'وما كتبته بيدك في «' + edited.join('» و«') + '» يبقى كما هو' : 'ويُولَّد التقرير') + '، ثمّ يُحفظ في الأرشيف.'
-            + (rest.length ? '\nبنودٌ تبقى بدرجتها الحاليّة في النموذج: ' + rest.join('، ') + '.' : '') + '\n\nمتابعة؟';
+            + (rest.length ? '\nبنودٌ تبقى بدرجتها الحاليّة في النموذج: ' + rest.join('، ') + '.' : '') + trialNote + '\n\nمتابعة؟';
         let ok = false;
         try { ok = root.confirm(msg); } catch (e) { ok = false; }
         if (!ok) return;
+        if (BLd && Object.keys(S.result.blind.sup || {}).length) { blindRecord(S.result); save(S.result); }
         if (picks.length && !applyPicks(picks)) { toast('تعذّر الوصول إلى بنود النموذج', 'error'); return; }
         if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('form-view');
         if (!edited.length && typeof generateReport === 'function') { try { generateReport(); } catch (e) { console.warn(e); } }
@@ -3931,6 +4059,7 @@ function tagRowHtml(k) {
     function apply() {
         const picks = pickedRows();
         if (!picks.length) { toast('حدِّد بنداً واحداً على الأقلّ', 'error'); return; }
+        if (blindOpen(S.result) && Object.keys(S.result.blind.sup || {}).length) { blindRecord(S.result); save(S.result); }
         const done = applyPicks(picks);
         if (!done) { toast('تعذّر الوصول إلى بنود النموذج', 'error'); return; }
         if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('form-view');
@@ -3960,8 +4089,10 @@ function tagRowHtml(k) {
         S.field = freshField();
         S.via = null; S.lostSec = 0; S.phoneCams = null;
         S.resume = null; S.spSeed = null; S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0;
+        S.trialOn = false; S.wTaps = []; S.detH = null; S.detSlow = false;
         S.guide = null; S.gkey = '';
         detectGuide();
+        renderWhistle();
         renderGuide();
         renderCounts();
         renderCtx();
@@ -3978,6 +4109,177 @@ function tagRowHtml(k) {
         message('');
         renderFocus();
         layout();
+    }
+
+    // ── التجربة الميدانيّة (2026-10-31) — المرحلة الأولى من خارطة Eye v2 ──
+    // الوضع الأعمى: في البنود التي لم تبلغ مرحلة «الاقتراح الظاهر» (M1) يُحجب المستوى المقترح وشاهده حتّى يقيّم المشرف ثمّ يكشف؛
+    // تقييمه قبل الكشف (data.blind.sup) ومقترح العين يُحفظان زوجاً (data.blind.pairs) — منها وحدها يُقاس الاتّفاق.
+    const blindOpen = d => !!(d && d.blind && !d.blind.rev);
+    function trialRows() {
+        const rows = [];
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || k.indexOf('supervision_v6_visit_') !== 0) continue;
+                try {
+                    const r = JSON.parse(localStorage.getItem(k));
+                    const raw = r && r.formData && r.formData.eyeData;
+                    if (!raw) continue;
+                    const d = JSON.parse(raw);
+                    if (d && d.trial) rows.push({ date: r.visitDate || '', d });
+                } catch (e) { /* تقريرٌ تالف يُتخطّى */ }
+            }
+        } catch (e) { /* التخزين غير متاح */ }
+        return rows;
+    }
+    function itemLevels() {
+        const L = {};
+        try { E().trialReport(trialRows()).items.forEach(it => { L[it.id] = it.level; }); } catch (e) { /* M1 للجميع */ }
+        return L;
+    }
+    function blindProgress() {
+        const d = S.result, ids = S.blindIds || [], el = $('eyeBlindN'), b = $('eyeBlindReveal');
+        if (!d || !d.blind || !el) return;
+        const n = ids.filter(id => Number(d.blind.sup[id]) >= 1).length;
+        el.textContent = 'قيّمتَ ' + n + ' من ' + ids.length;
+        if (b) b.disabled = !n;
+    }
+    // تقييم المشرف قبل الكشف ومقترح العين ← أزواجٌ تُحفظ، ثمّ يظهر الاقتراح
+    function blindRecord(d) {
+        if (!blindOpen(d)) return null;
+        const by = {}, pairs = {};
+        (d.sugg || []).forEach(s => { by[s.id] = s.score; });
+        Object.keys(d.blind.sup || {}).forEach(k => { const a = Number(d.blind.sup[k]), b = by[k]; if (a >= 1 && a <= 5 && b >= 1 && b <= 5) pairs[k] = [a, b]; });
+        d.blind.pairs = pairs; d.blind.rev = true; d.blind.at = new Date().toISOString();
+        return pairs;
+    }
+    function blindReveal() {
+        const d = S.result;
+        if (!blindOpen(d)) return;
+        const left = (S.blindIds || []).filter(id => !(Number(d.blind.sup[id]) >= 1)).length;
+        if (left) {
+            let ok = false;
+            try { ok = root.confirm('لم تقيّم ' + E().count(left, 'بنداً واحداً', 'بندين', 'بنود', 'بنداً') + ' — لا يدخل في قياس الاتّفاق. أتكشف اقتراح العين الآن؟'); } catch (e) { ok = false; }
+            if (!ok) return;
+        }
+        blindRecord(d);
+        save(d);
+        renderResult(d);
+        const rv = $('eyeReview');
+        if (rv) rv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    const ENGINE_NAME = { yolox: 'YOLOX', human: 'CenterNet' };
+    // بطاقة «التجربة الميدانيّة — قياس هذه الحصة» في النتيجة
+    function trialCardHtml(data) {
+        const T = data && data.trial;
+        if (!T) return '';
+        const L = E().trialLesson(data) || {}, X = E().TRIAL;
+        const row = (k, v) => `<div class="py-2.5 flex flex-wrap justify-between gap-x-4 gap-y-1 border-b border-slate-100 last:border-0"><dt class="text-slate-600">${k}</dt><dd class="text-slate-900">${v}</dd></div>`;
+        const mark = (good, txt) => `<span class="inline-flex items-center gap-1 text-xs font-semibold ${good ? 'text-green-800' : 'text-red-800'}"><i class="fa-solid ${good ? 'fa-check' : 'fa-xmark'}" aria-hidden="true"></i>${txt}</span>`;
+        const muted = s => `<span class="text-slate-500">${s}</span>`;
+        const cnt = T.eyeN
+            ? `<span class="inline-flex flex-wrap items-center gap-x-3 gap-y-1">رصدت العين <b class="tabular-nums">${esc(String(T.eyeN))}</b> في أكبر لقطة
+                <label class="inline-flex items-center gap-1.5">العدد الفعليّ <input type="number" id="eyeTrialN" min="1" max="80" value="${esc(String(T.supN || ''))}" placeholder="—" class="w-16 text-center border ${T.supN ? 'border-slate-300' : 'border-amber-400 bg-amber-50'} rounded-md py-0.5" aria-label="عدد الطلبة الفعليّ من كشف الحضور"></label>
+                ${L.cnt ? mark(L.cnt.err <= X.COUNT_ERR, 'الخطأ ' + L.cnt.err + '%') : muted('اكتبه من كشف الحضور')}</span>`
+            : muted(data.src === 'none' ? 'بلا كاميرا — لا يُقاس العدّ' : 'لم يعمل كشف الطلبة — لا يُقاس العدّ');
+        const taps = (T.wTap || []).length, eyeW = (T.wEye || []).length;
+        let wh;
+        if (!T.audio) wh = muted('لم يُحلَّل الصوت — لا تُقاس الصفّارة');
+        else {
+            const W = L.wh;
+            wh = `<span class="block">لمستَ <b class="tabular-nums">${taps}</b> · التقطت العين <b class="tabular-nums">${eyeW}</b> · تطابقت <b class="tabular-nums">${W ? W.tp : E().matchTimes(T.wTap, T.wEye)}</b> (خلال ${X.TOL} ثوانٍ)</span>`
+                + (W && W.tap ? `<span class="block text-xs text-slate-600 mt-0.5">التقطت ${Math.round(100 * W.tp / W.tap)}% من صفّاراتك${W.eye ? '، و' + Math.round(100 * W.tp / W.eye) + '% ممّا عدّته صفّارةً كان صفّارة' : ''}</span>` : '')
+                + (taps ? `<label class="flex items-center gap-2 text-xs text-slate-700 mt-1"><input type="checkbox" id="eyeTrialWOk" class="w-4 h-4"${T.wOk !== false ? ' checked' : ''}> لمستُ كلّ صفّارةٍ سمعتها (أزِل العلامة إن فاتك بعضها فلا تُقاس)</label>`
+                    : `<label class="flex items-center gap-2 text-xs text-slate-700 mt-1"><input type="checkbox" id="eyeTrialWNone" class="w-4 h-4"${T.wNone ? ' checked' : ''}> لم تُستعمل الصفّارة في هذه الحصة${eyeW ? ' — فما التقطته العين إنذارٌ خاطئ' : ''}</label>`);
+        }
+        const fr = T.ms
+            ? `<span class="block">الوسيط <b class="tabular-nums">${T.ms[0]}</b> م.ث · أبطأ 10% <span class="tabular-nums">${T.ms[1]}</span> م.ث ${mark(T.ms[0] <= X.FRAME_MS, T.ms[0] <= X.FRAME_MS ? 'ضمن الحدّ' : 'فوق الحدّ')}</span>
+               <span class="block text-xs text-slate-500 mt-0.5">${esc(ENGINE_NAME[T.det] || T.det || '')} على ${esc(T.dev || '')} · <span class="tabular-nums">${T.ms[2]}</span> لقطة${T.slow ? ' · أُطفئ الكشف لبطء الجهاز' : ''}</span>`
+            : muted(data.src === 'none' ? 'بلا كاميرا' : T.slow ? 'أُطفئ الكشف لبطء الجهاز' : 'لم يعمل كشف الطلبة');
+        return `<div id="eyeTrialCard" class="bg-white rounded-2xl border border-slate-200 border-r-4 p-5" style="border-right-color:#0f4c81">
+            <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">التجربة الميدانيّة — قياس هذه الحصة</h2>
+                <span class="text-xs text-slate-500">يدخل في «البوابة الأولى» بعد حفظ التقرير</span></div>
+            <dl class="text-sm mt-2">${row('عدد الطلبة', cnt)}${row('الصفّارة', wh)}${row('زمن الكشف', fr)}</dl></div>`;
+    }
+    function bindTrialCard() {
+        const d = S.result;
+        if (!d || !d.trial) return;
+        $('eyeTrialN') && $('eyeTrialN').addEventListener('change', e => {
+            const raw = String(e.target.value || '').trim(), v = Math.round(Number(raw));
+            if (raw && !(v >= 1 && v <= 80)) return;
+            d.trial.supN = raw ? v : null;
+            // العدد الفعليّ هو عدد الطلبة للاقتراح أيضاً (كتصحيح «عدد الطلبة»)
+            if (raw && d.M && d.M.people) d.M.people.classSize = v;
+            resuggest();
+        });
+        $('eyeTrialWOk') && $('eyeTrialWOk').addEventListener('change', e => { d.trial.wOk = e.target.checked; save(d); renderResult(d); });
+        $('eyeTrialWNone') && $('eyeTrialWNone').addEventListener('change', e => { d.trial.wNone = e.target.checked; save(d); renderResult(d); });
+    }
+    // لوحة «التجربة الميدانيّة» — البوابة الأولى ومرحلة كلّ بند، من التقارير المحفوظة في وضع التجربة
+    const TRIAL_ST = { pass: ['اجتاز', 'fa-circle-check', 'text-green-800'], fail: ['لم يجتز بعد', 'fa-circle-xmark', 'text-red-800'], wait: ['يحتاج حصصاً', 'fa-hourglass-half', 'text-slate-600'] };
+    const LEVEL_NAME = { M1: 'أعمى', M2: 'ظاهر', M3: 'محدَّد' };
+    const SRC_NAME = { camera: 'كاميرا الجهاز', phone: 'كاميرا الهاتف', file: 'مقطع', none: 'بلا كاميرا', taps: 'لمسات' };
+    function renderTrial() {
+        const box = $('eyeTrialBox');
+        if (!box) return;
+        const R = E().trialReport(trialRows()), X = E().TRIAL;
+        S.levels = {};
+        R.items.forEach(it => { S.levels[it.id] = it.level; });
+        box.classList.toggle('hidden', !R.n);
+        if (!R.n) { box.innerHTML = ''; return; }
+        const st = s => `<span class="inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap ${TRIAL_ST[s][2]}"><i class="fa-solid ${TRIAL_ST[s][1]}" aria-hidden="true"></i>${TRIAL_ST[s][0]}</span>`;
+        const W = R.whistle;
+        const crit = [
+            ['زمن الكشف للّقطة', R.frame.value != null ? R.frame.value + ' م.ث' : '—', 'الوسيط ' + X.FRAME_MS + ' م.ث على الأكثر', R.frame],
+            ['خطأ عدّ الطلبة', R.count.value != null ? R.count.value + '%' : '—', 'المتوسّط ' + X.COUNT_ERR + '% على الأكثر', R.count],
+            ['الصفّارة', W.recall != null ? 'التقاط ' + W.recall + '% · صحّة ' + (W.precision != null ? W.precision + '%' : '—') : '—',
+                X.WHISTLE + '% على الأقلّ لكلٍّ منهما، من ' + X.MIN_TAPS + ' صفّارة فأكثر' + (W.tap ? ' (لمستَ ' + W.tap + ')' : ''), W]
+        ];
+        const gate = { pass: ['اجتازت العين البوابة الأولى — تنتقل إلى المرحلة الثانية (فهم الحصة).', 'border-green-200 bg-green-50 text-green-900'],
+                       fail: ['لم تجتز العين البوابة الأولى بعد — المعيار الذي لم يجتز يُضبط من أرقام حصصك، لا من تقدير.', 'border-red-200 bg-red-50 text-red-900'],
+                       wait: ['البوابة الأولى تحتاج ' + X.LESSONS + ' حصص على الأقلّ لكلّ معيار.', 'border-slate-200 bg-slate-50 text-slate-800'] }[R.gate];
+        const recent = R.lessons.slice().reverse().slice(0, 12);
+        const lean = b => (b >= X.BIAS ? 'العين أكرم' : b <= -X.BIAS ? 'العين أشدّ' : 'متوازنة');
+        box.innerHTML = `<div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">التجربة الميدانيّة — البوابة الأولى</h2>
+                <span class="text-xs text-slate-500">من ${E().count(R.n, 'حصّةٍ واحدة', 'حصّتين', 'حصص', 'حصّة')} محفوظة في وضع التجربة</span></div>
+            <p class="mt-3 text-sm leading-6 rounded-xl border px-3 py-2 ${gate[1]}">${esc(gate[0])}</p>
+            <ul class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">${crit.map(c => `<li class="rounded-xl border border-slate-200 p-3 min-w-0">
+                    <div class="flex items-center justify-between gap-2"><b class="text-sm text-slate-900">${esc(c[0])}</b>${st(c[3].status)}</div>
+                    <div class="text-xl font-bold tabular-nums text-slate-900 mt-1">${esc(c[1])}</div>
+                    <div class="text-xs text-slate-600 leading-5 mt-1">الحدّ: ${esc(c[2])} · قِيس في ${E().count(c[3].lessons, 'حصّةٍ واحدة', 'حصّتين', 'حصص', 'حصّة').replace(/^\((\d+)\) /, '$1 ')}${c[3].lessons < X.LESSONS ? ' من ' + X.LESSONS : ''}</div></li>`).join('')}</ul>
+            ${R.items.length ? `<h3 class="font-bold text-slate-900 mt-5">اتّفاق العين مع تقييمك الأعمى</h3>
+            <p class="text-xs text-slate-500 mt-1 leading-5">ما قيّمتَه قبل أن ترى اقتراح العين. يصير الاقتراح «ظاهراً» بعد ${X.M2_N} حصّة للبند وكابا موزونٍ ${X.M2_K} فأكثر وميلٍ لا يتجاوز ${X.BIAS} درجة،
+                و«محدَّداً للتطبيق» بعد ${X.M3_N} حصّة وكابا ${X.M3_K}.</p>
+            <div class="overflow-x-auto mt-2"><table class="w-full text-sm">
+                <thead><tr class="text-slate-500 text-xs"><th class="text-right font-medium py-2">البند</th><th class="font-medium">حصص</th><th class="font-medium">تطابق</th><th class="font-medium">في حدود درجة</th><th class="font-medium">كابا</th><th class="font-medium">الميل</th><th class="font-medium">الاقتراح</th></tr></thead>
+                <tbody>${R.items.map(it => `<tr class="border-t border-slate-100"><td class="py-2 text-slate-800">${esc(title(it.id))}</td>
+                    <td class="text-center tabular-nums whitespace-nowrap">${it.n}${it.level === 'M1' ? '<span class="text-xs text-slate-400"> / ' + X.M2_N + '</span>' : ''}</td>
+                    <td class="text-center tabular-nums">${it.exact}%</td><td class="text-center tabular-nums">${it.near}%</td>
+                    <td class="text-center tabular-nums">${it.kappa != null ? '<bdi dir="ltr">' + it.kappa + '</bdi>' : '—'}</td><td class="text-center text-xs text-slate-600">${esc(lean(it.bias))}</td>
+                    <td class="text-center text-xs font-semibold ${it.level === 'M1' ? 'text-slate-600' : 'text-green-800'}">${esc(LEVEL_NAME[it.level])}</td></tr>`).join('')}</tbody></table></div>` : ''}
+            <details class="mt-4 text-sm"><summary class="cursor-pointer text-slate-700 font-semibold">الحصص (${R.n})</summary>
+                <div class="overflow-x-auto mt-2"><table class="w-full text-xs">
+                    <thead><tr class="text-slate-500"><th class="text-right font-medium py-1.5">التاريخ</th><th class="font-medium">المصدر</th><th class="font-medium">الكشف</th><th class="font-medium">العدد: العين / الفعليّ</th><th class="font-medium">الصفّارة: تطابق / لمساتك / العين</th><th class="font-medium">تقييمٌ أعمى</th></tr></thead>
+                    <tbody>${recent.map(x => `<tr class="border-t border-slate-100"><td class="py-1.5 whitespace-nowrap"><bdi>${esc(x.date)}</bdi></td><td class="text-center">${esc(SRC_NAME[x.src] || x.src)}</td>
+                        <td class="text-center tabular-nums whitespace-nowrap">${x.ms ? x.ms.med + ' م.ث' : '—'}</td>
+                        <td class="text-center tabular-nums">${x.cnt ? x.cnt.eye + ' / ' + x.cnt.sup : '—'}</td>
+                        <td class="text-center tabular-nums">${x.wh ? x.wh.tp + ' / ' + x.wh.tap + ' / ' + x.wh.eye : '—'}</td>
+                        <td class="text-center tabular-nums">${x.pairs.length || '—'}</td></tr>`).join('')}</tbody></table></div>
+                ${R.n > recent.length ? `<p class="text-xs text-slate-500 mt-1">آخر ${recent.length} — والملفّ فيها كلّها.</p>` : ''}</details>
+            <div class="flex flex-wrap items-center gap-2 mt-4">
+                <button type="button" id="eyeTrialCsv" class="svf-btn svf-btn-secondary svf-btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i>تنزيل الأرقام (CSV)</button>
+                <span class="text-xs text-slate-500">أرقامٌ وتواريخ فقط — بلا اسم معلّمٍ ولا مدرسة ولا كلام.</span></div>`;
+        $('eyeTrialCsv').addEventListener('click', trialDownload);
+    }
+    function trialDownload() {
+        const csv = '﻿' + E().trialCsv(E().trialReport(trialRows()));
+        const d = new Date(), p = n => (n < 10 ? '0' : '') + n;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        a.download = 'eye-field-trial-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
     }
 
     // ── اتّفاق العين معك (من التقارير المحفوظة) ──
@@ -4028,6 +4330,8 @@ function tagRowHtml(k) {
         let d;
         try { d = JSON.parse(ta.value); } catch (e) { return; }
         if (!d || !Array.isArray(d.sugg) || !d.sugg.length) return;
+        // التجربة الميدانيّة: ما قيّمه المشرف قبل الكشف يُحفظ زوجاً مع مقترح العين ولو لم يكشفه (ولا يُنهى الوضع الأعمى بلا تقييم)
+        if (blindOpen(d) && Object.keys(d.blind.sup || {}).length) blindRecord(d);
         d.final = {};
         d.sugg.forEach(s => {
             const el = document.getElementById('score-' + s.id);
@@ -4038,7 +4342,7 @@ function tagRowHtml(k) {
         const wasMine = ta.value === S.written;
         ta.value = txt;
         if (wasMine) { S.written = txt; S.result = d; }
-        setTimeout(() => { renderAgreement(); renderPatterns(); }, 0);
+        setTimeout(() => { renderAgreement(); renderTrial(); renderPatterns(); }, 0);
     };
 
     // يُستدعى عند فتح التبويب (toggleSupervisoryView)
@@ -4047,6 +4351,7 @@ function tagRowHtml(k) {
         if (!S.bound) build();
         setTimeout(renderResume, 0);
         renderAgreement();
+        renderTrial();
         renderPatterns();
         decorate();
         drawView();

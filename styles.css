@@ -86,6 +86,8 @@
         #eyeBody:not([data-eye-simple]) .eye-simple-only { display: none !important; }
         /* الأدوات المتقدّمة (2026-10-30): ما ثقته ضعيفةٌ من كاميرا واحدة مخفيٌّ حتّى يُفعَّل من الإعدادات — السمة يضعها applyAdv() في eye.js */
         #eyeBody:not([data-eye-pro]) .eye-advtool { display: none !important; }
+        /* شريط الرصد على الجوّال (2026-10-31): زرّ «صفّارة» للتجربة الميدانيّة يزاحم «إيقاف» — أزرارٌ أضيق وسطرٌ واحدٌ بلا فيض */
+        @media (max-width: 639px) { #eyeLiveBar { gap: 6px; } #eyeLiveBar .svf-btn { padding-left: 9px; padding-right: 9px; gap: 5px; } }
         /* بعد الإيقاف (أو عند فتح نتيجةٍ محفوظة): النتيجة أوّلاً، ثمّ أدوات الرصد لتصحيح العدّادات، وبطاقة البدء مخفيّة حتّى «رصد جديد».
            السمة data-eye-done يضعها layout() (2026-10-29) */
         #eyeBody[data-eye-done] { display: flex; flex-direction: column; gap: 1.25rem; }
@@ -94,6 +96,6 @@
         #eyeBody[data-eye-done] > #eyeResult { order: 1; }
         #eyeBody[data-eye-done] > #eyeWork { order: 2; }
         #eyeBody[data-eye-done] > #eyeFocus, #eyeBody[data-eye-done] > #eyeGuide { order: 3; }
-        #eyeBody[data-eye-done] > #eyeAgree, #eyeBody[data-eye-done] > #eyePatterns { order: 4; }
+        #eyeBody[data-eye-done] > #eyeAgree, #eyeBody[data-eye-done] > #eyeTrialBox, #eyeBody[data-eye-done] > #eyePatterns { order: 4; }
         #eyeBody:not([data-eye-done]) .eye-done-only { display: none !important; }
         html[data-eye-running] #supervisoryVisitsApp header { position: static !important; }
