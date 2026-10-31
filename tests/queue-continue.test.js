@@ -275,5 +275,36 @@ function site() {
     check('nav: الزيارات المدرسيّة باسم المدرسة', S.length === 1 && S[0].name === 'مدرسة النور');
 }
 
+/* ── ٧) إزالة الوسم ← «(مرفق)» في التقرير الشهريّ ويُرفق ملفّها (طلب المشرف 2026-10-31) ── */
+{
+    const C = require(path.join(ROOT, 'js/monthly-core.js'));
+    const iso = d => `2026-10-${String(d).padStart(2, '0')}`, pd = d => `${String(d).padStart(2, '0')}/10/2026`;
+    const supReports = [
+        { key: 'supervision_v6_visit_1', teacherName: 'أحمد سعيد البلوشي', visitDate: iso(5), school: 'مدرسة الرواد' },
+        { key: 'supervision_v6_visit_2', teacherName: 'مريم مصطفى موسى', visitDate: iso(12), school: 'مدرسة النور' }
+    ];
+    const sentV = ['أحمد سعيد البلوشي|' + pd(5), 'مريم مصطفى موسى|' + pd(12)];
+    const sentR = ['supervision_v6_visit_1', 'supervision_v6_visit_2'];
+    // ما أعاده دمج سكربتٍ أقدم: المعرّفات ما زالت في القوائم، والعلامة تستثنيها
+    const marks = [{ k: 'مريم مصطفى موسى|' + pd(12), l: 'v', at: 1 }, { k: 'supervision_v6_visit_2', l: 'r', at: 1 }];
+    const build = (v, r) => C.buildRows({ year: 2026, month0: 9, plan: {}, events: {}, schoolReports: [], supReports,
+        sentSchool: new Set(), sentSup: new Set(v), sentReports: new Set(r), overrides: {} });
+    const before = build(sentV, sentR);
+    const after = build(C.dropUnmarked(sentV, marks, 'v'), C.dropUnmarked(sentR, marks, 'r'));
+    const sv = (rows, d) => rows.find(x => x.day === d).supervisory;
+    check('monthly: قبل الإزالة بلا «مرفق»', !/مرفق/.test(sv(before, 12)) && C.attachments(before, supReports).length === 0, sv(before, 12));
+    check('monthly: بعد إزالة الوسم «(1) أ. مريم (مرفق)»', /\(1\) أ\. مريم \(مرفق\)/.test(sv(after, 12)), sv(after, 12));
+    check('monthly: وملفّها في «الزيارات الإشرافية المرفقة»، والأخرى لا',
+          C.attachments(after, supReports).map(a => a.report.key).join() === 'supervision_v6_visit_2' && !/مرفق/.test(sv(after, 5)));
+    check('monthly: المجموع يعدّها مرفقة', C.totals(after).supAttached === 1 && C.totals(after).supPortal === 1);
+    check('monthly: العلامة لكلّ قائمةٍ وحدها', C.dropUnmarked(['x|1'], [{ k: 'x|1', l: 's' }], 'v').length === 1
+          && C.dropUnmarked(['x|1'], [{ k: 'x|1', l: 's' }], 's').length === 0 && C.dropUnmarked(['a'], null, 'v').length === 1);
+    const M = read('js/monthly.js');
+    check('monthly: الصفحة تقرأ القوائم الثلاث بلا ما أُزيل وسمه',
+          (M.match(/C\.dropUnmarked\(/g) || []).length === 3 && /readJSON\('svf_sent_unmarked', \[\]\)/.test(M));
+    check('monthly: تتحدّث حين يُزال الوسم في تبويبٍ آخر أو عند العودة إليها',
+          /addEventListener\('storage', e => \{ if \(!e\.key \|\| \/\^svf_sent_\/\.test\(e\.key\)\) refreshSent\(\); \}\)/.test(M) && /addEventListener\('focus'/.test(M));
+}
+
 console.log(failures ? '\n' + failures + ' FAILED' : '\nALL PASS');
 process.exit(failures ? 1 : 0);

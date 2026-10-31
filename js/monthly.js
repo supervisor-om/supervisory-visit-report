@@ -105,10 +105,12 @@
             return { has: k => keys.has(key(k)), size: keys.size };
         };
         const plain = v => String(v || '').replace(/\s+/g, ' ').trim();
-        state.sentSchool = tolerant(readJSON('svf_sent_school_visits', []), ID && ID.normalize ? ID.normalize : plain);
-        state.sentSup = tolerant(readJSON('svf_sent_visits', []), ID && ID.normName ? ID.normName : plain);
+        // ما أزال المشرف وسمه «حُفظت» من بطاقته لا يُعدّ محفوظاً — فيُكتب «(مرفق)» ويُرفق ملفّه (C.dropUnmarked)
+        const unmarked = readJSON('svf_sent_unmarked', []);
+        state.sentSchool = tolerant(C.dropUnmarked(readJSON('svf_sent_school_visits', []), unmarked, 's'), ID && ID.normalize ? ID.normalize : plain);
+        state.sentSup = tolerant(C.dropUnmarked(readJSON('svf_sent_visits', []), unmarked, 'v'), ID && ID.normName ? ID.normName : plain);
         // مفاتيح التقارير المحفوظة في البوّابة — تميّز زيارتين للمعلّم في اليوم نفسه
-        state.sentReports = new Set([].concat(readJSON('svf_sent_reports', []) || []).filter(k => typeof k === 'string'));
+        state.sentReports = new Set(C.dropUnmarked([].concat(readJSON('svf_sent_reports', []) || []), unmarked, 'r').filter(k => typeof k === 'string'));
     }
 
     // ───────────────────────────── الخطة المعتمدة (قراءة)
@@ -405,6 +407,15 @@
         el('prefix').addEventListener('change', e => { try { localStorage.setItem(PREFIX_KEY(me.id), e.target.value.trim()); } catch (x) {} });
         el('reset').addEventListener('click', () => { state.overrides = {}; state.reasons = null; recompute(); toast('أُعيدت التعبئة من البيانات'); });
         el('reasons').addEventListener('input', e => { state.reasons = e.target.value; saveDraft(); });
+        // إزالة وسم «حُفظت» أو تأكيده في تبويب الأرشيف تظهر هنا فوراً («(مرفق)» والملفّ في الحزمة) بلا إعادة إعداد التقرير:
+        // حدث storage يصل من التبويب الآخر، والتركيز للعودة من البوّابة (سكربت الرفع يضخّ ما حُفظ عند العودة إلى الموقع)
+        const refreshSent = () => {
+            if (el('report').hidden || !state.year) return;
+            loadLocal(state.year, state.month0, state.me && state.me.name);
+            recompute();
+        };
+        window.addEventListener('storage', e => { if (!e.key || /^svf_sent_/.test(e.key)) refreshSent(); });
+        window.addEventListener('focus', () => setTimeout(refreshSent, 600));
         el('grid').addEventListener('change', e => {
             const t = e.target;
             if (t.dataset && t.dataset.day) setOverride(+t.dataset.day, t.dataset.field, t.value);

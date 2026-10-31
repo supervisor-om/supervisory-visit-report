@@ -230,10 +230,18 @@
 
     const safeFileName = s => String(s).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
 
+    // وسم «حُفظت» الذي أزاله المشرف من بطاقة الزيارة (2026-10-31): الزيارة تعود «(مرفق)» ويُرفق ملفّها.
+    // الأرشيف يحذف المعرّف من قائمته ويكتب علامة إزالة (svf_sent_unmarked: [{k, l: v|r|s}]) — وسكربتٌ أقدم من 17.5
+    // قد يعيد المعرّف بالدمج قبل أن تُطبَّق العلامة، فالقائمة تُقرأ هنا بلا ما عليه علامة (l: v المعلّم|التاريخ، r مفتاح التقرير، s المدرسة)
+    function dropUnmarked(list, marks, l) {
+        const gone = new Set((Array.isArray(marks) ? marks : []).filter(m => m && m.l === l && typeof m.k === 'string').map(m => m.k));
+        return (Array.isArray(list) ? list : []).filter(k => !gone.has(k));
+    }
+
     const api = {
         DAY_NAMES, MONTH_NAMES, OFFICE, DASH, METHOD_CLASSROOM, METHOD_SCHOOL,
         workingDays, isoDate, portalDate, isOff, shortSchool, firstName,
-        buildRows, countSupervisory, totals, paginate, attachments, safeFileName
+        buildRows, countSupervisory, totals, paginate, attachments, safeFileName, dropUnmarked
     };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.MonthlyCore = api;
