@@ -518,10 +518,10 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: داخل الجهاز إن أتاحه المتصفّح (processLocally)، وإلّا خدمته — ويُذكر ذلك', /Ctor\.available\(\{ langs: \[sp\.lang\], processLocally: true \}\)/.test(UI) && /rec\.processLocally = true/.test(UI)
           && /حُوِّل إلى نصٍّ داخل الجهاز/.test(UI) && /عبر خدمة Google/.test(UI));
     check('wiring: مسار ميكروفون المعلّم نفسه إلى التعرّف حيث يقبله المتصفّح', /rec\.start\(sp\.track\)/.test(UI));
-    check('wiring: يُعاد التشغيل بعد الصمت ويتوقّف مع الرصد', /rec\.onend = \(\) => \{\s*\n\s*if \(!sp\.on \|\| !S\.running/.test(UI) && /function release\(\) \{\s*\n\s*speechStop\(\);/.test(UI));
+    check('wiring: يُعاد التشغيل بعد الصمت ويتوقّف مع الرصد', /rec\.onend = \(\) => \{[\s\S]{0,500}?\n\s*if \(!sp\.on \|\| !S\.running/.test(UI) && /function release\(\) \{\s*\n\s*speechStop\(\);/.test(UI));
     check('wiring: لا يُحفظ صوت — النصّ وحده مع التقرير، ويُحذف بزرّ', !/MediaRecorder|toDataURL/.test(UI) && /sp: sp \? \{ mode: sp\.mode, lang: sp\.lang, consent: !!S\.speechConsent, seg:/.test(UI)
           && /id="eyeSpeechPurge"/.test(UI) && /stripExamples\(S\.result\.M\.speech\)/.test(UI));
-    check('wiring: النصّ مهروبٌ في النتيجة والبثّ الحيّ نصٌّ لا HTML', /«\$\{esc\(x\)\}»/.test(UI) && /tx\.appendChild\(document\.createTextNode\('«' \+ last\.x \+ '»'\)\)/.test(UI));
+    check('wiring: النصّ مهروبٌ في النتيجة والبثّ الحيّ نصٌّ لا HTML', /«\$\{esc\(x\)\}»/.test(UI) && /p\.appendChild\(document\.createTextNode\(s\.x\)\)/.test(UI));
     check('wiring: البطاقة أرقام الكلام وأمثلة «ما يُعزَّز» وحدها — لا النصّ ولا عبارات المراجعة', /كلام المعلّم/.test(RP) && !/harsh|\.ex\b|specEx|hiEx|\.sp\b|\.seg\b/.test(RP));
     check('wiring: الوحدة محمّلةٌ قبل الشاشة وفي عامل الخدمة', /eye-core\.js[\s\S]{0,80}eye-speech\.js[\s\S]*eye\.js/.test(H) && SW.includes("'./js/eye-speech.js'"));
 }
@@ -1038,7 +1038,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('cues: كلامٌ عاديّ لا يُعلن عنصراً', c('ارفع ركبتك فوق') === null && c('احسنت يا بطل') === null);
 
     const UI = read('js/eye.js');
-    check('wiring: خمسة بدائل وأنسبها، وسلسلة اللغات من الوحدة', /rec\.maxAlternatives = 5/.test(UI) && /SX\(\)\.pickAlt\(alts, info\(\)\.topic\)/.test(UI)
+    check('wiring: خمسة بدائل وأنسبها، وسلسلة اللغات من الوحدة', /rec\.maxAlternatives = 5/.test(UI) && /SX\(\)\.pickAltIndex\(alts, info\(\)\.topic\)/.test(UI)
           && /const LANGS = \(\) => \(SX\(\) && SX\(\)\.LANGS\)/.test(UI) && /sp\.li < LANGS\(\)\.length - 1/.test(UI));
     check('wiring: إعلان العنصر اقتراحٌ يُلمس ويُسجَّل من لحظة قوله', /function speechCue\(x\)/.test(UI) && /setCtx\(c\.k, c\.t\)/.test(UI) && /function setCtx\(k, at\)/.test(UI)
           && /Math\.max\(lastT, Math\.min\(Math\.round\(now\(\)\), Math\.round\(at\)\)\)/.test(UI));
@@ -1195,13 +1195,14 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('quick: الأكثر لمساً يتقدّم، والباقي من الافتراض بترتيبه', used.length === 6 && used[0] === 'games' && used[1] === 'safe' && used[2] === 'demo' && used[3] === 'fbInd' && !used.includes('hazard'));
     check('quick: كلّ وسمٍ فيها من وسوم العين', pick({ x: 99 }).every(k => E.TAG[k]));
     check('simple: الوضع أثناء الرصد وحده، ويُبدَّل بزرٍّ في شريط الرصد ويُذكر', /const simple = S\.running && S\.simple !== false;/.test(UI) && /\$\('eyeBody'\)\.toggleAttribute\('data-eye-simple', simple\);/.test(UI)
-          && /id="eyeMore"/.test(UI) && /S\.simple = !S\.simple; savePrefs\(\); layout\(\);/.test(UI) && /const p = \{ simple: S\.simple !== false, freq: S\.tagFreq \|\| \{\} \};/.test(UI));
+          && /id="eyeMore"/.test(UI) && /S\.simple = !S\.simple; savePrefs\(\); layout\(\);/.test(UI) && /const p = \{ simple: S\.simple !== false, freq: S\.tagFreq \|\| \{\}, spText: S\.spText !== false \};/.test(UI));
     check('simple: القاعدتان في styles.css', /#eyeBody\[data-eye-simple\] \.eye-adv \{ display: none !important; \}/.test(CSS) && /#eyeBody:not\(\[data-eye-simple\]\) \.eye-simple-only \{ display: none !important; \}/.test(CSS));
     // ما يُخفى: المتابعة والمجرى والوسوم والعيّنة واللحظات والدليل والأهداف — وما يبقى: العناصر، والعلامة والإيقاف، وأدوات الإنقاذ
-    const adv = ['eyeMonitor', 'eyeEvLive', 'eyeFocus', 'eyeGuide', 'eyeDotKey', 'eyeTeacherBtn', 'eyeSpeechText', 'eyeSpeechCounts'];
+    // (2026-11-01) نصّ كلام المعلّم عاد إلى الوضع المبسّط بطلب المشرف — والعدّادات وحدها متقدّمة
+    const adv = ['eyeMonitor', 'eyeEvLive', 'eyeFocus', 'eyeGuide', 'eyeDotKey', 'eyeTeacherBtn', 'eyeSpeechCounts'];
     check('simple: المتقدّم موسومٌ eye-adv', adv.every(id => new RegExp('id="' + id + '" class="eye-adv ').test(UI)) && /class="eye-adv bg-white rounded-2xl border border-slate-200 p-4">\s*<div[^>]*>\s*<b class="text-sm text-slate-900">مجرى الحصة/.test(UI)
           && /class="eye-adv grid grid-cols-1 lg:grid-cols-2 gap-5">\s*<section[^>]*>\s*<div[^>]*>\s*<h2 class="font-bold text-slate-900">ما لا تراه الكاميرا/.test(UI));
-    const keep = ['eyeMark', 'eyeStop', 'eyeRoiBtn', 'eyeCamRestart', 'eyeRelink', 'eyeSpeechRetry', 'eyeSpeechCue', 'eyeSpeechQuiet', 'eyeLiveBar'];
+    const keep = ['eyeMark', 'eyeStop', 'eyeRoiBtn', 'eyeCamRestart', 'eyeRelink', 'eyeSpeechRetry', 'eyeSpeechCue', 'eyeSpeechQuiet', 'eyeLiveBar', 'eyeSpeechText', 'eyeSpeechToggle'];
     check('simple: الأساسيّ وأدوات الإنقاذ لا تُخفى', keep.every(id => { const m = UI.match(new RegExp('id="' + id + '" class="([^"]*)"')); return m && !/eye-adv/.test(m[1]); }) && !/eye-adv[^"]*" data-ctx|class="eye-adv eye-ctx/.test(UI));
     check('simple: أهمّ تنبيهٍ يظهر في اللوحة المبسّطة، بالتفويض للمسات', /const qa = \$\('eyeQuickAlert'\), top = L\.alerts\[0\];/.test(UI) && /qa\.textContent = top\.text;/.test(UI)
           && /\$\('eyeQuickTags'\)\.addEventListener\('click'/.test(UI) && /if \(S\.running\) \{ S\.tagFreq\[k\] = \(S\.tagFreq\[k\] \|\| 0\) \+ 1; savePrefs\(\); \}/.test(UI));
@@ -1737,6 +1738,99 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: لوحة «التجربة الميدانيّة» بعد «اتّفاق العين معك» وتُعرض مع النتيجة، والملفّ بلا أسماء', /<section id="eyeTrialBox" class="eye-adv hidden/.test(UI) && /const box = \$\('eyeTrialBox'\);/.test(UI) && /renderAgreement\(\); renderTrial\(\); renderPatterns\(\);/.test(UI)
           && /#eyeBody\[data-eye-done\] > #eyeTrialBox,/.test(CSS) && /E\(\)\.trialCsv\(E\(\)\.trialReport\(trialRows\(\)\)\)/.test(UI) && !/teacherName/.test(UI.slice(UI.indexOf('function trialRows'), UI.indexOf('function itemLevels'))));
     check('wiring: لا وسيط ولا صورة في التجربة — لا toDataURL ولا رفع', !/toDataURL|MediaRecorder|toBlob|fetch\(/.test(UI.slice(UI.indexOf('// ── التجربة الميدانيّة (2026-10-31)'), UI.indexOf('// ── اتّفاق العين معك'))));
+}
+
+/* ── ٤١) كلام المعلّم لحظةً بلحظة، ودقّة العربيّة (2026-11-01) ── */
+{
+    const SPm = require(path.join(ROOT, 'js/eye-speech.js'));
+    // نصٌّ بغير العربيّة
+    check('speech41: الإنجليزيّة المشوّهة ليست كلام المعلّم، وكلمةٌ إنجليزيّةٌ وسط العربيّة تبقى', SPm.foreign('hello my friend') && SPm.foreign('Ahmed come here please')
+          && !SPm.foreign('أحسنت OK يا أحمد') && !SPm.foreign('pass يا أحمد للزميل') && !SPm.foreign('') && !SPm.foreign('ممتاز'));
+    // أنسب البدائل بموضعه، وبديلٌ بغير العربيّة لا يُختار
+    check('speech41: pickAltIndex — العربيّ قبل اللاتينيّ، والأكثر مطابقةً لألفاظ الملعب', SPm.pickAltIndex(['hello there', 'أحسنت يا بطل'], '') === 1
+          && SPm.pickAltIndex([{ transcript: 'ممتاز' }, { transcript: 'ممتاز ارفع الركبة' }], '') === 1 && SPm.pickAltIndex(['جملة', 'جملة أخرى'], '') === 0
+          && SPm.pickAlt(['hello', 'السلام عليكم'], '') === 'السلام عليكم' && SPm.pickAltIndex([], '') === -1);
+    // ألفاظ الملعب الإنجليزيّة واللهجة العُمانيّة
+    const fx = x => SPm.fix(SPm.norm(x));
+    check('speech41: «باص/شوت/دريبل» ← مصطلحاتها للتحليل وحده', fx('سو باص لزميلك') === 'سو تمريره لزميلك' && fx('الشوت قوي') === 'التصويب قوي' && fx('ويل دن يا أحمد') === 'احسنت يا احمد'
+          && fx('دربله زينة') === 'محاوره زينه' && fx('الحافلة') === 'الحافله');
+    const A1 = SPm.analyze([{ t: 5, x: 'هكي زين يا أحمد' }, { t: 20, x: 'مب هكي ارفع ركبتك' }, { t: 30, x: 'ويش الفرق بين التمريرتين' }, { t: 40, x: 'دير بالك من زميلك' },
+                            { t: 50, x: 'ويل دن الباص كان دقيق' }, { t: 60, x: 'عرفتوا كيف' }], { seconds: 120 });
+    check('speech41: العُمانيّة — «هكي زين» تعزيز و«مب هكي» تصحيح و«ويش الفرق» سؤالٌ للتفكير و«دير بالك» سلامة و«عرفتوا» تحقّق',
+          A1.praise.n === 2 && A1.corr.n === 1 && A1.corr.spec === 1 && A1.q.hi >= 1 && A1.safe.n === 1 && A1.check.n >= 1, JSON.stringify([A1.praise.n, A1.corr.n, A1.q.n, A1.q.hi, A1.safe.n, A1.check.n]));
+    check('speech41: «ويل دن الباص» تعزيزٌ محدّد (الباص ← التمريرة)', A1.praise.spec >= 1);
+    // ترجيح ألفاظ الدرس
+    const PH = SPm.phrases('التمريرة الصدرية في كرة السلة', ['مد الذراعين', 'مد الذراعين']);
+    check('speech41: phrases — العنوان ومصطلحاته كما كُتبت أعلاها، ثمّ الدليل، ثمّ ألفاظ الملعب، بلا تكرار وحتّى ستّين',
+          PH[0].phrase === 'التمريرة الصدرية في كرة السلة' && PH.some(p => p.phrase === 'التمريرة' && p.boost === 4) && !PH.some(p => p.phrase === 'تمريره')
+          && PH.filter(p => p.phrase === 'مد الذراعين').length === 1 && PH.some(p => p.phrase === 'الإحماء' && p.boost === 2) && PH.length <= 60 && PH.every(p => p.boost >= 0 && p.boost <= 10));
+    // التدقيق بمساعد Claude: الدفعات، والطلب، والردّ وحرّاسه
+    const segs = Array.from({ length: 30 }, (_, i) => [i * 10, 'عبارة رقم ' + i + ' ' + 'كلام '.repeat(30)]);
+    const CH = SPm.fixChunks(segs);
+    check('speech41: الدفعات — كلّها دون الحدّ وبمواضعها، والفارغ لا يُرسَل', CH.length > 1 && CH.every(c => c.reduce((n, l) => n + l.x.length, 0) <= SPm.FIX_CHUNK)
+          && CH.flat().map(l => l.i).join() === segs.map((_, i) => i).join() && SPm.fixChunks([[1, ''], [2, 'نص']])[0][0].i === 1);
+    const lines = [{ i: 0, t: 1, x: 'يلا نبدا الاحماء' }, { i: 1, t: 9, x: 'جدام جدام وجفو' }, { i: 4, t: 30, x: 'جاهزين' }];
+    const RQ = SPm.fixRequest(lines, { topic: 'التمريرة الصدرية', grade: 'الصف 7', extra: ['مد الذراعين'] });
+    check('speech41: الطلب — مهمّة «speech»، اللهجة كما قيلت، و«؟» بعد الأسئلة، وسطرٌ برقمه، وبلا اسم معلّمٍ ولا مدرسة',
+          RQ.task === 'speech' && /أبقِ اللهجة كما قيلت/.test(RQ.system) && /ضع «؟» بعد كلّ سؤال/.test(RQ.system) && /لا تُضف كلاماً لم يُقل/.test(RQ.system)
+          && /\n0\| يلا نبدا الاحماء\n1\| جدام جدام وجفو\n4\| جاهزين$/.test(RQ.user) && /مصطلحات الدرس: تمريره، صدريه، مد الذراعين/.test(RQ.user) && !/المعلم:|المدرسة:/.test(RQ.user));
+    const PF = SPm.parseFix('إليك النصّ:\n0| يلا نبدأ الإحماء.\n1| قدام قدام وقفوا.\n4| جاهزين؟\n7| سطرٌ لم يُطلب\n', lines);
+    check('speech41: الردّ — المصحّح والمرقَّم يُقبلان، وما لم يُطلب يُهمل', PF.fixed['0'] === 'يلا نبدأ الإحماء.' && PF.fixed['1'] === 'قدام قدام وقفوا.' && PF.fixed['4'] === 'جاهزين؟' && !('7' in PF.fixed) && !PF.rejected.length);
+    const PB = SPm.parseFix('1| اليوم سنتعلم مهارة التصويب في كرة السلة بطريقة جديدة ومختلفة\n0| يلا\n4| <b>جاهزين</b>', lines);
+    check('speech41: التأليف لا التصحيح يُرفض، والقصّ يُرفض، والوسوم تُحيَّد', PB.rejected.includes(1) && PB.rejected.includes(0) && PB.fixed['4'] === '‹b›جاهزين‹/b›' && !/</.test(JSON.stringify(PB.fixed)));
+    // السؤال يبقى بعلامته بعد التقسيم — فيُعدّ «جاهزين؟» سؤالاً بعد التدقيق
+    check('speech41: clauses — «؟» تبقى في آخر العبارة، والنقطة تقسم ولا تبقى', JSON.stringify(SPm.clauses('جاهزين؟ يلا نبدأ. ليش نثني الركبة?')) === JSON.stringify(['جاهزين؟', 'يلا نبدأ', 'ليش نثني الركبة؟'])
+          && SPm.analyze([{ t: 1, x: 'جاهزين؟' }], { seconds: 60 }).q.n === 1 && SPm.analyze([{ t: 1, x: 'جاهزين' }], { seconds: 60 }).q.n === 0
+          && SPm.analyze([{ t: 1, x: 'كيف حالكم؟' }], { seconds: 60 }).q.n === 0);
+    check('speech41: التشابه — التصحيح الصوتيّ قريب والتأليف بعيد', SPm.similar('جدام جدام وجفو', 'قدام قدام وقفوا') >= 0.45 && SPm.similar('يلا نبدا الاحماء', 'اليوم درسنا عن الوثب الطويل') < 0.45 && SPm.similar('أ', 'أ') === 1);
+
+    // الوسيط: «speech» بحدودها، والمجهول ← «draft»
+    const W2 = read('tools/claude-draft/worker.js');
+    check('speech41: الوسيط — مهمّة «speech»، والمهمّة المجهولة بحدود «draft»', /speech: \{ in: 24000, out: 4000 \}/.test(W2) && /LIMITS\[Object\.prototype\.hasOwnProperty\.call\(LIMITS, body\.task\) \? body\.task : 'draft'\]/.test(W2));
+    const mod2 = { exports: null };
+    new Function('module', W2.replace('export default', 'module.exports ='))(mod2);
+    const env2 = { ANTHROPIC_API_KEY: 'sk-test', SVF_KEY: 'k' };
+    const mk2 = body => ({ method: 'POST', headers: { get: h => ({ Origin: 'https://supervisor-mct.com', 'x-svf-key': 'k' })[h] || null }, json: async () => body });
+    PENDING.push(Promise.all(PENDING.slice()).then(async () => {      // بعد فحوص الوسيط السابقة: fetch المُحاكى واحدٌ في كلّ مرّة
+        let got = [];
+        const f0 = globalThis.fetch;
+        globalThis.fetch = async (url, opt) => { got.push(JSON.parse(opt.body).max_tokens); return { ok: true, json: async () => ({ content: [{ type: 'text', text: '0| x' }], stop_reason: 'end_turn' }) }; };
+        await mod2.exports.fetch(mk2({ system: 's', user: 'u', task: 'speech' }), env2);
+        await mod2.exports.fetch(mk2({ system: 's', user: 'u', task: 'constructor' }), env2);
+        globalThis.fetch = f0;
+        check('speech41: الوسيط — «speech» ٤٠٠٠ رمز، و«constructor» ليست مهمّة', got[0] === 4000 && got[1] === 2000, JSON.stringify(got));
+    }));
+
+    // التوصيل في الواجهة
+    const UI = read('js/eye.js');
+    check('wiring41: النصّ لحظةً بلحظة — آخر ثماني عبارات بأوقاتها، والجارية في آخرها، ولا يُمحى تصحيحٌ جارٍ', /const SP_LINES = 8;/.test(UI) && /function renderSpeechLines\(sp\)/.test(UI)
+          && /if \(!show \|\| S\.spEditing\) return;/.test(UI) && /p\.textContent = sp\.interim \+ ' …';/.test(UI) && /renderCue\(\);\s*\n\s*renderSpeechLines\(sp\);/.test(UI)
+          && !/«' \+ last\.x \+ '»/.test(UI));
+    const linesFn = UI.slice(UI.indexOf('function renderSpeechLines(sp)'), UI.indexOf('async function startCamera()'));
+    check('wiring41: النصّ يدخل الصفحة بـ textContent وحده', linesFn.length > 200 && !/innerHTML/.test(linesFn) && /createTextNode\(s\.x\)/.test(linesFn));
+    check('wiring41: إخفاؤه وإظهاره يُذكر، ولمسة العبارة تصحّحها', /\$\('eyeSpeechToggle'\)\.addEventListener\('click', \(\) => \{ S\.spText = S\.spText === false; savePrefs\(\); renderSpeechLive\(\); \}\);/.test(UI)
+          && /if \('spText' in p\) S\.spText = p\.spText !== false;/.test(UI) && /function spEditStart\(p\)/.test(UI) && /if \(!seg\.o\) seg\.o = seg\.x; seg\.x = v;/.test(UI));
+    check('wiring41: ثقة البديل المختار تُحفظ، والجارية عند انتهاء التشغيل تُحفظ، والإعادة فوريّة', /const k = SX\(\) \? SX\(\)\.pickAltIndex\(alts, info\(\)\.topic\) : 0;/.test(UI)
+          && /speechAdd\(sp, x, \{ c: a && a\.confidence \}\);/.test(UI) && /speechAdd\(sp, x, \{ p: 1 \}\);/.test(UI) && /sp\.restarts\.length > 12 \? 3000 : 40\);/.test(UI));
+    check('wiring41: بغير العربيّة لا يُحفظ، وثلاثٌ متتالية تُبدّل اللهجة', /if \(SX\(\) && SX\(\)\.foreign\(x\)\) \{ speechForeign\(sp, rec\); continue; \}/.test(UI) && /function speechForeign\(sp, rec\)/.test(UI)
+          && /sp\.li\+\+; sp\.lang = LANGS\(\)\[sp\.li\];\s*\n\s*sp\.err = 'المحوِّل كتب الكلام بغير العربيّة/.test(UI));
+    check('wiring41: رسالة «بغير العربيّة» تزول حين تكتب اللهجة الجديدة بالعربيّة، واللهجة تظهر في الحالة', /if \(sp\.err && \/بغير العربيّة\/\.test\(sp\.err\) && sp\.li\) sp\.err = '';/.test(UI) && /\(sp\.li \? ' · ' \+ sp\.lang : ''\)/.test(UI));
+    check('wiring41: ترجيح ألفاظ الدرس داخل الجهاز وحده، ورفضه يُعيد بدونه', /if \(sp\.mode === 'local' && !sp\.noPhrases && typeof root\.SpeechRecognitionPhrase === 'function' && 'phrases' in rec && SX\(\)\)/.test(UI)
+          && /else if \(k === 'phrases-not-supported'\) \{ sp\.noPhrases = true; sp\.biased = false; \}/.test(UI));
+    check('wiring41: العبارة تُحفظ [وقت، نصّ، ثقة، المسموع] — والقرّاء القدامى يأخذون الأوّلين', /const segRow = x => \{ const r = \[x\.t, x\.x\];/.test(UI) && /seg: sp\.segs\.map\(segRow\)/.test(UI));
+    // segRow على عيّنات
+    const segRow = new Function('return ' + UI.slice(UI.indexOf('const segRow = ') + 15, UI.indexOf('\n', UI.indexOf('const segRow = '))).replace(/;\s*$/, ''))();
+    check('wiring41: segRow — بلا ثقةٍ ولا تصحيح كما كان، والثقة ٠–٩، والمصحّح بمسموعه', JSON.stringify(segRow({ t: 3, x: 'أ' })) === '[3,"أ"]'
+          && JSON.stringify(segRow({ t: 3, x: 'أ', c: 0.9 })) === '[3,"أ",8]' && JSON.stringify(segRow({ t: 3, x: 'ب', o: 'أ' })) === '[3,"ب",null,"أ"]');
+    check('wiring41: بعد الرصد — التصحيح والتدقيق يحفظان المسموع ويعيدان التحليل والاقتراح، والاسترجاع يُعيده', /function speechReanalyze\(d\)/.test(UI) && /d\.M\.speech = SX\(\)\.analyze\(segs,/.test(UI)
+          && /if \(r\.length < 4\) r\.push\(r\[1\]\);/.test(UI) && /speechReanalyze\(d\);\s*\n\s*return n;/.test(UI) && /function spFixUndo\(\)/.test(UI) && /r\[1\] = r\[3\]; r\.length = 3;/.test(UI));
+    check('wiring41: التدقيق بإذنٍ صريح، بدفعاتٍ عبر الوسيط، وبلا اسم المعلّم ولا المدرسة', /function spFixRun\(\)/.test(UI) && /بلا اسم المعلّم ولا المدرسة — عبر وسيطك إلى Claude/.test(UI)
+          && /X\.fixChunks\(d\.sp\.seg\)/.test(UI) && /body: JSON\.stringify\(X\.fixRequest\(chunks\[c\], ctx\)\)/.test(UI)
+          && /const spFixCtx = \(\) => \{ const I = info\(\); return \{ topic: I\.topic, grade: I\.cls \? 'الصف ' \+ I\.cls : '', extra: guidePhrases\(\) \}; \};/.test(UI));
+    const box = UI.slice(UI.indexOf('function spFixBox(sp)'), UI.indexOf('function spFixMsg('));
+    check('wiring41: لوحة «دقّة النصّ» — الربط المباشر حين يُضبط الوسيط، والنسخ واللصق دائماً، والاسترجاع حين يُصحَّح شيء', /draftLinked\(\) \?/.test(box) && /id="eyeSpFixCopy"/.test(box) && /has0 \? '<button type="button" id="eyeSpFixUndo"/.test(box) && /esc\(note\.text\)/.test(box));
+    check('wiring41: النصّ الكامل يُصحَّح بلمسة، والمصحَّح وغير المؤكَّد موسومان', /data-si="\$\{i\}"/.test(UI) && /· مصحَّحة/.test(UI) && /· غير مؤكَّدة/.test(UI) && /spAll\.querySelector\('\[data-splist\]'\)\.addEventListener\('click'/.test(UI));
+    check('wiring41: حذف النصّ يمحو أثر التدقيق، والحالة تُصفَّر لكلّ حصة', /S\.result\.sp\.seg = \[\]; S\.result\.sp\.purged = true; S\.result\.sp\.fixed = null;/.test(UI) && (UI.match(/S\.spFixNote = null; S\.spOpen = false; S\.spEditing = false;/g) || []).length === 2);
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {

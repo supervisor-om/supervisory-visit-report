@@ -331,9 +331,12 @@ function tagRowHtml(k) {
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <b class="text-sm text-slate-900">كلام المعلّم</b>
                                 <span class="flex items-center gap-2"><span id="eyeSpeechState" class="text-xs text-slate-500"></span>
-                                    <button type="button" id="eyeSpeechRetry" class="hidden svf-btn svf-btn-secondary svf-btn-sm">تشغيل فهم الكلام</button></span>
+                                    <button type="button" id="eyeSpeechRetry" class="hidden svf-btn svf-btn-secondary svf-btn-sm">تشغيل فهم الكلام</button>
+                                    <button type="button" id="eyeSpeechToggle" class="svf-btn svf-btn-ghost svf-btn-sm" aria-expanded="true">إخفاء النصّ</button></span>
                             </div>
-                            <p id="eyeSpeechText" class="eye-adv text-sm text-slate-800 leading-7 mt-2 min-h-[1.75rem]"></p>
+                            <!-- النصّ لحظةً بلحظة (2026-11-01): آخر العبارات بأوقاتها، والجارية باهتة؛ لمسة العبارة تصحّحها -->
+                            <div id="eyeSpeechText" class="mt-2 max-h-44 overflow-y-auto rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-[15px] text-slate-800 leading-7" style="max-height:11rem;overflow-y:auto"></div>
+                            <p id="eyeSpeechHint" class="text-[11px] text-slate-500 mt-1 leading-4">المس العبارة لتصحيحها إن أخطأ المحوِّل — يُحلَّل المصحَّح ويبقى المسموع محفوظاً.</p>
                             <div id="eyeSpeechCue" class="hidden mt-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
                                 <p id="eyeCueText" class="text-xs text-blue-900 leading-5"></p>
                                 <div class="flex flex-wrap items-center gap-2 mt-1.5">
@@ -506,6 +509,9 @@ function tagRowHtml(k) {
         $('eyeZoom').addEventListener('change', () => phoneZoom($('eyeZoom').value));
         $('eyeWide').addEventListener('click', phoneWide);
         $('eyeSpeechRetry').addEventListener('click', restartSpeech);
+        // النصّ لحظةً بلحظة: يُخفى ويُظهر (ويُذكر)، ولمسة العبارة تفتح تصحيحها
+        $('eyeSpeechToggle').addEventListener('click', () => { S.spText = S.spText === false; savePrefs(); renderSpeechLive(); });
+        $('eyeSpeechText').addEventListener('click', e => { const p = e.target.closest('[data-si]'); if (p && !p.querySelector('input')) spEditStart(p); });
         $('eyeFile').addEventListener('click', e => { if (!needConsent(true)) e.preventDefault(); });
         $('eyeFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) startFile(f); });
         $('eyeFileBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('eyeFile').click(); } });
@@ -632,6 +638,7 @@ function tagRowHtml(k) {
         const p = readPrefs();
         if (!p) return;
         if ('simple' in p) S.simple = p.simple !== false;
+        if ('spText' in p) S.spText = p.spText !== false;
         if (p.freq && typeof p.freq === 'object') S.tagFreq = Object.assign({}, p.freq);
         PREF_IDS.forEach(id => {
             const el = $(id);
@@ -643,7 +650,7 @@ function tagRowHtml(k) {
         speechNote();
     }
     function savePrefs() {
-        const p = { simple: S.simple !== false, freq: S.tagFreq || {} };
+        const p = { simple: S.simple !== false, freq: S.tagFreq || {}, spText: S.spText !== false };
         PREF_IDS.forEach(id => { const el = $(id); if (el) p[id] = el.type === 'checkbox' ? el.checked : el.value; });
         try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) { /* تُستعمل لهذه المرّة */ }
         setSummary();
@@ -1620,6 +1627,11 @@ function tagRowHtml(k) {
         // حتّى خمسة بدائل للعبارة: يُختار منها الأنسب لألفاظ الملعب ومصطلحات الدرس (pickAlt — والتساوي لأعلاها ثقة)
         rec.lang = sp.lang; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 5;
         if (sp.mode === 'local') { try { rec.processLocally = true; } catch (e) { sp.mode = 'cloud'; } }
+        // (2026-11-01) ترجيح ألفاظ الدرس — التعرّف داخل الجهاز وحده يقبله (Chrome 140+ على الحاسوب)؛ ورفضه يُعيد التشغيل بدونه
+        if (sp.mode === 'local' && !sp.noPhrases && typeof root.SpeechRecognitionPhrase === 'function' && 'phrases' in rec && SX()) {
+            try { rec.phrases = SX().phrases(info().topic, guidePhrases()).map(p => new root.SpeechRecognitionPhrase(p.phrase, p.boost)); sp.biased = true; }
+            catch (e) { sp.noPhrases = true; sp.biased = false; }
+        }
         rec.onresult = e => {
             let interim = '';
             sp.heard = Date.now();
@@ -1628,15 +1640,23 @@ function tagRowHtml(k) {
                 if (r.isFinal) {
                     const alts = [];
                     for (let j = 0; j < r.length; j++) if (r[j]) alts.push(r[j]);
-                    const x = String((SX() ? SX().pickAlt(alts, info().topic) : (r[0] && r[0].transcript)) || '').trim();
-                    if (x) { speechAdd(sp, x); speechCue(x); }
+                    const k = SX() ? SX().pickAltIndex(alts, info().topic) : 0;
+                    const a = alts[k] || alts[0];
+                    const x = String((a && a.transcript) || '').trim();
+                    if (!x) continue;
+                    // كُتب بغير العربيّة: لا يُحفظ، وثلاثٌ متتالية ← اللهجة التالية (المتصفّح لم يقل إنّه لا يعرف «ar-OM»)
+                    if (SX() && SX().foreign(x)) { speechForeign(sp, rec); continue; }
+                    sp.foreignRun = 0;
+                    if (sp.err && /بغير العربيّة/.test(sp.err) && sp.li) sp.err = '';    // اللهجة الجديدة تكتب بالعربيّة
+                    speechAdd(sp, x, { c: a && a.confidence });
+                    speechCue(x);
                 } else {
                     const x = String((r[0] && r[0].transcript) || '').trim();
                     if (x) interim += ' ' + x;
                 }
             }
             sp.interim = interim.trim();
-            sp.err = '';
+            if (!(sp.err && /بغير العربيّة/.test(sp.err))) sp.err = '';
             renderSpeechLive();
         };
         rec.onerror = e => {
@@ -1649,15 +1669,22 @@ function tagRowHtml(k) {
             }
             else if (k === 'network') { sp.netAt = Date.now(); sp.err = 'لا إنترنت — فهم الكلام متوقّف ويُعاد حين يعود الاتّصال، والتحليل مستمرّ. مدّته لا تُحسب في معدّلات الكلام.'; }
             else if (k === 'audio-capture') sp.err = 'تعذّر على خدمة الكلام الوصول إلى الميكروفون (قد يشغله تحليل الصوت). جرّب إطفاء «الصوت» وإبقاء «فهم الكلام».';
+            else if (k === 'phrases-not-supported') { sp.noPhrases = true; sp.biased = false; }       // يُعاد التشغيل بلا ترجيح (onend)
             renderSpeechLive();
         };
         // التعرّف يتوقّف بعد الصمت (خاصّةً على الجوّال) — يُعاد تشغيله ما دام الرصد جارياً، بتمهّلٍ إن تكرّر كثيراً
         rec.onend = () => {
+            // (2026-11-01) ما بقي جارياً حين انتهى التشغيل يُحفظ (Safari على الـiPad قد يُنهي التشغيل والعبارة لم تُعلَّم «نهائيّة»)
+            if (sp.interim && S.sp === sp && (sp.rec === rec || !sp.rec)) {
+                const x = sp.interim; sp.interim = '';
+                if (!(SX() && SX().foreign(x))) { speechAdd(sp, x, { p: 1 }); speechCue(x); }
+            }
             if (!sp.on || !S.running || S.sp !== sp || sp.rec !== rec) return;     // أُعيد التشغيل يدويّاً: لهذا التشغيل خلفٌ
             const t = Date.now();
             sp.restarts = sp.restarts.filter(x => t - x < 60000);
             sp.restarts.push(t);
-            setTimeout(() => { if (sp.on && S.running && S.sp === sp) speechRun(sp); }, sp.restarts.length > 12 ? 3000 : 250);
+            // الإعادة فوريّة: كلّ جزءٍ من الثانية بين تشغيلين كلامٌ لا يُسمع — والتمهّل حين يتكرّر كثيراً وحده
+            setTimeout(() => { if (sp.on && S.running && S.sp === sp) speechRun(sp); }, sp.restarts.length > 12 ? 3000 : 40);
         };
         sp.rec = rec;
         // مسار ميكروفون الرصد نفسه (ميكروفون المعلّم المختار) حيث يقبله المتصفّح، وإلّا الميكروفون الافتراضيّ
@@ -1675,13 +1702,68 @@ function tagRowHtml(k) {
         renderSpeechLive();
         setTimeout(() => { if (sp.on && S.running && S.sp === sp && !sp.rec) speechRun(sp); }, 300);
     }
-    function speechAdd(sp, x) {
+    // meta: {c ثقة المحوِّل ٠–١ إن أعطاها، p ١ إن حُفظت جاريةً عند انتهاء التشغيل}
+    function speechAdd(sp, x, meta) {
         const t = Math.round(now());
+        const m = meta || {};
+        const c = typeof m.c === 'number' && m.c > 0 && m.c <= 1 ? Math.round(m.c * 100) / 100 : null;
         const prev = sp.segs[sp.segs.length - 1];
-        if (prev && t - prev.t <= 6 && prev.x === x) return;                        // نتيجةٌ نهائيّةٌ مكرّرة (Chrome على أندرويد)
-        if (prev && t - prev.t <= 6 && x.indexOf(prev.x) === 0) { prev.x = x.slice(0, 300); sp.dirty = true; return; }   // تراكميّةٌ تحلّ محلّ سابقتها
-        if (sp.segs.length < 900) sp.segs.push({ t, x: x.slice(0, 300) });
+        if (prev && t - prev.t <= 6 && prev.x === x) { if (prev.p && !m.p) { delete prev.p; if (c != null) prev.c = c; } return; }   // نتيجةٌ نهائيّةٌ مكرّرة (Chrome على أندرويد)
+        if (prev && t - prev.t <= 6 && !prev.o && x.indexOf(prev.x) === 0) { prev.x = x.slice(0, 300); if (c != null) prev.c = c; if (!m.p) delete prev.p; sp.dirty = true; return; }   // تراكميّةٌ تحلّ محلّ سابقتها
+        if (sp.segs.length >= 900) return;
+        const seg = { t, x: x.slice(0, 300) };
+        if (c != null) seg.c = c;
+        if (m.p) seg.p = 1;
+        sp.segs.push(seg);
         sp.dirty = true;
+    }
+    // عبارةٌ بغير العربيّة: لا تُحفظ، وثلاثٌ متتالية ← اللهجة التالية في السلسلة (ar-OM ← ar-AE ← ar-SA ← ar)
+    function speechForeign(sp, rec) {
+        sp.foreignRun = (sp.foreignRun || 0) + 1;
+        if (sp.foreignRun < 3) return;
+        sp.foreignRun = 0;
+        if (sp.li < LANGS().length - 1) {
+            sp.li++; sp.lang = LANGS()[sp.li];
+            sp.err = 'المحوِّل كتب الكلام بغير العربيّة — جُرّبت لهجةٌ أخرى (' + sp.lang + ').';
+            try { rec.abort(); } catch (e) { /* يُعاد التشغيل في onend */ }
+        } else sp.err = 'المحوِّل يكتب الكلام بغير العربيّة — اجعل العربيّة من لغات الإملاء في إعدادات الجهاز (لوحة المفاتيح ← الإملاء).';
+    }
+    // عباراتٌ من دليل المعلّم للمهارة المختارة (نقاطها الفنّيّة باختصارها) — لترجيح سماعها
+    function guidePhrases() {
+        try {
+            const G = guideOn();
+            if (!G) return [];
+            const sel = new Set(S.guide.skills || []);
+            return G.skills.filter(k => sel.has(k.id)).flatMap(k => [k.short].concat((k.points || []).map(p => p.short))).filter(Boolean).slice(0, 24);
+        } catch (e) { return []; }
+    }
+    // تصحيح عبارةٍ بلمسة — أثناء الرصد (S.sp.segs) أو بعده (S.result.sp.seg): يُحلَّل المصحَّح، ويُحفظ المسموع في «o»
+    function spEditStart(p) {
+        const i = Number(p.dataset.si), live = p.dataset.live === '1';
+        const seg = live ? (S.sp && S.sp.segs[i]) : (S.result && S.result.sp && S.result.sp.seg[i]);
+        if (!seg) return;
+        const cur = live ? seg.x : seg[1];
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.value = cur; inp.maxLength = 300; inp.dir = 'rtl';
+        inp.className = 'w-full rounded-lg border border-blue-300 bg-white px-2 py-1 text-[15px] text-slate-900';
+        inp.setAttribute('aria-label', 'تصحيح العبارة');
+        let done = false;
+        const end = ok => {
+            if (done) return; done = true;
+            const v = String(inp.value || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+            if (ok && v && v !== cur) {
+                if (live) { if (!seg.o) seg.o = seg.x; seg.x = v; delete seg.p; S.sp.dirty = true; S.sp.hand = (S.sp.hand || 0) + 1; }
+                else spFixApply({ [i]: v }, 'hand');
+            }
+            S.spEditing = false;
+            if (live) renderSpeechLive(); else if (!ok || !v || v === cur) renderResult(S.result);
+        };
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); end(true); } else if (e.key === 'Escape') { e.preventDefault(); end(false); } });
+        inp.addEventListener('blur', () => end(true));
+        S.spEditing = true;
+        p.textContent = '';
+        p.appendChild(inp);
+        inp.focus(); inp.select();
     }
     function speechStop() {
         const sp = S.sp;
@@ -1695,7 +1777,7 @@ function tagRowHtml(k) {
         box.classList.toggle('hidden', !(sp && S.running));
         if (!sp || !S.running) return;
         const st = $('eyeSpeechState');
-        st.textContent = sp.err || ((sp.mode === 'local' ? 'داخل الجهاز' : 'عبر خدمة المتصفّح') + ' · ' + sp.segs.length + ' عبارة');
+        st.textContent = sp.err || ((sp.mode === 'local' ? 'داخل الجهاز' : 'عبر خدمة المتصفّح') + (sp.li ? ' · ' + sp.lang : '') + (sp.biased ? ' · بترجيح ألفاظ الدرس' : '') + ' · ' + sp.segs.length + ' عبارة');
         st.className = 'text-xs ' + (sp.err ? 'text-red-700 font-bold' : 'text-slate-500');
         // التقاطٌ متوقّف: تحليل الصوت يسمع كلاماً (٢٠ ثانيةً فأكثر) ولا يصل من المحوِّل نصّ — أو بلا تحليل صوتٍ دقيقتان بلا نصّ
         const gap = Math.max(0, (Date.now() - (sp.heard || Date.now())) / 1000);
@@ -1709,12 +1791,7 @@ function tagRowHtml(k) {
         // توقّف التعرّف (إذنٌ يُطلب بلمسة — كأن بدأ الرصد بوصول صورة الهاتف لا بضغطة)، أو التقاطٌ متوقّف: يُعاد بلمسة
         $('eyeSpeechRetry').classList.toggle('hidden', !((sp.err && !sp.on) || quiet));
         renderCue();
-        const last = sp.segs[sp.segs.length - 1];
-        const tx = $('eyeSpeechText');
-        tx.textContent = '';
-        if (last) tx.appendChild(document.createTextNode('«' + last.x + '»'));
-        if (sp.interim) { const i = document.createElement('span'); i.className = 'text-slate-400'; i.textContent = ' ' + sp.interim; tx.appendChild(i); }
-        if (!last && !sp.interim) tx.textContent = 'ينتظر كلام المعلّم…';
+        renderSpeechLines(sp);
         if (sp.dirty && SX()) {
             sp.A = SX().analyze(sp.segs, { topic: info().topic, ctx: S.ctxEvents, seconds: Math.max(0, now() - (S.spOff || 0)), admin: S.rollSpans });
             const G = guideOn();
@@ -1725,6 +1802,172 @@ function tagRowHtml(k) {
         const A = sp.A;
         const chips = A ? [['تعزيز', A.praise.n], ['تصحيح', A.corr.n], ['أسئلة', A.q.n], ['تحقّق من الفهم', A.check.n], ['سلامة', A.safe.n]] : [];
         $('eyeSpeechCounts').innerHTML = chips.map(([k, v]) => `<span class="text-xs rounded-lg border border-slate-200 px-2 py-1 text-slate-700">${esc(k)} <b class="tabular-nums text-slate-900">${v}</b></span>`).join('');
+    }
+
+    // ── دقّة النصّ بعد الرصد (2026-11-01) ──
+    // يُعاد تحليل الكلام من النصّ المحفوظ بالمعطيات نفسها التي حُلّل بها عند الإيقاف، ثمّ الدليل والاقتراح
+    function speechReanalyze(d) {
+        if (!d || !d.M || !d.sp || !SX()) return;
+        const segs = (d.sp.seg || []).map(r => ({ t: r[0], x: r[1] }));
+        const spans = (d.M.admin && d.M.admin.spans) || [];
+        d.M.speech = SX().analyze(segs, { topic: info().topic, ctx: (d.cx || []).map(e => ({ t: e[0], k: e[1] })), seconds: Math.max(0, (d.M.seconds || 0) - (d.sp.off || 0)), admin: spans });
+        const G = d.guide && LG() ? LG().byId(d.guide.id) : null;
+        if (G && segs.length) d.M.gspeech = LG().speechCoverage(SX().lessonSegs(segs, spans), G, d.guide.skills || []);
+        resuggest();
+    }
+    // map: {موضع العبارة: نصّها المصحّح}، by: 'claude' | 'hand' — المسموع يُحفظ مرّةً (الموضع ٣) فيُسترجع
+    function spFixApply(map, by) {
+        const d = S.result;
+        if (!d || !d.sp || !Array.isArray(d.sp.seg)) return 0;
+        let n = 0;
+        Object.keys(map || {}).forEach(k => {
+            const r = d.sp.seg[Number(k)];
+            const v = String(map[k] || '').replace(/[<>]/g, '').slice(0, 300).trim();
+            if (!r || !v || v === r[1]) return;
+            while (r.length < 3) r.push(null);
+            if (r.length < 4) r.push(r[1]);
+            r[1] = v; n++;
+        });
+        if (!n) return 0;
+        d.sp.fixed = Object.assign({}, d.sp.fixed || {});
+        d.sp.fixed[by] = (d.sp.fixed[by] || 0) + n;
+        d.sp.fixed.at = new Date().toISOString();
+        speechReanalyze(d);
+        return n;
+    }
+    function spFixUndo() {
+        const d = S.result;
+        if (!d || !d.sp || !Array.isArray(d.sp.seg)) return;
+        let n = 0;
+        d.sp.seg.forEach(r => { if (r.length > 3 && r[3] != null) { r[1] = r[3]; r.length = 3; n++; } });
+        d.sp.fixed = null; d.sp.hand = 0;
+        S.spFixNote = { text: 'أُعيد النصّ كما سمعه المحوِّل (' + E().count(n, 'عبارةٌ واحدة', 'عبارتان', 'عبارات', 'عبارة') + ') وأُعيد التحليل.', kind: 'ok' };
+        speechReanalyze(d);
+    }
+    function spFixedNote(sp) {
+        const f = (sp && sp.fixed) || {}, h = ((sp && sp.hand) || 0) + (f.hand || 0);
+        const bits = [f.claude ? 'دقّقه Claude: ' + f.claude : '', h ? 'صحّحتَ ' + h : ''].filter(Boolean);
+        return bits.length ? ' · ' + esc(bits.join(' · ')) : '';
+    }
+    function spFixBox(sp) {
+        if (!sp || !Array.isArray(sp.seg) || !sp.seg.length) return '';
+        const has0 = sp.seg.some(r => r.length > 3 && r[3] != null), note = S.spFixNote;
+        return `<div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div class="text-sm font-bold text-slate-900">دقّة النصّ</div>
+            <p class="text-xs text-slate-600 mt-0.5 leading-5">المحوِّل يخطئ في سماع اللهجة ولا يرقّم الجمل، فيُخطئ العدّ معه. «تدقيق النصّ» يصحّح بمساعد Claude ما أخطأ سماعه بسياق الدرس ويضع «؟» بعد الأسئلة — يُرسَل النصّ وحده بلا صوتٍ ولا اسم المعلّم أو المدرسة — ثمّ يُعاد التحليل، والمسموع يبقى محفوظاً.</p>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+                ${draftLinked() ? '<button type="button" id="eyeSpFix" class="svf-btn svf-btn-secondary svf-btn-sm">تدقيق النصّ بمساعد Claude</button>' : ''}
+                <button type="button" id="eyeSpFixCopy" class="svf-btn svf-btn-ghost svf-btn-sm">نسخ طلب التدقيق لـClaude</button>
+                ${has0 ? '<button type="button" id="eyeSpFixUndo" class="svf-btn svf-btn-ghost svf-btn-sm">استرجاع النصّ كما سُمع</button>' : ''}
+            </div>
+            <div id="eyeSpFixPasteBox" class="hidden mt-2">
+                <textarea id="eyeSpFixPaste" rows="4" dir="rtl" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm" placeholder="الصق ردّ Claude كاملاً هنا"></textarea>
+                <button type="button" id="eyeSpFixRead" class="svf-btn svf-btn-secondary svf-btn-sm mt-1">قراءة الردّ</button>
+            </div>
+            <p id="eyeSpFixMsg" class="${note ? '' : 'hidden '}text-xs mt-2 rounded-lg border px-3 py-2 leading-5 ${note && note.kind === 'bad' ? 'border-red-200 bg-red-50 text-red-800' : note && note.kind === 'ok' ? 'border-green-200 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700'}">${note ? esc(note.text) : ''}</p>
+        </div>`;
+    }
+    function spFixMsg(text, kind) {
+        S.spFixNote = text ? { text, kind: kind || '' } : null;
+        const el = $('eyeSpFixMsg');
+        if (!el) return;
+        el.className = 'text-xs mt-2 rounded-lg border px-3 py-2 leading-5 ' + (kind === 'bad' ? 'border-red-200 bg-red-50 text-red-800' : kind === 'ok' ? 'border-green-200 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700') + (text ? '' : ' hidden');
+        el.textContent = text || '';
+    }
+    // ما يُرسَل مع النصّ: عنوان الدرس والصفّ ومصطلحاته ونقاط مهارته — لا اسم المعلّم ولا المدرسة
+    const spFixCtx = () => { const I = info(); return { topic: I.topic, grade: I.cls ? 'الصف ' + I.cls : '', extra: guidePhrases() }; };
+    const spFixResult = (n, rej, err) => (n ? 'صُحّحت ' + E().count(n, 'عبارةٌ واحدة', 'عبارتان', 'عبارات', 'عبارة') + ' وأُعيد التحليل والاقتراح.' : 'لم يجد Claude ما يُصحَّح.')
+        + (rej ? ' وتُركت ' + E().count(rej, 'واحدةٌ', 'اثنتان', 'عبارات', 'عبارة') + ' كما سُمعت لأنّ التصحيح ابتعد عن المسموع.' : '') + (err ? ' تعذّر جزءٌ من الطلب: ' + err : '');
+    async function spFixRun() {
+        const d = S.result, X = SX();
+        if (!d || !d.sp || !(d.sp.seg || []).length || !X) return;
+        if (!draftLinked()) { spFixMsg('أضف رابط الوسيط وكلمته في «الإعدادات» ← مساعد الصياغة، أو استعمل «نسخ طلب التدقيق».', 'bad'); return; }
+        let ok = false;
+        try {
+            ok = root.confirm('يُرسَل نصّ كلام المعلّم — بلا صوتٍ، وبلا اسم المعلّم ولا المدرسة — عبر وسيطك إلى Claude ليصحّح ما أخطأ المحوِّل في سماعه ويضع علامات الترقيم، ثمّ يُعاد التحليل.\n'
+                + 'قد يحمل النصّ أسماء طلبةٍ نطقها المعلّم. متابعة؟');
+        } catch (e) { ok = false; }
+        if (!ok) return;
+        const chunks = X.fixChunks(d.sp.seg), ctx = spFixCtx(), map = {};
+        const btn = $('eyeSpFix');
+        if (btn) btn.disabled = true;
+        let rej = 0, err = '';
+        for (let c = 0; c < chunks.length; c++) {
+            spFixMsg('يدقّق Claude النصّ… ' + (c + 1) + ' من ' + chunks.length);
+            try {
+                const r = await fetch($('eyeDraftUrl').value.trim(), { method: 'POST', headers: { 'content-type': 'application/json', 'x-svf-key': $('eyeDraftKey').value.trim() }, body: JSON.stringify(X.fixRequest(chunks[c], ctx)) });
+                let j = {};
+                try { j = await r.json(); } catch (e) { j = {}; }
+                if (!r.ok) throw new Error(j.error || ('رمز ' + r.status));
+                const P = X.parseFix(j.text, chunks[c]);
+                Object.assign(map, P.fixed); rej += P.rejected.length;
+            } catch (e) {
+                err = (e && e.message ? e.message : String(e)) + (navigator.onLine === false ? ' — لا اتّصال بالإنترنت' : '');
+                if (!Object.keys(map).length && c === 0) break;               // الطلب الأوّل فشل: لا يُكرَّر على الباقي
+            }
+        }
+        const n = Object.keys(map).length;
+        S.spFixNote = { text: spFixResult(n, rej, err), kind: err && !n ? 'bad' : 'ok' };
+        S.spOpen = true;
+        if (!spFixApply(map, 'claude')) { if (btn) btn.disabled = false; spFixMsg(S.spFixNote.text, S.spFixNote.kind); }
+    }
+    // الطريق المجّانيّ: الطلب كاملاً إلى الحافظة، وClaude في تبويبٍ جديد، ثمّ يُلصق الردّ
+    function spFixCopy() {
+        const d = S.result, X = SX();
+        if (!d || !d.sp || !(d.sp.seg || []).length || !X) return;
+        const lines = X.fixChunks(d.sp.seg, 1e9)[0] || [];
+        const text = X.promptText(X.fixRequest(lines, spFixCtx()));
+        let ok = false;
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove();
+        } catch (e) { ok = false; }
+        if (!ok && navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+        try { root.open('https://claude.ai/new', '_blank', 'noopener'); } catch (e) { /* يفتحه المشرف بنفسه */ }
+        $('eyeSpFixPasteBox').classList.remove('hidden');
+        spFixMsg('نُسخ الطلب. الصقه في Claude، ثمّ انسخ ردّه كاملاً والصقه أدناه واضغط «قراءة الردّ».');
+    }
+    function spFixRead() {
+        const d = S.result, X = SX();
+        if (!d || !d.sp || !X) return;
+        const lines = X.fixChunks(d.sp.seg, 1e9)[0] || [];
+        const P = X.parseFix($('eyeSpFixPaste').value, lines);
+        const n = Object.keys(P.fixed).length;
+        if (!n && !P.rejected.length) { spFixMsg('لم أجد في الردّ سطوراً بأرقامها («الرقم| النصّ»). الصق الردّ كاملاً.', 'bad'); return; }
+        S.spFixNote = { text: spFixResult(n, P.rejected.length, ''), kind: 'ok' };
+        S.spOpen = true;
+        if (!spFixApply(P.fixed, 'claude')) spFixMsg(S.spFixNote.text, 'ok');
+    }
+
+    // النصّ لحظةً بلحظة (2026-11-01): آخر ثماني عبارات بأوقاتها، والجارية باهتةً في آخرها، ويُمرَّر إلى الأحدث ما لم يرجع المشرف إلى ما قبله.
+    // ضعيفة الثقة بنقطة «؟» والمصحَّحة بعلامة — والنصّ بـ textContent وحده.
+    const SP_LINES = 8;
+    function renderSpeechLines(sp) {
+        const tx = $('eyeSpeechText'), show = S.spText !== false;
+        const tg = $('eyeSpeechToggle');
+        if (tg) { tg.textContent = show ? 'إخفاء النصّ' : 'إظهار النصّ'; tg.setAttribute('aria-expanded', String(show)); }
+        tx.classList.toggle('hidden', !show);
+        $('eyeSpeechHint').classList.toggle('hidden', !show || !sp.segs.length);
+        if (!show || S.spEditing) return;                 // تصحيحٌ جارٍ: لا يُمحى ما يُكتب
+        const atEnd = tx.scrollHeight - tx.scrollTop - tx.clientHeight < 24;
+        tx.textContent = '';
+        const from = Math.max(0, sp.segs.length - SP_LINES);
+        sp.segs.slice(from).forEach((s, j) => {
+            const p = document.createElement('p');
+            p.dataset.si = String(from + j); p.dataset.live = '1';
+            p.className = 'cursor-pointer rounded px-1 -mx-1 hover:bg-white' + (s.c != null && s.c < 0.5 ? ' text-slate-500' : '');
+            const tm = document.createElement('span');
+            tm.className = 'text-[11px] text-slate-400 tabular-nums ml-1.5'; tm.textContent = mmss(s.t);
+            p.appendChild(tm);
+            p.appendChild(document.createTextNode(s.x));
+            if (s.o) { const b = document.createElement('span'); b.className = 'text-[10px] text-blue-700 mr-1'; b.textContent = '· مصحَّحة'; p.appendChild(b); }
+            else if (s.c != null && s.c < 0.5) { const b = document.createElement('span'); b.className = 'text-[10px] text-amber-700 mr-1'; b.textContent = '· غير مؤكَّدة'; p.appendChild(b); }
+            tx.appendChild(p);
+        });
+        if (sp.interim) { const p = document.createElement('p'); p.className = 'text-slate-400'; p.textContent = sp.interim + ' …'; tx.appendChild(p); }
+        if (!sp.segs.length && !sp.interim) { const p = document.createElement('p'); p.className = 'text-slate-400 text-sm'; p.textContent = 'ينتظر كلام المعلّم…'; tx.appendChild(p); }
+        if (atEnd) tx.scrollTop = tx.scrollHeight;
     }
 
     async function startCamera() {
@@ -2101,7 +2344,7 @@ function tagRowHtml(k) {
         S.field = freshField();
         S.teacher = null; S.pickTeacher = false;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
-        S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0; S.ckWarned = false;
+        S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0; S.ckWarned = false; S.spFixNote = null; S.spOpen = false; S.spEditing = false;
         S.trialOn = checked('eyeTrial'); S.wTaps = []; S.detH = E().histNew(); S.detSlow = false;
         // رصدٌ يُكمَل من نسخته الاحتياطيّة: أرقامه ولمساته تعود، والمدّة منذ آخر نسخةٍ «غير محسوبة»، والساعة تكمل
         const RS = S.resume; S.resume = null;
@@ -2690,6 +2933,7 @@ function tagRowHtml(k) {
         if (analyze) { if (S.sp) setTimeout(finish, 900); else finish(); }
     }
 
+    const segRow = x => { const r = [x.t, x.x]; const c = x.c != null ? Math.round(x.c * 9) : null; if (c != null || x.o) r.push(c); if (x.o) r.push(x.o); return r; };
     function finish() {
         const M = E().summarize(recNow());
         const hasTaps = S.events.length > 0 || Object.keys(S.counts).some(k => S.counts[k] > 0);
@@ -2737,7 +2981,8 @@ function tagRowHtml(k) {
             cx: S.ctxEvents.map(e => [e.t, e.k]),
             outAuto, dishAuto,
             det: S.src !== 'none' && AI.ok && AI.engine && AI.count ? AI.engine.name : null,   // نموذج الكشف الذي رصد هذه الحصة
-            sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(x => [x.t, x.x]), off: S.spOff || 0 } : null,
+            // العبارة [وقت، نصّ، ثقة ٠–٩ أو null، المسموع قبل التصحيح] — والقرّاء القدامى يأخذون الأوّلين
+            sp: sp ? { mode: sp.mode, lang: sp.lang, consent: !!S.speechConsent, seg: sp.segs.map(segRow), off: S.spOff || 0, hand: sp.hand || 0 } : null,
             sample: hasSample(S.sample) ? JSON.parse(JSON.stringify(S.sample)) : null,
             guide: GD ? { id: GD.id, skills: S.guide.skills.slice() } : null,
             marks: S.marks.map(markRow),
@@ -3273,8 +3518,10 @@ function tagRowHtml(k) {
                     <p class="text-xs text-red-800 mt-0.5">لا تدخل التقييم ولا المداولة ولا بطاقة المعلّم — قد يخطئ المحوِّل في سماعها، فتحقّق منها بنفسك.</p>
                     ${(SPA.harsh.ex || []).map(([t, x]) => `<p class="text-sm text-red-900 leading-6 mt-1"><span class="text-[11px] tabular-nums ml-1">${mmss(t)}</span>«${esc(x)}»</p>`).join('')}</div>` : ''}
                 ${partRows ? `<div class="overflow-x-auto mt-4"><table class="w-full text-sm"><thead><tr class="text-xs text-slate-500"><th class="text-right font-medium py-1">العنصر</th><th class="font-medium">كلمات</th><th class="font-medium">تعزيز</th><th class="font-medium">تصحيح</th><th class="font-medium">أسئلة</th><th class="font-medium">تنظيم</th></tr></thead><tbody>${partRows}</tbody></table></div>` : ''}
-                ${segs.length ? `<details class="mt-4 text-sm"><summary class="cursor-pointer text-slate-600">النصّ الكامل (${segs.length} عبارة)</summary>
-                    <div class="mt-2 max-h-80 overflow-y-auto space-y-1 pr-1">${segs.map(([t, x]) => `<p class="leading-6 text-slate-700"><span class="text-[11px] text-slate-500 tabular-nums ml-1">${mmss(t)}${partOf(t) ? ' · ' + esc(partOf(t)) : ''}</span>${esc(x)}</p>`).join('')}</div></details>` : ''}
+                ${segs.length ? `<details id="eyeSpAll" class="mt-4 text-sm"${S.spOpen ? ' open' : ''}><summary class="cursor-pointer text-slate-600">النصّ الكامل (${segs.length} عبارة)${spFixedNote(data.sp)}</summary>
+                    <p class="text-[11px] text-slate-500 mt-1">المس العبارة لتصحيحها — يُعاد التحليل، والمسموع يبقى محفوظاً.</p>
+                    <div data-splist class="mt-2 max-h-80 overflow-y-auto space-y-1 pr-1">${segs.map(([t, x, c, o], i) => `<p data-si="${i}" class="cursor-pointer rounded px-1 -mx-1 hover:bg-slate-50 leading-6 ${c != null && c < 4.5 ? 'text-slate-500' : 'text-slate-700'}"${o ? ' title="' + esc('سُمعت: ' + o) + '"' : ''}><span class="text-[11px] text-slate-500 tabular-nums ml-1">${mmss(t)}${partOf(t) ? ' · ' + esc(partOf(t)) : ''}</span>${esc(x)}${o ? '<span class="text-[10px] text-blue-700 mr-1">· مصحَّحة</span>' : c != null && c < 4.5 ? '<span class="text-[10px] text-amber-700 mr-1">· غير مؤكَّدة</span>' : ''}</p>`).join('')}</div></details>
+                ${spFixBox(data.sp)}` : ''}
                 <div class="flex flex-wrap items-center gap-2 mt-3">
                     ${segs.length || (SPA.praise.ex || []).length ? '<button type="button" id="eyeSpeechPurge" class="svf-btn svf-btn-ghost svf-btn-sm">حذف النصّ والإبقاء على الأرقام</button>' : '<span class="text-xs text-slate-500">حُذف النصّ وبقيت الأرقام.</span>'}
                 </div>
@@ -3615,12 +3862,22 @@ function tagRowHtml(k) {
             S.result.M.people.classSize = v;
             resuggest();
         });
+        // دقّة النصّ: تصحيح العبارة بلمسة، وتدقيقه بمساعد Claude، واسترجاع المسموع
+        const spAll = $('eyeSpAll');
+        if (spAll) {
+            spAll.addEventListener('toggle', () => { S.spOpen = spAll.open; });
+            spAll.querySelector('[data-splist]').addEventListener('click', e => { const p = e.target.closest('[data-si]'); if (p && !p.querySelector('input')) { S.spOpen = true; spEditStart(p); } });
+        }
+        $('eyeSpFix') && $('eyeSpFix').addEventListener('click', spFixRun);
+        $('eyeSpFixCopy') && $('eyeSpFixCopy').addEventListener('click', spFixCopy);
+        $('eyeSpFixRead') && $('eyeSpFixRead').addEventListener('click', spFixRead);
+        $('eyeSpFixUndo') && $('eyeSpFixUndo').addEventListener('click', spFixUndo);
         $('eyeSpeechPurge') && $('eyeSpeechPurge').addEventListener('click', () => {
             if (!S.result) return;
             let ok = false;
             try { ok = root.confirm('يُحذف نصّ كلام المعلّم وأمثلته من هذه الزيارة، وتبقى الأرقام والتقييم المقترح. متابعة؟'); } catch (e) { ok = false; }
             if (!ok) return;
-            if (S.result.sp) { S.result.sp.seg = []; S.result.sp.purged = true; }
+            if (S.result.sp) { S.result.sp.seg = []; S.result.sp.purged = true; S.result.sp.fixed = null; }
             if (S.result.M && S.result.M.speech && SX()) S.result.M.speech = SX().stripExamples(S.result.M.speech);
             if (S.result.M && S.result.M.gspeech && LG()) LG().stripExamples(S.result.M.gspeech);
             save(S.result);
@@ -4088,7 +4345,7 @@ function tagRowHtml(k) {
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
         S.field = freshField();
         S.via = null; S.lostSec = 0; S.phoneCams = null;
-        S.resume = null; S.spSeed = null; S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0;
+        S.resume = null; S.spSeed = null; S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0; S.spFixNote = null; S.spOpen = false; S.spEditing = false;
         S.trialOn = false; S.wTaps = []; S.detH = null; S.detSlow = false;
         S.guide = null; S.gkey = '';
         detectGuide();

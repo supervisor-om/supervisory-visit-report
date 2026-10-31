@@ -10,10 +10,12 @@
  *   MODEL              (اختياريّ) افتراضه claude-sonnet-5-5
  * التفاصيل في README.md بجانبه.
  */
-// حدود كلّ مهمّة: «draft» صياغة التقرير، و«guide» تحويل صفحات دليل المعلّم إلى بطاقة درس (js/eye-guide-import.js) — مرّةً لكلّ موضوع
+// حدود كلّ مهمّة: «draft» صياغة التقرير، و«guide» تحويل صفحات دليل المعلّم إلى بطاقة درس (js/eye-guide-import.js) — مرّةً لكلّ موضوع،
+// و«speech» تدقيق نصّ كلام المعلّم بعد الحصة (js/eye-speech.js fixRequest) — دفعاتٌ من ٢٤٠٠ حرف، فتعمل بحدود «draft» أيضاً
 const LIMITS = {
     draft: { in: 24000, out: 2000 },      // تقرير زيارةٍ كاملٌ أقلّ من ثلث الحدّ
-    guide: { in: 70000, out: 8000 }       // موضوعٌ من ١٠–٢٠ صفحة وبطاقته بمهاراتها وتدريباتها
+    guide: { in: 70000, out: 8000 },      // موضوعٌ من ١٠–٢٠ صفحة وبطاقته بمهاراتها وتدريباتها
+    speech: { in: 24000, out: 4000 }      // دفعةٌ من النصّ برقم كلّ سطر وسياق الدرس، وردّها بالطول نفسه تقريباً
 };
 
 const json = (obj, status, headers) => new Response(JSON.stringify(obj), { status: status || 200, headers: Object.assign({ 'content-type': 'application/json; charset=utf-8' }, headers) });
@@ -37,7 +39,7 @@ export default {
         let body;
         try { body = await req.json(); } catch (e) { return json({ error: 'طلبٌ غير مقروء' }, 400, cors); }
         const system = typeof body.system === 'string' ? body.system : '', user = typeof body.user === 'string' ? body.user : '';
-        const lim = LIMITS[body.task === 'guide' ? 'guide' : 'draft'];
+        const lim = LIMITS[Object.prototype.hasOwnProperty.call(LIMITS, body.task) ? body.task : 'draft'];
         if (!user || system.length + user.length > lim.in) return json({ error: 'الطلب فارغٌ أو أطول من المسموح' }, 400, cors);
 
         const r = await fetch('https://api.anthropic.com/v1/messages', {
