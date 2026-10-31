@@ -358,6 +358,15 @@
         return '1';
     }
 
+    // ولاية المدرسة من قاعدة المعلّمين — قائمة مدارس البوّابة مقصورةٌ على الولاية المختارة (v17.6)
+    function svfSchoolWilaya(school) {
+        try {
+            return (window.SupervisorIdentity && typeof SupervisorIdentity.wilayaOfSchool === 'function'
+                && SupervisorIdentity.wilayaOfSchool(school)) || '';
+        } catch (e) { return ''; }
+    }
+    window.svfSchoolWilaya = svfSchoolWilaya;
+
     function schoolToPortal(d) {
         let date = d.visitDate || d.date || '';
         if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -371,6 +380,7 @@
             visitType:       schoolVisitTypeNum(typeKey),
             visitTypeName:   typeName,
             school:          d.schoolName || d.school || '',
+            wilaya:          svfSchoolWilaya(d.schoolName || d.school || ''),
             date:            date,
             // النموذج لم يكن يحفظ الوقتين في التقارير القديمة — تُستعمل ساعات الدوام
             arrivalTime:     d.arrivalTime || '08:00',

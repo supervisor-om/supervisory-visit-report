@@ -4,7 +4,7 @@
     python scripts/build_school_map.py --scan school-scan.json --db db_schools.json
 
   --scan    الملفّ الذي نزّله زرّ «🏫 مسح مدارس البوابة» في السكربت (v16.7)
-  --db      أسماء المدارس في قاعدة المعلّمين: { "اسم المدرسة": {"n": عدد, "type": "خاصة"} }
+  --db      أسماء المدارس في قاعدة المعلّمين: { "اسم المدرسة": {"n": عدد, "type": "خاصة", "wilaya": "بوشر"} }
             (يُستخرج من Firestore — انظر CLAUDE.md)
   --aliases school-aliases.json (اختياريّ): بدائل مؤكَّدة { "اسم القاعدة": "اسم البوّابة الحرفيّ" }
 
@@ -72,6 +72,23 @@ def match_school(options, school_name):
     return None, hits
 
 
+def norm_wil(v):
+    """نسخة normWil في السكربت (v17.6): «ولاية السيب» = «السيب» = «سيب»"""
+    s = re.sub(r'^ولايه\s+', '', norm_edu(v))
+    return re.sub(r'^ال(?=\S{3,})', '', s)
+
+
+def match_in_wilaya(schools, name, wilaya):
+    """كـ schoolDirLookup: مدارس ولاية القاعدة أوّلاً (تحسم الاسم المكرَّر في ولايتين)، ثمّ كلّها"""
+    if wilaya:
+        pool = [s for s in schools if s.get('wilaya') and norm_wil(s['wilaya']) == norm_wil(wilaya)]
+        if pool:
+            hit, amb = match_school(pool, name)
+            if hit:
+                return hit, []
+    return match_school(schools, name)
+
+
 def core_tokens(name):
     """كلمات الاسم المميِّزة لتقدير القرب: بلا «ال» ولا الكلمات العامّة ولا الأرقام"""
     out = []
@@ -107,7 +124,7 @@ def build(scan, db, aliases):
                 continue
             unmatched.append((name, [], 'البديل المؤكَّد يشير لاسمٍ ليس في المسح: ' + aliases[name]))
             continue
-        hit, amb = match_school(schools, name)
+        hit, amb = match_in_wilaya(schools, name, (db[name] or {}).get('wilaya', ''))
         if hit:
             auto.append((name, hit))
         elif amb:
@@ -122,11 +139,20 @@ def build(scan, db, aliases):
     alias_map = {}
     for name, s in aliased:
         alias_map[norm_edu(name).lower()] = s['portal']
+    # ولاية كلّ مدرسةٍ في قاعدة المعلّمين (v17.6): يحوّل السكربت قائمة الولاية إليها قبل البحث —
+    # لمدارس لا تعرف ولايتَها نسخةُ المشرف المحلّيّة (مدارس زميل)
+    wil_map = {}
+    for name in db:
+        w = ((db[name] or {}).get('wilaya') or '').strip()
+        if w:
+            wil_map[norm_edu(name).lower()] = w
     out = {
-        'version': 1,
+        'version': 2 if wil_map or any(s.get('wilaya') for s in schools) else 1,
         'scannedAt': scan.get('scannedAt', ''),
-        'schools': [{'portal': s['portal'], 'system': s.get('system', '')} for s in schools],
-        'aliases': alias_map
+        'schools': [dict({'portal': s['portal'], 'system': s.get('system', '')},
+                         **({'wilaya': s['wilaya']} if s.get('wilaya') else {})) for s in schools],
+        'aliases': alias_map,
+        'wilayat': wil_map
     }
     return out, auto, ambiguous, unmatched, aliased, proposed
 
@@ -142,8 +168,10 @@ def review_md(db, auto, ambiguous, unmatched, aliased, proposed):
     if ambiguous:
         L += ['## ملتبسة — أيّها المقصودة؟', '']
         for name, amb in ambiguous:
-            L.append('- **%s** (%s معلّماً): %s' % (name, db[name].get('n', '?'),
-                     ' / '.join('%s [%s]' % (a['portal'], a.get('system', '')) for a in amb[:6])))
+            L.append('- **%s** (%s معلّماً%s): %s' % (name, db[name].get('n', '?'),
+                     '، ' + db[name]['wilaya'] if db[name].get('wilaya') else '',
+                     ' / '.join('%s [%s%s]' % (a['portal'], a.get('system', ''), ' · ' + a['wilaya'] if a.get('wilaya') else '')
+                                for a in amb[:6])))
         L.append('')
     if unmatched:
         L += ['## بلا مطابقة — أقرب ما في البوّابة', '']

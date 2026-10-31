@@ -375,6 +375,9 @@
                 visitType:       visitTypeNum,
                 visitTypeName:   typeName,
                 school:          document.getElementById('schoolName')?.value?.trim() || '',
+                // ولايتها من قاعدة المعلّمين: السكربت يحوّل قائمة الولاية إليها قبل البحث (v17.6)
+                wilaya:          (typeof window.svfSchoolWilaya === 'function'
+                                    ? window.svfSchoolWilaya(document.getElementById('schoolName')?.value?.trim() || '') : ''),
                 date:            portalDate,
                 arrivalTime:     document.getElementById('schoolArrivalTime')?.value || '08:00',
                 departureTime:   document.getElementById('schoolDepartureTime')?.value || '12:00',

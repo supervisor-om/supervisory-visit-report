@@ -65,6 +65,9 @@ function scanEnv(systems, schoolsBy, preState) {
         sessionStorage: { getItem: k => (k in ss ? ss[k] : null), setItem: (k, v) => { ss[k] = v; }, removeItem: k => { delete ss[k]; } },
         GM_getValue: (k, d) => (k in gm ? gm[k] : d), GM_setValue: (k, v) => { gm[k] = v; },
         log: (m, t) => logs.push(m),
+        // بلا قائمة ولايات (v17.6): المسح بالأنظمة وحدها كما كان — المسح بالولاية في school-wilaya.test.js
+        findWilayaDropdown: () => null, getCurrentWilaya: () => null, wilOptOk: () => false,
+        sameWil: () => false, switchWilaya: () => false, normWil: v => String(v || ''),
         findEduSystemDropdown: () => ({ options: [opt('-- اختر --', '-1')].concat(systems.map((s, i) => opt(s, String(i + 1)))) }),
         getCurrentEduSystem: () => ({ text: state.cur }),
         switchEduSystem: t => { state.cur = t; return true; },
@@ -107,8 +110,8 @@ function scanEnv(systems, schoolsBy, preState) {
           && SRC.indexOf('if (scanState()) {') < SRC.indexOf("const phase = sessionStorage.getItem('svf_pilot_phase');"));
     check('wiring: الدليل يُجلب عند التحميل', /buildPanel\(visitData\);\s*\n\s*loadSchoolMap\(\);/.test(SRC));
     check('wiring: البحث عن المدرسة يبدأ بالدليل',
-          /const dir = schoolDirLookup\(schoolName\);[\s\S]{0,700}schoolName = dir\.portal;[\s\S]{0,200}eduSystem: dir\.system/.test(SRC)
-          && SRC.indexOf('const dir = schoolDirLookup(schoolName);') < SRC.indexOf('let r = matchSchool(schoolDD, schoolName);'));
+          /const dir = schoolDirLookup\(schoolName, null, data\.wilaya\);[\s\S]{0,700}schoolName = dir\.portal;[\s\S]{0,200}eduSystem: dir\.system/.test(SRC)
+          && SRC.indexOf('const dir = schoolDirLookup(schoolName, null, data.wilaya);') < SRC.indexOf('const r = matchSchool(dd, schoolName);', SRC.indexOf('async function findAndSelectSchool')));
 
     console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
     process.exit(failures ? 1 : 0);

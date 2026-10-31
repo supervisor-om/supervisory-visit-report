@@ -424,6 +424,19 @@
         return uniq.length === 1 ? { name: names[0], conflict: false } : { name: '', conflict: true };
     }
 
+    // ولاية المدرسة من سجلّات معلّميها (الأغلب) — قائمة مدارس البوّابة مقصورةٌ على الولاية المختارة،
+    // فالسكربت يحوّل إليها قبل البحث: «حسان بن ثابت» في بوشر لا تظهر والولاية السيب (v17.6).
+    function wilayaOfSchool(school) {
+        const n = new Map();
+        teachersOfSchool(school).forEach(t => {
+            const w = String(t.wilaya == null ? '' : t.wilaya).replace(/\s+/g, ' ').trim();
+            if (w) n.set(w, (n.get(w) || 0) + 1);
+        });
+        let best = '', max = 0;
+        n.forEach((c, w) => { if (c > max) { best = w; max = c; } });
+        return best;
+    }
+
     function schoolNames() {
         const seen = new Map();
         getTeachers().forEach(t => {
@@ -571,7 +584,7 @@
     const api = {
         allTeachers,
         getIdentity, getTeachers, link, unlink, refresh, initCard, loadSdk, verifyCode, adopt,
-        findTeacher, teachersOfSchool, principalOfSchool, schoolNames, teacherNames,
+        findTeacher, teachersOfSchool, principalOfSchool, wilayaOfSchool, schoolNames, teacherNames,
         normalize, normName, tidyGrades
     };
     global.SupervisorIdentity = api;

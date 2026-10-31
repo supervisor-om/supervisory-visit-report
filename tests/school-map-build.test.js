@@ -70,5 +70,35 @@ if (py.error || py.status !== 0) {
     check('sanity: نطاقٌ آخر لا يُطابق («9-10» ليست «11-12»)', js[11].hit === null);
 }
 
+// v17.6: الولاية — الاسم المكرَّر في ولايتين يُحسم بولاية القاعدة، والدليل يحمل ولاية كلّ مدرسةٍ في القاعدة
+const pyW = spawnSync('python', ['-c', `
+import sys, json, importlib.util
+spec = importlib.util.spec_from_file_location('b', sys.argv[1]); b = importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
+scan = {'schools': [{'portal': 'النهضة للتعليم الأساسي', 'system': 'عام', 'wilaya': 'السيب'},
+                    {'portal': 'النهضة للتعليم الأساسي', 'system': 'عام', 'wilaya': 'بوشر'},
+                    {'portal': 'حسان بن ثابت للتعليم الأساسي (5-10)', 'system': 'أساسي', 'wilaya': 'بوشر'}]}
+db = {'النهضة للتعليم الأساسي': {'n': 2, 'wilaya': 'بوشر'}, 'حسان بن ثابت (5-10)': {'n': 3, 'wilaya': 'بوشر'},
+      'مدرسة بلا ولاية': {'n': 1}}
+out, auto, amb, unm, ali, prop = b.build(scan, db, {})
+sys.stdout.buffer.write(json.dumps({'out': out, 'auto': [[n, h] for n, h in auto], 'amb': len(amb),
+    'nw': [b.norm_wil(x) for x in ['ولاية السيب', 'السيب', 'العامرات', 'مسقط']]}, ensure_ascii=False).encode('utf8'))
+`, path.join(ROOT, 'scripts/build_school_map.py')], { encoding: 'utf8', env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' }) });
+if (pyW.error || pyW.status !== 0) {
+    console.log('SKIP python (الولاية): ' + ((pyW.error && pyW.error.message) || pyW.stderr).slice(0, 300));
+} else {
+    const w = JSON.parse(pyW.stdout);
+    check('wilaya: «النهضة» المكرَّرة تُحسم بولاية القاعدة (بوشر)', w.amb === 0
+          && w.auto.some(([n, h]) => n === 'النهضة للتعليم الأساسي' && h.wilaya === 'بوشر'), JSON.stringify(w.auto));
+    check('wilaya: الدليل يحمل ولاية المدارس من القاعدة', w.out.version === 2 && Object.keys(w.out.wilayat).length === 2
+          && Object.values(w.out.wilayat).every(x => x === 'بوشر'));
+    check('wilaya: ومدارس البوّابة بولاياتها', w.out.schools.every(s => s.wilaya));
+    // normWil: الأداة والسكربت سواء
+    const c2 = {};
+    vm.createContext(c2);
+    vm.runInContext(between('function normEdu(v)', '// أسماء أنظمة التعليم') + between('        function normWil(v) {', '        function sameWil(') + '\nthis.nw = normWil;', c2);
+    const js2 = ['ولاية السيب', 'السيب', 'العامرات', 'مسقط'].map(c2.nw);
+    check('parity: normWil', JSON.stringify(js2) === JSON.stringify(w.nw), JSON.stringify(js2) + ' / ' + JSON.stringify(w.nw));
+}
+
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
 process.exit(failures ? 1 : 0);

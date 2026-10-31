@@ -1,7 +1,7 @@
 // أسماء المدارس في قاعدة المعلّمين ← db_schools.json (لـ build_school_map.py)
 //     node scripts/fetch_db_schools.mjs
 // قراءةٌ فقط عبر واجهة Firestore العامّة (القواعد تسمح بالقراءة حتّى المرحلة ٢). لا يُحفظ إلّا
-// اسم المدرسة ونوعها وعدد معلّميها — لا أسماء معلّمين ولا أرقام.
+// اسم المدرسة ونوعها وولايتها (الأغلب بين سجلّاتها) وعدد معلّميها — لا أسماء معلّمين ولا أرقام.
 import fs from 'node:fs';
 const src = fs.readFileSync(new URL('../js/identity.js', import.meta.url), 'utf8');
 const key = (src.match(/apiKey:\s*'([^']+)'/) || [])[1];
@@ -20,8 +20,15 @@ for (const d of docs) {
     const f = d.fields || {};
     const s = String(val(f['المدرسة'])).trim();
     if (!s) continue;
-    schools[s] = schools[s] || { n: 0, type: String(val(f['نوع المدرسة'])).trim() };
+    schools[s] = schools[s] || { n: 0, type: String(val(f['نوع المدرسة'])).trim(), _w: {} };
     schools[s].n++;
+    const w = String(val(f['الولاية'])).trim();
+    if (w) schools[s]._w[w] = (schools[s]._w[w] || 0) + 1;
+}
+for (const o of Object.values(schools)) {
+    const w = Object.keys(o._w).sort((a, b) => o._w[b] - o._w[a])[0];
+    if (w) o.wilaya = w;
+    delete o._w;
 }
 fs.writeFileSync('db_schools.json', JSON.stringify(schools, null, 1));
 console.log('معلّمون:', docs.length, '| مدارس:', Object.keys(schools).length);

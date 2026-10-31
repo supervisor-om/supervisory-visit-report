@@ -1970,6 +1970,35 @@ Camera للـMac وApple TV وحدهما — بُحث)، فالربط من ال�
   ومنه استئناف البحث بعد إعادة التحميل. الملتبس بين فرعين لا يُختار.
 - اختبارها `tests/school-map.test.js` (البحث، والمسح واستئنافه) و`tests/school-map-build.test.js`.
 
+## الولاية قبل المدرسة (v17.6 — 2026-10-31)
+
+بلاغ المشرف: «مدارس لا يجدها السكربت … حسان بن ثابت في بوشر، فيجب أن يعرف السكربت المدرسة في أيّ ولاية — وهذا مسجّلٌ في قاعدة
+بيانات المعلمين». قائمة المدارس في البوّابة مقصورةٌ على الولاية المختارة، والسكربت كان يبدّل نظام التعليم وحده.
+**لم يُجرَّب على البوّابة الحقيقيّة — معرّف قائمة الولايات فيها غير معروف**؛ تُعرف بخياراتها.
+
+- **مصدر الولاية:** «الولاية» في سجلّ كلّ معلّم (`FIELDS.wilaya` في نسخة القاعدة منذ قبل). `SupervisorIdentity.wilayaOfSchool(school)` = **الأغلب**
+  بين سجلّات المدرسة (`teachersOfSchool` بمطابقته نفسها، فـ«مدرسة حسان بن ثابت» تجد «حسان بن ثابت (5-10)»)، والفارغ لا يُعدّ.
+  تذهب `wilaya` في الحمولة من **ثلاثة مواضع**: `schoolToPortal` (`queue-export.js`، عبر `window.svfSchoolWilaya`)، والتصدير المفرد (`export.js`)،
+  و**`doExport` في سكربت الموقع** (`svfSiteWilaya` — يعترض زرّ التصدير، فيقرأ `svf_identity` و`svf_teachers_cache_<id>` من localStorage بالقاعدة نفسها،
+  ونسخة مشرفٍ آخر لا تُقرأ). ونافذة التأكيد تعرض الولاية «(من قاعدة المعلمين)». بلا ربطٍ لا ولاية، والبحث كما كان.
+- **قائمة الولايات** (`findWilayaDropdown`): أيّ `select` غير قائمتَي المدارس والنظام فيه **ولايتان فأكثر** من ولايات مسقط الستّ (`KNOWN_WILAYAT`) —
+  فقائمة المحافظات («محافظة مسقط») لا تُخلط. `normWil` = `normEdu` بلا «ولاية » ولا «ال» («ولاية السيب» = «السيب»)، ونسختها في `build_school_map.py`
+  (`norm_wil`) يقارنها الاختبار. «اختر/الكل/جميع» ليست ولايات.
+- **الولاية المعروفة ومصدرها** (`wilKnown`): ما **وُجدت فيه من قبل** (`svf_school_wil_map` في GM — حقيقة البوّابة تغلب) ← دليل المدارس (`dir.wilaya`) ←
+  الزيارة (`data.wilaya`) ← `school-map.json` `wilayat` (لمدارس الزملاء) ← اسمٌ يحمل اسم ولاية. ويُسجَّل «📍 ولاية «…»: بوشر — من قاعدة بيانات المعلمين».
+- **البحث** (`findAndSelectSchool`): لكلّ ولايةٍ بالترتيب (المعروفة، ثمّ الحاليّة، ثمّ البقيّة) تُختار **قبل أيّ مطابقة** — القائمة الحاليّة لولايةٍ أخرى
+  لا تُطابَق (مدرسةٌ بالاسم نفسه هناك ليست هي) — ثمّ تُطابَق القائمة الحاليّة، ثمّ الأنظمة (`eduCandidates`). الحالة `svf_edu_search` صارت
+  `{tried: ['<ولاية>|<نظام>'], doneWil}` (بلا قائمة ولايات المفاتيح كما كانت): تُحفظ قبل كلّ تبديل، والولاية المنتهية لا يُرجع إليها بعد إعادة تحميل
+  الصفحة، والقائمة الحاليّة تُطابَق دائماً عند الدخول (هي ما اختير قبل الإعادة). البحث الشامل (٦ ولايات × الأنظمة) آخر ملاذ — قد يطول.
+- **حين لا تُوجد:** «المدرسة غير موجودة في كل الولايات وأنظمة التعليم»، وسبب التخطّي في تقرير الطابور «بدأتُ بولاية «بوشر» (من قاعدة المعلمين) ثمّ
+  بقيّة الولايات وأنظمة التعليم كلّها». **وبلا قائمة ولايات** يبقى الخطأ القديم وتُسرد قوائم الصفحة بمعرّفاتها في السجلّ (`schoolDumpSelects`) —
+  ليُعرف من أوّل سجلٍّ أين الولاية في البوّابة.
+- **الدليل والمسح:** المسح يمرّ **ولايةً × نظاماً** حين توجد القائمة (`s.wils`/`s.wi`/`s.byWil`، والمسح المقطوع قبل v17.6 يُستأنف)، وكلّ مدرسةٍ
+  `{portal, system, wilaya}` (الإصدار ٢). `schoolDirLookup(name, map, wilaya)` يطابق في مدارس ولاية الزيارة أوّلاً — فالاسم المكرَّر في ولايتين يُحسم —
+  ثمّ في الدليل كلّه. `fetch_db_schools.mjs` يسجّل الولاية الأغلب لكلّ مدرسة، و`build_school_map.py` يحسم بها ويُخرج `wilayat`.
+- اختباره `node tests/school-wilaya.test.js` — بوّابةٌ محاكاة (قوائم الولاية والنظام والمدارس، و`change` يُعيد ملء المدارس): بوشر من السيب، «النهضة» في
+  ولايتين، ولايةٌ مجهولة ثمّ من الذاكرة، ليست في أيّ ولاية، الاستئناف بلا رجوع، النظام يُعاد إلى «اختر»، «ولاية بوشر»، بلا قائمة ولايات، المحافظات، الدليل، المسح.
+
 ## طيّ اللوحتين (منذ v15.0)
 
 اللوحتان تبدآن **مطويّتين** — شريطاً بعرض ١٨٠–٢٢٠ بكسل — فلا تحجبان الاستمارة. لوحة
@@ -2074,7 +2103,7 @@ Camera للـMac وApple TV وحدهما — بُحث)، فالربط من ال�
    و`node tests/identity.test.js` و`node tests/cloud.test.js` و`node tests/monthly.test.js`
    و`node tests/term-board.test.js`
    و`node tests/recs.test.js` و`node tests/classroom.test.js` و`node tests/objectives.test.js` و`node tests/route.test.js`
-   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js` و`node tests/recs-v2.test.js` و`node tests/letters.test.js` و`node tests/debrief.test.js` و`node tests/eye.test.js` و`node tests/same-day-visits.test.js` و`node tests/dash.test.js` و`node tests/queue-continue.test.js`.
+   و`node tests/sanitize-portal.test.js` و`node tests/manual-confirm.test.js` و`node tests/supervisory-form.test.js` و`node tests/school-overlap.test.js` و`node tests/term-plan.test.js` و`node tests/portal-names.test.js` و`node tests/data-quality.test.js` و`node tests/teacher-brief.test.js` و`node tests/gender-regen.test.js` و`node tests/recs-v2.test.js` و`node tests/letters.test.js` و`node tests/debrief.test.js` و`node tests/eye.test.js` و`node tests/same-day-visits.test.js` و`node tests/dash.test.js` و`node tests/queue-continue.test.js` و`node tests/school-wilaya.test.js`.
    ملف المحاكاة نفسه لم يُرفع بعد.
 3. **مطابقة الدرجة لها ملاذٌ أخيرٌ بالموضع** (`opts[Number(v)]` في تعبئة البنود) — تخمينٌ
    يخالف قاعدة «لا تخمين لسلّم التقييم». يُراجَع حين يُطبع سلّم البوّابة الحقيقيّ من التشخيص.
