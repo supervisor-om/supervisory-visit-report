@@ -125,6 +125,7 @@
     const ROLL_AUTO_MAX = 600;   // …ولا يتجاوز عشر دقائق
     const ROLL_MIN = 20;         // وما دون عشرين ثانيةً لا يُعدّ
     const ROLL_LONG = 300;       // خمس دقائق فأكثر ← سؤالٌ في المداولة وتنبيهٌ حيّ (أوّليّة)
+    const ROLL_TOUCH_MAX = 900;  // وبلمسته ربع ساعةٍ على الأكثر (نُسيت لمسة الإحماء بعده)
     const CONTEXTS = PARTS;                                   // الاسم القديم (الواجهة والتقارير المحفوظة)
     const ACTIVE_PARTS = ['warm', 'fit', 'teach', 'apply'];   // عناصرُ يُنتظر فيها نشاطٌ حركيّ
     const FORMS = { L: 'قاطرات وصفوف', C: 'دائرة', G: 'مجموعات', S: 'انتشار حرّ' };
@@ -279,7 +280,7 @@
         const speed = ref ? Math.hypot(last.cx - ref.cx, last.cy - ref.cy) / Math.max(1e-6, last.h) / Math.max(0.5, last.t - ref.t) : 0;
         // الشديد: جريٌ، أو تمرينٌ قويٌّ **في المكان** — تغيّر صندوق من ينتقل (أو من لم تُعرف سرعته بعد) أثرُ انتقاله لا شدّته
         const inPlace = !!ref && speed < MOVE_SPEED;
-        return { speed, act: last.act || 0, moving: speed >= MOVE_SPEED || (last.act || 0) >= BOX_ACT, vig: speed >= VIG_SPEED || (inPlace && (last.act || 0) >= VIG_ACT) };
+        return { speed, known: !!ref, act: last.act || 0, moving: speed >= MOVE_SPEED || (last.act || 0) >= BOX_ACT, vig: speed >= VIG_SPEED || (inPlace && (last.act || 0) >= VIG_ACT) };
     }
 
     // ── المعلّم: يُحدَّد بلمسة، ويُتابَع ولو انقطع متتبَّعه (يُتبنّى أقرب شخصٍ جديدٍ من آخر موضعه) ──
@@ -348,6 +349,7 @@
             r: !!(poly && poly.length >= 3),
             fm: F.dom, ln: F.maxLine, d: ins.filter(isDishTrack).length,
             vg: ins.filter(p => p.vig).length, cr, tc,
+            ip: ins.filter(p => p.moving && p.known && p.speed < MOVE_SPEED).length,     // يتحرّك في مكانه (تمرين) — من شواهد «الإعداد البدني»
             dots: all.map(p => ({ id: p.id, x: p.x, y: p.y, mv: p.moving, in: p.inside, dish: isDishTrack(p), tch: p === teacher }))
         };
     }
@@ -525,7 +527,8 @@
         if (ev.some(e => e.k === 'roll')) {
             const ser = ctxSeries(ev, n), spans = [];
             for (let t = 0; t < n; t++) if (ser[t] === 'roll') { const l = spans[spans.length - 1]; if (l && l[1] === t) l[1] = t + 1; else spans.push([t, t + 1]); }
-            return { spans, auto: false };
+            // نُسيت لمسة العنصر التالي: لا يمتدّ «حضور وزيّ» بلمسته أكثر من ربع ساعة (ROLL_TOUCH_MAX)
+            return { spans: spans.map(s => [s[0], Math.min(s[1], s[0] + ROLL_TOUCH_MAX)]), auto: false };
         }
         const first = ev[0];
         let from = null, to = null;
@@ -603,6 +606,200 @@
             return Object.assign({}, r, { label: PART[r.k].label, short: PART[r.k].short, rec: Math.round(want * 10) / 10, minutes: Math.round(have * 10) / 10, verdict,
                 lowAct: PART[r.k].act != null && r.sec >= 60 && (r.moving != null ? r.moving : r.activePct) != null && (r.moving != null ? r.moving : r.activePct) < PART[r.k].act });
         });
+    }
+
+    // ── اكتشاف عناصر الحصة (2026-10-27) — اقتراحٌ يؤكّده المشرف، لا حكم ──
+    // سأل المشرف: «هل تكتشف العين عناصر الدرس تلقائيّاً؟» ثمّ «نعم» لاقتراحٍ يؤكّده. نوافذ عشرين ثانية، ولكلّ نافذةٍ درجةٌ لكلّ عنصر:
+    //   • موضعها من الحصة (بعد الحضور والزيّ) مقابل نطاقٍ مرنٍ لكلّ عنصر (PART_BAND)؛
+    //   • الحركة: نسبة المتحرّكين من كشف الطلبة وإلّا حركة الصورة، والشديد (الإحماء)، والحركة في المكان (الإعداد البدني)، والسكون
+    //     مع كلام المعلّم (الأنشطة التعليميّة)، والقاطرات والمجموعات وانتظار الدور والكرات (التطبيقيّة)، والهدوء آخرها (الختام)؛
+    //   • كلام المعلّم حين يعلن الانتقال (eye-speech: partCues) — أقوى الشواهد؛
+    //   • لمسات المشرف — شاهدٌ قويٌّ في أوّل العنصر يضعف بعد زمنه الموصى به (فينتبه للعنصر التالي إن نُسيت لمسته).
+    // ثمّ أفضل تسلسلٍ (Viterbi) بترتيب العناصر: الإحماء ← الإعداد البدني ← التعليميّة ⇄ التطبيقيّة ← الختام، وكلّ انتقالٍ له ثمن
+    // (فلا تبدّل نافذةٌ واحدة العنصر). **كلّ الأوزان أوّليّة** تُضبط من حصصٍ حقيقيّة.
+    const SEG_W = 20;
+    const PART_BAND = { warm: [0, 0.2], fit: [0.08, 0.42], teach: [0.18, 0.82], apply: [0.3, 0.96], close: [0.84, 1] };
+    const PART_NEXT = { warm: ['fit', 'teach', 'apply'], fit: ['teach', 'apply'], teach: ['apply', 'close'], apply: ['teach', 'close'], close: [] };
+    const PART_SKIP = { warm: ['teach', 'apply'], fit: ['apply'] };      // انتقالٌ يتخطّى عنصراً — أغلى
+    const SEG_SWITCH = 4, SEG_SKIP = 2, SEG_CUE = 4, SEG_TOUCH = 8;
+    const KS = PARTS.map(x => x.k);
+    // بداية الحصة: نهاية الحضور والزيّ إن كان في أوّلها
+    const lessonStartOf = (st) => { let t = 0; while (t < st.length && st[t] === 'r') t++; return t < st.length ? t : 0; };
+    // rec = {secs, ctx}، st حالات summarize (فيها 'r')، o = {cues: [[t,k,w,نصّ]], expect: ثواني الحصة المتوقّعة, rec: دقائق موصى بها, live}
+    function partWindows(rec, st, o) {
+        o = o || {};
+        const secs = (rec && rec.secs) || [], n = st.length, start = lessonStartOf(st);
+        const span = Math.max(0, n - start), expect = o.expect || 2400;
+        // موضع النافذة من الحصة: حيّاً من الزمن المتوقّع، وبعد الرصد من زمنها الفعليّ (إلّا رصداً قصيراً جدّاً: جزءٌ من حصة)
+        const total = o.live ? Math.max(span, expect - start) : (span >= 0.6 * expect ? span : expect);
+        const ctx = ctxSeries(rec && rec.ctx, n);
+        const recMin = k => (o.rec && o.rec[k] > 0 ? Number(o.rec[k]) : PART[k].min);
+        const wins = [];
+        for (let t = start; t < n; t += SEG_W) {
+            const w = { t, a: 0, i: 0, pn: 0, pm: 0, vg: 0, ip: 0, q: 0, b: 0, pr: 0, tY: 0, tN: 0, fm: {}, roll: 0, touch: null, touchAge: 0, cues: {} };
+            for (let j = t; j < Math.min(n, t + SEG_W); j++) {
+                const k = st[j], s = secs[j] || {};
+                if (k === 'r') { w.roll++; continue; }
+                if (k === 'a') w.a++; else if (k === 'i') w.i++;
+                if (s.v != null) { w.tN++; if (s.v && k === 'i') w.tY++; }
+                const p = s.p;
+                if (p && p.n) { w.pn += p.n; w.pm += p.mv; w.vg += p.vg || 0; w.ip += p.ip || 0; w.q += p.q || 0; w.pr++; if (p.b >= 1) w.b++; if (p.fm && p.fm !== '-') w.fm[p.fm] = (w.fm[p.fm] || 0) + 1; }
+            }
+            // اللمسة الجارية في منتصف النافذة وعمرها
+            const mid = Math.min(n - 1, t + SEG_W / 2), c = ctx[mid];
+            if (c && c !== 'roll') {
+                let s0 = mid; while (s0 > 0 && ctx[s0 - 1] === c) s0--;
+                w.touch = c; w.touchAge = mid - s0; w.touchLim = Math.min(300, recMin(c) * 60);
+            }
+            w.pos = (t + SEG_W / 2 - start) / Math.max(1, total);
+            const obs = w.a + w.i;
+            w.A = w.pr >= 3 && w.pn ? w.pm / w.pn : obs >= 5 ? w.a / obs : null;      // مستوى النشاط ٠–١
+            w.talk = w.tN >= 5 ? w.tY / w.tN : null;                                   // كلامٌ في سكون (شرح)
+            const fmTop = Object.keys(w.fm).sort((p, q) => w.fm[q] - w.fm[p])[0] || null;
+            w.form = fmTop;
+            w.vgS = w.pn ? w.vg / w.pn : 0; w.ipS = w.pn ? w.ip / w.pn : 0; w.qS = w.pn ? w.q / w.pn : 0; w.bS = w.pr ? w.b / w.pr : 0;
+            wins.push(w);
+        }
+        (o.cues || []).forEach(([tc, k, wt]) => {
+            if (!PART[k] || k === 'roll') return;
+            // الإعلان يسبق العنصر بثوانٍ: نافذته والتالية
+            wins.forEach(w => { if (tc >= w.t - SEG_W && tc < w.t + SEG_W) w.cues[k] = Math.max(w.cues[k] || 0, wt); });
+        });
+        return { start, total, n, wins };
+    }
+    function partEmission(w) {
+        const e = {};
+        KS.forEach(k => {
+            const [lo, hi] = PART_BAND[k];
+            const d = w.pos < lo ? lo - w.pos : w.pos > hi ? w.pos - hi : 0;
+            e[k] = -30 * d;
+        });
+        if (w.roll >= SEG_W / 2) { KS.forEach(k => { e[k] = 0; }); return e; }      // حضورٌ وزيٌّ في وسط الحصة: لا شاهد
+        const a = w.A;
+        if (a != null) {
+            e.warm += 5 * (a - 0.5) + 2 * w.vgS;
+            e.fit += 4 * (a - 0.45) + 4 * w.ipS + w.vgS;
+            e.teach += 5 * (0.45 - a) + (w.talk != null ? 2 * w.talk : 0);
+            e.apply += 4 * (a - 0.4) + (w.form === 'L' || w.form === 'G' ? 0.8 : 0) + 2 * w.qS + (w.bS >= 0.3 ? 0.8 : 0);
+            e.close += 4 * (0.4 - a);
+        }
+        Object.keys(w.cues).forEach(k => { e[k] += SEG_CUE * w.cues[k]; });
+        if (w.touch) e[w.touch] += w.touchAge < w.touchLim ? SEG_TOUCH : 1;
+        return e;
+    }
+    // ← {start, segs: [{k, from, to, conf, cue, touched, A, talk, why: [..]}]} — والنوافذ لاستعمال الحيّ
+    function segmentParts(rec, st, o) {
+        o = o || {};
+        const P = partWindows(rec, st, o), W = P.wins;
+        if (!W.length) return { start: P.start, segs: [], wins: W };
+        const E = W.map(partEmission);
+        const init = { warm: 0, fit: -2, teach: -3, apply: -4, close: -8 };
+        const trans = (p, k) => (p === k ? 0 : PART_NEXT[p].includes(k) ? -SEG_SWITCH - ((PART_SKIP[p] || []).includes(k) ? SEG_SKIP : 0) : -Infinity);
+        let score = {}, back = [];
+        KS.forEach(k => { score[k] = init[k] + E[0][k]; });
+        for (let j = 1; j < W.length; j++) {
+            const ns = {}, bk = {};
+            KS.forEach(k => {
+                let best = -Infinity, arg = null;
+                KS.forEach(p => { const v = score[p] + trans(p, k); if (v > best) { best = v; arg = p; } });
+                ns[k] = best + E[j][k]; bk[k] = arg;
+            });
+            back.push(bk); score = ns;
+        }
+        let k = KS.reduce((b, x) => (score[x] > score[b] ? x : b), KS[0]);
+        const path = [k];
+        for (let j = back.length - 1; j >= 0; j--) { k = back[j][k]; path.unshift(k); }
+        const segs = [];
+        path.forEach((k2, j) => {
+            const last = segs[segs.length - 1];
+            if (last && last.k === k2) { last.j1 = j; } else segs.push({ k: k2, j0: j, j1: j });
+        });
+        segs.forEach(s => {
+            const ws = W.slice(s.j0, s.j1 + 1), es = E.slice(s.j0, s.j1 + 1);
+            s.from = W[s.j0].t; s.to = Math.min(P.n, W[s.j1].t + SEG_W);
+            const As = ws.map(w => w.A).filter(v => v != null), Ts = ws.map(w => w.talk).filter(v => v != null);
+            s.A = As.length ? Math.round(100 * As.reduce((x, y) => x + y, 0) / As.length) : null;
+            s.talk = Ts.length ? Math.round(100 * Ts.reduce((x, y) => x + y, 0) / Ts.length) : null;
+            // الإعلان: في المقطع أو قبله بنصف دقيقة
+            const cue = (o.cues || []).filter(c => c[1] === s.k && c[0] >= s.from - 30 && c[0] < s.to).sort((p, q) => q[2] - p[2] || p[0] - q[0])[0];
+            s.cue = cue ? [cue[0], cue[3] || ''] : null;
+            s.touched = ws.some(w => w.touch === s.k && w.touchAge < w.touchLim);
+            const margin = es.reduce((m, e) => m + (e[s.k] - Math.max(...KS.filter(x => x !== s.k).map(x => e[x]))), 0) / Math.max(1, es.length);
+            s.conf = s.touched ? 'touch' : cue && cue[2] >= 2 ? 'high' : cue || margin >= 1.5 ? 'medium' : 'low';
+            s.why = partWhy(s, ws);
+            delete s.j0; delete s.j1;
+        });
+        return { start: P.start, segs, wins: W };
+    }
+    // لماذا اقتُرح العنصر — جملٌ قصيرةٌ للمشرف
+    function partWhy(s, ws) {
+        const why = [];
+        if (s.touched) why.push('بلمستك');
+        if (s.cue) why.push('قال المعلّم: «' + s.cue[1] + '»');
+        if (s.A != null) {
+            if (s.k === 'teach') why.push(s.A <= 40 ? 'الطلبة ساكنون أغلبه (' + s.A + '% حركة)' + (s.talk >= 30 ? ' والمعلّم يتكلّم' : '') : 'حركة الطلبة ' + s.A + '%');
+            else if (s.k === 'close') why.push('آخر الحصة' + (s.A <= 40 ? ' والحركة هادئة (' + s.A + '%)' : ''));
+            else why.push('حركة الطلبة ' + s.A + '%');
+            const ip = ws.reduce((m, w) => m + w.ipS, 0) / Math.max(1, ws.length), vg = ws.reduce((m, w) => m + w.vgS, 0) / Math.max(1, ws.length);
+            if (s.k === 'fit' && ip >= 0.25) why.push('تمارين في المكان');
+            if (s.k === 'warm' && vg >= 0.25) why.push('جريٌ ونشاطٌ شديد');
+            const fms = {}; ws.forEach(w => { if (w.form) fms[w.form] = (fms[w.form] || 0) + 1; });
+            const top = Object.keys(fms).sort((p, q) => fms[q] - fms[p])[0];
+            if (s.k === 'apply' && top && top !== 'S') why.push(FORMS[top]);
+        }
+        if (!s.cue && !s.touched && (s.A == null || s.conf === 'low')) why.push('بحسب موضعه في الحصة');
+        return why;
+    }
+    // ← أحداث عناصر الحصة من المقاطع، مع لمسات «حضور وزيّ» كما هي
+    function partEventsOf(seg, ctxEvents) {
+        const roll = (ctxEvents || []).filter(e => e && e.k === 'roll');
+        const ev = seg.segs.map(s => ({ t: s.from, k: s.k }));
+        // بعد كلّ لمسة «حضور وزيّ» في وسط الحصة يعود العنصر الجاري عند اللمسة التالية
+        const sorted = (ctxEvents || []).filter(e => e && PART[e.k]).slice().sort((a, b) => a.t - b.t);
+        roll.forEach(r => {
+            const next = sorted.find(e => e.t > r.t && e.k !== 'roll');
+            if (!next) return;
+            const s = seg.segs.find(x => next.t >= x.from && next.t < x.to);
+            if (s && s.from < next.t) ev.push({ t: next.t, k: s.k });
+        });
+        return roll.concat(ev).sort((a, b) => a.t - b.t);
+    }
+    // حيّاً: هل بدأ عنصرٌ غير الملموس الآن؟ ← {k, from, conf, why} أو null
+    //   • آخر مقطعٍ في التسلسل غير العنصر الجاري، ومستقرٌّ أربعين ثانيةً (أو أعلنه المعلّم)؛
+    //   • لا أثناء الحضور والزيّ، ولا لعنصرٍ رفضه المشرف قبل قليل (o.dismiss = {k, until}).
+    //   • أثناء الحضور والزيّ (بلمسته): حين يعلن المعلّم عنصراً، أو تبدأ الحركة أربعين ثانيةً بعد دقيقةٍ منه (o.raw: ما رأته الكاميرا تحته)؛
+    //   • بلا كاميرا: من إعلان المعلّم وحده — الموضع في الحصة لا يكفي لاقتراح.
+    function partSuggest(rec, st, o) {
+        o = o || {};
+        const n = st.length;
+        if (n < 60) return null;
+        const ctxEv = (rec && rec.ctx) || [];
+        const lastTouch = ctxEv.reduce((m, e) => (e && PART[e.k] && e.t > m ? e.t : m), -1);
+        const dismissed = k => o.dismiss && o.dismiss.k === k && n < o.dismiss.until;
+        const out = (k, from, conf, why) => (dismissed(k) ? null : { k, from, conf, why, label: PART[k].label, short: PART[k].short });
+        if (st[n - 1] === 'r') {
+            let r0 = n - 1; while (r0 > 0 && st[r0 - 1] === 'r') r0--;
+            if (n - r0 < 60) return null;
+            const cue = (o.cues || []).filter(c => c[0] >= Math.max(r0, n - 90) && PART[c[1]] && c[1] !== 'roll').sort((p, q) => q[0] - p[0])[0];
+            if (cue) return out(cue[1], Math.max(r0 + 1, lastTouch + 1, cue[0]), cue[2] >= 2 ? 'high' : 'medium', ['قال المعلّم: «' + (cue[3] || '') + '»']);
+            const raw = o.raw;
+            if (!raw) return null;
+            let a0 = n; while (a0 > r0 && raw[a0 - 1] === 'a') a0--;
+            if (n - a0 >= 40 && a0 - r0 >= 60) return out('warm', Math.max(a0, lastTouch + 1), 'medium', ['بدأ الطلبة الحركة بعد الحضور والزيّ منذ ' + durG(n - a0)]);
+            return null;
+        }
+        const seg = segmentParts(rec, st, Object.assign({}, o, { live: true }));
+        const last = seg.segs[seg.segs.length - 1];
+        if (!last) return null;
+        const cur = ctxSeries(ctxEv, n)[n - 1];
+        if (last.k === cur) return null;
+        const cueNow = last.cue && last.cue[0] >= n - 90;
+        if (last.A == null && !cueNow) return null;
+        // بلا كاميرا يبدأ العنصر من الإعلان نفسه (لا شاهد قبله)
+        const from = Math.max(last.A == null ? last.cue[0] : last.from, lastTouch + 1);
+        if (n - from < 40 && !cueNow) return null;
+        if (last.conf === 'low' && !cueNow && n - from < 90) return null;
+        return out(last.k, from, last.conf, last.why);
     }
 
     // ── التشكيلات عبر الحصة ──
@@ -798,6 +995,7 @@
         const ctx = ctxSeries(rec && rec.ctx, st.length);
         // الحضور والزيّ: حالةٌ مستقلّة 'r' — لا شرح ولا انتظار ولا نشاط (طلب المشرف 2026-10-27)
         const RS = rollSpans(rec && rec.ctx, st);
+        const statesRaw = RS.spans.length ? st.slice() : null;      // ما رأته الكاميرا تحت الحضور والزيّ — لاقتراح العنصر التالي حيّاً
         RS.spans.forEach(([p, q]) => { for (let t = p; t < q && t < st.length; t++) st[t] = 'r'; });
         let a = 0, i = 0, x = 0, r = 0, rTalk = 0, talk = 0, explain = 0, heard = 0;
         st.forEach((k, t) => {
@@ -894,7 +1092,7 @@
             people: summarizePeople(secs, st, useCtx ? ctx : null, rec && rec.grid),
             resp: whistleAt.length ? whistleResponses(secs, sens.active) : null,
             forms: forms.windows.replace(/-/g, '').length ? forms : null,
-            space, timeline, states: st
+            space, timeline, states: st, statesRaw
         };
     }
 
@@ -1794,7 +1992,7 @@
     const api = {
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
-        PARTS, PART, ACTIVE_PARTS, ROLL, ROLL_START, ROLL_AUTO_MAX, ROLL_MIN, ROLL_LONG, rollSpans, inSpans, lessonSecOf, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
+        PARTS, PART, ACTIVE_PARTS, SEG_W, PART_BAND, partWindows, segmentParts, partEventsOf, partSuggest, ROLL, ROLL_START, ROLL_AUTO_MAX, ROLL_MIN, ROLL_LONG, rollSpans, inSpans, lessonSecOf, FORMS, LONG_LINE, formations, formationStats, garmentScore, isDishdasha, partsOf, partsDetail, debriefPrompts,
         PERSON_MIN_SCORE, MOVE_SPEED, BOX_ACT,
         inPoly, roiMask, roiCells, polyBox,
         toGray, frameDiff, grayShift, boxMotion,

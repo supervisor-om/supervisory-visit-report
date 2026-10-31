@@ -1816,7 +1816,7 @@
                 m: a.n && a.n >= a.bad ? a.sum / a.n : null,   // أغلب الإطارات مهتزّة ← غير محسوب
                 v: a.af ? a.voice / a.af >= 0.35 : (S.audio ? false : null),
                 w: a.whistle,
-                p: p ? Object.assign({ n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d, vg: p.vg, cr: p.cr, b: p.b },
+                p: p ? Object.assign({ n: p.n, mv: p.mv, o: p.o, q: p.q, r: p.r, fm: p.fm, ln: p.ln, d: p.d, vg: p.vg, cr: p.cr, b: p.b, ip: p.ip },
                     p.tc ? { t: [p.tc.x, p.tc.y, p.tc.mv ? 1 : 0, p.tc.edge == null ? -1 : p.tc.edge ? 1 : 0] } : {}) : null
             });
             if (a.lost && a.bad >= a.n) S.lostSec++;            // ثانيةٌ بلا صورةٍ من الهاتف
@@ -2169,7 +2169,7 @@
             renderCounts();
         }
         const keep = Object.assign({}, M);
-        delete keep.states; delete keep.timeline;
+        delete keep.states; delete keep.timeline; delete keep.statesRaw;
         keep.rec = recPref();                          // الزمن الموصى به للعناصر (اختيار المشرف) يُحفظ مع النتيجة
         // كلام المعلّم: تحليله يدخل M فيُقترح منه ويُعاد الاقتراح عليه، والنصّ نفسه في data.sp
         // وما قيل أثناء الحضور والزيّ لا يُحلَّل (لا شرح ولا أسئلة ولا تعليمات درس)

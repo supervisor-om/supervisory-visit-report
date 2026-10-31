@@ -708,7 +708,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const UI = read('js/eye.js'), RP = read('js/eye-report.js');
     check('wiring: الكرات من النموذج نفسه داخل منطقة الصفّ، والمعلّم يُتابَع ويُستثنى في كلّ لقطة', /o\.label === 'sports ball' && o\.score >= E\(\)\.BALL_MIN_SCORE/.test(UI) && /!S\.roi \|\| E\(\)\.inPoly\(cx, cy, S\.roi\)/.test(UI)
           && /S\.teacher = E\(\)\.teacherStep\(AI\.T, S\.teacher, t\);\s*\n\s*S\.pSnap = E\(\)\.peopleSnapshot\(AI\.T, t, S\.roi, S\.teacher\);\s*\n\s*S\.pSnap\.b = balls;/.test(UI));
-    check('wiring: كلّ ثانيةٍ تحفظ الشدّة والتزاحم والكرات وموضع المعلّم', /vg: p\.vg, cr: p\.cr, b: p\.b \}/.test(UI) && /p\.tc \? \{ t: \[p\.tc\.x, p\.tc\.y, p\.tc\.mv \? 1 : 0, p\.tc\.edge == null \? -1 : p\.tc\.edge \? 1 : 0\] \}/.test(UI));
+    check('wiring: كلّ ثانيةٍ تحفظ الشدّة والتزاحم والكرات وموضع المعلّم', /vg: p\.vg, cr: p\.cr, b: p\.b, ip: p\.ip \}/.test(UI) && /p\.tc \? \{ t: \[p\.tc\.x, p\.tc\.y, p\.tc\.mv \? 1 : 0, p\.tc\.edge == null \? -1 : p\.tc\.edge \? 1 : 0\] \}/.test(UI));
     check('wiring: المعلّم بلمسةٍ أثناء الرصد بالكشف وحده، ويُصفَّر مع رصدٍ جديد', /if \(!S\.running \|\| !S\.video \|\| !AI\.ok\)/.test(UI) && /const id = E\(\)\.pickNearest\(S\.pSnap, x, y\);/.test(UI) && /S\.teacher = null; S\.pickTeacher = false;\s*\n\s*setRoi\(null\);/.test(UI));
     check('wiring: عدد الكرات يُصحَّح فيُعاد الاقتراح', /\$\('eyeBalls'\)[\s\S]{0,400}S\.result\.M\.people\.balls = raw && v > 0 \? v : null;\s*\n\s*resuggest\(\);/.test(UI));
     check('wiring: البطاقة فيها «الحركة والتنظيم»', /heading\(g, 'الحركة والتنظيم'/.test(RP) && /Y\.ballRatio/.test(RP));
@@ -1008,6 +1008,64 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /it\.k === 'r' \? CTX_COLOR\.r/.test(UI) && /b\.k === 'r' \? E\(\)\.ROLL\.label/.test(UI) && /const rollRow = AD \?/.test(UI) && /بلا الحضور والزيّ/.test(UI));
     check('wiring: اسم العنصر الجاري من PART (يعرف «roll») لا من العناصر الخمسة وحدها', !/CONTEXTS\.find/.test(UI) && /E\(\)\.PART\[S\.ctxCur\] \? E\(\)\.PART\[S\.ctxCur\]\.label/.test(UI));
     check('wiring: بطاقة المعلّم — سطر الحضور والزيّ ولونه في مجرى الحصة', /r: '#8492a6'/.test(RP) && /الحضور والزيّ في أوّل الحصة: /.test(RP) && /k === 'r' \? PART_COLOR\.r/.test(RP));
+}
+
+/* ── ٢٤) اكتشاف عناصر الحصة (2026-10-27) — المحرّك وحده: اقتراحٌ يؤكّده المشرف (الشاشة لم تُربط بعد) ── */
+{
+    const SX = require('../js/eye-speech.js');
+    const put = (arr, m, n, ex) => { for (let i = 0; i < n; i++) arr.push(Object.assign({ m, v: false, w: false }, ex && ex(i))); return arr; };
+    // حضور ٣د، إحماء ٥د (جري)، إعداد بدني ٧د (في المكان)، تعليميّة ٨د (سكونٌ وكلام)، تطبيقيّة ١٤د (قاطرات وكرات)، ختام ٤د
+    const lessonP = people => {
+        const s = [];
+        const P = o => (people ? { p: Object.assign({ n: 20, mv: 0, o: 0, q: 0, r: 0, ln: 0, fm: 'S', d: 0, vg: 0, cr: 0, b: 0, ip: 0 }, o) } : {});
+        put(s, I, 180, i => Object.assign({ v: i % 3 !== 0 }, P({ mv: 1, fm: 'L', ln: 20 })));
+        put(s, A, 300, () => P({ mv: 17, vg: 10 }));
+        put(s, A, 420, () => P({ mv: 15, ip: 12, vg: 3 }));
+        put(s, I, 480, i => Object.assign({ v: i % 2 === 0 }, P({ mv: 3, fm: 'C' })));
+        put(s, A, 840, () => P({ mv: 12, q: 5, fm: 'L', ln: 5, b: 4 }));
+        put(s, I, 240, i => Object.assign({ v: i % 4 === 0 }, P({ mv: 4, fm: 'C' })));
+        return s;
+    };
+    const truth = { warm: 180, fit: 480, teach: 900, apply: 1380, close: 2220 };
+    const seg = (secs, o, ctx) => { const rec = { secs, grid: [], sens: 'medium', ctx: ctx || [] }; const M = E.summarize(rec); return E.segmentParts(rec, M.states, Object.assign({ expect: 2400 }, o)); };
+    const near = (S, tol) => S.segs.length === 5 && S.segs.every(x => Math.abs(x.from - truth[x.k]) <= tol) && S.segs.map(x => x.k).join() === 'warm,fit,teach,apply,close';
+    const S1 = seg(lessonP(true));
+    check('parts: من الكاميرا وكشف الطلبة — العناصر الخمسة بترتيبها وحدودها في دقيقة', near(S1, 60), S1.segs.map(x => x.k + '@' + x.from).join(' '));
+    check('parts: يبدأ بعد الحضور والزيّ، ولكلّ عنصرٍ سببٌ يُقرأ', S1.start >= 175 && S1.start <= 185 && S1.segs.every(x => x.why.length) && /تمارين في المكان/.test(S1.segs[1].why.join()) && /ساكنون/.test(S1.segs[2].why.join()));
+    const S2 = seg(lessonP(false));
+    check('parts: من حركة الصورة وحدها — الإحماء والإعداد البدني يفصلهما الموضع (ثقةٌ منخفضة)', S2.segs.map(x => x.k).join() === 'warm,fit,teach,apply,close' && S2.segs[0].conf === 'low'
+          && Math.abs(S2.segs[2].from - truth.teach) <= 60 && Math.abs(S2.segs[4].from - truth.close) <= 60, S2.segs.map(x => x.k + '@' + x.from + x.conf).join(' '));
+    const segsTxt = [[185, 'يلا نبدأ الإحماء'], [485, 'خلصنا الإحماء الحين تمارين البطن'], [905, 'اليوم بنتعلم التصويب'], [1385, 'طبقوا في مجموعات'], [2225, 'نختم بتمارين التهدئة']];
+    const cues = SX.partCues(segsTxt, [[0, 180]]);
+    check('parts→speech: إعلان المعلّم شاهد — «خلصنا الإحماء الحين…» للعنصر التالي، وما قيل في الحضور لا يُعدّ', cues.map(c => c[1]).join() === 'warm,fit,teach,apply,close'
+          && cues[1][2] === 2 && SX.partCues([[30, 'يلا نبدأ الإحماء']], [[0, 180]]).length === 0 && SX.partCues([[500, 'خلصنا الإحماء']]).length === 0);
+    const S3 = seg(lessonP(false), { cues });
+    check('parts: مع الإعلان تدقّ الحدود وترتفع الثقة', near(S3, 20) && S3.segs.filter(x => x.conf === 'high').length >= 4 && /قال المعلّم/.test(S3.segs[0].why.join()), S3.segs.map(x => x.k + '@' + x.from + x.conf).join(' '));
+    const nocam = put([], null, 2460);
+    const S4 = seg(nocam, { cues });
+    check('parts: بلا كاميرا يكفي الإعلان (والحصة من أوّل الرصد: لا حضور يُعرف بلا كاميرا ولا لمسة)', S4.segs.map(x => x.k).join() === 'warm,fit,teach,apply,close' && S4.segs[0].from === 0
+          && S4.segs.slice(1).every(x => Math.abs(x.from - truth[x.k]) <= 20), S4.segs.map(x => x.k + '@' + x.from).join(' '));
+    // حيّاً
+    const live = (n, ctx, o) => { const secs = lessonP(true).slice(0, n); const rec = { secs, grid: [], sens: 'medium', ctx: ctx || [] }; const M = E.summarize(rec);
+        return E.partSuggest(rec, M.states, Object.assign({ expect: 2400, raw: M.statesRaw }, o)); };
+    const L1 = live(240), L2 = live(1000), L3 = live(2300);
+    check('parts→live: بلا لمسة يُقترح العنصر الجاري ومن متى بدأ', L1 && L1.k === 'warm' && Math.abs(L1.from - 181) <= 3 && L2 && L2.k === 'teach' && L3 && L3.k === 'close', JSON.stringify([L1, L2, L3].map(x => x && x.k + x.from)));
+    const L4 = live(1000, [{ t: 182, k: 'warm' }]);
+    check('parts→live: لُمس الإحماء ونُسي ما بعده — يُقترح الجاري من بعد آخر لمسة', L4 && L4.k === 'teach' && L4.from > 182, JSON.stringify(L4));
+    check('parts→live: لا اقتراح لما هو ملموس، ولا لما رفضه المشرف قبل قليل', live(240, [{ t: 182, k: 'warm' }]) === null && live(240, [], { dismiss: { k: 'warm', until: 400 } }) === null);
+    const L5 = live(260, [{ t: 2, k: 'roll' }]), L6 = live(170, [{ t: 2, k: 'roll' }], { cues: [[150, 'warm', 2, 'يلا نبدأ الإحماء']] });
+    check('parts→live: «حضور وزيّ» بلمسةٍ ونُسي الإحماء — تقترحه الحركة أو الإعلان', L5 && L5.k === 'warm' && Math.abs(L5.from - 181) <= 3 && /بدأ الطلبة الحركة/.test(L5.why[0]) && L6 && L6.k === 'warm' && L6.from === 150);
+    const nc = { secs: put([], null, 400), grid: [], sens: 'medium', ctx: [] }, ncM = E.summarize(nc);
+    const N1 = E.partSuggest(nc, ncM.states, { expect: 2400 }), N2 = E.partSuggest(nc, ncM.states, { expect: 2400, cues: [[350, 'warm', 2, 'يلا نبدأ الإحماء']] });
+    check('parts→live: بلا كاميرا لا يُقترح من الموضع وحده، وبالإعلان يبدأ من وقته', N1 === null && N2 && N2.k === 'warm' && N2.from === 350);
+    // أحداث العناصر من المقاطع تُبقي لمسات الحضور
+    const ev = E.partEventsOf(S1, [{ t: 0, k: 'roll' }]);
+    check('parts: الأحداث من المقاطع، ولمسة «حضور وزيّ» كما هي', ev[0].k === 'roll' && ev.filter(e => e.k !== 'roll').map(e => e.k).join() === 'warm,fit,teach,apply,close');
+    // الحضور بلمسته لا يمتدّ بلا نهاية، والحالات الخام لا تُحفظ
+    const R = E.rollSpans([{ t: 0, k: 'roll' }], Array(2000).fill('a'));
+    check('roll: «حضور وزيّ» بلمسته ربع ساعةٍ على الأكثر إن نُسيت لمسة ما بعده', JSON.stringify(R.spans) === '[[0,900]]');
+    const UIx = read('js/eye.js');
+    check('wiring: الحالات الخام (statesRaw) لا تُحفظ مع النتيجة، وكلّ ثانيةٍ تحفظ من يتحرّك في مكانه', /delete keep\.statesRaw;/.test(UIx) && /ip: p\.ip \}/.test(UIx));
 }
 
 console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
