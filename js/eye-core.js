@@ -72,7 +72,10 @@
     const MVPA_GOAL = 50;         // إرشادات التربية البدنية: نصف زمن الحصة على الأقلّ نشاطاً معتدلاً فأشدّ
     const CROWD_BAD = 25;         // تزاحمٌ ربع المتحرّكين فأكثر ← ينزل البند ٥
 
-    // ما يسجّله المشرف بلمسة — item: البند الذي يشهد له، neg: شاهدٌ سلبيّ، qty: عددُ أشخاصٍ لا مرّات
+    // ما يسجّله المشرف بلمسة — item: البند الذي يشهد له (ودرجته منه)، neg: شاهدٌ سلبيّ، qty: عددُ أشخاصٍ لا مرّات،
+    // also: بنودٌ أخرى يشهد لها الوسم في الاستمارة نفسها — يدخل سجلّ أدلّتها بعبارتها (EV_TAG[k].on) ولا يغيّر درجتها.
+    // مطابقة الأدلّة (2026-10-31، مراجعة المشرف «طابق ما يمكن أن تقترحه العين وما لا يمكن»): الدرجة تتبع بند الدليل في الاستمارة —
+    // الزيّ للبند ٤ (القيم: «الالتزام بالزي الرياضي») لا ٥، وتوزيع الأدوات للبند ٧ («هدر وقت الحصة في تنظيم وتوزيع الأدوات») لا ٩.
     const TAGS = [
         { k: 'demo',      item: 8,  label: 'عرض نموذجي للمهارة' },
         { k: 'groups',    item: 8,  label: 'مجموعات أو تعلّم تعاوني' },
@@ -84,30 +87,48 @@
         { k: 'include',   item: 2,  label: 'مراعاة الفروق والدمج' },
         { k: 'out',       item: 2,  label: 'طلبة خارج النشاط (عددهم)', neg: true, qty: true },
         { k: 'fbInd',     item: 10, label: 'تغذية راجعة فردية' },
-        { k: 'fbGrp',     item: 10, label: 'تغذية راجعة جماعية' },
+        { k: 'fbGrp',     item: 10, label: 'تغذية راجعة جماعية', also: [2] },
         { k: 'ask',       item: 10, label: 'سؤال تقويمي' },
-        { k: 'peer',      item: 10, label: 'تقويم ذاتي أو أقران' },
-        { k: 'fbMiss',    item: 10, label: 'خطأ في الأداء لم يُصحَّح', neg: true },
+        { k: 'peer',      item: 10, label: 'تقويم ذاتي أو أقران', also: [3] },
+        { k: 'obsCard',   item: 10, label: 'بطاقة ملاحظة لتقييم المهارة' },
+        { k: 'record',    item: 10, label: 'رصد الأداء في سجل المتابعة' },
+        { k: 'fbMiss',    item: 10, label: 'خطأ في الأداء لم يُصحَّح', neg: true, also: [2] },
+        { k: 'rules',     item: 1,  label: 'تطبيق قانون المهارة أثناء اللعب' },
+        { k: 'answers',   item: 1,  label: 'إجابةٌ صحيحة عن سؤالٍ معرفي' },
         { k: 'lead',      item: 3,  label: 'قيادة طالب' },
         { k: 'team',      item: 3,  label: 'تعاون وعمل فريق' },
         { k: 'tactic',    item: 3,  label: 'تفكير خططي' },
-        { k: 'praise',    item: 4,  label: 'تعزيز الروح الرياضية' },
-        { k: 'misbehave', item: 4,  label: 'سلوك سلبي لم يُعالَج', neg: true },
+        { k: 'roles',     item: 3,  label: 'التزام الطلبة بأدوارهم في الفريق' },
+        { k: 'praise',    item: 4,  label: 'روح رياضية واحترام بين الطلبة' },
+        { k: 'fairplay',  item: 4,  label: 'مصافحة وتقبّل الفوز والخسارة' },
+        { k: 'respectRef',item: 4,  label: 'احترام قرار الحكم' },
+        { k: 'clean',     item: 4,  label: 'المحافظة على نظافة المكان' },
+        { k: 'misbehave', item: 4,  label: 'سلوك سلبي لم يُعالَج', neg: true, also: [7] },
+        { k: 'dish',      item: 4,  label: 'بغير الزي الرياضي (عددهم)', neg: true, qty: true },
         { k: 'safe',      item: 5,  label: 'تهيئة آمنة للمكان والأدوات' },
+        { k: 'checkTools',item: 5,  label: 'فحص الأدوات قبل استخدامها' },
+        { k: 'firstAid',  item: 5,  label: 'حقيبة إسعافات أولية جاهزة' },
         { k: 'hazard',    item: 5,  label: 'موقف خطر', neg: true },
-        { k: 'dish',      item: 5,  label: 'بغير الزي الرياضي (عددهم)', neg: true, qty: true },
         { k: 'water',     item: 5,  label: 'استراحة ماء' },
         { k: 'shade',     item: 5,  label: 'الشرح أو الانتظار في الظلّ' },
         { k: 'heatHit',   item: 5,  label: 'علامات إجهادٍ حراريّ على طالب', neg: true },
         { k: 'tools',     item: 9,  label: 'أدوات كافية ومتنوعة' },
+        { k: 'altTools',  item: 9,  label: 'أدوات بديلة عند نقص الإمكانات' },
+        { k: 'tech',      item: 9,  label: 'توظيف التقانة (فيديو أو صور)' },
         { k: 'noTools',   item: 9,  label: 'نقص أدوات وانتظار الدور', neg: true },
-        { k: 'equip',     item: 9,  label: 'توقّف النشاط لتوزيع الأدوات أو جمعها', neg: true }
+        { k: 'equip',     item: 7,  label: 'توقّف النشاط لتوزيع الأدوات أو جمعها', neg: true },
+        // البند ١٢ (الحوكمة): أدلّةٌ للوصف وحده — لا يُقترح له مستوى
+        { k: 'tOnTime',   item: 12, label: 'بدء الحصة في موعدها' },
+        { k: 'tLate',     item: 12, label: 'تأخّر بدء الحصة', neg: true },
+        { k: 'tKit',      item: 12, label: 'الزيّ الرياضيّ المناسب' }
     ];
     const GROUPS = [
         { title: 'التدريس', keys: ['demo', 'groups', 'games', 'stations', 'levels', 'discover', 'elim', 'include', 'out'] },
-        { title: 'التقويم', keys: ['fbInd', 'fbGrp', 'ask', 'peer', 'fbMiss'] },
-        { title: 'مهارات التعلم والقيم', keys: ['lead', 'team', 'tactic', 'praise', 'misbehave'] },
-        { title: 'السلامة والموارد', keys: ['safe', 'hazard', 'water', 'shade', 'heatHit', 'dish', 'tools', 'noTools', 'equip'] }
+        { title: 'التقويم', keys: ['fbInd', 'fbGrp', 'ask', 'peer', 'obsCard', 'record', 'fbMiss'] },
+        { title: 'تعلّم الطلبة', keys: ['rules', 'answers', 'lead', 'team', 'tactic', 'roles'] },
+        { title: 'القيم والسلوك', keys: ['praise', 'fairplay', 'respectRef', 'clean', 'misbehave', 'dish'] },
+        { title: 'السلامة والموارد', keys: ['safe', 'checkTools', 'firstAid', 'hazard', 'water', 'shade', 'heatHit', 'tools', 'altTools', 'tech', 'noTools', 'equip'] },
+        { title: 'التزام المعلّم', keys: ['tOnTime', 'tLate', 'tKit'] }
     ];
     const TAG = {};
     TAGS.forEach(t => { TAG[t.k] = t; });
@@ -141,9 +162,9 @@
 
     // البنود التي لا تُقترح، وسببها
     const NOT_SEEN = {
-        1: 'تحصيل الطلبة يُقدَّر من أدائهم للمهارة لا من الحركة — قيّم «عيّنة الطلبة» (خمسةٌ فأكثر) ليُقترح',
+        1: 'تحصيل الطلبة يُقدَّر من أدائهم للمهارة لا من الحركة — قيّم «عيّنة الطلبة» (خمسةٌ فأكثر) ليُقترح، ولمستا «تطبيق القانون» و«الإجابة المعرفية» أدلّةٌ للوصف',
         11: 'التقويم الذاتي والتطوير المهني لا يظهران في حصةٍ واحدة — يُقترح حين تُتابَع أهداف زيارةٍ سابقة',
-        12: 'الالتزام بالأخلاقيات واللوائح يُقدَّر من السجلات والمتابعة',
+        12: 'الالتزام بالأخلاقيات واللوائح يُقدَّر من السجلات والمتابعة — ولمسات «التزام المعلّم» أدلّةٌ للوصف لا تقترح مستوى',
         13: 'المبادرات والأنشطة في المجتمع المدرسي خارج الحصة'
     };
 
@@ -1051,7 +1072,7 @@
             const lv = w >= 800 ? 2 : w >= 300 ? 1 : 0;
             return ['low', 'medium', 'high'][Math.max(0, lv - (m.mic === 'teacher' ? 0 : 1))];
         }
-        const n = TAGS.filter(t => t.item === s.id).reduce((a, t) => a + ((counts && counts[t.k]) || 0), 0);
+        const n = TAGS.filter(t => t.item === s.id || (t.also || []).includes(s.id)).reduce((a, t) => a + ((counts && counts[t.k]) || 0), 0);
         return n >= 4 ? 'high' : n >= 2 ? 'medium' : 'low';
     }
 
@@ -1072,6 +1093,12 @@
     const coverText = GD => (GD && GD.cover && GD.cover.total ? '، و{ذكر|ذكرت} من النقاط الفنّيّة لمهارة الدرس (' + GD.cover.said + ') من (' + GD.cover.total + ')' : '');
 
     // الاستجابة للصفّارة حين تكفي (ثلاث إشاراتٍ قيست)، والمعلّم حين رُصد خمس دقائق
+    // استثمار المساحة (البند ٩) من خريطة الحركة: «narrow» أكثر من ٦٠٪ من الحركة في خُمس الخلايا، و«wide» تغطيةٌ ٧٠٪ فأكثر بلا تركّز — أوّليّة
+    const spaceOf = M => {
+        const sp = M && M.space;
+        if (!sp || (M.observed || 0) < MIN_OBSERVE || !sp.coverage) return null;
+        return sp.concentration >= 60 ? 'narrow' : sp.coverage >= 70 && sp.concentration <= 40 ? 'wide' : null;
+    };
     const respOf = M => { const R = M && M.resp; return R && R.med != null && R.list.filter(x => x[2] >= 0).length >= 3 ? R : null; };
     const teacherOf = M => { const T = ADV && M && M.people && M.people.teacher; return T && T.secs >= 300 ? T : null; };   // متقدّم
     // طلبةٌ لكلّ كرة (العدد الأكبر ÷ الكرات) — حين تُرى الكرات
@@ -1103,7 +1130,9 @@
             const sk = GD && GD.skill ? 'مهارة «' + GD.skill + '»' : 'المهارة';
             add(1, quantScore(f.pct), 'sample',
                 'في عيّنةٍ من ' + pupilsN(f.rated) + (late ? ' في آخر الحصة' : '') + ': أتقن ' + sk + ' (' + f.ok + ')، وأدّاها جزئيّاً (' + f.part + ')، ولم يتقنها (' + f.no + ') — نسبة الإتقان (' + f.pct + '%)'
-                + (GD && GD.weak ? '، وأضعف نقاطها الفنّيّة «' + GD.weak.short + '» (' + GD.weak.ok + ' من ' + GD.weak.rated + ')' : '') + '.',
+                + (GD && GD.weak ? '، وأضعف نقاطها الفنّيّة «' + GD.weak.short + '» (' + GD.weak.ok + ' من ' + GD.weak.rated + ')' : '')
+                + (c('rules') ? '، وطبّق الطلبة القانون المرتبط بالمهارة أثناء اللعب ' + times(c('rules')) : '')
+                + (c('answers') ? '، وأجابوا عن الأسئلة المعرفية المرتبطة بالدرس ' + times(c('answers')) : '') + '.',
                 nConf(f.rated));
         }
 
@@ -1165,56 +1194,80 @@
             }
             const SP7 = speechOf(m);
             if (SP7 && SP7.clauses >= 20 && SP7.orgShare >= 40) e += '، وكان (' + SP7.orgShare + '%) من كلام {المعلم|المعلمة} تعليماتٍ تنظيميّة';
+            // توزيع الأدوات وجمعها (الاستمارة: «هدر وقت الحصة في تنظيم وتوزيع الأدوات») — لمستان فأكثر تنزل درجة
+            if (c('equip')) { if (c('equip') >= 2) s++; e += '، وتوقّف النشاط لتوزيع الأدوات أو جمعها ' + times(c('equip')); }
+            if (c('misbehave')) e += '، ورُصد سلوكٌ غير منضبط لم يُعالَج ' + times(c('misbehave'));
             add(7, Math.max(s0 - 1, Math.min(s0 + 2, s)), basis, e + '.');
+        } else if (c('equip')) {
+            // بلا كاميرا: من لمسة التوقّف لتوزيع الأدوات وحدها — دليلٌ سالبٌ واحدٌ لا يحكم على الحصة كلّها
+            add(7, c('equip') >= 2 ? 4 : 3, 'taps', 'توقّف النشاط لتوزيع الأدوات أو جمعها ' + times(c('equip'))
+                + (c('misbehave') ? '، ورُصد سلوكٌ غير منضبط لم يُعالَج ' + times(c('misbehave')) : '') + '.');
         }
 
         // ٦ تخطيط المنهاج — من عناصر الحصة الخمسة إن لُمست (حضورها وترتيبها وزمن كلٍّ منها)، وإلّا من بنيتها المرئيّة.
         // أعلاه «جيد»: التخطيط المكتوب يقدّره المشرف.
         const det = cx ? partsDetail(m, m.rec) : null;
+        // والخطّة الفصليّة (الاستمارة: «التوافق مع الخطة الفصلية وتوزيع الوحدات»): عنوان الدرس مقابل موضوع الأسبوع — مطابقةٌ واضحة تلقائيّاً،
+        // وما سواها يؤكّده المشرف (planMatch + اختياره في النتيجة). عدم التوافق المؤكَّد ينزل درجة؛ ولا يُقترح البند من الخطّة وحدها.
+        const PL = ctx.plan && ctx.plan.match != null && Array.isArray(ctx.plan.planned) && ctx.plan.planned.length ? ctx.plan : null;
+        const planTxt = () => (!PL ? '' : PL.match ? '، ووافق عنوان الدرس موضوع الأسبوع في الخطة الفصليّة («' + PL.planned.join('» أو «') + '»)'
+            : '، ولم يوافق عنوان الدرس «' + PL.topic + '» موضوع الأسبوع في الخطة الفصليّة («' + PL.planned.join('» أو «') + '»)');
         if (det && cx.covered >= MIN_STRUCTURE && det.some(r => r.verdict !== 'missing')) {
             const present = det.filter(r => r.verdict !== 'missing'), missing = det.filter(r => r.verdict === 'missing');
             const long = present.filter(r => r.verdict === 'long'), short = present.filter(r => r.verdict === 'short');
             const orderOk = !m.parts || m.parts.orderOk !== false;
-            const s = 2 + Math.min(2, missing.length) + (orderOk ? 0 : 1) + (long.length + short.length >= 2 ? 1 : 0);
+            let s = 2 + Math.min(2, missing.length) + (orderOk ? 0 : 1) + (long.length + short.length >= 2 ? 1 : 0);
             let e = (missing.length ? 'اشتملت الحصة على ' + partsWord(present.length) + ' من عناصرها الخمسة: ' : 'اشتملت الحصة على عناصرها الخمسة: ') + partsText(det);
             if (missing.length) e += '، وغاب عنها ' + list(missing.map(r => r.label));
             if (long.length) e += '، وطال ' + list(long.map(r => r.label)) + ' عن الزمن الموصى به';
             if (short.length) e += '، وقصر ' + list(short.map(r => r.label)) + ' عنه';
             if (!orderOk) e += '، ولم تأتِ العناصر بترتيبها';
-            add(6, s, 'ctx', e + '.');
+            if (PL && !PL.match) s++;
+            add(6, s, 'ctx', e + planTxt() + '.');
         } else if ((m.observed || 0) >= MIN_STRUCTURE && m.structure) {
             const ok = ['warm', 'main', 'close'].filter(k => m.structure[k]).length;
-            const s = { 3: 2, 2: 3, 1: 4, 0: 5 }[ok];
+            let s = { 3: 2, 2: 3, 1: 4, 0: 5 }[ok];
             const parts = [
                 m.structure.warm ? 'بدأت الحصة بإحماءٍ نشط (' + m.phases.warm + '%)' : 'كان الإحماء في أوّل الحصة محدوداً (' + m.phases.warm + '%)',
                 m.structure.main ? 'وجاء الجزء الرئيس أكثرها نشاطاً (' + m.phases.main + '%)' : 'وقلّ النشاط في الجزء الرئيس (' + m.phases.main + '%)',
                 m.structure.close ? 'وهدأ الختام للتهدئة والمراجعة' : 'ولم يظهر ختامٌ للتهدئة والمراجعة'
             ];
-            add(6, s, 'camera', parts.join('، ') + '.');
+            if (PL && !PL.match) s++;
+            add(6, s, 'camera', parts.join('، ') + planTxt() + '.');
         }
 
         // ٨ استراتيجيّات التدريس — تسجيلات المشرف، والشرح الطويل (من السياق أو الصوت) ينقصها
-        const strat = ['demo', 'groups', 'games', 'stations', 'levels'].filter(k => c(k) > 0);
-        if (strat.length) {
+        // والتعلّم بالاكتشاف من الاستراتيجيّات (الاستمارة: «توظيف التعلم بالاكتشاف الموجه»)، ولعبة الإقصاء تنقصها («قلة فرص الممارسة العملية»)
+        const strat = ['demo', 'groups', 'games', 'stations', 'levels', 'discover'].filter(k => c(k) > 0);
+        const elimN = c('elim');
+        if (strat.length || elimN) {
             // دليلٌ موجبٌ لا يُنتج «غير ملائم» (2026-10-29): لمسةٌ واحدة تعني أنّ المشرف رأى الاستراتيجيّة، لا أنّها وحدها في الحصة —
             // فأدنى ما تقترحه اللمسات «ملائم»، وما دونه من الشرح الطويل (أدناه) أو من لمساتٍ سالبة على البند
-            let s = strat.length >= 4 ? 1 : strat.length === 3 ? 2 : 3;
-            let e = '{نوّع المعلم|نوّعت المعلمة} بين: ' + list(strat.map(k => TAG[k].label));
-            if (strat.length === 1) e = '{وظّف المعلم|وظّفت المعلمة}: ' + TAG[strat[0]].label;
+            const s0 = strat.length ? (strat.length >= 4 ? 1 : strat.length === 3 ? 2 : 3) : (elimN >= 2 ? 4 : 3);
+            let s = s0, basis = 'taps';
+            const elimTxt = 'وُظّفت لعبة إقصاءٍ تُخرج الطلبة من الممارسة ' + times(elimN);
+            let e = !strat.length ? elimTxt : strat.length === 1 ? '{وظّف المعلم|وظّفت المعلمة}: ' + TAG[strat[0]].label
+                  : '{نوّع المعلم|نوّعت المعلمة} بين: ' + list(strat.map(k => TAG[k].label));
+            if (strat.length && elimN) { s++; e += '، و' + elimTxt; }
             const longAudio = (m.observed || 0) >= MIN_OBSERVE && m.explainPct > 40;
-            if (longAudio) { s++; e += '، مع شرحٍ طويل استغرق (' + m.explainPct + '%) من زمن الرصد' + rollNote(m); }
-            add(8, s, longAudio ? 'both' : 'taps', e + '.');
+            if (longAudio) { s++; e += '، مع شرحٍ طويل استغرق (' + m.explainPct + '%) من زمن الرصد' + rollNote(m); basis = 'both'; }
+            // فرص الممارسة الفعليّة: حركةٌ قليلة في زمن الأنشطة (الاستمارة: «قلة فرص الممارسة العملية للطلبة»)
+            const mv8 = (m.observed || 0) >= MIN_OBSERVE ? movingOf(m) : null;
+            if (mv8 != null && mv8 < 35) { s++; e += '، وقلّت فرص الممارسة الفعليّة: (' + mv8 + '%) من زمن الأنشطة'; basis = 'both'; }
+            add(8, Math.min(s0 + 2, s), basis, e + '.');
         }
 
         // ١٠ أساليب التقويم — ومعها توجيه المعلّم أثناء النشاط من ميكروفونه
-        const fb = ['fbInd', 'fbGrp', 'ask', 'peer'];
+        const fb = ['fbInd', 'fbGrp', 'ask', 'peer', 'obsCard', 'record'];
         const fbTotal = fb.reduce((s, k) => s + c(k), 0), kinds = fb.filter(k => c(k) > 0).length;
         const SP = speechOf(m);
+        // التعزيز اللفظيّ من المعلّم تغذيةٌ راجعة (البند ١٠) — لا شاهدٌ على قيم الطلبة (البند ٤): يُذكر هنا ولا يغيّر الدرجة
+        const praiseTxt = SP && SP.praise.n ? '، وسُمع تعزيزٌ لفظيّ ' + times(SP.praise.n) + (SP.praise.spec ? ' منه (' + SP.praise.spec + ') بما أجاده الطالب تحديداً' : '') : '';
         if (!fbTotal && !c('fbMiss') && SP && speechMin(SP) >= 10) {
             // من كلامه وحده: التصحيح والتحقّق من الفهم، والأسئلة بنصف وزن — وأدناه «غير ملائم» (المحوِّل قد يفوته كلام)
             const r = per10(SP, SP.corr.n + SP.check.n) + per10(SP, SP.q.n) / 2;
             const top = SP.corr.spec >= 8 && SP.check.n >= 2 && SP.q.hi >= 2;
-            add(10, r >= 6 ? (top ? 1 : 2) : r >= 3 ? 3 : 4, 'speech', speechFbText(SP) + coverText(GD) + '.');
+            add(10, r >= 6 ? (top ? 1 : 2) : r >= 3 ? 3 : 4, 'speech', speechFbText(SP) + praiseTxt + coverText(GD) + '.');
         }
         if (fbTotal || c('fbMiss')) {
             // خطأٌ واحدٌ لم يُصحَّح لا يحكم على الحصة كلّها، والتغذية الراجعة القليلة دليلٌ موجبٌ لا يُنزل دون «ملائم» (2026-10-29)
@@ -1224,6 +1277,8 @@
             if (c('fbGrp')) bits.push('جماعية ' + times(c('fbGrp')));
             if (c('ask')) bits.push('أسئلة تقويمية ' + times(c('ask')));
             if (c('peer')) bits.push('تقويماً ذاتياً أو بين الأقران ' + times(c('peer')));
+            if (c('obsCard')) bits.push('بطاقة ملاحظةٍ لتقييم المهارة ' + times(c('obsCard')));
+            if (c('record')) bits.push('رصداً للأداء في سجل المتابعة ' + times(c('record')));
             let e = fbTotal ? '{وظّف المعلم|وظّفت المعلمة}: ' + list(bits) : '';
             if (c('fbMiss')) {
                 if (fbTotal && c('fbMiss') >= 2) s++;
@@ -1241,50 +1296,45 @@
                 const r = per10(SP, SP.corr.n + SP.check.n) + per10(SP, SP.q.n) / 2;
                 const ss = r >= 6 ? 2 : r >= 3 ? 3 : 4;
                 if (ss < s) s--; else if (ss > s + 1) s++;
-                e += '، و' + speechFbText(SP) + coverText(GD);
+                e += '، و' + speechFbText(SP) + praiseTxt + coverText(GD);
                 basis = 'both';
             }
             add(10, s, basis, e + '.');
         }
 
-        // ٣ مهارات التعلّم
-        // ومن كلامه: الأسئلة التي تستثير التفكير (لماذا، كيف، ما الفرق) — أو أسئلةٌ مغلقةٌ كلّها
-        const sk = ['lead', 'team', 'tactic'].filter(k => c(k) > 0);
-        const spQ = SP && (SP.q.hi >= 1 || SP.q.n >= 5);
-        if (sk.length || spQ) {
-            let s = sk.length ? { 3: 1, 2: 2, 1: 3 }[sk.length] : null, basis = sk.length ? 'taps' : 'speech';
-            let e = sk.length ? 'ظهرت في الحصة مواقف: ' + list(sk.map(k => TAG[k].label)) : '';
-            if (spQ) {
-                const ss = SP.q.hi >= 4 ? 2 : SP.q.hi >= 1 ? 3 : 4;
-                if (s == null) s = ss; else { if (SP.q.hi >= 3) s--; basis = 'both'; }
-                e += (e ? '، و' : '') + (SP.q.hi ? '{طرح المعلم|طرحت المعلمة} ' + count(SP.q.hi, 'سؤالاً واحداً', 'سؤالين', 'أسئلة', 'سؤالاً') + ' تستثير التفكير (لماذا، كيف، ما الفرق)'
-                                                 : 'كانت أسئلة {المعلم|المعلمة} (' + SP.q.n + ') مغلقةً لا تستثير التفكير');
-            }
-            add(3, s, basis, e + '.');
+        // ٣ مهارات التعلّم — ما يفعله **الطلبة**: القيادة، والتعاون، والتفكير الخططيّ، والالتزام بالأدوار، وتقويم الزميل
+        // (الاستمارة: «تقييم الطالب لأداء زميله باستخدام البطاقة»). أسئلة المعلّم التي تستثير التفكير تُذكر هنا ولا تقترح البند وحدها
+        // ولا تغيّر درجته (2026-10-31): هي فعل المعلّم، وشاهدها في البند ١٠.
+        const SK = ['lead', 'team', 'tactic', 'roles', 'peer'], SK_TXT = { peer: 'تقويم الطلبة أداءهم وأداء زملائهم' };
+        const sk = SK.filter(k => c(k) > 0);
+        if (sk.length) {
+            const s = sk.length >= 3 ? 1 : sk.length === 2 ? 2 : 3;
+            let e = 'ظهرت في الحصة مواقف: ' + list(sk.map(k => SK_TXT[k] || TAG[k].label));
+            if (SP && (SP.q.hi >= 1 || SP.q.n >= 5))
+                e += '، و' + (SP.q.hi ? '{طرح المعلم|طرحت المعلمة} ' + count(SP.q.hi, 'سؤالاً واحداً', 'سؤالين', 'أسئلة', 'سؤالاً') + ' تستثير التفكير (لماذا، كيف، ما الفرق)'
+                                     : 'كانت أسئلة {المعلم|المعلمة} (' + SP.q.n + ') مغلقةً لا تستثير التفكير');
+            add(3, s, 'taps', e + '.');
         }
 
-        // ٤ القيم والروح الرياضيّة
-        // ومن كلامه: التعزيز اللفظيّ (المحدّد بما أجاده الطالب أقوى)، والحثّ على القيم، والربط بالصحّة
-        const spV = SP && (SP.praise.n || SP.values.n || SP.health.n || speechMin(SP) >= 15);
-        if (c('praise') || c('misbehave') || spV) {
-            const p = c('praise'), n = c('misbehave');
-            let s = null, e = '', basis = 'taps';
-            if (p || n) {
-                s = n >= 2 ? (p ? 4 : 5) : n === 1 ? (p ? 3 : 4) : (p >= 3 ? 1 : 2);
-                const negTxt = 'رُصد سلوكٌ سلبيّ لم يُعالَج ' + times(n);
-                e = p ? '{عزّز المعلم|عزّزت المعلمة} الروح الرياضية ' + times(p) + (n ? '، و' + negTxt : '') : negTxt;
+        // ٤ القيم والسلوك — سلوك **الطلبة** كما رآه المشرف: الروح الرياضيّة والمصافحة واحترام الحكم والنظافة، والسلوك السلبيّ، والزيّ الرياضيّ
+        // (الاستمارة: «الالتزام بالزي الرياضي المحتشم والكامل» / «مخالفة الزي الرياضي المقرر»). تعزيز المعلّم اللفظيّ وحثّه على القيم
+        // يُذكران ولا يقترحان البند ولا يغيّران درجته (2026-10-31) — التعزيز تغذيةٌ راجعة يشهد لها البند ١٠.
+        const VP = ['praise', 'fairplay', 'respectRef', 'clean'];
+        const vp = VP.reduce((a, k) => a + c(k), 0), vn = c('misbehave'), dishN = c('dish');
+        if (vp || vn || dishN) {
+            let s = vn >= 2 ? (vp ? 4 : 5) : vn === 1 ? (vp ? 3 : 4) : (vp >= 3 ? 1 : 2);
+            const bits = [];
+            if (vp) bits.push('ظهرت في الحصة مواقف: ' + list(VP.filter(k => c(k) > 0).map(k => TAG[k].label + ' ' + times(c(k)))));
+            if (vn) bits.push((bits.length ? 'و' : '') + 'رُصد سلوكٌ سلبيّ لم يُعالَج ' + times(vn));
+            if (dishN) {
+                const share = classN ? dishN / classN : 0;
+                const ds = dishN >= 5 || share >= 0.2 ? 4 : dishN >= 2 || share >= 0.08 ? 3 : 2;
+                s = vp || vn ? Math.max(s, ds) : ds;
+                bits.push((bits.length ? 'و' : '') + 'شارك ' + pupilsN(dishN) + (classN ? ' من ' + pupilsN(classN) : '') + (F ? ' بغير الزيّ الرياضيّ' : ' بالدشداشة بدل الزيّ الرياضيّ'));
             }
-            if (spV) {
-                const pr = per10(SP, SP.praise.n), v = SP.values.n + SP.health.n;
-                const ss = pr >= 3 && (SP.praise.spec >= 3 || v >= 2) ? 1 : pr >= 2 ? 2 : 3;
-                if (s == null) { s = ss; basis = 'speech'; } else { if (ss < s) s--; basis = 'both'; }
-                let t = SP.praise.n ? 'سُمع من {المعلم|المعلمة} تعزيزٌ لفظيّ ' + times(SP.praise.n) + (SP.praise.spec ? '، منه (' + SP.praise.spec + ') بما أجاده الطالب تحديداً' : '')
-                                    : 'لم يُسمع في كلام {المعلم|المعلمة} تعزيزٌ لفظيّ للطلبة';
-                if (SP.values.n) t += '، وحثٌّ على القيم والروح الرياضيّة ' + times(SP.values.n);
-                if (SP.health.n) t += '، وربطٌ بالصحّة ' + times(SP.health.n);
-                e += (e ? '، و' : '') + t;
-            }
-            add(4, s, basis, e + '.');
+            if (SP && SP.values.n) bits.push('و{حثّ المعلم|حثّت المعلمة} على القيم والروح الرياضيّة ' + times(SP.values.n));
+            if (SP && SP.health.n) bits.push('و{ربط المعلم|ربطت المعلمة} النشاط بالصحّة ' + times(SP.health.n));
+            add(4, s, 'taps', bits.join('، ') + '.');
         }
 
         // ٢ التقدّم في الحصة والفروق الفرديّة — تقدّم «عيّنة الطلبة» بين قراءتيها، ومراعاة الفروق، والطلبة خارج النشاط
@@ -1318,12 +1368,12 @@
             add(2, s, prog ? (inc || outN || FD.exc ? 'both' : 'sample') : only ? 'field' : 'taps', bits.join('، ') + '.', prog ? nConf(prog.both) : only ? 'medium' : null);
         }
 
-        // ٥ الأمن والسلامة — ومنها الزيّ الرياضيّ: «بغير الزيّ» عددٌ يقترحه كشف الطلبة ويؤكّده المشرف،
-        // والتزاحم أثناء الحركة (الاستمارة: «توزيع الطلبة في مسافات آمنة» / «تزاحم الطلبة في مساحات ضيقة»)
+        // ٥ الأمن والسلامة — التهيئة الآمنة وفحص الأدوات وحقيبة الإسعافات، والمواقف الخطرة، والحرارة والماء،
+        // والتزاحم أثناء الحركة (الاستمارة: «توزيع الطلبة في مسافات آمنة» / «تزاحم الطلبة في مساحات ضيقة»).
+        // الزيّ الرياضيّ صار للبند ٤ (2026-10-31): هو في أدلّة القيم لا السلامة في الاستمارة.
         const crowd = ADV && people && people.crowdPct != null ? people.crowdPct : null;        // متقدّم
         const crowdText = v => (v >= CROWD_BAD ? 'وتزاحم الطلبة أثناء الحركة: (' + v + '%) منهم كان زميلٌ ملاصقاً له'
                                                : 'وتوزّع الطلبة في مسافاتٍ آمنة أثناء الحركة (التزاحم ' + v + '%)');
-        const dishN = c('dish');
         // الحرارة: حصةٌ في الحرّ بلا ماءٍ «غير ملائم» (حذرٌ شديد فأعلى) أو «ملائم» (حذر)، وماءٌ أقلّ من المتوقّع «ملائم»،
         // وعلامات إجهادٍ حراريّ «غير ملائم» إلّا إن أُتيح ماءٌ أو ظلّ — والدرجة اقتراحٌ يعتمده المشرف
         const heatOn = heatOnOf(FD), hb = [];
@@ -1338,19 +1388,16 @@
             else if (heatOn && !c('water')) hs = 3;
             if (c('heatHit')) hs = Math.max(hs, c('water') || c('shade') ? 3 : 4);
         }
-        if (c('safe') || c('hazard') || dishN || hb.length) {
-            const p = c('safe'), n = c('hazard');
-            let s = n >= 2 ? (p ? 4 : 5) : n === 1 ? (p ? 3 : 4) : 2;
+        const SF = ['safe', 'checkTools', 'firstAid'], sfN = SF.reduce((a, k) => a + c(k), 0), sfKinds = SF.filter(k => c(k) > 0).length;
+        if (sfN || c('hazard') || hb.length) {
+            const n = c('hazard');
+            // التهيئة وفحص الأدوات والإسعافات معاً بلا موقفٍ خطر ← «متميز»
+            let s = n >= 2 ? (sfN ? 4 : 5) : n === 1 ? (sfN ? 3 : 4) : sfKinds >= 3 ? 1 : 2;
             const bits = [];
-            if (p) bits.push('هُيّئ المكان والأدوات تهيئةً آمنة');
+            if (c('safe')) bits.push('هُيّئ المكان والأدوات تهيئةً آمنة');
+            if (c('checkTools')) bits.push((bits.length ? 'و' : '') + 'فُحصت الأدوات قبل استخدامها');
+            if (c('firstAid')) bits.push((bits.length ? 'و' : '') + 'توفّرت حقيبة إسعافاتٍ أوّليّة جاهزة');
             if (n) bits.push((bits.length ? 'و' : '') + 'رُصد ' + count(n, 'موقفٌ خطر', 'موقفان خطران', 'مواقف خطرة', 'موقفاً خطراً'));
-            if (dishN) {
-                const share = classN ? dishN / classN : 0;
-                const ds = dishN >= 5 || share >= 0.2 ? 4 : dishN >= 2 || share >= 0.08 ? 3 : 2;
-                s = p || n ? Math.max(s, ds) : ds;
-                bits.push((bits.length ? 'و' : '') + 'شارك ' + pupilsN(dishN) + (classN ? ' من ' + pupilsN(classN) : '') + (F ? ' بغير الزيّ الرياضيّ' : ' بالدشداشة بدل الزيّ الرياضيّ'));
-            }
-            if (m.space && m.space.concentration >= 60 && (m.observed || 0) >= MIN_OBSERVE) bits.push('وتركّزت الحركة في جزءٍ محدود من المساحة');
             if (SP && SP.safe.n) bits.push('وذكّر {المعلم|المعلمة} الطلبة بالسلامة ' + times(SP.safe.n));
             if (crowd != null) {
                 if (crowd >= CROWD_BAD) s = Math.max(s, crowd >= 40 ? 4 : 3);
@@ -1358,7 +1405,7 @@
             }
             hb.forEach(t => bits.push((bits.length ? 'و' : '') + t));
             s = Math.max(s, hs);
-            const tapped = c('safe') || c('hazard') || dishN || c('water') || c('shade') || c('heatHit');
+            const tapped = sfN || c('hazard') || c('water') || c('shade') || c('heatHit');
             add(5, s, crowd != null ? 'both' : tapped ? 'taps' : 'field', bits.join('، ') + '.', tapped ? null : 'medium');
         } else if (crowd != null && crowd >= CROWD_BAD) {
             add(5, crowd >= 40 ? 4 : 3, 'ai', crowdText(crowd).replace(/^و/, '') + '.');
@@ -1370,12 +1417,17 @@
         const queue = people && people.queuePct >= 40 ? people.queuePct : 0;
         // والكرات: النموذج نفسه يرى «الكرة» — طلبةٌ لكلّ كرة (٢ فأقلّ جيد، حتّى ٤ ملائم، وأكثر غير ملائم)
         const ratio = people ? ballRatio(m) : null;
-        if (c('tools') || c('noTools') || queue || ratio) {
-            const p = c('tools'), n = c('noTools');
-            let s = p || n ? (n >= 2 ? 4 : n === 1 ? (p ? 3 : 4) : 2) : 0;
+        // والأدوات البديلة والتقانة (الاستمارة: «استخدام الأدوات البديلة عند نقص الإمكانيات»، «توظيف التقانة لتوضيح المهارة» —
+        // والتقنيات الرقميّة في وصف المستوى «متميز»): التقانة مع أدواتٍ كافية أو بديلة ← «متميز»
+        const altN = c('altTools'), techN = c('tech');
+        if (c('tools') || c('noTools') || altN || techN || queue || ratio) {
+            const p = c('tools') + altN + techN, n = c('noTools');
+            let s = p || n ? (n >= 2 ? 4 : n === 1 ? (p ? 3 : 4) : techN && (c('tools') || altN) ? 1 : 2) : 0;
             const bits = [];
-            if (p) bits.push('وُظّفت أدواتٌ كافية ومتنوعة');
-            if (n) bits.push((p ? 'و' : '') + 'رُصد نقصٌ في الأدوات وانتظارٌ للدور ' + times(n));
+            if (c('tools')) bits.push('وُظّفت أدواتٌ كافية ومتنوعة');
+            if (altN) bits.push((bits.length ? 'و' : '') + 'استُخدمت أدواتٌ بديلة عند نقص الإمكانات');
+            if (techN) bits.push((bits.length ? 'و' : '') + '{وظّف المعلم|وظّفت المعلمة} التقانة (فيديو أو صور) لتوضيح المهارة');
+            if (n) bits.push((bits.length ? 'و' : '') + 'رُصد نقصٌ في الأدوات وانتظارٌ للدور ' + times(n));
             if (ratio) {
                 const bs = ratio <= 2 ? 2 : ratio <= 4 ? 3 : 4;
                 s = s ? Math.max(s, bs) : bs;
@@ -1385,10 +1437,44 @@
                 s = Math.max(s, queue >= 55 ? 4 : 3);
                 bits.push((bits.length ? 'و' : '') + 'وقف (' + queue + '%) من الطلبة ينتظرون دورهم أثناء التطبيق');
             }
+            // المساحة والصفّارة شاهدان في البند نفسه («الاستخدام الأمثل للمساحات»، «استخدام صافرة … بفاعلية») — يُذكران ولا يغيّران الدرجة
+            if (spaceOf(m) === 'narrow') bits.push('وتركّزت الحركة في جزءٍ محدود من المساحة (' + m.space.concentration + '% منها في خُمسها)');
+            if (m.cued >= 2) bits.push('ونُظّم ' + count(m.cued, 'انتقالٌ واحد', 'انتقالان', 'انتقالات', 'انتقالاً') + ' بالصفّارة');
             add(9, s, p || n ? (queue || ratio ? 'both' : 'taps') : 'ai', bits.join('، ') + '.');
         }
 
         return out.sort((a, b) => a.id - b.id);
+    }
+
+    // ── الخطّة الفصليّة (2026-10-31) — البند ٦: «التوافق مع الخطة الفصلية وتوزيع الوحدات» ──
+    // عنوان الدرس الذي كتبه المشرف مقابل موضوعات الأسبوع في الخطّة (term-plan.js). موضوع الخطّة عامٌّ كثيراً («لعبة كرة السلة») والعنوان
+    // مهارةٌ منه («التمريرة الصدرية») — فلا يُحكم بعدم التوافق آليّاً: 'match' = أحدهما في الآخر أو كلماتُ الموضوع المميِّزة كلّها في العنوان
+    // أو كلمتان منها؛ 'differ' = لا كلمة مشتركة؛ وغيرهما 'unclear'. وما ليس 'match' يؤكّده المشرف في النتيجة.
+    const PLAN_STOP = new Set(['لعبه', 'مهاره', 'مهارات', 'كره', 'في', 'من', 'علي', 'الي', 'مع', 'عن', 'بطريقه', 'طريقه', 'درس', 'اختبار', 'عملي', 'قصير',
+        'تطبيقات', 'منافسات', 'مراجعه', 'صغار', 'اناث', 'ذكور', 'جم', 'كجم', 'بين', 'ثم', 'او']);
+    const planNorm = x => String(x || '').replace(/[ً-ٰٟـ]/g, '').replace(/[إأآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+        .replace(/[^ء-ي\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const planWords = x => planNorm(x).split(' ').map(w => w.replace(/^(?:و|ف)?(?:ب|ل|ك)?ال(?=..)/, '').replace(/^لل(?=..)/, '')).filter(w => w.length >= 2 && !PLAN_STOP.has(w));
+    // لكلّ موضوعٍ في الخطّة حكمه، فيُذكر في الأدلّة ما وافقه العنوان وحده لا موضوعات الأسبوع كلّها
+    function planVerdicts(topic, planned) {
+        const T = planNorm(topic), tw = new Set(planWords(topic));
+        if (!T || !Array.isArray(planned) || !planned.length) return null;
+        return planned.map(p => {
+            let v = 'differ';
+            String(p || '').split(/\s*[\/+]\s*/).forEach(part => {
+                const P = planNorm(part), pw = [...new Set(planWords(part))];
+                if (!P || v === 'match') return;
+                const hit = pw.filter(w => tw.has(w)).length;
+                if ((pw.length && tw.size && (T.includes(P) || P.includes(T))) || (pw.length && hit === pw.length) || hit >= 2) v = 'match';
+                else if (hit) v = 'unclear';
+            });
+            return { topic: p, v };
+        });
+    }
+    function planMatch(topic, planned) {
+        const V = planVerdicts(topic, planned);
+        if (!V) return null;
+        return V.some(x => x.v === 'match') ? 'match' : V.some(x => x.v === 'unclear') ? 'unclear' : 'differ';
     }
 
     // ما لم يُقترح وسببه — للعرض تحت الاقتراحات
@@ -1401,6 +1487,8 @@
             if (!why && id === 7) why = 'تحتاج عشر دقائق رصدٍ بالكاميرا على الأقلّ';
             if (!why && id === 6) why = 'تحتاج عشرين دقيقة رصدٍ على الأقلّ، ولمس «عناصر الحصة» حين يبدأ كلٌّ منها';
             if (!why && id === 2) why = 'قيّم «عيّنة الطلبة» في أوّل التطبيق وآخره، أو المس «مراعاة الفروق» و«طلبة خارج النشاط»';
+            if (!why && id === 3) why = 'المس مواقف الطلبة في «تعلّم الطلبة» (القيادة، التعاون، الأدوار، تقويم الزميل) — أسئلة المعلّم وحدها لا تقترحه';
+            if (!why && id === 4) why = 'المس مواقف الطلبة في «القيم والسلوك» — تعزيز المعلّم اللفظيّ وحده لا يقترحه';
             if (!why) why = 'لا شاهد مسجَّل — يقدّرها المشرف';
             out.push({ id, why });
         }
@@ -1638,16 +1726,16 @@
           // لا يُقاس من رصدٍ قصير: «كان (0)» بعد دقيقةٍ رصدٍ حكمٌ بلا شاهد (2026-10-29)
           read: d => (ADV && d.M && d.M.forms && (d.M.people && d.M.people.detSecs) >= MIN_OBSERVE / 2 ? d.M.forms.count : null), goal: b => Math.max(2, b + 1),
           text: (b, t) => 'التنويع في تشكيلات الطلبة بما يناسب المهارة: ' + count(t, 'تشكيلٌ واحد', 'تشكيلان', 'تشكيلات', 'تشكيلاً') + ' على الأقلّ في الحصة — كان (' + b + ')' },
-        { k: 'dish', w: 1, item: 5, label: 'المشاركون بغير الزيّ الرياضيّ', unit: 'n', dir: -1, good: 1, needs: 'tag',
+        { k: 'dish', w: 1, item: 4, label: 'المشاركون بغير الزيّ الرياضيّ', unit: 'n', dir: -1, good: 1, needs: 'tag',
           read: d => { const c = (d.counts || {}).dish; return c != null ? c : (ADV && d.M && d.M.people ? 0 : null); }, goal: () => 0,
           text: (b) => 'متابعة التزام الطلبة بالزيّ الرياضيّ مع الإدارة وأولياء الأمور حتّى يشارك الجميع به — شارك (' + b + ') بغيره' },
         { k: 'out', w: 1.5, item: 2, label: 'الطلبة خارج النشاط', unit: 'n', dir: -1, good: 0, needs: 'tag',
           read: d => { const c = (d.counts || {}).out; return c != null ? c : (d.M && d.M.people && d.M.people.roi ? 0 : null); }, goal: () => 0,
           text: (b) => 'إشراك جميع الطلبة في النشاط ولو بأدوارٍ مساعدة — ظلّ (' + b + ') خارجه' },
-        { k: 'praiseSpec', w: 2, item: 4, label: 'التعزيز المحدّد بما أجاده الطالب', unit: 'n', dir: 1, good: 4, needs: 'speech',
+        { k: 'praiseSpec', w: 2, item: 10, label: 'التعزيز المحدّد بما أجاده الطالب', unit: 'n', dir: 1, good: 4, needs: 'speech',
           read: d => { const SP = spOf(d); return SP ? SP.praise.spec : null; }, goal: b => Math.max(4, b + 3),
           text: (b, t) => 'تعزيز أداء الطلبة تعزيزاً محدّداً يذكر ما أجادوه ' + times(t) + ' على الأقلّ في الحصة — كان (' + b + ')' },
-        { k: 'qHi', w: 2, item: 3, label: 'الأسئلة التي تستثير التفكير', unit: 'n', dir: 1, good: 2, needs: 'speech',
+        { k: 'qHi', w: 2, item: 10, label: 'الأسئلة التي تستثير التفكير', unit: 'n', dir: 1, good: 2, needs: 'speech',
           read: d => { const SP = spOf(d); return SP ? SP.q.hi : null; }, goal: b => Math.max(2, b + 2),
           text: (b, t) => 'طرح ' + count(t, 'سؤالٍ واحد', 'سؤالين', 'أسئلة', 'سؤالاً') + ' على الأقلّ من الأسئلة التي تستثير تفكير الطلبة في المهارة («لماذا؟»، «كيف؟») — كانت (' + b + ')' },
         { k: 'check', w: 2, item: 10, label: 'التحقّق من فهم الطلبة', unit: 'n', dir: 1, good: 2, needs: 'speech',
@@ -1777,23 +1865,38 @@
         include:  { pos: 'إشراك الطلبة ذوي المستويات المختلفة بمهام تناسب قدراتهم' },
         out:      { neg: 'بقاء عدد من الطلبة خارج النشاط دون إشراك' },
         fbInd:    { pos: 'تقديم تغذية راجعة فردية فورية لتصحيح الأداء' },
-        fbGrp:    { pos: 'تقديم تغذية راجعة جماعية عن الأخطاء الشائعة في المهارة' },
+        fbGrp:    { pos: 'تقديم تغذية راجعة جماعية عن الأخطاء الشائعة في المهارة', on: { 2: { pos: 'تصحيح الأخطاء الشائعة أثناء الممارسة' } } },
         ask:      { pos: 'طرح أسئلة شفهية للتحقق من فهم الطلبة للمهارة' },
-        peer:     { pos: 'إشراك الطلبة في تقويم أدائهم وأداء زملائهم' },
-        fbMiss:   { neg: 'تكرار أخطاء في الأداء دون تصحيح' },
+        peer:     { pos: 'إشراك الطلبة في تقويم أدائهم وأداء زملائهم', on: { 3: { pos: 'تقييم الطلبة أداءهم وأداء زملائهم' } } },
+        obsCard:  { pos: 'استخدام بطاقات الملاحظة لتقييم أداء المهارة' },
+        record:   { pos: 'رصد مستوى الأداء المهاري في سجل المتابعة' },
+        fbMiss:   { neg: 'تكرار أخطاء في الأداء دون تصحيح', on: { 2: { neg: 'تكرار الأخطاء الفنية دون تصحيح' } } },
+        rules:    { pos: 'تطبيق الطلبة القانون المرتبط بالمهارة أثناء اللعب' },
+        answers:  { pos: 'إجابة الطلبة عن الأسئلة المعرفية المرتبطة بالدرس' },
         lead:     { pos: 'قيادة الطلبة لزملائهم أثناء الإحماء أو التطبيق' },
         team:     { pos: 'تعاون الطلبة لإنجاز المهام الحركية داخل الفريق' },
         tactic:   { pos: 'اقتراح الطلبة حلولا خططية أثناء اللعب' },
-        praise:   { pos: 'تعزيز الروح الرياضية والتعامل باحترام بين الطلبة' },
-        misbehave:{ neg: 'ظهور سلوك غير رياضي دون معالجة' },
+        roles:    { pos: 'التزام الطلبة بالأدوار الموكلة إليهم داخل الفريق' },
+        praise:   { pos: 'التعامل بروح رياضية واحترام بين الطلبة' },
+        fairplay: { pos: 'مصافحة الطلبة زملاءهم وتقبلهم الفوز والخسارة' },
+        respectRef: { pos: 'احترام الطلبة قرارات الحكم أثناء المنافسة' },
+        clean:    { pos: 'محافظة الطلبة على نظافة المكان بعد انتهاء الدرس' },
+        misbehave:{ neg: 'ظهور سلوك غير رياضي دون معالجة', on: { 7: { neg: 'عدم انضباط سلوك بعض الطلبة دون معالجة' } } },
         safe:     { pos: 'تهيئة الملعب والأدوات بصورة آمنة قبل الممارسة' },
+        checkTools: { pos: 'فحص الأدوات الرياضية قبل استخدامها' },
+        firstAid: { pos: 'وجود حقيبة إسعافات أولية جاهزة للاستخدام' },
         hazard:   { neg: 'حدوث موقف يهدد سلامة الطلبة أثناء الممارسة' },
         tools:    { pos: 'توفير أدوات كافية ومتنوعة تزيد فرص الممارسة' },
+        altTools: { pos: 'استخدام الأدوات البديلة عند نقص الإمكانات' },
+        tech:     { pos: 'توظيف التقانة (فيديو أو صور) لتوضيح المهارة' },
         noTools:  { neg: 'نقص الأدوات بما يطيل انتظار الطلبة لأدوارهم' },
-        equip:    { neg: 'توقف النشاط لتوزيع الأدوات أو جمعها' },
+        equip:    { neg: 'هدر وقت الحصة في توزيع الأدوات وجمعها' },
         water:    { pos: 'إتاحة استراحات لشرب الماء أثناء الممارسة' },
         shade:    { pos: 'توظيف الظل أثناء الشرح والانتظار تجنبا لأشعة الشمس المباشرة' },
-        heatHit:  { neg: 'ظهور علامات إجهاد حراري على بعض الطلبة أثناء الممارسة' }
+        heatHit:  { neg: 'ظهور علامات إجهاد حراري على بعض الطلبة أثناء الممارسة' },
+        tOnTime:  { pos: 'الالتزام بموعد بدء الحصة' },
+        tLate:    { neg: 'التأخر عن موعد بدء الحصة' },
+        tKit:     { pos: 'ارتداء الزي الرياضي المناسب واللائق' }
     };
     const n_ = x => '(' + x + ')';
     // in: {ev: [{t, k}] اللمسات, counts, M: الملخّص, sample, follow: [{verdict}], marks: [{t, note, item}], ctx: {pupil}}
@@ -1807,13 +1910,15 @@
         ev.forEach(e => {
             const T = TAG[e.k];
             if (!T || e.k === 'dish') return;              // الزيّ أدناه بعدده
-            const r = EV_TAG[e.k] || {};
-            add(T.item, { t: e.t, src: 'tap', text: T.label.replace(/ \(عددهم\)$/, ''), pos: r.pos, neg: r.neg });
+            const r = EV_TAG[e.k] || {}, text = T.label.replace(/ \(عددهم\)$/, '');
+            add(T.item, { t: e.t, src: 'tap', text, pos: r.pos, neg: r.neg });
+            // وفي البنود الأخرى التي يشهد لها الوسم في الاستمارة — بعبارتها هناك (تقويم الزميل للبند ٣، والأخطاء الشائعة للبند ٢، والسلوك للبند ٧)
+            (T.also || []).forEach(id => { const o = (r.on && r.on[id]) || {}; add(id, { t: e.t, src: 'tap', text, pos: o.pos, neg: o.neg }); });
         });
-        if (c.dish > 0) {                            // الزيّ: البند ٤ (القيم) والبند ٥ (السلامة)، بعددهم
-            const t0 = (ev.find(e => e.k === 'dish') || {}).t;
-            add(4, { t: t0, src: ev.some(e => e.k === 'dish') ? 'tap' : 'ai', text: pupilsN(c.dish) + ' بغير الزيّ الرياضيّ', neg: 'مشاركة ' + n_(c.dish) + ' من الطلبة بغير الزي الرياضي' });
-            add(5, { t: t0, src: ev.some(e => e.k === 'dish') ? 'tap' : 'ai', text: pupilsN(c.dish) + ' بغير الزيّ الرياضيّ أثناء الممارسة', neg: 'ممارسة بعض الطلبة النشاط بغير الزي الرياضي الآمن' });
+        if (c.dish > 0) {                            // الزيّ: دليل البند ٤ (القيم) بعددهم، وذكرٌ بلا عبارة تقريرٍ تحت البند ٥ (الممارسة بغير الزيّ)
+            const t0 = (ev.find(e => e.k === 'dish') || {}).t, src = ev.some(e => e.k === 'dish') ? 'tap' : 'ai';
+            add(4, { t: t0, src, text: pupilsN(c.dish) + ' بغير الزيّ الرياضيّ', neg: 'مشاركة ' + n_(c.dish) + ' من الطلبة بغير الزي الرياضي' });
+            add(5, { t: t0, src, text: pupilsN(c.dish) + ' بغير الزيّ الرياضيّ أثناء الممارسة' });
         }
         if (c.out > 0 && !ev.some(e => e.k === 'out')) add(2, { src: 'ai', text: pupilsN(c.out) + ' خارج منطقة النشاط (تقديرٌ من الكاميرا)', neg: 'بقاء ' + n_(c.out) + ' من الطلبة خارج النشاط دون إشراك' });
         // ٢) الكاميرا: الزمن والانتظار والصفّارة وموقع المعلّم والتزاحم والأدوات
@@ -1847,6 +1952,11 @@
             if (br) add(9, { src: 'ai', text: 'كرةٌ لكلّ ' + perPupils(br) + ' (' + pp.balls + ' كرات)',
                 pos: br <= 2 ? 'توفير كرة لكل ' + perPupils(br) + ' بما يزيد عدد التكرارات' : undefined,
                 neg: br > 4 ? 'عدم كفاية الكرات لعدد الطلبة إذ بلغت كرة لكل ' + perPupils(br) : undefined });
+            // المساحة والصفّارة — البند ٩ (المصادر): «الاستخدام الأمثل للمساحات المتاحة»، «استخدام صافرة وأدوات توضيحية بفاعلية»
+            const spc = spaceOf(M);
+            if (spc === 'narrow') add(9, { src: 'cam', text: 'تركّزت الحركة في جزءٍ محدود: ' + M.space.concentration + '% منها في خُمس المساحة', neg: 'عدم استثمار المساحة المتاحة إذ تركزت الممارسة في جزء محدود منها' });
+            else if (spc === 'wide') add(9, { src: 'cam', text: 'امتدّت الحركة على ' + M.space.coverage + '% من المساحة', pos: 'الاستخدام الأمثل للمساحة المتاحة للنشاط' });
+            if (M.cued >= 2) add(9, { src: 'cam', text: 'نُظّم ' + M.cued + ' من الانتقالات بالصفّارة', pos: 'استخدام الصافرة بفاعلية في تنظيم بدء الأنشطة وإيقافها' });
         }
         // ٣) عناصر الحصة
         if (M.ctx && M.ctx.covered >= MIN_STRUCTURE && M.parts) {
@@ -1855,14 +1965,22 @@
             if (det && M.parts.orderOk !== false && det.every(r => r.verdict === 'ok')) add(6, { src: 'ctx', text: 'العناصر الخمسة بترتيبها وفي زمنها الموصى به', pos: 'تنفيذ عناصر الدرس الخمسة بتسلسلها وتوزيع مناسب لزمنها' });
             else if (det) det.filter(r => r.verdict === 'missing').slice(0, 1).forEach(r => add(6, { src: 'ctx', text: '«' + r.label + '» لم يُنفَّذ', neg: 'غياب ' + r.label + ' من عناصر الدرس' }));
         }
+        // والخطّة الفصليّة: عنوان الدرس مقابل موضوع الأسبوع (مطابقةٌ واضحة، أو ما أكّده المشرف) — البند ٦
+        const PL = I.ctx && I.ctx.plan;
+        if (PL && PL.match != null && Array.isArray(PL.planned) && PL.planned.length) {
+            const pt = '«' + PL.planned.join('» أو «') + '»';
+            add(6, PL.match ? { src: 'plan', text: 'عنوان الدرس «' + PL.topic + '» يوافق موضوع الأسبوع في الخطة الفصليّة: ' + pt, pos: 'التوافق مع الخطة الفصلية وتوزيع الوحدات' }
+                            : { src: 'plan', text: 'عنوان الدرس «' + PL.topic + '» لا يوافق موضوع الأسبوع في الخطة الفصليّة: ' + pt, neg: 'عدم توافق الدرس مع الخطة الفصلية' });
+        }
         // ٤) كلام المعلّم — العبارة نفسها بوقتها
         const SP = M.speech;
         if (SP && SP.clauses) {
             (SP.corr.specEx || []).slice(0, 3).forEach(([t, x]) => add(10, { t, src: 'speech', text: 'صحّح: «' + x + '»', pos: 'تصحيح أخطاء الأداء فورا بالإشارة إلى أجزاء المهارة' }));
             (SP.check.ex || []).slice(0, 2).forEach(([t, x]) => add(10, { t, src: 'speech', text: 'تحقّق من الفهم: «' + x + '»', pos: 'التحقق من فهم الطلبة بأسئلة شفهية أثناء الممارسة' }));
-            (SP.q.hiEx || []).slice(0, 2).forEach(([t, x]) => add(3, { t, src: 'speech', text: 'سؤالٌ يستثير التفكير: «' + x + '»', pos: 'طرح أسئلة تستثير تفكير الطلبة في أداء المهارة' }));
-            if (SP.q.n >= 3 && !SP.q.hi) add(3, { src: 'speech', text: 'أسئلةٌ مغلقةٌ كلّها (' + SP.q.n + ')', neg: 'اقتصار الأسئلة على أسئلة مغلقة لا تستثير التفكير' });
-            (SP.praise.specEx || []).slice(0, 2).forEach(([t, x]) => add(4, { t, src: 'speech', text: 'تعزيزٌ محدّد: «' + x + '»', pos: 'تعزيز الطلبة بعبارات محددة تبين ما أجادوه' }));
+            // أسئلة المعلّم وتعزيزه فعلُه هو: شاهدهما في البند ١٠ (التقويم ومساندة التقدّم) لا في مهارات الطلبة (٣) ولا قيمهم (٤) — 2026-10-31
+            (SP.q.hiEx || []).slice(0, 2).forEach(([t, x]) => add(10, { t, src: 'speech', text: 'سؤالٌ يستثير التفكير: «' + x + '»', pos: 'طرح أسئلة شفهية تستثير تفكير الطلبة في أداء المهارة' }));
+            if (SP.q.n >= 3 && !SP.q.hi) add(10, { src: 'speech', text: 'أسئلةٌ مغلقةٌ كلّها (' + SP.q.n + ')', neg: 'اقتصار الأسئلة الشفهية على أسئلة مغلقة لا تستثير التفكير' });
+            (SP.praise.specEx || []).slice(0, 2).forEach(([t, x]) => add(10, { t, src: 'speech', text: 'تعزيزٌ محدّد: «' + x + '»', pos: 'تعزيز الطلبة بعبارات محددة تبين ما أجادوه' }));
             (SP.safe.ex || []).slice(0, 2).forEach(([t, x]) => add(5, { t, src: 'speech', text: 'تذكيرٌ بالسلامة: «' + x + '»', pos: 'تذكير الطلبة بقواعد السلامة أثناء الممارسة' }));
             if (SP.words >= 300 && !SP.corr.n) add(10, { src: 'speech', text: 'لم يُسمع تصحيحٌ للأداء في (' + SP.words + ') كلمة', neg: 'قلة التغذية الراجعة المصححة للأداء' });
         }
@@ -2282,7 +2400,7 @@
         suggest, confidence, unsupported, summaryText, heatDigits, agreement, dur, count, g, times, pupilsN,
         MIN_SAMPLE, QUANT, quantScore, sampleStats, movingOf, minuteSeries, autoMoments,
         METRICS, METRIC, NEEDS, fmtTarget, targetCandidates, targetText, targetGoalText, targetCheck,
-        ISSUES, issuesOf, patterns, EV_TAG, evidenceLog, officialFor,
+        ISSUES, issuesOf, patterns, EV_TAG, evidenceLog, officialFor, planMatch, planVerdicts, planWords, spaceOf,
         SOFIT_STEP, SOFIT_CTX, SOFIT_TCH, sofit, SOFITP_LESSON, SOFITP_ACT, SOFITP_TCH, SOFITP_LIM, SOFITP_PR, SOFITP_GAP, sofitPlus, sofitPlusWhy,
         VIG_SPEED, CROWD_DIST, BALL_MIN_SCORE, MVPA_GOAL, CROWD_BAD, teacherStep, pickNearest, teacherStats, whistleResponses, ballRatio, perPupils,
         setAdv, isAdv, HEAT_CATS, WATER_EVERY, PLACES, EXC_ROLES, heatIndex, fieldOf

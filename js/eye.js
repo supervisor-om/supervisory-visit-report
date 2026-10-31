@@ -96,10 +96,32 @@
     const checked = id => !!($(id) && $(id).checked);
     const now = () => (S.src === 'file' ? (S.video ? S.video.currentTime : 0) : (performance.now() - S.t0) / 1000);
     const mmss = sec => { sec = Math.max(0, Math.floor(sec)); const m = Math.floor(sec / 60), s = sec % 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; };
-    const suggCtx = () => ({ female: female(), pupil });
+    // الخطّة الفصليّة للبند ٦ (2026-10-31): موضوعات الأسبوع لصفّ الزيارة وتاريخها (term-plan.js) مقابل عنوان الدرس في النموذج —
+    // المطابقة الواضحة تلقائيّة (planMatch)، وما سواها لا يدخل الاقتراح ولا الأدلّة حتّى يختاره المشرف في النتيجة (d.planOk لعنوانٍ بعينه)
+    function planInfo() {
+        const TP = root.SvfTermPlan, PLN = root.SVF_TERM_PLAN;
+        if (!TP || !PLN || !E().planMatch) return null;
+        const v = id => (($(id) || {}).value || '').trim();
+        const topic = v('topic'), date = v('visitDate'), grade = TP.parseGrade(v('class'));
+        if (!topic || !grade || !date) return null;
+        const all = TP.lessonsFor(PLN, grade, date, '').map(e => e.topic);
+        if (!all.length) return null;
+        const mine = TP.lessonsFor(PLN, grade, date, female() ? 'f' : 'm').map(e => e.topic);
+        const V = E().planVerdicts(topic, all) || [], hits = V.filter(x => x.v === 'match').map(x => x.topic);
+        // الموافَق وحده يُذكر (لا موضوعات الأسبوع كلّها — في الصفوف ٥–١٢ أربعةٌ يختار منها المعلّم)
+        return { topic, planned: hits.length ? hits : (mine.length ? mine : all), week: mine.length ? mine : all, auto: hits.length ? 'match' : E().planMatch(topic, all) };
+    }
+    function planCtx(d) {
+        const p = planInfo();
+        if (!p) return null;
+        const ov = d && d.planOk && d.planOk.topic === p.topic ? d.planOk.v : null;
+        const match = ov === 'y' ? true : ov === 'n' ? false : p.auto === 'match' ? true : null;
+        return Object.assign(p, { set: ov === 'y' || ov === 'n', match, planned: match === false ? p.week : p.planned });
+    }
+    const suggCtx = () => ({ female: female(), pupil, plan: planCtx(null) });
     // مع العيّنة ومتابعة أهداف الزيارة السابقة — لكلّ ما يُبنى من بيانات رصدٍ محفوظة (الاقتراح، الملخّص، المداولة، البطاقة)
     const ctxOf = d => Object.assign(suggCtx(), { sample: d && d.sample, follow: d && d.follow ? d.follow.list : null, followDate: d && d.follow ? d.follow.date : null,
-                                                  guide: d && d.guide && LG() ? LG().guideCtx(d) : null, field: d && d.field, counts: d && d.counts });
+                                                  guide: d && d.guide && LG() ? LG().guideCtx(d) : null, field: d && d.field, counts: d && d.counts, plan: planCtx(d) });
     const standardOf = id => { const it = typeof evaluationItems !== 'undefined' ? evaluationItems.find(x => x.id === id) : null; return it ? it.standard : 'البند ' + id; };
     const freshSample = n => ({ n: n || 8, a: '', b: '' });
     const hasSample = sm => !!(sm && /[123]/.test(String(sm.a || '') + String(sm.b || '')));
@@ -406,7 +428,7 @@ function tagRowHtml(k) {
                             <button type="button" id="eyeUndo" class="svf-btn svf-btn-ghost svf-btn-sm" disabled>تراجع</button>
                         </div>
                         <p class="text-xs text-slate-600 mt-1 leading-5">المس الوسم كلّما رأيته، و«−» يصحّح العدد أثناء الحصة وبعدها.</p>
-                        <div class="flex gap-1 overflow-x-auto mt-3 pb-1" role="tablist" aria-label="مجموعات الوسوم">
+                        <div class="flex gap-1 overflow-x-auto sm:flex-wrap sm:overflow-visible mt-3 pb-1" role="tablist" aria-label="مجموعات الوسوم">
                             ${E().GROUPS.map((gp, i) => `<button type="button" role="tab" class="eye-gtab flex-none svf-btn svf-btn-sm ${i ? 'svf-btn-ghost' : 'svf-btn-secondary'}" data-gtab="${i}" aria-selected="${i ? 'false' : 'true'}">${esc(gp.title)}<b class="eye-gcount tabular-nums text-blue-800" data-gcount="${i}"></b></button>`).join('')}
                         </div>
                         ${E().GROUPS.map((gp, i) => `<div class="eye-gpanel grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2${i ? ' hidden' : ''}" data-gpanel="${i}" role="tabpanel">${gp.keys.map(tagRow).join('')}</div>`).join('')}
@@ -1000,6 +1022,11 @@ function tagRowHtml(k) {
     function renderCounts() {
         document.querySelectorAll('#eyeBody [data-count]').forEach(el => { el.textContent = S.counts[el.dataset.count] || 0; });
         document.querySelectorAll('#eyeBody [data-dec]').forEach(el => { el.classList.toggle('hidden', !(S.counts[el.dataset.dec] > 0)); });
+        // وعدد لمسات كلّ مجموعةٍ على تبويبها — ستّ مجموعاتٍ لا تُرى معاً
+        document.querySelectorAll('#eyeBody [data-gcount]').forEach(el => {
+            const gp = E().GROUPS[Number(el.dataset.gcount)], n = gp ? gp.keys.reduce((a, k) => a + (S.counts[k] || 0), 0) : 0;
+            el.textContent = n ? ' ' + n : '';
+        });
         const u = $('eyeUndo'); if (u) u.disabled = !S.events.length;
     }
     // «أهمّ ما تلمسه» في الوضع المبسّط: ستّة وسوم — الأكثر لمساً في حصصك، وقبل أن تتكوّن عادةٌ: مزيجٌ من التدريس والتقويم والسلامة
@@ -3000,6 +3027,15 @@ function tagRowHtml(k) {
         else if (FD.hi != null) rows.push(row('الحرارة المحسوسة', FD.hi + '°' + small([FD.catLabel || 'معتدلة', FD.place ? E().PLACES[FD.place] : '',
             'استراحات الماء ' + FD.water + (FD.expect ? ' من ' + FD.expect + ' متوقّعة' : ''), FD.shade ? 'الظلّ ' + FD.shade : '', FD.hit ? '<b class="text-red-700">إجهاد حراريّ ' + FD.hit + '</b>' : ''].filter(Boolean).join(' · '))));
         if (FD.exc) rows.push(row('غير المشاركين بعذر', FD.exc + small(FD.role ? 'منهم ' + FD.role + ' بأدوار' + (FD.roles.length ? ': ' + esc(FD.roles.map(k => E().EXC_ROLES[k]).join('، ')) : '') : '<b class="text-amber-800">بلا دور</b>')));
+        // الخطّة الفصليّة (البند ٦): الموافقة الواضحة تلقائيّة، وغيرها يختاره المشرف — لا حكم بعدم التوافق من الكلمات وحدها
+        const PI = planCtx(data);
+        if (PI) {
+            const cur = PI.set ? (PI.match ? 'y' : 'n') : '';
+            rows.push(row('الخطة الفصليّة', `<select id="eyePlanOk" class="text-sm border border-slate-300 rounded-md py-0.5 px-1 bg-white" aria-label="هل يوافق عنوان الدرس موضوع الأسبوع في الخطة الفصليّة؟">
+                    <option value=""${cur ? '' : ' selected'}>${PI.auto === 'match' ? 'يوافقها (تلقائيّاً)' : 'لم يُحدَّد'}</option>
+                    <option value="y"${cur === 'y' ? ' selected' : ''}>يوافقها</option><option value="n"${cur === 'n' ? ' selected' : ''}>لا يوافقها</option></select>`
+                + small((PI.match === true ? 'يوافق: ' : 'موضوع الأسبوع: ') + esc('«' + (PI.match === true ? PI.planned : PI.week).join('» أو «') + '»') + (PI.auto !== 'match' && !PI.set ? ' — هل يوافقه عنوان الدرس؟ اختر ليدخل البند ٦' : ''))));
+        }
         if (data.consent) rows.push(row(female() ? 'أُبلغت المعلمة بالرصد' : 'أُبلغ المعلم بالرصد', 'نعم'));
         const metrics = rows.length ? rows.join('') : `<p class="text-sm text-slate-600 py-2">لم تُشغَّل الكاميرا — الاقتراح من لمساتك وحدها.</p>`;
 
@@ -3445,6 +3481,12 @@ function tagRowHtml(k) {
             S.result.M.people.ballsSet = !!(raw && v > 0);
             resuggest();
         });
+        $('eyePlanOk') && $('eyePlanOk').addEventListener('change', e => {
+            const v = e.target.value, p = planInfo();
+            if (!S.result || !p) return;
+            if (v === 'y' || v === 'n') S.result.planOk = { v, topic: p.topic }; else delete S.result.planOk;
+            resuggest();
+        });
         $('eyeClassSize') && $('eyeClassSize').addEventListener('change', e => {
             const v = Math.round(Number(e.target.value));
             if (!(v >= 1 && v <= 80) || !S.result || !S.result.M || !S.result.M.people) return;
@@ -3609,7 +3651,7 @@ function tagRowHtml(k) {
         try { d = JSON.parse((($('eyeData') || {}).value) || 'null'); } catch (e) { d = null; }
         return logOf(d);
     }
-    const SRC_TEXT = { tap: 'لمستك', mark: 'علامتك', cam: 'الكاميرا', ai: 'كشف الطلبة', ctx: 'عناصر الحصة', speech: 'كلام المعلّم', sample: 'عيّنة الطلبة', follow: 'أهداف الزيارة السابقة', field: 'بطاقة الحرارة والمشاركة' };
+    const SRC_TEXT = { tap: 'لمستك', mark: 'علامتك', cam: 'الكاميرا', ai: 'كشف الطلبة', ctx: 'عناصر الحصة', speech: 'كلام المعلّم', sample: 'عيّنة الطلبة', follow: 'أهداف الزيارة السابقة', field: 'بطاقة الحرارة والمشاركة', plan: 'الخطة الفصليّة' };
     function refreshEvidence(M) {
         if (!S.running) return;
         S.log = liveLog(M || E().summarize(recNow()));

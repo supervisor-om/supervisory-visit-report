@@ -163,7 +163,7 @@ const M = E.summarize({ secs: lesson, grid, sens: 'medium' });
 /* ── ٧) الوسوم ── */
 {
     check('tags: كلّ وسمٍ في مجموعةٍ واحدة', E.TAGS.every(t => E.GROUPS.filter(gp => gp.keys.includes(t.k)).length === 1));
-    check('tags: كلّ وسمٍ يشهد لبندٍ يُقترح', E.TAGS.every(t => [2, 3, 4, 5, 8, 9, 10].includes(t.item)));
+    check('tags: كلّ وسمٍ يشهد لبندٍ يُقترح أو لوصفه (١ و١٢ أدلّةٌ للوصف)', E.TAGS.every(t => [1, 2, 3, 4, 5, 7, 8, 9, 10, 12].includes(t.item)));
 }
 
 /* ── ٨) التوصيل ── */
@@ -297,9 +297,10 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('suggest ٧: ٥٧٪ ← جيد، والقاطرة الطويلة (٨ طلبة، ٥ دقائق) تنزلها إلى ملائم', by(7).score === 3 && /ووقفت قاطراتٌ طويلةٌ \(حتّى \(8\) طلبة\) مدّة \(5\) دقائق/.test(by(7).evidence), by(7).evidence);
     check('suggest ٦: من عناصر الحصة الخمسة', by(6) && by(6).basis === 'ctx' && by(6).score === 2
           && /^اشتملت الحصة على عناصرها الخمسة: الإحماء \(5\) دقائق، والإعداد البدني \(5\) دقائق، والأنشطة التعليمية \(10\) دقائق/.test(by(6).evidence), JSON.stringify(by(6)));
-    check('suggest ٥: ثلاثةٌ بالدشداشة من ثلاثين ← ملائم', by(5) && by(5).score === 3 && /شارك \(3\) طلبة من \(30\) طالباً بالدشداشة بدل الزيّ الرياضيّ/.test(by(5).evidence), JSON.stringify(by(5)));
-    const fem5 = E.suggest(M2, { dish: 6 }, { female: true }).find(s => s.id === 5);
-    check('suggest ٥: معلّمة ← «بغير الزيّ الرياضيّ»، وستّةٌ ← غير ملائم', fem5.score === 4 && /بغير الزيّ الرياضيّ/.test(fem5.evidence) && !/دشداشة/.test(fem5.evidence), JSON.stringify(fem5));
+    // الزيّ للبند ٤ (القيم: «الالتزام بالزي الرياضي») لا للبند ٥ — 2026-10-31
+    check('suggest ٤: ثلاثةٌ بالدشداشة من ثلاثين ← ملائم (والبند ٥ لا يُقترح منه)', by(4) && by(4).score === 3 && /شارك \(3\) طلبة من \(30\) طالباً بالدشداشة بدل الزيّ الرياضيّ/.test(by(4).evidence) && !by(5), JSON.stringify(by(4)));
+    const fem5 = E.suggest(M2, { dish: 6 }, { female: true }).find(s => s.id === 4);
+    check('suggest ٤: معلّمة ← «بغير الزيّ الرياضيّ»، وستّةٌ ← غير ملائم', fem5.score === 4 && /بغير الزيّ الرياضيّ/.test(fem5.evidence) && !/دشداشة/.test(fem5.evidence), JSON.stringify(fem5));
     check('suggest ٢: طالبان خارج النشاط ← ملائم', by(2) && by(2).score === 3 && /ظلّ طالبان خارج النشاط/.test(by(2).evidence), JSON.stringify(by(2)));
     check('suggest ٩: انتظار الدور تحت ٤٠٪ لا يكفي', !by(9));
 
@@ -492,8 +493,9 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const sg = E.suggest(M, {}, { female: true });
     const by = id => sg.find(x => x.id === id);
     check('speech→suggest: البند ١٠ من كلامها (تصحيح وتحقّق وأسئلة) وأساسه «الكلام»', by(10) && by(10).basis === 'speech' && /سُمع في كلام المعلمة/.test(by(10).evidence), by(10) && by(10).evidence);
-    check('speech→suggest: البند ٣ من الأسئلة التي تستثير التفكير', by(3) && by(3).score === 2 && /طرحت المعلمة \(10\) أسئلة تستثير التفكير/.test(by(3).evidence), by(3) && by(3).evidence);
-    check('speech→suggest: البند ٤ من التعزيز المحدّد والقيم', by(4) && by(4).score === 1 && /بما أجاده الطالب تحديداً/.test(by(4).evidence));
+    // أسئلة المعلّم وتعزيزه فعلُه هو — لا يقترحان البند ٣ (مهارات الطلبة) ولا ٤ (قيمهم) وحدهما (2026-10-31)، والتعزيز يُذكر في البند ١٠
+    check('speech→suggest: البند ٣ لا يُقترح من أسئلة المعلّم وحدها', !by(3), by(3) && by(3).evidence);
+    check('speech→suggest: البند ٤ لا يُقترح من تعزيز المعلّم وحده، والتعزيز في البند ١٠', !by(4) && /وسُمع تعزيزٌ لفظيّ .* بما أجاده الطالب تحديداً/.test(by(10).evidence), by(10).evidence);
     check('speech→suggest: البند ٥ من التذكير بالسلامة', by(5) && by(5).score === 2 && by(5).basis === 'speech');
     check('speech→suggest: الثقة من عدد الكلمات وميكروفون المعلّم', by(10).conf === 'medium' && E.confidence({ basis: 'speech' }, Object.assign({}, M, { mic: 'device' })) === 'low');
     check('speech→suggest: كلامٌ قليل (أقلّ من ١٢٠ كلمة) لا يُقترح منه', !E.suggest({ seconds: 600, speech: SX.analyze(segs.slice(0, 5), {}) }, {}, {}).length);
@@ -1155,7 +1157,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('log: عبارات التقرير بلا تشكيلٍ ولا «المعلم» ولا وسوم', phr.length > 20 && phr.every(x => !/[ً-ْ]/.test(x) && !/معلم/.test(x) && !/[<>]/.test(x)), phr.find(x => /[ً-ْ]|معلم|[<>]/.test(x)));
     check('log: كلّ وسمٍ له عبارة', E.TAGS.every(T => !!E.EV_TAG[T.k] || T.k === 'dish'));
     const SPL = E.evidenceLog({ M: { observed: 0, speech: { clauses: 30, words: 400, corr: { n: 2, specEx: [[300, 'ارفع ركبتك أكثر']] }, check: { ex: [] }, q: { n: 4, hi: 0, hiEx: [] }, praise: { specEx: [] }, safe: { ex: [] } } } });
-    check('log: كلام المعلّم بنصّه ووقته، والأسئلة المغلقة كلّها دليلٌ سالبٌ للبند ٣', SPL[10][0].t === 300 && SPL[10][0].text === 'صحّح: «ارفع ركبتك أكثر»' && SPL[3].some(e => e.neg === 'اقتصار الأسئلة على أسئلة مغلقة لا تستثير التفكير'));
+    check('log: كلام المعلّم بنصّه ووقته، والأسئلة المغلقة كلّها دليلٌ سالبٌ للبند ١٠ (لا ٣)', SPL[10][0].t === 300 && SPL[10][0].text === 'صحّح: «ارفع ركبتك أكثر»' && SPL[10].some(e => e.neg === 'اقتصار الأسئلة الشفهية على أسئلة مغلقة لا تستثير التفكير') && !SPL[3]);
 
     const UI = read('js/eye.js'), SUP = read('js/supervisory.js');
     check('wiring: الوصف الرسميّ يأخذ أدلّة الحصة بدل العشوائيّة، وإلّا كما كان', /const eyeEv = !customEvidences && typeof svfEyeOfficial === 'function' \? svfEyeOfficial\(itemId, rating\) : null;/.test(SUP)
@@ -1520,7 +1522,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('live: بلا كاميرا لا تنبيه «الكاميرا تتحرّك» (كلّ الثواني غير محسوبة)', !E.live({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }, E.summarize({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }), { camera: false }).alerts.some(a => a.k === 'shake')
           && E.live({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }, E.summarize({ secs: Array.from({ length: 60 }, () => ({ m: null, v: null })), sens: 'medium' }), {}).alerts.some(a => a.k === 'shake'));
     check('live: واستراحةٌ قريبة تُسكته', !E.live(rec, E.summarize(rec), { wx: { cat: 3, hi: 43, last: 1000 } }).alerts.some(a => a.k === 'water'));
-    check('tags: الماء والظلّ والإجهاد الحراريّ في «السلامة والموارد» للبند ٥', ['water', 'shade', 'heatHit'].every(k => E.TAG[k] && E.TAG[k].item === 5 && E.GROUPS[3].keys.includes(k)) && E.TAG.heatHit.neg);
+    check('tags: الماء والظلّ والإجهاد الحراريّ في «السلامة والموارد» للبند ٥', ['water', 'shade', 'heatHit'].every(k => E.TAG[k] && E.TAG[k].item === 5 && E.GROUPS.find(gp => gp.title === 'السلامة والموارد').keys.includes(k)) && E.TAG.heatHit.neg);
 
     // التوصيل
     const UI = read('js/eye.js'), RP = read('js/eye-report.js'), CSS = read('styles.css');
@@ -1535,10 +1537,134 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && ['eyeWxPlace', 'eyeWxTemp', 'eyeWxRh', 'eyeWxCat', 'eyeWxLast', 'eyeExcRoles'].every(id => UI.includes('id="' + id + '"')) && /\['water', 'shade', 'heatHit'\]\.map\(tagRowHtml\)/.test(UI));
     check('wiring: تُحفظ مع النتيجة وفي النسخة الاحتياطيّة، وتعود عند الفتح والاستكمال، وتُصفَّر', /field: JSON\.parse\(JSON\.stringify\(S\.field\)\),/.test(UI) && /marks: S\.marks, field: S\.field,/.test(UI)
           && /S\.field = Object\.assign\(freshField\(\), R\.field \|\| \{\}\);/.test(UI) && /S\.field = Object\.assign\(freshField\(\), data\.field \|\| \{\}\);/.test(UI) && (UI.match(/S\.field = freshField\(\);/g) || []).length === 2);
-    check('wiring: الاقتراح والأدلّة والمداولة تقرأ البطاقة، وتعديلها بعد الرصد يعيد الاقتراح', /field: d && d\.field, counts: d && d\.counts \}\);/.test(UI) && /marks: S\.marks, field: S\.field, ctx: suggCtx\(\)/.test(UI)
+    check('wiring: الاقتراح والأدلّة والمداولة تقرأ البطاقة، وتعديلها بعد الرصد يعيد الاقتراح', /field: d && d\.field, counts: d && d\.counts, plan: planCtx\(d\) \}\);/.test(UI) && /marks: S\.marks, field: S\.field, ctx: suggCtx\(\)/.test(UI)
           && /field: d\.field, ctx: ctxOf\(d\)/.test(UI) && /if \(S\.result && !S\.running\) \{ S\.result\.field = JSON\.parse\(JSON\.stringify\(F\)\); resuggest\(\); \}/.test(UI));
     check('wiring: تنبيه الماء الحيّ من البطاقة، والبطاقة للمعلّم فيها الحرارة وغير المشاركين بلا المتقدّم', /roi: !!S\.roi, wx: wxLive\(\) \}\);/.test(UI)
           && /Y\.fieldOf\(data && data\.field/.test(RP) && /const ADV = !Y\.isAdv \|\| Y\.isAdv\(\);/.test(RP) && /if \(ADV && F && F\.count\)/.test(RP));
+}
+
+/* ── ٣٩) الدرجة تتبع دليلها في الاستمارة (2026-10-31): الزيّ ← ٤، توزيع الأدوات ← ٧، الاكتشاف والإقصاء ← ٨؛ ولا يقترح فعلُ المعلّم بنود الطلبة ── */
+{
+    E.setAdv(true);
+    const by = (sg, id) => sg.find(x => x.id === id);
+    const OF = (log, id, sc) => E.officialFor(log, id, sc, true);
+    // ١) الدرجة تتبع البند
+    check('evidence: الزيّ وسمٌ للبند ٤ (القيم)، وتوزيع الأدوات للبند ٧، والاكتشاف والإقصاء للبند ٨', E.TAG.dish.item === 4 && E.TAG.equip.item === 7 && E.TAG.discover.item === 8 && E.TAG.elim.item === 8 && E.TAG.elim.neg);
+    const d1 = E.suggest({}, { dish: 2 }, {});
+    check('evidence: الزيّ وحده يقترح البند ٤ لا ٥', by(d1, 4) && by(d1, 4).score === 3 && !by(d1, 5), JSON.stringify(d1));
+    const d2 = E.suggest({}, { dish: 1, praise: 3 }, {});
+    check('evidence: الزيّ مع الروح الرياضيّة: أسوأهما (طالبٌ واحد ← جيد، والروح الرياضيّة ثلاثاً ← متميز ← جيد)', by(d2, 4).score === 2 && /روح رياضية واحترام بين الطلبة \(3\) مرّات/.test(by(d2, 4).evidence), by(d2, 4) && by(d2, 4).evidence);
+    const lg1 = E.evidenceLog({ ev: [{ t: 30, k: 'dish' }], counts: { dish: 2 } });
+    check('evidence: دليل الزيّ الرسميّ للبند ٤، وذكرٌ بلا عبارةٍ تحت البند ٥', OF(lg1, 4, 4).join() === 'مشاركة (2) من الطلبة بغير الزي الرياضي' && lg1[5] && lg1[5].length === 1 && !lg1[5][0].neg && !lg1[5][0].pos);
+    const e1 = E.suggest({}, { equip: 1 }, {}), e2 = E.suggest({}, { equip: 2, misbehave: 1 }, {});
+    check('evidence: بلا كاميرا: توقّفٌ واحد لتوزيع الأدوات ← البند ٧ «ملائم»، واثنان ← «غير ملائم» ومعه السلوك', by(e1, 7) && by(e1, 7).score === 3 && by(e1, 7).basis === 'taps' && !by(e1, 9)
+          && by(e2, 7).score === 4 && /سلوكٌ غير منضبط لم يُعالَج مرّة واحدة/.test(by(e2, 7).evidence), JSON.stringify(e2));
+    const lg2 = E.evidenceLog({ ev: [{ t: 60, k: 'equip' }, { t: 90, k: 'misbehave' }], counts: { equip: 1, misbehave: 1 } });
+    check('evidence: عبارة توزيع الأدوات للبند ٧ بلفظ الاستمارة، والسلوك دليلٌ للبندين ٤ و٧', OF(lg2, 7, 4).includes('هدر وقت الحصة في توزيع الأدوات وجمعها') && OF(lg2, 7, 4).includes('عدم انضباط سلوك بعض الطلبة دون معالجة')
+          && OF(lg2, 4, 4).includes('ظهور سلوك غير رياضي دون معالجة') && !lg2[9]);
+    // البند ٧ بالكاميرا: لمستان لتوزيع الأدوات تنزلان درجة
+    const secs7 = Array.from({ length: 900 }, (_, i) => ({ m: 9, v: 0 }));
+    const M7 = E.summarize({ secs: secs7, grid: [] });
+    const a7 = by(E.suggest(M7, {}, {}), 7), b7 = by(E.suggest(M7, { equip: 2 }, {}), 7);
+    check('evidence: بالكاميرا توقّفان لتوزيع الأدوات ينزلان البند ٧ درجةً ويُذكران', a7 && b7 && b7.score === a7.score + 1 && /توقّف النشاط لتوزيع الأدوات أو جمعها مرّتين/.test(b7.evidence), JSON.stringify([a7, b7]));
+    const s1 = E.suggest({}, { discover: 1 }, {}), s2 = E.suggest({}, { demo: 1, groups: 1, games: 1, elim: 1 }, {}), s3 = E.suggest({}, { elim: 2 }, {});
+    check('evidence: الاكتشاف استراتيجيّة (وحده «ملائم»)، والإقصاء ينزل درجة، والإقصاء وحده مرّتين «غير ملائم»', by(s1, 8).score === 3 && /تعلّم بالاكتشاف/.test(by(s1, 8).evidence)
+          && by(s2, 8).score === 3 && /وُظّفت لعبة إقصاءٍ تُخرج الطلبة من الممارسة مرّة واحدة/.test(by(s2, 8).evidence) && by(s3, 8).score === 4, JSON.stringify([by(s2, 8), by(s3, 8)]));
+    // فرص الممارسة الفعليّة تنقص البند ٨
+    const idle = E.summarize({ secs: Array.from({ length: 900 }, (_, i) => ({ m: (i % 100) < 25 ? 0.05 : 0, v: 0 })), grid: [] });
+    const p8 = by(E.suggest(idle, { demo: 1, groups: 1 }, {}), 8);
+    check('evidence: حركةٌ دون ٣٥٪ من زمن الأنشطة تنزل البند ٨ درجةً وتُذكر', E.movingOf(idle) < 35 && p8.score === 4 && /وقلّت فرص الممارسة الفعليّة: \(\d+%\)/.test(p8.evidence) && p8.basis === 'both', JSON.stringify(p8));
+
+    // ٢) فعل المعلّم لا يقترح بنود الطلبة
+    const SPx = { words: 600, clauses: 40, lesson: 1800, corr: { n: 4, spec: 2, specEx: [] }, check: { n: 2, ex: [] }, q: { n: 8, hi: 5, hiEx: [[120, 'ليش نثني الركبة؟']] },
+                  praise: { n: 9, spec: 6, specEx: [[200, 'أحسنت ركبتك مثنية']] }, values: { n: 3 }, health: { n: 1 }, safe: { n: 0, ex: [] }, orgShare: 10 };
+    const sp = E.suggest({ seconds: 1800, speech: SPx }, {}, {});
+    check('evidence: الكلام وحده لا يقترح البند ٣ ولا ٤، ويقترح ١٠ وفيه التعزيز', !by(sp, 3) && !by(sp, 4) && by(sp, 10) && /وسُمع تعزيزٌ لفظيّ \(9\) مرّات منه \(6\) بما أجاده الطالب تحديداً/.test(by(sp, 10).evidence), JSON.stringify(sp.map(x => x.id)));
+    const sp3 = by(E.suggest({ seconds: 1800, speech: SPx }, { lead: 1 }, {}), 3), sp4 = by(E.suggest({ seconds: 1800, speech: SPx }, { praise: 1 }, {}), 4);
+    check('evidence: مع لمسةٍ واحدة: الكلام يُذكر ولا يغيّر الدرجة (٣ و٤ «جيد/ملائم» من اللمسات وحدها)', sp3.score === 3 && sp3.basis === 'taps' && /تستثير التفكير/.test(sp3.evidence)
+          && sp4.score === 2 && sp4.basis === 'taps' && /حثّ المعلم على القيم والروح الرياضيّة \(3\) مرّات/.test(sp4.evidence) && /ربط المعلم النشاط بالصحّة مرّة واحدة/.test(sp4.evidence), JSON.stringify([sp3, sp4]));
+    const lgS = E.evidenceLog({ M: { speech: SPx } });
+    check('evidence: أسئلة المعلّم وتعزيزه المحدّد أدلّةٌ للبند ١٠ لا ٣ و٤', !lgS[3] && !lgS[4] && OF(lgS, 10, 2).includes('طرح أسئلة شفهية تستثير تفكير الطلبة في أداء المهارة') && OF(lgS, 10, 2).includes('تعزيز الطلبة بعبارات محددة تبين ما أجادوه'));
+    check('evidence: المؤشّران «التعزيز المحدّد» و«الأسئلة المفكّرة» للبند ١٠، و«الزيّ» للبند ٤', E.METRIC.praiseSpec.item === 10 && E.METRIC.qHi.item === 10 && E.METRIC.dish.item === 4);
+
+    // ٣) أدلّةٌ لبنودها الأخرى في الاستمارة
+    const lg3 = E.evidenceLog({ ev: [{ t: 10, k: 'peer' }, { t: 20, k: 'fbGrp' }, { t: 30, k: 'fbMiss' }], counts: { peer: 1, fbGrp: 1, fbMiss: 1 } });
+    check('evidence: تقويم الأقران دليلٌ للبند ٣، والأخطاء الشائعة وتكرارها للبند ٢ — بعبارات الاستمارة', OF(lg3, 3, 2).join() === 'تقييم الطلبة أداءهم وأداء زملائهم'
+          && OF(lg3, 2, 2).join() === 'تصحيح الأخطاء الشائعة أثناء الممارسة' && OF(lg3, 2, 4).join() === 'تكرار الأخطاء الفنية دون تصحيح' && OF(lg3, 10, 2).length === 2);
+    const pe = E.suggest({}, { peer: 1, team: 1 }, {});
+    check('evidence: تقويم الأقران يقترح البند ٣ مع المواقف الأخرى، ويبقى في البند ١٠', by(pe, 3).score === 2 && /تقويم الطلبة أداءهم وأداء زملائهم/.test(by(pe, 3).evidence) && /تقويماً ذاتياً أو بين الأقران/.test(by(pe, 10).evidence));
+    check('evidence: الثقة تعدّ الوسم في بنوده الأخرى', E.confidence({ id: 3, basis: 'taps' }, {}, { peer: 2, lead: 2 }) === 'high' && E.confidence({ id: 7, basis: 'taps' }, {}, { equip: 1, misbehave: 1 }) === 'medium');
+    // المساحة والصفّارة للبند ٩
+    const MS = { observed: 900, space: { coverage: 30, concentration: 72 }, cued: 3 };
+    const lg4 = E.evidenceLog({ M: MS });
+    check('evidence: تركّز الحركة والصفّارة دليلان للبند ٩ لا ٥', OF(lg4, 9, 4).join() === 'عدم استثمار المساحة المتاحة إذ تركزت الممارسة في جزء محدود منها'
+          && OF(lg4, 9, 2).includes('استخدام الصافرة بفاعلية في تنظيم بدء الأنشطة وإيقافها') && !lg4[5]);
+    check('evidence: مساحةٌ واسعةٌ بلا تركّز دليلٌ موجب، والرصد القصير لا يُحكم منه', E.spaceOf({ observed: 900, space: { coverage: 80, concentration: 35 } }) === 'wide' && E.spaceOf({ observed: 200, space: { coverage: 30, concentration: 80 } }) === null);
+    const g9 = by(E.suggest(Object.assign({}, MS, { activePct: 50, activeSec: 450 }), { tools: 1 }, {}), 9);
+    check('evidence: البند ٩ يذكر المساحة والصفّارة ولا تغيّران درجته', g9.score === 2 && /وتركّزت الحركة في جزءٍ محدود من المساحة \(72% منها في خُمسها\)/.test(g9.evidence) && /ونُظّم \(3\) انتقالات بالصفّارة/.test(g9.evidence), g9.evidence);
+    const g5 = E.suggest(Object.assign({}, MS, { activePct: 50 }), { safe: 1 }, {});
+    check('evidence: البند ٥ لم يعد يذكر تركّز الحركة', by(g5, 5) && !/تركّزت/.test(by(g5, 5).evidence));
+    const mb = E.evidenceLog({ ev: [{ t: 5, k: 'misbehave' }], counts: { misbehave: 1 } });
+    check('evidence: السلوك السلبيّ دليلٌ سالبٌ للبند ٧ بلفظ الاستمارة', OF(mb, 7, 4).join() === 'عدم انضباط سلوك بعض الطلبة دون معالجة');
+
+    // ٤) وسومٌ لأدلّة الاستمارة التي لم يكن لها وسم
+    const NEW = ['rules', 'answers', 'roles', 'fairplay', 'respectRef', 'clean', 'checkTools', 'firstAid', 'tech', 'altTools', 'obsCard', 'record', 'tOnTime', 'tLate', 'tKit'];
+    const ITEM = { rules: 1, answers: 1, roles: 3, fairplay: 4, respectRef: 4, clean: 4, checkTools: 5, firstAid: 5, tech: 9, altTools: 9, obsCard: 10, record: 10, tOnTime: 12, tLate: 12, tKit: 12 };
+    check('evidence: الوسوم الجديدة الخمسة عشر ببنودها، ولكلٍّ عبارةٌ رسميّة، وفي مجموعة', NEW.every(k => E.TAG[k] && E.TAG[k].item === ITEM[k] && E.EV_TAG[k] && (E.EV_TAG[k].pos || E.EV_TAG[k].neg)
+          && E.GROUPS.filter(gp => gp.keys.includes(k)).length === 1) && E.TAG.tLate.neg, NEW.find(k => !E.TAG[k] || E.TAG[k].item !== ITEM[k]));
+    check('evidence: المجموعات الستّ بعناوينها', E.GROUPS.map(gp => gp.title).join('|') === 'التدريس|التقويم|تعلّم الطلبة|القيم والسلوك|السلامة والموارد|التزام المعلّم');
+    const allPh = [];
+    Object.values(E.EV_TAG).forEach(r => { [r.pos, r.neg].forEach(x => x && allPh.push(x)); Object.values(r.on || {}).forEach(o => [o.pos, o.neg].forEach(x => x && allPh.push(x))); });
+    check('evidence: كلّ العبارات (ومنها عبارات البنود الأخرى) بلا تشكيلٍ ولا «المعلم» ولا وسوم', allPh.length > 40 && allPh.every(x => !/[ً-ْ]/.test(x) && !/معلم/.test(x) && !/[<>]/.test(x)), allPh.find(x => /[ً-ْ]|معلم|[<>]/.test(x)));
+    check('evidence: كلّ بندٍ في «also» له عبارةٌ هناك', E.TAGS.every(t => (t.also || []).every(id => E.EV_TAG[t.k].on && E.EV_TAG[t.k].on[id] && (E.EV_TAG[t.k].on[id].pos || E.EV_TAG[t.k].on[id].neg))));
+    const v4 = E.suggest({}, { fairplay: 1, respectRef: 1, clean: 1 }, {});
+    check('evidence: المصافحة واحترام الحكم والنظافة تقترح البند ٤ (ثلاثٌ ← متميز)', by(v4, 4).score === 1 && /مصافحة وتقبّل الفوز والخسارة مرّة واحدة/.test(by(v4, 4).evidence), by(v4, 4) && by(v4, 4).evidence);
+    const f5 = E.suggest({}, { safe: 1, checkTools: 1, firstAid: 1 }, {}), f5b = E.suggest({}, { firstAid: 1, hazard: 1 }, {});
+    check('evidence: التهيئة وفحص الأدوات والإسعافات معاً ← البند ٥ «متميز»، ومع موقفٍ خطر «ملائم»', by(f5, 5).score === 1 && /فُحصت الأدوات قبل استخدامها/.test(by(f5, 5).evidence) && /حقيبة إسعافاتٍ أوّليّة/.test(by(f5, 5).evidence)
+          && by(f5b, 5).score === 3, JSON.stringify([by(f5, 5), by(f5b, 5)]));
+    const t9 = E.suggest({}, { tech: 1, tools: 1 }, {}), t9b = E.suggest({}, { tech: 1 }, {}), t9c = E.suggest({}, { altTools: 1 }, {});
+    check('evidence: التقانة مع أدواتٍ كافية ← البند ٩ «متميز» (المستوى ١ في الاستمارة)، ووحدها «جيد»، والبديلة «جيد»', by(t9, 9).score === 1 && by(t9b, 9).score === 2 && by(t9c, 9).score === 2
+          && /وظّف المعلم التقانة \(فيديو أو صور\) لتوضيح المهارة/.test(by(t9, 9).evidence) && /استُخدمت أدواتٌ بديلة/.test(by(t9c, 9).evidence));
+    const r10 = by(E.suggest({}, { obsCard: 1, record: 1, fbInd: 1 }, {}), 10);
+    check('evidence: بطاقة الملاحظة والسجلّ أساليب تقويم في البند ١٠', /بطاقة ملاحظةٍ لتقييم المهارة مرّة واحدة/.test(r10.evidence) && /رصداً للأداء في سجل المتابعة/.test(r10.evidence) && r10.score === 3, r10.evidence);
+    const ro = by(E.suggest({}, { roles: 1, lead: 1, tactic: 1 }, {}), 3);
+    check('evidence: الالتزام بالأدوار موقفٌ في البند ٣ (ثلاثةٌ ← متميز)', ro.score === 1 && /التزام الطلبة بأدوارهم في الفريق/.test(ro.evidence));
+    const k1 = E.suggest({}, { rules: 2, answers: 1, tOnTime: 1, tKit: 1 }, {});
+    check('evidence: وسوم البندين ١ و١٢ أدلّةٌ للوصف لا تقترح مستوى', !by(k1, 1) && !by(k1, 12) && /التزام المعلّم/.test(E.NOT_SEEN[12]));
+    const lg5 = E.evidenceLog({ ev: [{ t: 1, k: 'tOnTime' }, { t: 5, k: 'tKit' }, { t: 9, k: 'rules' }, { t: 12, k: 'tLate' }], counts: {} });
+    check('evidence: وسوم ١ و١٢ تصل إلى «ويتضح ذلك من خلال …» بمستواها', OF(lg5, 12, 2).join('|') === 'الالتزام بموعد بدء الحصة|ارتداء الزي الرياضي المناسب واللائق' && OF(lg5, 12, 4).join() === 'التأخر عن موعد بدء الحصة'
+          && OF(lg5, 1, 2).join() === 'تطبيق الطلبة القانون المرتبط بالمهارة أثناء اللعب');
+    const SSm = { n: 6, a: '', b: '333322' };
+    const i1 = by(E.suggest({}, { rules: 2, answers: 1 }, { sample: SSm }), 1);
+    check('evidence: البند ١ من العيّنة يذكر تطبيق القانون والإجابات المعرفيّة', i1 && /وطبّق الطلبة القانون المرتبط بالمهارة أثناء اللعب مرّتين، وأجابوا عن الأسئلة المعرفية المرتبطة بالدرس مرّة واحدة/.test(i1.evidence), i1 && i1.evidence);
+    check('evidence: سبب ما لم يُقترح للبندين ٣ و٤ يقول إنّ فعل المعلّم وحده لا يقترحهما', E.unsupported([], {}).find(x => x.id === 3).why.includes('أسئلة المعلّم وحدها') && E.unsupported([], {}).find(x => x.id === 4).why.includes('تعزيز المعلّم'));
+
+    // ٥) البند ٦ والخطّة الفصليّة
+    check('plan: الموضوع العامّ ومهارته («لعبة كرة القدم» ← «التصويب بوجه القدم الخارجي») يتوافقان', E.planMatch('التصويب بوجه القدم الخارجي', ['لعبة كرة القدم']) === 'match');
+    check('plan: «دفع الجلة» يوافق «دفع الجلة بطريقة الزحف»، و«الاتزان على العارضة» يوافق «الاتزان»', E.planMatch('دفع الجلة', ['دفع الجلة بطريقة الزحف']) === 'match' && E.planMatch('الاتزان على العارضة', ['الاتزان']) === 'match');
+    check('plan: مهارةٌ بلا اسم لعبتها («التمريرة الصدرية» ← «لعبة كرة السلة») لا يُحكم بخلافها — يؤكّده المشرف', E.planMatch('التمريرة الصدرية', ['لعبة كرة السلة']) === 'differ' && E.planMatch('التمريرة الصدرية في كرة السلة', ['لعبة كرة السلة']) === 'match');
+    check('plan: كلمةٌ مشتركةٌ واحدة من كلمتين «غير واضح»، وعنوانٌ عامّ («كرة») لا يكفي، وأحد الموضوعات المتعدّدة يكفي', E.planMatch('الوثب الطويل', ['الوثب العالي بالطريقة الظهرية']) === 'unclear'
+          && E.planMatch('كرة', ['لعبة كرة القدم']) !== 'match' && E.planMatch('خطط اللعب الهجومية', ['طرق اللعب في كرة القدم', 'خطط اللعب في كرة القدم']) === 'match' && E.planMatch('', ['x']) === null);
+    check('plan: الموضوع المركّب بـ«/» يُقارن بكلّ جزء', E.planMatch('التمريرة الحائطية', ['تطبيقات ومنافسات عملية / التمريرة الحائطية']) === 'match');
+    const M6 = E.summarize({ secs: Array.from({ length: 1500 }, (_, i) => ({ m: i % 4 ? 9 : 0, v: 0 })), grid: [] });
+    const p6a = by(E.suggest(M6, {}, { plan: { topic: 'دفع الجلة', planned: ['دفع الجلة بطريقة الزحف'], match: true } }), 6);
+    const p6b = by(E.suggest(M6, {}, { plan: { topic: 'الوثب الطويل', planned: ['دفع الجلة بطريقة الزحف'], match: false } }), 6);
+    const p6c = by(E.suggest(M6, {}, { plan: { topic: 'الوثب الطويل', planned: ['دفع الجلة بطريقة الزحف'], match: null } }), 6);
+    const p60 = by(E.suggest(M6, {}, {}), 6);
+    check('plan: البند ٦ يذكر التوافق ولا يرفعه، وعدم التوافق المؤكَّد ينزله درجة، وغير المؤكَّد لا يُذكر', p60 && p6a.score === p60.score && /ووافق عنوان الدرس موضوع الأسبوع في الخطة الفصليّة \(«دفع الجلة بطريقة الزحف»\)/.test(p6a.evidence)
+          && p6b.score === p60.score + 1 && /ولم يوافق عنوان الدرس «الوثب الطويل» موضوع الأسبوع/.test(p6b.evidence) && p6c.evidence === p60.evidence, JSON.stringify([p60, p6a, p6b]));
+    check('plan: الخطّة وحدها لا تقترح البند ٦', !by(E.suggest({}, {}, { plan: { topic: 'x', planned: ['y'], match: false } }), 6));
+    const lg6 = E.evidenceLog({ ctx: { plan: { topic: 'دفع الجلة', planned: ['دفع الجلة بطريقة الزحف'], match: true } } });
+    const lg6b = E.evidenceLog({ ctx: { plan: { topic: 'الوثب', planned: ['دفع الجلة بطريقة الزحف'], match: false } } });
+    const lg6c = E.evidenceLog({ ctx: { plan: { topic: 'الوثب', planned: ['دفع الجلة بطريقة الزحف'], match: null } } });
+    check('plan: دليل البند ٦ بلفظ الاستمارة («التوافق مع الخطة الفصلية» / «عدم توافق الدرس مع الخطة الفصلية»)، وغير المؤكَّد لا دليل', OF(lg6, 6, 2).join() === 'التوافق مع الخطة الفصلية وتوزيع الوحدات'
+          && OF(lg6b, 6, 4).join() === 'عدم توافق الدرس مع الخطة الفصلية' && lg6[6][0].src === 'plan' && !lg6c[6]);
+
+    // التوصيل
+    const UI = read('js/eye.js');
+    check('wiring: الخطّة من term-plan.js (الصفّ والتاريخ والعنوان من النموذج)، وما ليس واضحاً باختيار المشرف لعنوانٍ بعينه', /function planInfo\(\)/.test(UI) && /TP\.lessonsFor\(PLN, grade, date, ''\)/.test(UI)
+          && /const ov = d && d\.planOk && d\.planOk\.topic === p\.topic \? d\.planOk\.v : null;/.test(UI) && /const suggCtx = \(\) => \(\{ female: female\(\), pupil, plan: planCtx\(null\) \}\);/.test(UI));
+    check('wiring: صفّ «الخطة الفصليّة» في النتيجة يعيد الاقتراح، والمصدر «الخطة الفصليّة»', /id="eyePlanOk"/.test(UI) && /S\.result\.planOk = \{ v, topic: p\.topic \}; else delete S\.result\.planOk;\s*\n\s*resuggest\(\);/.test(UI) && /plan: 'الخطة الفصليّة' \};/.test(UI));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {
