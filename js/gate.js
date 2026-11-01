@@ -32,6 +32,8 @@
     // «عين المشرف» كذلك (طلب أسعد 2026-10-25: «أنت وحدك أولاً»): تبويبها وشاشتها لهؤلاء وحدهم
     const EYE_OWNERS = ['asad'];
     const EYE = 'data-svf-eye';
+    // أدلّة البنود المطوّرة (js/evidence.js — مراجعة 2026-11-01): لأصحابها أوّلاً، وغيرهم على القوائم السابقة كما هي
+    const EVIDENCE_OWNERS = ['asad'];
 
     function readSession() {
         try {
@@ -69,6 +71,11 @@
     function canEye() {
         const s = readSession();
         return !!(s && EYE_OWNERS.indexOf(s.id) !== -1);
+    }
+
+    function canEvidence() {
+        const s = readSession();
+        return !!(s && EVIDENCE_OWNERS.indexOf(s.id) !== -1);
     }
 
     function canMonthly() {
@@ -251,6 +258,7 @@
         canLetters,
         canDebrief,
         canEye,
+        canEvidence,
         isOpen: () => !!readSession(),
         logout: () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
     };

@@ -47,6 +47,17 @@
             const content = evidenceBasedContent[itemId];
             if (!content) return;
             const rating = parseInt(document.querySelector(`#score-${itemId}`)?.textContent || '0');
+            // الأدلّة المطوّرة (js/evidence.js) لأصحابها: يُضاف إلى «أدلّتك» في البند
+            if (typeof svfEvidenceOn === 'function' && svfEvidenceOn()) {
+                if (!SvfEvidence.addCustom(itemId, rating >= 4 ? 'neg' : 'pos', value)) { showToast('هذا الشاهد موجود مسبقاً.', 'info'); return; }
+                input.value = '';
+                openEvidencePanel(itemId);
+                const cb = Array.from(document.querySelectorAll(`#evidence-list-${itemId} .evidence-checkbox`)).find(c => c.value === value);
+                if (cb) cb.checked = true;
+                updateDescriptionFromPanel(itemId);
+                showToast('تمت إضافة الشاهد.', 'success');
+                return;
+            }
             const targetList = (rating >= 4) ? content.neg_evidences : content.evidences;
             if (targetList.includes(value)) {
                 showToast('هذا الشاهد موجود مسبقاً.', 'info');
@@ -63,6 +74,7 @@
         window.deleteCustomEvidence = function(itemId, value) {
             const content = evidenceBasedContent[itemId];
             if (!content) return;
+            if (typeof svfEvidenceOn === 'function' && svfEvidenceOn()) SvfEvidence.remove(itemId, value);
             content.evidences = content.evidences.filter(e => e !== value);
             content.neg_evidences = content.neg_evidences.filter(e => e !== value);
             openEvidencePanel(itemId);
@@ -161,7 +173,7 @@
             ['للطلبة', 'للتلاميذ'], ['والطلبة', 'والتلاميذ'], ['بالطلبة', 'بالتلاميذ'], ['الطلبة', 'التلاميذ'],
             ['طلبتهم', 'تلاميذهم'], ['طلبتها', 'تلاميذها'], ['طلبته', 'تلاميذه'], ['طلبة', 'تلاميذ'],
             ['للطلاب', 'للتلاميذ'], ['الطلاب', 'التلاميذ'], ['طلاب', 'تلاميذ'],
-            ['للطالب', 'للتلميذ'], ['والطالب', 'والتلميذ'], ['الطالب', 'التلميذ'], ['طالب', 'تلميذ']
+            ['للطالب', 'للتلميذ'], ['والطالب', 'والتلميذ'], ['الطالب', 'التلميذ'], ['طالبين', 'تلميذين'], ['طالبان', 'تلميذان'], ['طالب', 'تلميذ']
         ];
         function svfPupilText(text) {
             const AR = '\u0600-\u06FF';

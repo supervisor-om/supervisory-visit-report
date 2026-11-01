@@ -179,9 +179,44 @@
             catch (e) { return false; }
         }
 
+        // أدلّة البنود المطوّرة (js/evidence.js — مراجعة 2026-11-01) لأصحابها (gate.js: EVIDENCE_OWNERS)،
+        // وغيرهم على قوائم templates.js كما كانت. كلّ ما يلي من فروع «svfEvidenceOn» لا يعمل لغيرهم.
+        function svfEvidenceOn() {
+            try { return typeof SvfEvidence !== 'undefined' && !!(window.SupervisorGate && SupervisorGate.canEvidence && SupervisorGate.canEvidence()); }
+            catch (e) { return false; }
+        }
+        // الدليل كما يظهر في الوصف: بصيغة الجنس، و«التلاميذ» للصفوف ١–٤ — به تُعلَّم مربّعات لوحة الأدلّة المكتوبة في الوصف
+        function svfEvShown(ev) {
+            let t = applyGenderFilter(String(ev == null ? '' : ev), getSupervisoryGender());
+            try { if (supLowerGrade()) t = svfPupilText(t); } catch (e) {}
+            return t;
+        }
+        // الوصف بالأدلّة المطوّرة: المختار في اللوحة ({pos, neg} أو قائمةٌ قديمة)، ثمّ أدلّة الحصة من العين، ثمّ الاختيار التلقائيّ
+        // («ملائم»: موجبٌ «مع» سالبٍ مخفّف؛ لا حسّاس؛ من أدلّة الحصة ما وُجدت)
+        function svfEvidenceDescription(itemId, rating, chosen, content) {
+            const r = Number(rating), V = SvfEvidence;
+            let sel;
+            if (chosen && !Array.isArray(chosen)) sel = { pos: chosen.pos || [], neg: chosen.neg || [] };
+            else if (Array.isArray(chosen)) sel = r >= 4 ? { pos: [], neg: chosen } : { pos: chosen, neg: [] };
+            else {
+                const eye = typeof svfEyeOfficial === 'function' ? svfEyeOfficial(itemId, r) : null;
+                if (eye && eye.length) {
+                    sel = r >= 4 ? { pos: [], neg: eye } : { pos: eye, neg: [] };
+                    // «ملائم» من الحصة: ما ينقص من الحصة أيضاً إن رُصد — لا يُضاف إليه دليلٌ عشوائيّ
+                    if (r === 3) { const en = svfEyeOfficial(itemId, 4); if (en && en.length) sel.neg = en.slice(0, 1); }
+                } else sel = V.pick(itemId, r);
+            }
+            const level = content.levels && content.levels[r];
+            return V.compose(level || ('مستوى ' + r), sel, r);
+        }
+
         function generateDescriptionText(itemId, rating, customEvidences = null) {
             const content = evidenceBasedContent[itemId];
             if (!content) return "";
+            if (svfEvidenceOn()) {
+                const t = applyGenderFilter(svfEvidenceDescription(itemId, rating, customEvidences, content), getSupervisoryGender());
+                return supLowerGrade() ? svfPupilText(t) : t;
+            }
             
             const positiveEvidences = content.evidences || [];
             const negativeEvidences = content.neg_evidences || [];
@@ -253,6 +288,10 @@
             // بطاقةٌ واحدةٌ مرفوعةٌ في كلّ وقت: لوحة الأدلّة تطفو فوق شريط الأزرار اللاصق
             closeEvidencePanels();
             
+            if (svfEvidenceOn()) {
+                svfRenderEvidencePanel(itemId, rating, currentText, listContainer);
+            } else {
+            listContainer.style.maxHeight = '';
             // أدلّة الحصة (عين المشرف) أوّل القائمة، ثمّ قائمة البند — بلا تكرار
             const eyeList = (typeof svfEyeOfficial === 'function' && svfEyeOfficial(itemId, rating, true)) || [];
             const sourceList = eyeList.concat(((rating >= 4) ? (content.neg_evidences || []) : content.evidences).filter(ev => !eyeList.includes(ev)));
@@ -262,16 +301,19 @@
                 listContainer.innerHTML = '<p class="text-xs text-gray-400 p-2">لا توجد شواهد مقترحة لهذا التقدير.</p>';
             } else {
                 sourceList.forEach((ev, index) => {
-                    const isChecked = currentText.includes(ev);
+                    // المربّع يُعلَّم بالدليل كما يظهر في الوصف (بصيغة الجنس و«التلاميذ»)، والنصّ مهروب
+                    const shown = svfEvShown(ev);
+                    const isChecked = currentText.includes(shown);
                     const div = document.createElement('div');
                     div.className = 'evidence-item flex items-center gap-2 group hover:bg-slate-50 p-1 rounded';
                     div.innerHTML = `
-                        <input type="checkbox" id="ev-${itemId}-${index}" class="evidence-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" value="${ev}" ${isChecked ? 'checked' : ''} data-item-id="${itemId}">
-                        <label for="ev-${itemId}-${index}" class="text-sm text-slate-700 leading-tight cursor-pointer select-none flex-grow">${ev}${eyeList.includes(ev) ? ' <span class="text-[10px] font-bold text-blue-800 whitespace-nowrap">من الحصة</span>' : ''}</label>
-                        <button type="button" class="delete-evidence-btn text-slate-300 hover:text-red-500 transition-opacity p-1" data-item-id="${itemId}" data-value="${ev}" title="حذف"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        <input type="checkbox" id="ev-${itemId}-${index}" class="evidence-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" value="${svfEscapeHtml(ev)}" ${isChecked ? 'checked' : ''} data-item-id="${itemId}">
+                        <label for="ev-${itemId}-${index}" class="text-sm text-slate-700 leading-tight cursor-pointer select-none flex-grow">${svfEscapeHtml(shown)}${eyeList.includes(ev) ? ' <span class="text-[10px] font-bold text-blue-800 whitespace-nowrap">من الحصة</span>' : ''}</label>
+                        <button type="button" class="delete-evidence-btn text-slate-300 hover:text-red-500 transition-opacity p-1" data-item-id="${itemId}" data-value="${svfEscapeHtml(ev)}" title="حذف"><i class="fa-solid fa-trash-can text-xs"></i></button>
                     `;
                     listContainer.appendChild(div);
                 });
+            }
             }
             panel.classList.remove('hidden');
             const card = document.querySelector(`#item-${itemId}`);
@@ -279,11 +321,44 @@
             card?.parentElement?.classList.add('evidence-open-wrap');
         }
 
+        // لوحة الأدلّة المطوّرة: مجموعاتٌ بأجزاء البند، و«ما تحقّق/ما ينقص» في «ملائم»، ووسم المصدر والحسّاس — النصوص مهروبة
+        function svfRenderEvidencePanel(itemId, rating, currentText, box) {
+            const r = Number(rating), E = typeof svfEyeOfficial === 'function' ? svfEyeOfficial : null;
+            const eye = { pos: (E && r <= 3 && E(itemId, r, true)) || [], neg: (E && r >= 3 && E(itemId, Math.max(r, 4), true)) || [] };
+            const secs = SvfEvidence.panel(itemId, r, eye), esc = svfEscapeHtml;
+            const tag = (txt, cls) => ` <span class="text-[10px] font-bold whitespace-nowrap ${cls}">${esc(txt)}</span>`;
+            let html = '', n = 0;
+            secs.forEach(sec => {
+                if (secs.length > 1) html += `<p class="text-xs font-bold ${sec.kind === 'neg' ? 'text-red-800' : 'text-green-800'} mt-2">${esc(sec.title)}</p>`;
+                sec.groups.forEach(g => {
+                    html += `<p class="text-[11px] font-bold text-slate-500 mt-2 mb-1">${esc(g.name)}${g.top && r === 1 ? ' — «متميز» يأخذ منها دليلاً' : ''}</p>`;
+                    g.items.forEach(it => {
+                        const shown = svfEvShown(it.value), id = `ev-${itemId}-${n++}`;
+                        let tags = '';
+                        if (it.eye) tags += tag('من الحصة', 'text-blue-800');
+                        if (it.s && it.s !== 'lesson') tags += tag(SvfEvidence.SRC[it.s] || '', 'text-slate-500');
+                        if (it.x) tags += tag('حسّاس — لا يُختار تلقائياً', 'text-red-700');
+                        html += `<div class="evidence-item flex items-center gap-2 group hover:bg-slate-50 p-1 rounded">`
+                            + `<input type="checkbox" id="${id}" class="evidence-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" value="${esc(it.value)}" data-kind="${sec.kind}" data-item-id="${itemId}" ${currentText.includes(shown) ? 'checked' : ''}>`
+                            + `<label for="${id}" class="text-sm text-slate-700 leading-tight cursor-pointer select-none flex-grow">${esc(shown)}${tags}</label>`
+                            + (it.eye ? '' : `<button type="button" class="delete-evidence-btn text-slate-300 hover:text-red-500 transition-opacity p-1" data-item-id="${itemId}" data-value="${esc(it.raw)}" title="حذف"><i class="fa-solid fa-trash-can text-xs"></i></button>`)
+                            + `</div>`;
+                    });
+                });
+            });
+            box.innerHTML = html || '<p class="text-xs text-gray-400 p-2">لا توجد شواهد مقترحة لهذا التقدير.</p>';
+            box.style.maxHeight = '18rem';
+        }
+
         function updateDescriptionFromPanel(itemId) {
             const checkboxes = document.querySelectorAll(`#evidence-list-${itemId} .evidence-checkbox:checked`);
-            const selectedEvidences = Array.from(checkboxes).map(cb => cb.value);
             const rating = document.querySelector(`#score-${itemId}`).textContent;
-            const newText = generateDescriptionText(itemId, rating, selectedEvidences);
+            let chosen;
+            if (svfEvidenceOn()) {
+                chosen = { pos: [], neg: [] };
+                Array.from(checkboxes).forEach(cb => chosen[cb.dataset.kind === 'neg' ? 'neg' : 'pos'].push(cb.value));
+            } else chosen = Array.from(checkboxes).map(cb => cb.value);
+            const newText = generateDescriptionText(itemId, rating, chosen);
             document.querySelector(`#notes-${itemId}`).textContent = newText;
         }
 
@@ -419,8 +494,14 @@
             const strengths = g.strengths.map(id => `• ${item(id).standard}: ${note(id)}`).join('\n');
             const developments = g.developments.map(id => `• ${item(id).standard}: ${note(id)}`).join('\n');
             let recs = applyGenderFilter("نوصي [المعلم/المعلمة] بالآتي:\n", gMode);
+            const V2 = typeof svfEvidenceOn === 'function' && svfEvidenceOn();
+            const score = id => Number(document.querySelector(`#score-${id}`)?.textContent || 0);
             g.recs.forEach(id => {
-                if (instructionalRecommendations[id])
+                // الأدلّة المطوّرة: التوصية المرتبطة بالدليل السالب المكتوب في الوصف (إجراءٌ + ما يُقاس)، وإلّا توصية البند العامّة
+                const linked = V2 ? SvfEvidence.recFor(id, note(id), score(id)) : null;
+                if (linked)
+                    recs += `• ${item(id).standard}: ${applyGenderFilter(SvfEvidence.recText(linked), gMode)}.\n`;
+                else if (instructionalRecommendations[id])
                     recs += `• ${item(id).standard}: ${applyGenderFilter(instructionalRecommendations[id], gMode)}\n`;
             });
             if (supLowerGrade()) recs = svfPupilText(recs);
@@ -482,6 +563,11 @@
             const strengths = [...itemsByScore[1], ...itemsByScore[2]].slice(0, 4); 
             const developments = [...itemsByScore[5], ...itemsByScore[4]].slice(0, 4);
             let recommendationsList = [...developments]; 
+            if (svfEvidenceOn()) {
+                // الأدلّة المطوّرة: أربع توصياتٍ على الأكثر — «غير ملائم» و«تدخل سريع» أوّلاً ثمّ «ملائم»، بأولويّة تعلّم الطلبة ثمّ السلامة
+                const scored = [5, 4, 3].reduce((a, sc) => a.concat(itemsByScore[sc].map(i => ({ id: i.id, score: sc }))), []);
+                recommendationsList = SvfEvidence.orderRecs(scored).map(id => ({ id }));
+            } else {
             const extraRecs = itemsByScore[3].sort(() => 0.5 - Math.random()).slice(0, 2); 
             
             extraRecs.forEach(rec => { 
@@ -489,6 +575,7 @@
                     recommendationsList.push(rec); 
                 }
             });
+            }
             
             // الجنس في القاعدة يخالف المختار: تنبيهٌ قبل أن يُكتب التقرير بصيغةٍ خاطئة
             supWarnGenderMismatch();

@@ -151,10 +151,24 @@ const NEW_FORM = [
     check('البند ١٣: المجتمع المدرسي/ المحلي، و«نادراً ما» في الخامس',
           [1, 2, 3, 4, 5].every(n => lv(13, n).includes('المجتمع المدرسي/ المحلي')) && /^نادرا ما/.test(lv(13, 5)));
     check('بدائل الجنس باقيةٌ في جمل المعلّم', /\[يوظف المعلم\/توظف المعلمة\]/.test(lv(8, 1)) && /\[يلتزم\/تلتزم\]/.test(lv(12, 1)));
-    check('أدلّة الموائمة (الرياضة المدرسية) لم تُمسّ',
-          Object.values(L).every(c => c.evidences.length === 5 && c.neg_evidences.length === 5)
+    check('أدلّة الموائمة (الرياضة المدرسية) باقية — خمسةٌ فأكثر لكلّ بند',
+          Object.values(L).every(c => c.evidences.length >= 5 && c.neg_evidences.length >= 5)
           && L['1'].evidences.includes('أداء المهارة وفق الخطوات الفنية الصحيحة')
           && L['12'].evidences.includes('المحافظة على عهدة التربية الرياضية وسجلاتها'));
+    // تصحيحات مراجعة الأدلّة (2026-11-01) للجميع: الجنس، وحرف الجرّ، والأدلّة في بنودها، والعبارات التي لا تُرصد
+    const all = c => c.evidences.concat(c.neg_evidences);
+    check('مراجعة الأدلّة: لا «المعلم» بلا بديل الجنس في أيّ دليل',
+          Object.values(L).every(c => all(c).every(e => !/(^|[^\[/])المعلم(?![^\[]*\])/.test(e))),
+          Object.keys(L).map(k => all(L[k]).filter(e => /(^|[^\[/])المعلم(?![^\[]*\])/.test(e))).flat().join(' | '));
+    check('مراجعة الأدلّة: «الإجابة عن» لا «على»، والعبارات التي لا تُرصد حُذفت',
+          !Object.values(L).some(c => all(c).some(e => /الإجابة على|ملل الطلبة|تقبل توجيهات المشرف|ضياع وقت التعلم الفعلي|انعزال/.test(e))));
+    check('مراجعة الأدلّة: أدلّة المعلّم خرجت من بند تقدّم الطلبة، والتدرّج في البند ٨، والصفّارة خرجت من البند ٩',
+          !all(L['2']).some(e => /^التدرج|^عدم التدرج|^تصحيح الأخطاء/.test(e)) && L['8'].evidences.includes('التدرج في صعوبة التمرينات بما يناسب قدرات الطلبة')
+          && L['8'].neg_evidences.includes('عدم التدرج المناسب في التمرينات') && !all(L['9']).some(e => /صافرة/.test(e)));
+    vm.runInContext('this.instructionalRecommendations = instructionalRecommendations;', ctx);
+    check('مراجعة الأدلّة: لا توصية تبدأ بـ«استمر»، وتوصيتا ١١ و١٢ بإجراءٍ محدّد',
+          !Object.values(ctx.instructionalRecommendations).some(r => /^\[استمر/.test(r))
+          && /الزيارة السابقة/.test(ctx.instructionalRecommendations['11']) && /موعدها/.test(ctx.instructionalRecommendations['12']));
     check('شاشة التقييم: المعايير والعناوين كالاستمارة، والوصف الموائم باقٍ', (() => {
         const e = ctx.evaluationItems;
         return e[10].standard === 'قيادة التغيير' && e[11].standard === 'الحوكمة' && e[12].standard === 'الحوكمة'

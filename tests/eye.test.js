@@ -1595,14 +1595,15 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     const pe = E.suggest({}, { peer: 1, team: 1 }, {});
     check('evidence: تقويم الأقران يقترح البند ٣ مع المواقف الأخرى، ويبقى في البند ١٠', by(pe, 3).score === 2 && /تقويم الطلبة أداءهم وأداء زملائهم/.test(by(pe, 3).evidence) && /تقويماً ذاتياً أو بين الأقران/.test(by(pe, 10).evidence));
     check('evidence: الثقة تعدّ الوسم في بنوده الأخرى', E.confidence({ id: 3, basis: 'taps' }, {}, { peer: 2, lead: 2 }) === 'high' && E.confidence({ id: 7, basis: 'taps' }, {}, { equip: 1, misbehave: 1 }) === 'medium');
-    // المساحة والصفّارة للبند ٩
+    // المساحة للبند ٩، والصفّارة للبند ٧ (أداة إدارةٍ لا مصدر تعلّم — مراجعة الأدلّة 2026-11-01)
     const MS = { observed: 900, space: { coverage: 30, concentration: 72 }, cued: 3 };
     const lg4 = E.evidenceLog({ M: MS });
-    check('evidence: تركّز الحركة والصفّارة دليلان للبند ٩ لا ٥', OF(lg4, 9, 4).join() === 'عدم استثمار المساحة المتاحة إذ تركزت الممارسة في جزء محدود منها'
-          && OF(lg4, 9, 2).includes('استخدام الصافرة بفاعلية في تنظيم بدء الأنشطة وإيقافها') && !lg4[5]);
+    check('evidence: تركّز الحركة دليلٌ للبند ٩ لا ٥، والصفّارة للبند ٧ لا ٩', OF(lg4, 9, 4).join() === 'عدم استثمار المساحة المتاحة إذ تركزت الممارسة في جزء محدود منها'
+          && !OF(lg4, 9, 2).includes('استخدام الصافرة بفاعلية في تنظيم بدء الأنشطة وإيقافها')
+          && OF(lg4, 7, 2).includes('استخدام الصافرة بفاعلية في تنظيم بدء الأنشطة وإيقافها') && !lg4[5]);
     check('evidence: مساحةٌ واسعةٌ بلا تركّز دليلٌ موجب، والرصد القصير لا يُحكم منه', E.spaceOf({ observed: 900, space: { coverage: 80, concentration: 35 } }) === 'wide' && E.spaceOf({ observed: 200, space: { coverage: 30, concentration: 80 } }) === null);
     const g9 = by(E.suggest(Object.assign({}, MS, { activePct: 50, activeSec: 450 }), { tools: 1 }, {}), 9);
-    check('evidence: البند ٩ يذكر المساحة والصفّارة ولا تغيّران درجته', g9.score === 2 && /وتركّزت الحركة في جزءٍ محدود من المساحة \(72% منها في خُمسها\)/.test(g9.evidence) && /ونُظّم \(3\) انتقالات بالصفّارة/.test(g9.evidence), g9.evidence);
+    check('evidence: البند ٩ يذكر المساحة ولا تغيّر درجته، والصفّارة لم تعد فيه', g9.score === 2 && /وتركّزت الحركة في جزءٍ محدود من المساحة \(72% منها في خُمسها\)/.test(g9.evidence) && !/بالصفّارة/.test(g9.evidence), g9.evidence);
     const g5 = E.suggest(Object.assign({}, MS, { activePct: 50 }), { safe: 1 }, {});
     check('evidence: البند ٥ لم يعد يذكر تركّز الحركة', by(g5, 5) && !/تركّزت/.test(by(g5, 5).evidence));
     const mb = E.evidenceLog({ ev: [{ t: 5, k: 'misbehave' }], counts: { misbehave: 1 } });
