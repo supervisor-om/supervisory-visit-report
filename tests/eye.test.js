@@ -1834,6 +1834,32 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring41: حذف النصّ يمحو أثر التدقيق، والحالة تُصفَّر لكلّ حصة', /S\.result\.sp\.seg = \[\]; S\.result\.sp\.purged = true; S\.result\.sp\.fixed = null;/.test(UI) && (UI.match(/S\.spFixNote = null; S\.spOpen = false; S\.spEditing = false;/g) || []).length === 2);
 }
 
+/* ── ٤٢) فحص المشرف في المتصفّح (2026-11-01): الإيقاف بلمستين، والصورة قبل لمسها، وسطر الحصة، والنتيجة تحت التبويبات ── */
+{
+    const UI = read('js/eye.js'), CSS = read('styles.css');
+    const stopFn = UI.slice(UI.indexOf('function stopTap()'), UI.indexOf('function stop(analyze)'));
+    check('ui42: «إيقاف» بلمستين — الأولى تسلّحه أربع ثوانٍ والثانية تُوقف، والإيقاف من غيره يُلغي التسليح',
+          /\$\('eyeStop'\)\.addEventListener\('click', stopTap\);/.test(UI) && !/\$\('eyeStop'\)\.addEventListener\('click', \(\) => stop\(true\)\)/.test(UI)
+          && /if \(b\.dataset\.armed\) \{ disarmStop\(\); stop\(true\); return; \}/.test(stopFn) && /const STOP_ARM_MS = 4000;/.test(UI)
+          && /S\.stopArmT = setTimeout\(disarmStop, STOP_ARM_MS\);/.test(stopFn) && /function stop\(analyze\) \{\s*\n\s*if \(!S\.running\) return;\s*\n\s*disarmStop\(\);/.test(UI)
+          && /'تأكيد الإيقاف'/.test(stopFn) && /#eyeStop\[data-armed\] \{ background: #9e352c !important;/.test(CSS));
+    check('ui42: قبل لمس الصورة (المنطقة أو المعلّم) تُكشف كلّها تحت شريط الرصد، واللمسة خارجها تُقال',
+          /function revealStage\(\)/.test(UI) && /if \(S\.roiMode\) revealStage\(\);/.test(UI) && /if \(S\.pickTeacher\) revealStage\(\);/.test(UI)
+          && /toast\('المس داخل الصورة — أركان الملعب فيها', 'info'\); return; \}/.test(UI));
+    check('ui42: أثناء الرصد تُخفى مقدّمة الصفحة ويصعد شريط الرصد إلى أعلى الشاشة', /html\[data-eye-running\] #eyeBody > \.svf-head \{ display: none !important; \}/.test(CSS)
+          && /requestAnimationFrame\(\(\) => \{ const b = \$\('eyeLiveBar'\); if \(b\) window\.scrollTo\(/.test(UI));
+    check('ui42: النتيجة والمراجعة تُمرَّر إليهما تحت شريط التبويبات اللاصق (لا scrollIntoView)', /function scrollUnderHead\(el\)/.test(UI)
+          && !/\$\('eyeResult'\)\.scrollIntoView/.test(UI) && !/rv\.scrollIntoView/.test(UI) && (UI.match(/scrollUnderHead\(\$\('eyeResult'\)\)/g) || []).length === 2 && /if \(rv\) scrollUnderHead\(rv\);/.test(UI));
+    check('ui42: عناصر الحصة لا تُلمس بعد الإيقاف، و«خريطة الحركة» تظهر في الصورة الفارغة', /document\.querySelectorAll\('#eyeWork \.eye-ctx'\)\.forEach\(b => \{ b\.disabled = !S\.running; \}\);/.test(UI)
+          && /if \(S\.result && S\.result\.heat && !checked\('eyeHeatToggle'\)\) \{ \$\('eyeHeatToggle'\)\.checked = true;/.test(UI));
+    const lesson = UI.slice(UI.indexOf('function renderLesson()'), UI.indexOf('root.svfEyeOpen = function'));
+    check('ui42: سطر «الحصة» في بطاقة البدء — المعلّم والصفّ والدرس مهروبة، وما ينقص، وزرّ إلى النموذج', /id="eyeLesson"/.test(UI)
+          && /esc\(I\.teacher\)/.test(lesson) && /map\(x => ' · ' \+ esc\(x\)\)/.test(lesson) && /'عنوان الدرس'/.test(lesson) && /toggleSupervisoryView\('form-view'\)/.test(lesson)
+          && /root\.svfEyeOpen = function \(\) \{\s*\n\s*if \(!E\(\)\) return;\s*\n\s*if \(!S\.bound\) build\(\);\s*\n\s*renderLesson\(\);/.test(UI));
+    check('ui42: الرسائل بأسماء الشاشة الحاليّة، و«فهم الكلام» بحجم المربّعات الأخرى', !/وسوم «ما لا تراه الكاميرا»/.test(UI) && !/«تحليل مقطع مصوَّر»/.test(UI)
+          && /الإعدادات ← Safari ← الكاميرا، والميكروفون/.test(UI) && /<input type="checkbox" id="eyeSpeech" class="w-5 h-5">/.test(UI));
+}
+
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {
     console.log(failures ? '\n' + failures + ' FAIL' : '\nALL PASS');
     process.exit(failures ? 1 : 0);

@@ -178,6 +178,7 @@ function tagRowHtml(k) {
                     <h2 class="font-bold text-slate-900">ابدأ الرصد</h2>
                     <span class="text-xs text-slate-500">من أين الصورة؟</span>
                 </div>
+                <div id="eyeLesson" class="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm leading-6" aria-live="polite"></div>
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     ${card('eyeStartCam', 'fa-video', 'كاميرا هذا الجهاز', 'على حاملٍ مرتفعٍ يرى الملعب كلّه')}
                     ${card('eyeStartPhone', 'fa-mobile-screen', 'كاميرا الهاتف', 'الـiPhone على الحامل، والمتابعة من هنا')}
@@ -205,7 +206,7 @@ function tagRowHtml(k) {
                                 ${chk('eyeMic', 'تحليل الصوت: الكلام والصفّارة', true)}
                                 <select id="eyeMicDev" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" aria-label="الميكروفون"><option value="">الميكروفون الافتراضي</option></select>
                                 ${chk('eyeTeacherMic', 'الميكروفون على المعلّم (لاسلكيّ)', false, 'ميكروفونٌ لاسلكيٌّ على ياقة المعلّم: يصير الكلام المرصود كلامه')}
-                                <label id="eyeSpeechLbl" class="flex items-center gap-2 text-sm text-slate-700" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech"> فهم الكلام (بإذن المعلّم)</label>
+                                <label id="eyeSpeechLbl" class="flex items-center gap-2 text-sm text-slate-700" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech" class="w-5 h-5"> فهم الكلام (بإذن المعلّم)</label>
                             </div>
                             <div class="space-y-1 sm:col-span-2">
                                 <div class="text-xs font-bold text-slate-500">التجربة الميدانيّة</div>
@@ -515,7 +516,7 @@ function tagRowHtml(k) {
         $('eyeFile').addEventListener('click', e => { if (!needConsent(true)) e.preventDefault(); });
         $('eyeFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) startFile(f); });
         $('eyeFileBtn').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('eyeFile').click(); } });
-        $('eyeStop').addEventListener('click', () => stop(true));
+        $('eyeStop').addEventListener('click', stopTap);
         $('eyeUndo').addEventListener('click', undo);
         $('eyeTapsOnly').addEventListener('click', () => { if (!S.running) finish(); });
         $('eyeHeatToggle').addEventListener('change', () => { $('eyeHeat').classList.toggle('hidden', !$('eyeHeatToggle').checked); drawHeat(S.running ? undefined : S.savedHeat || undefined); if (!S.running) layout(); });
@@ -698,7 +699,17 @@ function tagRowHtml(k) {
         }
         // لوحة النقاط لا تُرى إلّا أثناء الرصد: مسحُها بعد الإيقاف لم يكفِ — بقيت نقاط آخر لقطةٍ أحياناً حين انتهى المقطع وحده (فحص Chromium)
         $('eyeView').style.visibility = S.running ? '' : 'hidden';
+        // عناصر الحصة تُلمس أثناء الرصد وحده: بعده كانت تُلمس بلا أثر (فحص 2026-11-01)
+        document.querySelectorAll('#eyeWork .eye-ctx').forEach(b => { b.disabled = !S.running; });
         planHint();
+    }
+    // التمرير إلى قسمٍ تحت شريط التبويبات اللاصق: scrollIntoView وحده وضع عنوان «نتيجة الرصد» تحته (فحص 2026-11-01)
+    function scrollUnderHead(el) {
+        if (!el) return;
+        const head = document.querySelector('#supervisoryVisitsApp header');
+        let off = 8;
+        try { if (head && getComputedStyle(head).position === 'sticky') off += (parseFloat(getComputedStyle(head).top) || 0) + head.offsetHeight; } catch (e) { /* الافتراض */ }
+        window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + scrollY - off), behavior: 'smooth' });
     }
     // شريط الرصد يلتصق تحت شريط التبويبات (وهو لاصقٌ أيضاً) فلا يختفي «إيقاف» و«علامة» عند التمرير
     function placeBar() {
@@ -824,7 +835,7 @@ function tagRowHtml(k) {
             + (det ? partsBars(det.map(x => ({ k: x.k, short: x.short, label: x.label, sec: x.sec, rec: Math.round(x.rec * 60), cur: false, over: x.verdict === 'long' })))
             : '<p class="text-xs text-slate-500">لم تُلمس عناصر الحصة في هذا الرصد.</p>');
         $('eyeAlerts').innerHTML = '<button type="button" id="eyeToResult" class="svf-btn svf-btn-secondary svf-btn-sm w-full"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i>التحليل والتقييم المقترح</button>';
-        $('eyeToResult').addEventListener('click', () => $('eyeResult').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        $('eyeToResult').addEventListener('click', () => scrollUnderHead($('eyeResult')));
     }
     function resetMonitor() {
         if ($('eyeQuickAlert')) $('eyeQuickAlert').classList.add('hidden');
@@ -1467,6 +1478,7 @@ function tagRowHtml(k) {
         if (S.pickTeacher) { S.pickTeacher = false; teacherUi(); }
         S.roiMode = !S.roiMode;
         S.roiDraft = S.roiMode ? [] : null;
+        if (S.roiMode) revealStage();
         $('eyeView').style.pointerEvents = S.roiMode ? 'auto' : 'none';
         $('eyeView').style.cursor = S.roiMode ? 'crosshair' : '';
         roiHint();
@@ -1488,7 +1500,7 @@ function tagRowHtml(k) {
         const c = $('eyeView'), r = c.getBoundingClientRect();
         const R = fitRect(r.width, r.height);
         const x = (e.clientX - r.left - R.ox) / R.rw, y = (e.clientY - r.top - R.oy) / R.rh;
-        if (x < -0.02 || x > 1.02 || y < -0.02 || y > 1.02) return;
+        if (x < -0.02 || x > 1.02 || y < -0.02 || y > 1.02) { toast('المس داخل الصورة — أركان الملعب فيها', 'info'); return; }
         S.roiDraft.push([Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y))]);
         if (S.roiDraft.length >= 4) {
             const pts = S.roiDraft;
@@ -1499,6 +1511,15 @@ function tagRowHtml(k) {
         }
         roiHint();
         drawView();
+    }
+    // قبل لمس الصورة (المنطقة أو المعلّم) تُمرَّر الصفحة فتظهر الصورة كلّها تحت شريط الرصد اللاصق:
+    // بعد لمس الوسوم كانت الصورة فوق الشاشة إلّا شريطاً منها، وأعلاها تحت الشريط و«إيقاف» (فحص 2026-11-01)
+    function revealStage() {
+        const st = $('eyeStage'), bar = $('eyeLiveBar');
+        if (!st) return;
+        const top = (bar && !bar.classList.contains('hidden') ? bar.getBoundingClientRect().bottom : 0) + 8;
+        const r = st.getBoundingClientRect();
+        if (r.top < top || r.bottom > innerHeight) window.scrollBy({ top: r.top - top, behavior: 'smooth' });
     }
     // الأركان بأيّ ترتيبٍ لُمست ← مضلّعٌ لا يتقاطع (ترتيبٌ بالزاوية حول المركز)
     function orderPoly(pts) {
@@ -1512,6 +1533,7 @@ function tagRowHtml(k) {
         if (!S.running || !S.video || !AI.ok) { toast('يُحدَّد المعلّم والكاميرا وكشف الطلبة يعملان', 'info'); return; }
         if (S.roiMode) toggleRoiMode();
         S.pickTeacher = !S.pickTeacher;
+        if (S.pickTeacher) revealStage();
         teacherUi();
     }
     function pickTeacherAt(e) {
@@ -1573,8 +1595,8 @@ function tagRowHtml(k) {
 
     function permissionText(e) {
         const n = e && e.name;
-        if (n === 'NotAllowedError' || n === 'SecurityError') return 'رُفض الإذن بالكاميرا أو الميكروفون. اسمح بهما لهذا الموقع من إعدادات المتصفّح، ثمّ أعد المحاولة.';
-        if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'لم يُعثر على الجهاز المطلوب (كاميرا أو ميكروفون). جرّب «تحليل مقطع مصوَّر» أو اختر ميكروفوناً آخر.';
+        if (n === 'NotAllowedError' || n === 'SecurityError') return 'رُفض الإذن بالكاميرا أو الميكروفون. اسمح بهما لهذا الموقع من إعدادات المتصفّح (على الـiPad: الإعدادات ← Safari ← الكاميرا، والميكروفون)، ثمّ أعد المحاولة.';
+        if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'لم يُعثر على الجهاز المطلوب (كاميرا أو ميكروفون). جرّب «مقطع مصوَّر» أو اختر ميكروفوناً آخر.';
         if (n === 'NotReadableError') return 'الكاميرا أو الميكروفون مستعملٌ في تطبيقٍ آخر. أغلقه ثمّ أعد المحاولة.';
         return 'تعذّر التشغيل: ' + (e && e.message ? e.message : 'خطأ غير معروف');
     }
@@ -2382,6 +2404,8 @@ function tagRowHtml(k) {
         if (video && checked('eyeAI')) startAI(r);
         if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(w => { S.wake = w; }).catch(() => {});
         layout();
+        // شريط الرصد أعلى الشاشة: الصورة و«عناصر الحصة» و«أهمّ ما تلمسه» دون تمرير (الـiPad أفقيّاً كان يُخفي العناصر — فحص 2026-11-01)
+        requestAnimationFrame(() => { const b = $('eyeLiveBar'); if (b) window.scrollTo({ top: Math.max(0, b.getBoundingClientRect().top + scrollY - 8), behavior: 'smooth' }); });
         renderWhistle();
         renderResume();
         if (resumed) { renderGuide(); renderFocus(); toast('أُكمل الرصد من ' + mmss(resumed.from) + ' — ' + (resumed.gap ? 'استُبعدت ' + E().dur(resumed.gap) + ' ضائعة. ' : '')
@@ -2899,8 +2923,31 @@ function tagRowHtml(k) {
         AI.prevG = null;
     }
 
+    // «إيقاف» بلمستين (فحص المشرف 2026-11-01): على الجوّال يلتصق شريط الرصد فوق أعلى الصورة و«إيقاف» في طرفه الأيسر،
+    // فلمسةٌ لركن الملعب عند تحديد المنطقة أنهت الرصد. الأولى تحوّله «تأكيد الإيقاف» أربع ثوانٍ، والثانية تُوقف.
+    const STOP_ARM_MS = 4000;
+    function stopTap() {
+        const b = $('eyeStop');
+        if (b.dataset.armed) { disarmStop(); stop(true); return; }
+        b.dataset.armed = '1';
+        const sp = b.querySelectorAll('span');
+        if (sp[0]) sp[0].textContent = 'تأكيد'; if (sp[1]) sp[1].textContent = 'تأكيد الإيقاف';
+        b.setAttribute('aria-label', 'المس مرّةً أخرى للإيقاف والتحليل');
+        clearTimeout(S.stopArmT);
+        S.stopArmT = setTimeout(disarmStop, STOP_ARM_MS);
+    }
+    function disarmStop() {
+        const b = $('eyeStop');
+        clearTimeout(S.stopArmT);
+        if (!b || !b.dataset.armed) return;
+        delete b.dataset.armed;
+        const sp = b.querySelectorAll('span');
+        if (sp[0]) sp[0].textContent = 'إيقاف'; if (sp[1]) sp[1].textContent = 'إيقاف وتحليل';
+        b.setAttribute('aria-label', 'إيقاف وتحليل');
+    }
     function stop(analyze) {
         if (!S.running) return;
+        disarmStop();
         flushTo(Math.floor(now()));
         S.running = false;
         ckClear();
@@ -2938,7 +2985,7 @@ function tagRowHtml(k) {
         const M = E().summarize(recNow());
         const hasTaps = S.events.length > 0 || Object.keys(S.counts).some(k => S.counts[k] > 0);
         const sp = S.sp && S.sp.segs.length ? S.sp : S.spSeed && S.spSeed.segs.length ? S.spSeed : null;
-        if (!M.observed && !M.ctx.covered && !hasTaps && !sp && !hasSample(S.sample)) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا أو المس «عناصر الحصة» أو وسوم «ما لا تراه الكاميرا» أو «عيّنة الطلبة» أثناء الحصة.'); return; }
+        if (!M.observed && !M.ctx.covered && !hasTaps && !sp && !hasSample(S.sample)) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا، أو المس «عناصر الحصة» أو الوسوم أو «عيّنة الطلبة» أثناء الحصة.'); return; }
         // «طلبة خارج النشاط»: تقترحه الكاميرا من منطقة الصفّ، ويبقى عدد المشرف إن لمسه
         let outAuto = 0;
         if (M.people && M.people.roi && M.people.outsideMed > 0 && !(S.counts.out > 0)) {
@@ -3014,7 +3061,9 @@ function tagRowHtml(k) {
         lastSave(data);
         renderResult(data);
         renderResume();
-        $('eyeResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // الصورة فارغةٌ بعد الإيقاف (لا يُحفظ فيديو): «خريطة الحركة» تظهر فيها بدل مربّعٍ أسود — ما لم تُطفأ
+        if (S.result && S.result.heat && !checked('eyeHeatToggle')) { $('eyeHeatToggle').checked = true; $('eyeHeatToggle').dispatchEvent(new Event('change')); }
+        scrollUnderHead($('eyeResult'));
     }
 
     // ── الحماية من الانقطاع (2026-10-28) ──
@@ -4423,7 +4472,7 @@ function tagRowHtml(k) {
         save(d);
         renderResult(d);
         const rv = $('eyeReview');
-        if (rv) rv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (rv) scrollUnderHead(rv);
     }
     const ENGINE_NAME = { yolox: 'YOLOX', human: 'CenterNet' };
     // بطاقة «التجربة الميدانيّة — قياس هذه الحصة» في النتيجة
@@ -4602,10 +4651,32 @@ function tagRowHtml(k) {
         setTimeout(() => { renderAgreement(); renderTrial(); renderPatterns(); }, 0);
     };
 
+    // سطر «الحصة» في بطاقة البدء (فحص المشرف 2026-11-01): العين تقرأ المعلّم والصفّ وعنوان الدرس من «نموذج التقييم» — منها دليل الدرس
+    // وأهداف زيارته السابقة وصيغة المعلّم/المعلّمة و«التلاميذ» — ولم يكن يُرى قبل البدء أيّ حصةٍ يُرصد ولا ما ينقصها
+    function renderLesson() {
+        const el = $('eyeLesson');
+        if (!el) return;
+        const I = info();
+        const miss = [!I.teacher && (female() ? 'اسم المعلّمة' : 'اسم المعلّم'), !I.cls && 'الصفّ', !I.topic && 'عنوان الدرس'].filter(Boolean);
+        const what = I.teacher ? `<span class="text-slate-500">الحصة:</span> <b class="text-slate-900">${esc(I.teacher)}</b>`
+            + [I.cls && 'الصف ' + I.cls, I.topic].filter(Boolean).map(x => ' · ' + esc(x)).join('') : '';
+        const need = miss.length ? `<span class="${I.teacher ? 'block ' : ''}text-amber-900">${I.teacher ? 'ينقص' : 'لم تُكتب بيانات الزيارة بعد: اكتب'} ${miss.join(' و')}`
+            + ' في «نموذج التقييم» — منها دليل الدرس وأهداف الزيارة السابقة.</span>' : '';
+        el.className = 'flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm leading-6 '
+            + (miss.length ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50');
+        el.innerHTML = `<span class="min-w-0">${what}${need}</span>`
+            + `<button type="button" class="svf-btn svf-btn-ghost svf-btn-sm" data-eye-goform>${miss.length ? 'اكتبها في النموذج' : 'تعديل'}</button>`;
+        if (!el.dataset.bound) {
+            el.dataset.bound = '1';
+            el.addEventListener('click', e => { if (e.target.closest('[data-eye-goform]') && typeof toggleSupervisoryView === 'function') toggleSupervisoryView('form-view'); });
+        }
+    }
+
     // يُستدعى عند فتح التبويب (toggleSupervisoryView)
     root.svfEyeOpen = function () {
         if (!E()) return;
         if (!S.bound) build();
+        renderLesson();
         setTimeout(renderResume, 0);
         renderAgreement();
         renderTrial();

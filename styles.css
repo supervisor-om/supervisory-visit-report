@@ -99,6 +99,12 @@
         #eyeBody[data-eye-done] > #eyeAgree, #eyeBody[data-eye-done] > #eyeTrialBox, #eyeBody[data-eye-done] > #eyePatterns { order: 4; }
         #eyeBody:not([data-eye-done]) .eye-done-only { display: none !important; }
         html[data-eye-running] #supervisoryVisitsApp header { position: static !important; }
+        /* فحص المشرف (2026-11-01): أثناء الرصد تُخفى مقدّمة الصفحة فتظهر الصورة و«عناصر الحصة» دون تمرير،
+           و«إيقاف» بلمستين — الأولى تجعله «تأكيد الإيقاف» أحمرَ ممتلئاً (stopTap في eye.js)، وأزرار الشريط ذات الأيقونة وحدها لا تضيق دون ٤٠ */
+        html[data-eye-running] #eyeBody > .svf-head { display: none !important; }
+        #eyeStop[data-armed] { background: #9e352c !important; border-color: #9e352c !important; color: #fff !important; }
+        #eyeLiveBar #eyeMore, #eyeLiveBar #eyeMark { min-width: 40px; justify-content: center; }
+        #eyeWork .eye-ctx:disabled { opacity: .55; cursor: default; }
 
         /* التنقّل بين الزيارات من داخل الزيارة المفتوحة (js/visit-nav.js — 2026-10-31): «الأحدث/الأقدم» وموضعها، وبحثٌ يفتح زيارةً أخرى.
            معتمٌ كبطاقات الزجاج، ومرفوعٌ (z-index) لتطفو قائمة النتائج فوق البطاقات التي بعده (لكلٍّ منها سياق تراصّ من backdrop-filter) */
