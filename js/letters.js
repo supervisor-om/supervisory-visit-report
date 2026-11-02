@@ -318,15 +318,15 @@
     }
 
     function exportWord() {
-        if (typeof htmlDocx === 'undefined') { toast('تعذّر تحميل مكتبة Word — تحقّق من الاتصال بالإنترنت', 'error'); return; }
         const L = letter();
-        const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(L.subject)}</title></head><body dir="rtl">${SvfLetters.letterHTML(L)}</body></html>`;
-        const blob = htmlDocx.asBlob(html, { orientation: 'portrait', margins: { top: 1440, bottom: 1080, left: 1080, right: 1080 } });
+        const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(L.subject)}</title><style>@page{size:A4;margin:20mm}body{direction:rtl;text-align:right;font-family:Arial,'Traditional Arabic',serif;font-size:14pt}table{border-collapse:collapse;width:100%}</style></head><body dir="rtl">${SvfLetters.letterHTML(L)}</body></html>`;
+        const blob = new Blob(['\\ufeff', html], { type: 'application/msword;charset=utf-8' });
+        if (blob.size < 200) { toast('المراسلة فارغة — تعذّر التصدير', 'error'); return; }
         const url = URL.createObjectURL(blob), a = document.createElement('a');
-        a.href = url; a.download = ('مراسلة - ' + L.subject).replace(/[\\/:*?"<>|]/g, '-').slice(0, 90) + '.docx';
+        a.href = url; a.download = ('مراسلة - ' + L.subject).replace(/[\\/:*?"<>|]/g, '-').slice(0, 90) + '.doc';
         document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        logIt('Word'); toast('حُفظت المراسلة بصيغة Word');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        logIt('Word'); toast('حُفظت المراسلة بصيغة Word DOC');
     }
 
     function addSchool(v) {
