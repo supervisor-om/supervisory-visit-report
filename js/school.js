@@ -1593,18 +1593,16 @@
         function exportSchoolWord(fromReport) {
             const report = fromReport || lastSchoolPreviewReport;
             if (!report) { showToast('افتح معاينة التقرير أولاً', 'error'); return; }
-            if (typeof htmlDocx === 'undefined') { showToast('تعذّر تحميل مكتبة Word — تحقّق من الاتصال بالإنترنت', 'error'); return; }
-            const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير زيارة مدرسية</title></head><body dir="rtl">${schoolReportDocHTML(report)}</body></html>`;
-            const blob = htmlDocx.asBlob(html, { orientation: 'portrait', margins: { top: 720, bottom: 720, left: 720, right: 720 } });
+            const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير زيارة مدرسية</title><style>@page{size:A4;margin:15mm}body{font-family:Arial,'Traditional Arabic',serif;direction:rtl}</style></head><body dir="rtl">${schoolReportDocHTML(report)}</body></html>`;
+            const blob = new Blob(['\\ufeff', html], { type: 'application/msword;charset=utf-8' });
+            if (blob.size < 300) { showToast('تعذّر تجهيز التقرير', 'error'); return; }
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = schoolReportFileName(report) + '.docx';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
-            showToast('تم حفظ التقرير بصيغة Word');
+            a.download = schoolReportFileName(report) + '.doc';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            showToast('تم حفظ التقرير بصيغة Word DOC');
         }
 
         // PDF عبر نافذة الطباعة («حفظ كـPDF»)؛ عنوان الصفحة يصير اسم الملف المقترح
