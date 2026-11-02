@@ -685,12 +685,13 @@
             // Group archived visits by calendar month; previous months start collapsed.
             const monthGroups = new Map();
             reports.forEach(report => {
-                const match = String(report.visitDate || '').match(/^(\\d{4})-(\\d{2})/);
+                const match = String(report.visitDate || '').match(/^(\d{4})-(\d{2})/);
                 const month = match ? match[1] + '-' + match[2] : 'unknown';
                 if (!monthGroups.has(month)) monthGroups.set(month, []);
                 monthGroups.get(month).push(report);
             });
-            const currentMonth = new Date().toISOString().slice(0, 7);
+            const now = new Date();
+            const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
             let monthCardsContainer = reportsListContainer;
             monthGroups.forEach((items, month) => {
                 const section = document.createElement('details');
@@ -714,6 +715,7 @@
                     select.checked = !!keys.length && keys.every(k => selected && selected.has(k));
                     select.indeterminate = keys.some(k => selected && selected.has(k)) && !select.checked;
                 };
+                select.disabled = keys.length === 0;
                 select.addEventListener('click', e => e.stopPropagation());
                 select.addEventListener('change', () => {
                     keys.forEach(key => window.svfSchoolToggleKey && window.svfSchoolToggleKey(key, select.checked));
