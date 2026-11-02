@@ -682,7 +682,53 @@
                 return;
             }
             
+            // Group archived visits by calendar month; previous months start collapsed.
+            const monthGroups = new Map();
             reports.forEach(report => {
+                const match = String(report.visitDate || '').match(/^(\\d{4})-(\\d{2})/);
+                const month = match ? match[1] + '-' + match[2] : 'unknown';
+                if (!monthGroups.has(month)) monthGroups.set(month, []);
+                monthGroups.get(month).push(report);
+            });
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            let monthCardsContainer = reportsListContainer;
+            monthGroups.forEach((items, month) => {
+                const section = document.createElement('details');
+                section.className = 'col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-3';
+                section.open = month === currentMonth;
+                const heading = document.createElement('summary');
+                heading.className = 'cursor-pointer font-bold text-slate-800 flex flex-wrap items-center gap-3';
+                const title = month === 'unknown' ? 'بدون تاريخ' : new Date(month + '-01T12:00:00').toLocaleDateString('ar-OM', {month:'long',year:'numeric'});
+                heading.append(document.createTextNode(title + ' — ' + items.length + ' زيارة '));
+                const select = document.createElement('input');
+                select.type = 'checkbox';
+                select.className = 'w-4 h-4';
+                select.title = 'تحديد جميع زيارات الشهر للرفع';
+                select.setAttribute('aria-label', 'تحديد زيارات ' + title);
+                const keys = items.filter(rep => {
+                    const date = String(rep.visitDate || '').includes('-') ? rep.visitDate.split('-').reverse().join('/') : (rep.visitDate || '');
+                    return !(window.svfSchoolIsSent && window.svfSchoolIsSent(rep.schoolName || '', date));
+                }).map(rep => rep.key);
+                const sync = () => {
+                    const selected = window.svfSchoolSelected;
+                    select.checked = !!keys.length && keys.every(k => selected && selected.has(k));
+                    select.indeterminate = keys.some(k => selected && selected.has(k)) && !select.checked;
+                };
+                select.addEventListener('click', e => e.stopPropagation());
+                select.addEventListener('change', () => {
+                    keys.forEach(key => window.svfSchoolToggleKey && window.svfSchoolToggleKey(key, select.checked));
+                    section.querySelectorAll('.queue-pick-school').forEach(cb => { cb.checked = !!(window.svfSchoolSelected && window.svfSchoolSelected.has(cb.dataset.key)); });
+                    sync();
+                });
+                heading.appendChild(select);
+                section.appendChild(heading);
+                const body = document.createElement('div');
+                body.className = 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3';
+                section.appendChild(body);
+                reportsListContainer.appendChild(section);
+                monthCardsContainer = body;
+                items.forEach(report => {
+
                 const typeName = (schoolVisitTypesData && schoolVisitTypesData[report.visitType]) ? schoolVisitTypesData[report.visitType].name : 'غير محدد';
                 const card = document.createElement('div');
                 card.className = 'bg-white border border-slate-200 rounded-2xl p-5 flex flex-col';
@@ -729,9 +775,11 @@
                         <button class="svf-btn svf-btn-danger svf-btn-sm delete-report-btn" data-key="${report.key}">حذف</button>
                     </div>
                 `;
-                reportsListContainer.appendChild(card);
+                monthCardsContainer.appendChild(card);
+                });
+                section.addEventListener('change', e => { if (e.target.matches('.queue-pick-school')) sync(); });
+                sync();
             });
-
             if (typeof window.svfSchoolUpdateSelectionUI === 'function') window.svfSchoolUpdateSelectionUI();
         }
 
