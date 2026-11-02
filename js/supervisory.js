@@ -461,23 +461,18 @@
                 </html>
             `;
             
-            const fileName = `${data.visitNo || 'زيارة'} - ${data.school} - ${data.teacher}.docx`;
-            const converted = htmlDocx.asBlob(wordHTML, { orientation: 'portrait', margins: { top: 360, bottom: 720, left: 720, right: 720 } });
-            const finalBlob = new Blob([converted], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-            
-            const url = window.URL.createObjectURL(finalBlob);
-            const link = document.createElement('a'); 
-            link.href = url; 
-            link.download = fileName; 
-            link.target = '_blank';
-            document.body.appendChild(link); 
-            
-            const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true });
-            link.dispatchEvent(clickEvent);
-            
-            document.body.removeChild(link); 
-            setTimeout(() => window.URL.revokeObjectURL(url), 1000); 
-            showToast('تم تصدير ملف Word');
+            // Word-compatible HTML (.doc) avoids the altChunk DOCX format that can display blank on mobile.
+            const fileName = [data.visitNo || 'زيارة', data.school, data.teacher].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g, '-') + '.doc';
+            const blob = new Blob(['\\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
+            if (blob.size < 300 || !data.teacher && !data.school) {
+                showToast('تعذّر التصدير: تأكّد من بيانات الزيارة', 'error'); return;
+            }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url; link.download = fileName;
+            document.body.appendChild(link); link.click(); link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            showToast('تم تصدير تقرير Word بصيغة DOC المتوافقة');
         }
 
         // ─── النصوص المولَّدة تتبع الجنس (منذ 2026-10-08) ───
