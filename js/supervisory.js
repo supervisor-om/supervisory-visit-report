@@ -463,7 +463,7 @@
             
             // Word-compatible HTML (.doc) avoids the altChunk DOCX format that can display blank on mobile.
             const fileName = [data.visitNo || 'زيارة', data.school, data.teacher].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g, '-') + '.doc';
-            const blob = new Blob(['\\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
+            const blob = new Blob(['\uFEFF', wordHTML], { type: 'application/msword;charset=utf-8' });
             if (blob.size < 300 || !data.teacher && !data.school) {
                 showToast('تعذّر التصدير: تأكّد من بيانات الزيارة', 'error'); return;
             }
