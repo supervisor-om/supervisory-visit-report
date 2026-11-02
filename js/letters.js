@@ -320,7 +320,7 @@
     function exportWord() {
         const L = letter();
         const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(L.subject)}</title><style>@page{size:A4;margin:20mm}body{direction:rtl;text-align:right;font-family:Arial,'Traditional Arabic',serif;font-size:14pt}table{border-collapse:collapse;width:100%}</style></head><body dir="rtl">${SvfLetters.letterHTML(L)}</body></html>`;
-        const blob = new Blob(['\\ufeff', html], { type: 'application/msword;charset=utf-8' });
+        const blob = new Blob(['\uFEFF', html], { type: 'application/msword;charset=utf-8' });
         if (blob.size < 200) { toast('المراسلة فارغة — تعذّر التصدير', 'error'); return; }
         const url = URL.createObjectURL(blob), a = document.createElement('a');
         a.href = url; a.download = ('مراسلة - ' + L.subject).replace(/[\\/:*?"<>|]/g, '-').slice(0, 90) + '.doc';
