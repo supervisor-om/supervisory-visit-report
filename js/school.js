@@ -1594,7 +1594,7 @@
             const report = fromReport || lastSchoolPreviewReport;
             if (!report) { showToast('افتح معاينة التقرير أولاً', 'error'); return; }
             const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير زيارة مدرسية</title><style>@page{size:A4;margin:15mm}body{font-family:Arial,'Traditional Arabic',serif;direction:rtl}</style></head><body dir="rtl">${schoolReportDocHTML(report)}</body></html>`;
-            const blob = new Blob(['\\ufeff', html], { type: 'application/msword;charset=utf-8' });
+            const blob = new Blob(['\uFEFF', html], { type: 'application/msword;charset=utf-8' });
             if (blob.size < 300) { showToast('تعذّر تجهيز التقرير', 'error'); return; }
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
