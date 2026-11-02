@@ -549,6 +549,54 @@
                 twins.set(k, g);
             });
 
+            // Monthly accordion for supervisory visits. Keep filtering and existing upload queue intact.
+            const monthlySections = new Map();
+            const today = new Date();
+            const activeMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+            const monthFor = date => /^\d{4}-\d{2}/.test(String(date || '')) ? String(date).slice(0, 7) : 'unknown';
+            const getMonthlyBody = month => {
+                if (monthlySections.has(month)) return monthlySections.get(month);
+                const section = document.createElement('details');
+                section.className = 'col-span-full rounded-2xl border border-slate-200 bg-slate-50 p-3';
+                section.open = !!filterText || !!filterMonth || month === activeMonth;
+                const summary = document.createElement('summary');
+                summary.className = 'cursor-pointer font-bold text-slate-800 flex flex-wrap items-center gap-3';
+                const label = month === 'unknown' ? 'بدون تاريخ' : new Date(month + '-01T12:00:00').toLocaleDateString('ar-OM', {month:'long',year:'numeric'});
+                const title = document.createElement('span');
+                title.textContent = label;
+                summary.appendChild(title);
+                const count = document.createElement('span');
+                count.className = 'text-xs text-slate-500';
+                summary.appendChild(count);
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'w-4 h-4';
+                checkbox.setAttribute('aria-label', 'تحديد زيارات ' + label);
+                checkbox.title = 'تحديد زيارات الشهر للرفع';
+                checkbox.addEventListener('click', event => event.stopPropagation());
+                summary.appendChild(checkbox);
+                const body = document.createElement('div');
+                body.className = 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3';
+                section.append(summary, body);
+                listContainer.appendChild(section);
+                const group = { section, body, checkbox, count, keys: [], total: 0 };
+                const sync = () => {
+                    const selected = window.svfSelected;
+                    checkbox.checked = group.keys.length > 0 && group.keys.every(k => selected && selected.has(k));
+                    checkbox.indeterminate = !checkbox.checked && group.keys.some(k => selected && selected.has(k));
+                    checkbox.disabled = !group.keys.length;
+                };
+                checkbox.addEventListener('change', () => {
+                    group.keys.forEach(k => { if (window.svfToggleKey) window.svfToggleKey(k, checkbox.checked); });
+                    body.querySelectorAll('.queue-pick').forEach(cb => { cb.checked = !!(window.svfSelected && window.svfSelected.has(cb.dataset.key)); });
+                    sync();
+                });
+                section.addEventListener('change', e => { if (e.target.matches('.queue-pick')) sync(); });
+                group.sync = sync;
+                monthlySections.set(month, group);
+                return group;
+            };
+
             reports.forEach(({ key, data }) => {
                 if (!data) return;
                 const schoolName = data.school || '-';
@@ -635,10 +683,15 @@
                             <button class="delete-btn svf-btn svf-btn-danger svf-btn-sm" data-key="${key}">حذف</button>
                         </div>
                     `;
-                    listContainer.appendChild(card);
+                    const group = getMonthlyBody(monthFor(visitDate));
+                    group.body.appendChild(card);
+                    group.total++;
+                    group.count.textContent = '— ' + group.total + ' زيارة';
+                    if (!(byReport(key) || (byTD && twin.n === 1))) group.keys.push(key);
                 }
             });
 
+            monthlySections.forEach(group => group.sync());
             if (noReportsMessage) {
                 if (found) noReportsMessage.classList.add('hidden');
                 else noReportsMessage.classList.remove('hidden');
