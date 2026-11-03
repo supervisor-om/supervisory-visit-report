@@ -300,15 +300,28 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       return camFail('هذا المتصفّح لا يتيح الكاميرا هنا', 'افتح الصفحة من https://supervisor-mct.com/try-eye.html في Chrome أو Edge.');
     }
     const v = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
-    if (prefs.cam) v.deviceId = { exact: prefs.cam }; else v.facingMode = 'user';
+    // iPad exhibition mode: prefer the outward-facing rear camera even if an
+    // older front-camera device ID was saved in localStorage.
+    const isIPad = /iPad/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIPad) v.facingMode = { ideal: 'environment' };
+    else if (prefs.cam) v.deviceId = { exact: prefs.cam };
+    else v.facingMode = 'user';
     try { stream = await navigator.mediaDevices.getUserMedia({ video: v, audio: false }); }
     catch (e) {
-      if (prefs.cam && e && e.name === 'OverconstrainedError') { prefs.cam = null; savePrefs(); return startCam(); }
+      if (isIPad && e && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')) {
+        delete v.facingMode;
+        try { stream = await navigator.mediaDevices.getUserMedia({ video: v, audio: false }); }
+        catch (fallbackError) { e = fallbackError; }
+      }
+      if (!stream && !isIPad && prefs.cam && e && e.name === 'OverconstrainedError') { prefs.cam = null; savePrefs(); return startCam(); }
+      if (!stream) {
       const n = e && e.name;
       if (n === 'NotAllowedError' || n === 'SecurityError') return camFail('لم يُسمح باستعمال الكاميرا', 'اسمح بها من رمز القفل بجانب العنوان، ثمّ «تشغيل الكاميرا».', true);
       if (n === 'NotFoundError' || n === 'OverconstrainedError') return camFail('لا كاميرا موصولة بهذا الحاسوب', 'صِل كاميرا ثمّ «تشغيل الكاميرا».', true);
       if (n === 'NotReadableError' || n === 'AbortError') return camFail('الكاميرا مشغولةٌ ببرنامجٍ آخر', 'أغلق Zoom أو Teams أو تطبيق الكاميرا، ثمّ «تشغيل الكاميرا».', true);
       return camFail('تعذّر تشغيل الكاميرا', 'تأكّد أنّ الكاميرا موصولةٌ ومسموحٌ بها، ثمّ «تشغيل الكاميرا».' + (n ? ' (' + n + ')' : ''), true);
+      }
     }
     video.srcObject = stream;
     try { await video.play(); } catch (e) { /* يكمل حين تصل الإطارات */ }
