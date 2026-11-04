@@ -306,8 +306,52 @@ function validData(d){return d&&typeof d==='object'&&d.indicators&&typeof d.indi
 function load(){let current=null;try{current=JSON.parse(localStorage.getItem(key)||'null')}catch(e){}if(!validData(current)){try{current=JSON.parse(localStorage.getItem(oldKey)||'null')}catch(e){}}if(validData(current)){state={school:current.school,indicators:current.indicators,savedAt:current.savedAt||''};for(const ind of indicators){const d=getRec(ind.id);if(!d.narrative&&d.score)d.narrative=ind.narratives[d.score]||'';if(!Array.isArray(d.sources))d.sources=[]}}}
 function exportData(){save();const blob=new Blob([JSON.stringify({...state,version:4},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='تقييم_النمو_الشخصي_'+(state.school.school||'زيارة')+'_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
 async function importData(e){const file=e.target.files?.[0];if(!file)return;try{const x=JSON.parse(await file.text());if(!validData(x))throw Error('format');if(confirm('استبدال مدخلات الزيارة الحالية ببيانات الملف؟')){state={school:x.school,indicators:x.indicators,savedAt:x.savedAt||''};save();syncAll();notify('استُعيدت الزيارة')}}catch(err){alert('الملف غير صالح أو غير متوافق.')}e.target.value=''}
-function getReport(){let parts=['تقرير مجال النمو الشخصي','المدرسة: '+(state.school.school||'—'),'العام الدراسي: '+(state.school.year||'—')],warnings=[],count=0;for(const [skey,std] of Object.entries(personalGrowthStandards)){parts.push('\n'+std.name);for(const ind of std.indicators){const d=getRec(ind.id);if(!d.score)continue;count++;const hasEvidence=Boolean(d.evidence?.trim()),hasImpact=Boolean(d.impact?.trim());if(!hasEvidence)warnings.push(ind.id+' بلا دليل موثق');if(!hasImpact)warnings.push(ind.id+' بلا أثر موثق');else if(!d.effectVerified)warnings.push(ind.id+' أثر متوقع لم يتم تأكيده');parts.push(ind.id+' — '+ind.text+' ('+ratings[d.score]+')');parts.push((d.narrative||ind.narratives[d.score])+(hasEvidence?'\nالدليل الذي سجله المشرف: '+d.evidence:'\nتنبيه: العبارة استرشادية ولم يوثق دليل فعلي.')+(hasImpact?'\n'+(d.effectVerified?'الأثر الذي أكد المشرف تحققه: ':'أثر استرشادي لم يؤكد تحققه: ')+d.impact:'') );if(Number(d.score)>=3&&d.recommendation?.trim())parts.push('توصية: '+d.recommendation)}}return {parts,warnings,count}}
-function showReport(){save();const r=getReport(),root=$('reportContent');root.innerHTML='<h2>تقرير مجال النمو الشخصي</h2><p class="micro">المدرسة: '+esc(state.school.school||'—')+' | العام الدراسي: '+esc(state.school.year||'—')+'</p>'+(r.warnings.length?'<div class="reportWarn">تنبيه: '+r.warnings.length+' ملاحظة اكتمال. العبارات الاسترشادية قد تتضمن معلومات افتراضية؛ راجعها قبل الاعتماد.</div>':'')+Object.entries(personalGrowthStandards).map(([skey,std])=>{const rows=std.indicators.filter(i=>getRec(i.id).score);if(!rows.length)return '';return '<h3>'+esc(std.name)+'</h3>'+rows.map(ind=>{const d=getRec(ind.id);return '<div class="reportItem"><h4>'+esc(ind.id+' — '+ind.text+' · '+ratings[d.score])+'</h4><p>'+esc(d.narrative||ind.narratives[d.score])+'</p>'+(!d.evidence?.trim()?'<p class="hint">نص استرشادي: لم يُوثق دليل ميداني.</p>':'<p class="small"><b>الدليل:</b> '+esc(d.evidence)+'</p>')+(d.impact?.trim()?'<p class="small"><b>'+(d.effectVerified?'الأثر المتحقق:':'أثر متوقع غير مؤكد:')+'</b> '+esc(d.impact)+'</p>':'')+(Number(d.score)>=3&&d.recommendation?.trim()?'<p class="small"><b>توصية:</b> '+esc(d.recommendation)+'</p>':'')+'</div>'}).join('')}).join('')+'<p class="hint">مسودة للمراجعة المهنية قبل الاعتماد. لا تُعد النماذج الاسترشادية دليلًا على واقع المدرسة.</p>';$('report').classList.add('visible');$('report').scrollIntoView({behavior:'smooth',block:'start'});notify('ظهر التقرير · '+r.count+' مؤشرًا')}
+function cleanedSentence(value){return String(value||'').trim().replace(/[\s.،؛]+$/g,'')}
+function integratedParagraph(ind,d){
+const narrative=cleanedSentence(d.narrative||ind.narratives[d.score]||'');
+const evidence=cleanedSentence(d.evidence);
+const impact=cleanedSentence(d.impact);
+const clauses=[];
+if(narrative)clauses.push(narrative);
+if(evidence)clauses.push('ويستند هذا التقييم إلى الشواهد المدونة: '+evidence);
+if(impact)clauses.push(d.effectVerified?'وقد تم توثيق الأثر التالي: '+impact:'أما الأثر المتوقع الذي لم يتم التحقق منه فهو: '+impact);
+return clauses.join('؛ ')+'.'
+}
+function getReport(){
+const parts=['تقرير مجال النمو الشخصي','المدرسة: '+(state.school.school||'—'),'العام الدراسي: '+(state.school.year||'—')],warnings=[];let count=0;
+for(const [skey,std] of Object.entries(personalGrowthStandards)){
+parts.push('\n'+std.name);
+for(const ind of std.indicators){
+const d=getRec(ind.id);if(!d.score)continue;count++;
+const hasEvidence=Boolean(d.evidence?.trim()),hasImpact=Boolean(d.impact?.trim());
+if(!hasEvidence)warnings.push(ind.id+' دون شاهد مدون');
+if(!hasImpact)warnings.push(ind.id+' دون أثر مدون');
+else if(!d.effectVerified)warnings.push(ind.id+' أثر متوقع لم يؤكد المشرف تحققه');
+parts.push(ind.id+' — '+ind.text+' ('+ratings[d.score]+')');
+parts.push(integratedParagraph(ind,d));
+if(Number(d.score)>=3&&d.recommendation?.trim())parts.push('توصية: '+d.recommendation);
+}
+}
+return {parts,warnings,count}
+}
+function showReport(){
+save();const r=getReport(),root=$('reportContent');
+root.innerHTML='<h2>تقرير مجال النمو الشخصي</h2><p class="micro">المدرسة: '+esc(state.school.school||'—')+' | العام الدراسي: '+esc(state.school.year||'—')+'</p>'+
+(r.warnings.length?'<div class="reportWarn">تنبيهات استكمال ('+r.warnings.length+'): '+esc(r.warnings.join('، '))+'. يُرجى مراجعة الأدلة والآثار والعبارات الاسترشادية قبل الاعتماد.</div>':'')+
+Object.entries(personalGrowthStandards).map(([skey,std])=>{
+const rows=std.indicators.filter(i=>getRec(i.id).score);if(!rows.length)return '';
+return '<h3>'+esc(std.name)+'</h3>'+rows.map(ind=>{
+const d=getRec(ind.id);
+return '<div class="reportItem"><h4>'+esc(ind.id+' — '+ind.text+' · '+ratings[d.score])+'</h4>'+
+'<p>'+esc(integratedParagraph(ind,d))+'</p>'+
+(!d.evidence?.trim()?'<p class="hint">تنبيه: لم يسجل المشرف شاهدًا فعليًا بعد.</p>':'')+
+(d.impact?.trim()&&!d.effectVerified?'<p class="hint">تنبيه: الأثر المضمن أعلاه استرشادي ولم يُؤكد تحققه.</p>':'')+
+(Number(d.score)>=3&&d.recommendation?.trim()?'<p class="small"><b>توصية:</b> '+esc(d.recommendation)+'</p>':'')+'</div>'
+}).join('')
+}).join('')+
+'<p class="hint">هذه مسودة قابلة للمراجعة. لا تُعد النماذج والعبارات الاسترشادية إثباتًا على واقع المدرسة حتى يتم التحقق منها.</p>';
+$('report').classList.add('visible');$('report').scrollIntoView({behavior:'smooth',block:'start'});notify('ظهر التقرير المدمج · '+r.count+' مؤشرًا')
+}
 $('reportBtn').onclick=$('finishBtn').onclick=showReport;$('hideReport').onclick=()=>{$('report').classList.remove('visible');window.scrollTo({top:0,behavior:'smooth'})};$('printBtn').onclick=()=>window.print();$('copyBtn').onclick=async()=>{const t=getReport().parts.join('\n\n');try{await navigator.clipboard.writeText(t);notify('نُسخ التقرير')}catch(e){notify('تعذر النسخ؛ استخدم الطباعة')}};
 $('backupBtn').onclick=exportData;$('importBtn').onclick=()=>$('importFile').click();$('importFile').onchange=importData;$('newSchool').onclick=()=>{if(confirm('سيتم إفراغ الاستمارة الحالية. صدّر نسخة احتياطية أولًا؛ هل تريد المتابعة؟')){state={school:{},indicators:{},savedAt:''};save();syncAll();$('report').classList.remove('visible');notify('زيارة جديدة')}};
 for(const k of ['school','year','day1','day2'])$(k).addEventListener('input',()=>{state.school[k]=$(k).value;schedule()});
