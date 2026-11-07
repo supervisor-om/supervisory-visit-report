@@ -458,5 +458,10 @@ const select=builder.querySelector('[data-guide-source]');function updateSources
 }}
 
 const guideSyncIndicator=syncIndicator;syncIndicator=function(ind){guideSyncIndicator(ind);$('ind-'+ind.id)?._updateGuideSources?.()};
+// Standard headings must select an indicator as well as open their details panel.
+const standardRender=render,standardMove=moveIndicator;
+moveIndicator=function(index){const number=Number(index),safe=Number.isFinite(number)?Math.trunc(number):0;standardMove(Math.max(0,Math.min(indicators.length-1,safe)));document.querySelectorAll('[data-standard-indicator]').forEach(b=>{const on=Number(b.dataset.standardIndicator)===activeIndex;b.setAttribute('aria-pressed',String(on));b.classList.toggle('selected',on)})};
+render=function(){standardRender();for(const group of document.querySelectorAll('#groups > .group')){const panels=[...group.querySelectorAll('.indicator')],indices=panels.map(p=>indicators.findIndex(ind=>p.id==='ind-'+ind.id)),summary=group.querySelector(':scope > summary');summary.addEventListener('click',e=>{e.preventDefault();moveIndicator(indices.includes(activeIndex)?activeIndex:indices[0])});const nav=document.createElement('nav');nav.className='scoreRow';nav.setAttribute('aria-label','اختيار مؤشر المعيار');for(const index of indices){const b=document.createElement('button');b.type='button';b.className='score';b.dataset.standardIndicator=String(index);b.textContent=indicators[index].id+' — '+indicators[index].text;b.onclick=()=>moveIndicator(index);nav.append(b)}group.querySelector('.groupbody').prepend(nav)}moveIndicator(activeIndex)};
+
 window.addEventListener('pagehide',save);load();render();
 </script></body></html>
