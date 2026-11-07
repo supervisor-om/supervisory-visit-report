@@ -15,14 +15,14 @@
 <!--
   «جرّب عين المشرف» — ركنٌ حيّ لمهرجان عمان للعلوم (2026-11-03).
   حاسوبٌ بكاميرا موصولٌ بالشاشة الكبيرة: المارّة يرون أنفسهم مربّعاتٍ ونقاطاً كما ترى العين طلبة الحصة، وعدّاد «أمام الكاميرا الآن»،
-  و«نسبة الحركة» بمستويات البند ٧، وتحدّي القفز (كم قفزةً في ٢٠ ثانية — js/jump-core.js، 2026-11-07)، وتحدّي الصفّارة
-  (كم ثانيةً حتّى يتوقّفوا)، وتحدّي الصفّ الواحد. التحدّيات بالدور (CFG.cycle).
+  و«نسبة الحركة» بمستويات البند ٧، وتحدّي القفز (لاعبٌ واحد، كم قفزةً في ٢٠ ثانية — بزرّ «ابدأ تحدّي القفز»، js/jump-core.js، 2026-11-07)،
+  وتحدّي الصفّارة (كم ثانيةً حتّى يتوقّفوا) يبدأ وحده بعد الحركة الحرّة، وتحدّي الصفّ الواحد.
   صفحةٌ مستقلّة بلا بوّابة: لا تقرأ شيئاً من بيانات المنظومة. الكشف نفسه الذي في عين المشرف (YOLOX‑Nano في عاملٍ في الخلفيّة،
   js/eye-detect-worker.js + vendor/onnx/) والتتبّع نفسه (js/eye-core.js). المخزَّن في المتصفّح: اختيار العرض والصوت والكاميرا،
   و«أرقام اليوم» (أعدادٌ لا غير).
   حين لا يقف أحدٌ أمام الكاميرا يُعرض festival.html (العرض المتكرّر) ثمّ تعود التجربة حين يقترب أحد، أو يلوّح للكاميرا أثناء العرض.
   المفاتيح: مسافة التجربة/العرض · J تحدّي القفز الآن · W تحدّي الصفّارة الآن · V شكل الصورة · S الصوت · C الكاميرا التالية · F ملء الشاشة.
-  ?loop=0 تجربةٌ وحدها بلا عرض · ?view=video|dots|mosaic · ?game=jump تحدّي القفز وحده
+  ?loop=0 تجربةٌ وحدها بلا عرض · ?view=video|dots|mosaic · ?game=jump القفز وحده بالزرّ (بلا صفّارةٍ تلقائيّة)
 -->
 <style>
 :root{--bg:#082742;--panel:#0b3354;--panel2:#0e3c62;--line:rgba(255,255,255,.10);--ink:#f7f5ee;--muted:#a3b8cc;
@@ -78,6 +78,14 @@ b,strong{font-weight:700}
   text-shadow:0 6px 40px rgba(0,0,0,.65);opacity:0;pointer-events:none;transition:opacity .15s}
 .cd.on{opacity:1}
 .cd.go{font-size:170px}
+.jn{position:absolute;left:24px;bottom:22px;display:flex;align-items:baseline;gap:12px;background:rgba(6,28,48,.9);border:2px solid var(--gold);border-radius:22px;padding:2px 26px 6px;opacity:0;transition:opacity .2s;pointer-events:none}
+.jn.on{opacity:1}
+.jn b{font-size:96px;line-height:1.05;color:var(--gold);font-variant-numeric:tabular-nums}
+.jn span{font-size:30px;font-weight:600}
+.jbtn{flex:none;font:inherit;font-size:30px;font-weight:700;background:var(--gold);color:#082742;border:0;border-radius:20px;padding:18px 34px;cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,.28);-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.jbtn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.28)}
+.jbtn.stop{background:rgba(255,255,255,.1);color:var(--ink);border:2px solid var(--line);box-shadow:none}
+body.idle .jbtn{cursor:pointer}
 .res{position:absolute;left:50%;top:50%;width:880px;transform:translate(-50%,-50%) scale(.95);background:rgba(8,39,66,.96);border:1px solid rgba(240,180,74,.55);
   border-radius:30px;padding:34px 46px 32px;text-align:center;opacity:0;visibility:hidden;transition:opacity .35s,transform .35s,visibility 0s linear .35s}
 .res.on{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);transition:opacity .35s,transform .35s}
@@ -102,7 +110,7 @@ b,strong{font-weight:700}
 .keys kbd{font:inherit;font-weight:700;color:var(--ink);background:rgba(255,255,255,.1);border-radius:6px;padding:0 7px;margin:0 2px}
 body.idle .keys{opacity:0}
 .under{position:absolute;top:740px;right:0;left:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:30px}
-.cap{margin:0;font-size:22px;color:var(--muted);line-height:1.55}
+.cap{margin:0;font-size:20px;color:var(--muted);line-height:1.5}
 .cap b{color:var(--ink);font-weight:600}
 .dotkey{display:flex;gap:24px;font-size:21px;flex:none}
 .dotkey i{display:inline-block;width:18px;height:18px;border-radius:50%;margin-left:9px;vertical-align:-3px;border:2px solid #061c30;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
@@ -162,12 +170,13 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
 <section class="main">
   <div class="mirror" id="mirror">
     <canvas id="cv" aria-label="ما تراه العين أمام الكاميرا"></canvas>
-    <div class="empty off" id="empty"><b>اقتربوا من الكاميرا</b><span>تحدّي القفز: كم قفزةً في 20 ثانية؟</span></div>
+    <div class="empty off" id="empty"><b>اقتربوا من الكاميرا</b><span>تحدّي القفز: كم قفزةً في 20 ثانية؟ — «ابدأ تحدّي القفز» أسفل الصورة</span></div>
     <div class="cue off" id="cue"><b id="cueB"></b><span id="cueS"></span></div>
     <div class="chipF off" id="chipF">التشكيل: <b id="frm">—</b></div>
     <div class="status" id="status"></div>
     <div class="timer" id="timer">0.0</div>
     <div class="cd" id="cd"></div>
+    <div class="jn" id="jn"><b id="jnN">0</b><span>قفزة</span></div>
     <div class="flash" id="flash">
       <svg viewBox="0 0 120 120" aria-hidden="true"><path d="M18 70a30 30 0 0 0 58 10h26a6 6 0 0 0 6-6V58a6 6 0 0 0-6-6H52a30 30 0 0 0-34 18z" fill="#082742"/><circle cx="46" cy="72" r="11" fill="#f0b44a"/><path d="M60 40 66 24M76 42l12-12M88 52l16-6" stroke="#082742" stroke-width="7" stroke-linecap="round"/></svg>
       <b>صفّارة!</b><span>توقّفوا</span>
@@ -181,6 +190,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     <div class="boot" id="boot"><b id="bootT">تشغيل الكاميرا…</b><span id="bootS">اسمح للمتصفّح باستعمال الكاميرا إن سألك.</span><button id="bootBtn" hidden>تشغيل الكاميرا</button></div>
   </div>
   <div class="under">
+    <button class="jbtn" id="jumpBtn" type="button">ابدأ تحدّي القفز</button>
     <p class="cap">هكذا ترى <b>عين المشرف</b> طلبة الحصة: من يتحرّك ومن يقف، وكم يستغرقون حتّى يتوقّفوا عند الصفّارة — شواهد للبند ٧ «فاعلية الإدارة الصفية».</p>
     <div class="dotkey"><span><i style="background:#f0b44a"></i>يتحرّك</span><span><i style="background:#7fd1a4"></i>في مكانه</span><span><i style="background:#f7f5ee"></i>يقف</span></div>
   </div>
@@ -234,11 +244,11 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   const CFG = {
     person: 0.3,        // أدنى ثقةٍ للشخص (العين في الحصة 0.22 — هنا الزائرون قريبون، واللافتات حول الركن كثيرة)
     near: 0.18,         // اللاعب في التحدّي: طوله في الصورة خُمسها تقريباً فأكثر — المارّون البعيدون لا يفسدون الصفّارة
-    freeSec: Q.get('game') === 'jump' ? 8 : 18,   // حركةٌ حرّة قبل التحدّي التالي
-    // التحدّيات بالدور بعد كلّ حركةٍ حرّة: ?game=jump ← القفز وحده
-    cycle: Q.get('game') === 'jump' ? ['jump'] : ['jump', 'whistle'],
-    jumpSec: 20,        // زمن تحدّي القفز
-    jumpWait: 10,       // أطول انتظارٍ لمن يقف قريباً قبل العدّ التنازليّ ثمّ يُلغى
+    freeSec: 18,        // حركةٌ حرّة قبل تحدّي الصفّارة
+    // التحدّي الذي يبدأ وحده بعد الحركة الحرّة: الصفّارة؛ وتحدّي القفز بالزرّ وحده. ?game=jump ← لا تحدّي وحده (القفز بالزرّ)
+    cycle: Q.get('game') === 'jump' ? [] : ['whistle'],
+    jumpSec: 20,        // زمن تحدّي القفز — لاعبٌ واحد
+    jumpWait: 15,       // أطول انتظارٍ للاعبٍ يقف قريباً قبل العدّ التنازليّ ثمّ يُلغى
     armMax: 14,         // أطول انتظارٍ لحركة الجميع قبل الصفّارة
     stopMax: 8,         // ثوانٍ بعد الصفّارة ثمّ «لم يتوقّف الجميع»
     resultSec: 7,
@@ -510,21 +520,24 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   }
 
   // ── اللعبة: حركةٌ حرّة ← تحدّي الصفّارة ← (ثلاثةٌ فأكثر) صفٌّ واحد ← من جديد ──
-  const G = { st: 'idle', since: 0, armOk: 0, fireAt: 0, wAt: 0, pre: 0, lowAt: 0, low: 0, lineOk: 0, next: 'free', last: 0, ci: 0, kind: '', cdAt: 0, cdN: 0, jEnd: 0 };
+  const G = { st: 'idle', since: 0, armOk: 0, fireAt: 0, wAt: 0, pre: 0, lowAt: 0, low: 0, lineOk: 0, next: 'free', last: 0, ci: 0, kind: '', cdAt: 0, cdN: 0, jEnd: 0, jid: null };
   function go(st) {
     G.st = st; G.since = now();
     if (st === 'arm') { G.armOk = 0; G.fireAt = 0; }
     if (st === 'line') G.lineOk = 0;
-    if (st === 'jready') { G.cdAt = 0; G.cdN = 0; JG.M.clear(); JG.prev = null; }
+    if (st === 'jready') { G.cdAt = 0; G.cdN = 0; G.jid = null; JG.j = null; JG.prev = null; $('jnN').textContent = '0'; }
     if (st !== 'result') G.kind = '';
     $('flash').classList.toggle('on', false);
     if (st !== 'result') $('res').classList.remove('on');
     $('timer').classList.toggle('on', st === 'stop' || st === 'jump');
     if (st !== 'jready' && st !== 'jump') $('cd').classList.remove('on');
+    $('jn').classList.toggle('on', st === 'jump');
+    $('jumpBtn').textContent = st === 'jready' || st === 'jump' ? 'إيقاف التحدّي' : 'ابدأ تحدّي القفز';
+    $('jumpBtn').classList.toggle('stop', st === 'jready' || st === 'jump');
   }
   // بعد الحركة الحرّة: التحدّي التالي بالدور
-  const nextGame = () => CFG.cycle[G.ci % CFG.cycle.length];
-  function startNext() { const g = nextGame(); G.ci++; go(g === 'jump' ? 'jready' : 'arm'); }
+  const nextGame = () => (CFG.cycle.length ? CFG.cycle[G.ci % CFG.cycle.length] : null);
+  function startNext() { const g = nextGame(); if (!g) { G.since = now(); return; } G.ci++; go(g === 'jump' ? 'jready' : 'arm'); }
   function preLevel(t) {
     const h = P.hist.filter(x => x.t >= t - 1.6 && x.inst != null);
     return h.length ? h.reduce((s, x) => s + x.inst, 0) / h.length : 0;
@@ -559,10 +572,12 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       case 'jready': {
         // العدّ التنازليّ يبدأ حين يقف أحدٌ قريباً من الكاميرا
         const cd = $('cd');
-        if (!G.cdAt) {
-          if (P.near > 0) { G.cdAt = t; G.cdN = 0; }
-          else if (t - G.since > CFG.jumpWait) { go(present ? 'free' : 'idle'); G.since = t - CFG.freeSec * 0.5; }
-          break;
+        if (!G.cdAt || !P.list.some(p => p.id === G.jid)) {
+          // اللاعب الأقرب؛ وإن غاب قبل البدء يُختار من جديد ويُعاد العدّ
+          const pl = pickJumper();
+          if (pl) { G.jid = pl.id; if (!G.cdAt) { G.cdAt = t; G.cdN = 0; } }
+          else if (!G.cdAt && t - G.since > CFG.jumpWait) { go(present ? 'free' : 'idle'); G.since = t; break; }
+          if (!G.cdAt) break;
         }
         const k = Math.floor(t - G.cdAt);
         if (k >= 3) { G.jEnd = t + CFG.jumpSec; go('jump'); cd.textContent = 'انطلقوا!'; cd.classList.add('on', 'go'); beep(990, 0.25); break; }
@@ -573,7 +588,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
         $('timer').textContent = fmt1(Math.max(0, G.jEnd - t));
         if (t - G.since > 0.9) $('cd').classList.remove('on', 'go');
         if (t >= G.jEnd) jumpDone();
-        else if (!present && t - G.since > 3) { if (jumpRank().length && jumpRank()[0] > 0) jumpDone(); else go('idle'); }
+        else if (!present && t - G.since > 3) { if (jumpCount() > 0) jumpDone(); else go('idle'); }
         break;
       case 'line':
         if (!present || P.n < 3) { go(present ? 'free' : 'idle'); break; }
@@ -617,15 +632,14 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
         : 'في الحصة تقيس العين هذا عند كلّ صفّارة: «الاستجابة السريعة لإشارات البدء والتوقّف» من شواهد البند ٧.';
     } else if (kind === 'jump') {
       G.next = 'free';
-      const n = r.best, unit = n === 2 ? 'قفزتان' : n >= 3 && n <= 10 ? 'قفزات' : 'قفزة';
-      $('resK').textContent = r.list.length > 1 ? 'أكثرُكم قفزاً في ' + CFG.jumpSec + ' ثانية' : 'قفزاتك في ' + CFG.jumpSec + ' ثانية';
-      $('resN').textContent = String(n);
-      $('resU').textContent = n === 2 ? '' : unit;
-      if (n === 2) $('resN').textContent = 'قفزتان';
+      const n = r.n;
+      $('resK').textContent = 'قفزاتك في ' + CFG.jumpSec + ' ثانية';
+      $('resN').textContent = n === 2 ? 'قفزتان' : String(n);
+      $('resU').textContent = n === 2 ? '' : n >= 3 && n <= 10 ? 'قفزات' : 'قفزة';
       lv.textContent = '';
       $('resBest').textContent = r.rec ? 'رقم اليوم الجديد!' : '';
-      $('resP').textContent = !n ? 'لم ترَ العين قفزاً هذه المرّة — اقفزوا في أماكنكم بكلتا القدمين، والجسم كلّه داخل الصورة.'
-        : (r.list.length > 1 ? 'أرقامكم فوق رؤوسكم: ' + r.list.join(' · ') + '. ' : 'رقمك فوق رأسك على الشاشة. ')
+      $('resP').textContent = !n ? 'لم ترَ العين قفزاً هذه المرّة — قف قريباً من الكاميرا، وجسمك كلّه في الصورة، واقفز في مكانك بكلتا القدمين.'
+        : (!r.rec && DAY.jump ? 'رقم اليوم (' + DAY.jump + ') — من يتجاوزه؟ ' : '')
           + 'وفي الحصة تقيس العين شدّة نشاط الطلبة — من يجري ومن يتمرّن بقوّة في مكانه.';
     } else {
       G.next = 'free';
@@ -647,19 +661,17 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     switch (G.st) {
       case 'free': {
         const left = '(' + Math.max(1, Math.ceil(CFG.freeSec - (t - G.since))) + ') ثانية';
-        if (nextGame() === 'jump') { b = 'تحدّي القفز: كم قفزةً في ' + CFG.jumpSec + ' ثانية؟'; s = 'يبدأ بعد ' + left + ' — قفوا قريباً من الكاميرا، والجسم كلّه في الصورة'; }
-        else { b = 'تحرّكوا أمام الكاميرا — ارفعوا نسبة الحركة إلى «متميز»'; s = 'تحدّي الصفّارة بعد ' + left; }
+        if (nextGame() === 'whistle') { b = 'تحرّكوا أمام الكاميرا — ارفعوا نسبة الحركة إلى «متميز»'; s = 'تحدّي الصفّارة بعد ' + left + ' · أو «ابدأ تحدّي القفز»'; }
+        else { b = 'تحدّي القفز: كم قفزةً في ' + CFG.jumpSec + ' ثانية؟'; s = 'لاعبٌ واحد يقف قريباً من الكاميرا، ثمّ «ابدأ تحدّي القفز»'; }
         break;
       }
       case 'jready':
-        if (G.cdAt) { b = 'استعدّوا…'; s = 'اقفزوا في أماكنكم بكلتا القدمين — العين تعدّ قفزات كلّ واحد'; }
-        else { b = 'تحدّي القفز: اقتربوا من الكاميرا'; s = 'قفوا حيث يظهر الجسم كلّه، من الرأس إلى القدمين'; }
+        if (G.cdAt) { b = 'استعدّ…'; s = 'العين تعدّ قفزات صاحب الإطار الذهبيّ — اقفز في مكانك بكلتا القدمين'; }
+        else { b = 'تحدّي القفز: قف قريباً من الكاميرا'; s = 'لاعبٌ واحد، وجسمه كلّه في الصورة من الرأس إلى القدمين'; }
         break;
-      case 'jump': {
-        const top = jumpRank()[0] || 0;
-        b = 'اقفزوا!'; s = P.near ? 'الأكثر حتّى الآن: (' + top + ')' : 'اقتربوا من الكاميرا — العين تعدّ من يقف قريباً';
+      case 'jump':
+        b = 'اقفز!'; s = P.list.some(p => p.id === G.jid) ? 'العين تعدّ قفزات صاحب الإطار الذهبيّ' : 'ارجع إلى مكانك أمام الكاميرا';
         break;
-      }
       case 'arm':
         if (G.fireAt) { b = 'استمرّوا في الحركة… استعدّوا!'; s = 'عند الصفّارة توقّفوا تماماً'; }
         else if (t - G.since > 6 && G.armOk < 0.5) { b = 'تحرّكوا أكثر — الصفّارة لا تأتي والجميع واقف'; s = 'امشوا، اقفزوا، لوّحوا بأيديكم'; }
@@ -704,23 +716,36 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     } catch (e) { /* لا صوت */ }
   }
 
-  // ── تحدّي القفز: القفزة تُقاس من الصورة نفسها في كلّ إطار (js/jump-core.js)، والكشف يعطي موضع كلّ لاعبٍ وطوله ──
-  // صورةٌ رماديّةٌ صغيرة بعرض JW، ولكلّ لاعبٍ قريبٍ بصمةٌ رأسيّة في وسط صندوقه تُقارَن بالإطار السابق على الصفوف نفسها
-  const JW = 240;
-  const JG = { canvas: document.createElement('canvas'), prev: null, at: 0, vf: 0, seen: -1, vfAt: -1e9, M: new Map() };
+  // ── تحدّي القفز (لاعبٌ واحد): القفزة تُقاس من الصورة نفسها في كلّ إطار (js/jump-core.js)، والكشف يعطي موضع اللاعب وطوله ──
+  // يُختار الأقرب إلى الكاميرا (الأطول في الصورة) حين يبدأ العدّ التنازليّ، ويُتابَع هو وحده حتّى النهاية؛ ومن عداه لا يُعدّ.
+  // صورةٌ رماديّة بعرض JW، وبصمةٌ رأسيّة في وسط صندوقه تُقارَن بالإطار السابق على الصفوف نفسها.
+  const JW = 480;
+  const JG = { canvas: document.createElement('canvas'), prev: null, at: 0, vf: 0, seen: -1, vfAt: -1e9, j: null };
   JG.cx = JG.canvas.getContext('2d', { willReadFrequently: true });
   if (window.HTMLVideoElement && 'requestVideoFrameCallback' in HTMLVideoElement.prototype) {
     const vfc = () => { JG.vf++; JG.vfAt = now(); video.requestVideoFrameCallback(vfc); };
     video.requestVideoFrameCallback(vfc);
   }
-  function jumpRank() {
-    const out = [];
-    JG.M.forEach(j => { if (j.n || j.inGame) out.push(j.n); });
-    return out.sort((a, b) => b - a);
+  const jumpCount = () => (JG.j ? JG.j.n : 0);
+  // اللاعب: الأطول في الصورة من القريبين، وعند التقارب الأقرب إلى وسطها
+  function pickJumper() {
+    const pl = P.list.filter(p => p.near);
+    if (!pl.length) return null;
+    const hMax = Math.max.apply(null, pl.map(p => p.h));
+    return pl.filter(p => p.h >= hMax * 0.9).sort((a, b) => Math.abs(a.x - 0.5) - Math.abs(b.x - 0.5))[0];
+  }
+  // اللاعب نفسه: بمعرّف تتبّعه، وإن انقطع تتبّعه فأقرب قريبٍ إلى آخر موضعه (يرث عدّه، وتبدأ القياسات من جديد)
+  function jumper(t, ar) {
+    let p = P.list.find(q => q.id === G.jid);
+    if (p || !JG.j || t - JG.j.seen > 2.5) return p || null;
+    let best = null, bd = 0.8;
+    P.list.forEach(q => { if (!q.near) return; const d = Math.abs(q.x - JG.j.x) * ar / Math.max(0.05, q.h); if (d < bd) { bd = d; best = q; } });
+    if (best) { G.jid = best.id; JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, seen: t }); }
+    return best;
   }
   function jumpTick(t) {
     if (G.st !== 'jready' && G.st !== 'jump') return;
-    if (!camOk || video.readyState < 2 || !video.videoWidth) return;
+    if (!camOk || video.readyState < 2 || !video.videoWidth || G.jid == null) return;
     // إطارٌ جديدٌ من الكاميرا وحده (requestVideoFrameCallback)، وإلّا كلّ ٣٠ م.ث
     if (t - JG.vfAt < 0.5) { if (JG.vf === JG.seen) return; JG.seen = JG.vf; }
     else if (t - JG.at < 0.03) return;
@@ -730,62 +755,56 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     if (c.width !== JW || c.height !== JH) { c.width = JW; c.height = JH; JG.prev = null; }
     JG.cx.drawImage(video, 0, 0, JW, JH);
     const gray = E.toGray(JG.cx.getImageData(0, 0, JW, JH).data, JW * JH);
-    if (JG.prev) {
-      const ids = new Set(P.list.map(p => p.id));
-      P.list.forEach(p => {
-        if (!p.near) return;
-        let j = JG.M.get(p.id);
-        if (!j) {
-          // مسارٌ جديد لمن انقطع تتبّعه: يرث أقرب لاعبٍ فُقد قبل قليل (لا تضيع قفزاته)
-          let bk = null, bd = 0.8;
-          JG.M.forEach((o, k) => { if (ids.has(k) || t - o.seen > 2.5) return; const d = Math.abs(o.x - p.x) * ar / Math.max(0.05, p.h); if (d < bd) { bd = d; bk = k; } });
-          const o = bk != null ? JG.M.get(bk) : null;
-          if (bk != null) JG.M.delete(bk);
-          j = Object.assign(SvfJump.newJumper(), { n: o ? o.n : 0, pop: o ? o.pop : 0, inGame: o ? o.inGame : false });
-          JG.M.set(p.id, j);
-        }
-        const bw = p.w * JW, hpx = p.h * JH, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
-        const c0 = Math.round(bx + bw * 0.2), c1 = Math.round(bx + bw * 0.8), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
-        const s = SvfJump.shift(SvfJump.profile(JG.prev, JW, JH, c0, c1, r0, r1), SvfJump.profile(gray, JW, JH, c0, c1, r0, r1), Math.max(4, Math.round(hpx * 0.22)));
-        j.seen = t; j.x = p.x;
-        if (G.st === 'jump') j.inGame = true;
-        if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { j.n++; j.pop = t; beep(1250, 0.06, 0.12); }
-      });
-      JG.M.forEach((o, k) => { if (t - o.seen > 30) JG.M.delete(k); });
+    const p = jumper(t, ar);
+    if (JG.prev && p) {
+      if (!JG.j) JG.j = Object.assign(SvfJump.newJumper(), { n: 0, pop: 0 });
+      const j = JG.j;
+      const bw = p.w * JW, hpx = p.h * JH, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
+      const c0 = Math.round(bx + bw * 0.2), c1 = Math.round(bx + bw * 0.8), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
+      const s = SvfJump.shift(SvfJump.profile(JG.prev, JW, JH, c0, c1, r0, r1), SvfJump.profile(gray, JW, JH, c0, c1, r0, r1), Math.max(4, Math.round(hpx * 0.22)));
+      j.seen = t; j.x = p.x;
+      if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { j.n++; j.pop = t; beep(1250, 0.06, 0.12); $('jnN').textContent = String(j.n); }
     }
     JG.prev = gray;
   }
   function jumpDone() {
-    const list = jumpRank(), best = list[0] || 0;
+    const n = jumpCount();
     DAY.rounds++;
-    const rec = best > 0 && best > (DAY.jump || 0);
-    if (rec) DAY.jump = best;
+    const rec = n > 0 && n > (DAY.jump || 0);
+    if (rec) DAY.jump = n;
     saveDay();
-    result('jump', { best, list: list.slice(0, 4), rec });
+    result('jump', { n, rec });
   }
-  // عدد قفزات كلّ لاعبٍ فوق رأسه (أثناء التحدّي وفي نتيجته)
+  // اللاعب بإطارٍ ذهبيّ، وعدد قفزاته فوق رأسه (أثناء التحدّي وفي نتيجته)
   function drawJumps(t) {
     if (G.st !== 'jready' && G.st !== 'jump' && !(G.st === 'result' && G.kind === 'jump')) return;
-    const top = jumpRank()[0] || 0;
+    const r = G.jid != null ? R.get(G.jid) : null;
+    if (!r) return;
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#f0b44a'; ctx.lineWidth = 7;
+    rrect(r.u - r.bw / 2 - 8, r.v - r.bh / 2 - 8, r.bw + 16, r.bh + 16, 18); ctx.stroke();
+    if (G.st === 'jready') return;
+    const j = JG.j || { n: 0, pop: -9 };
+    const u = r.u, v = Math.max(56, r.v - r.bh / 2 - 58), age = t - (j.pop || -9), pop = age < 0.45 ? 1 + 0.4 * (1 - age / 0.45) : 1;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'ltr';      // «+1» لا «1+» (الصفحة من اليمين)
-    R.forEach((r, id) => {
-      const j = JG.M.get(id);
-      if (!j || (G.st === 'jready')) return;
-      const u = r.u, v = Math.max(46, r.v - r.bh / 2 - 44), age = t - (j.pop || -9), pop = age < 0.45 ? 1 + 0.4 * (1 - age / 0.45) : 1;
-      const lead = G.st === 'result' && j.n === top && top > 0;
-      const rad = 40 * pop;
-      ctx.globalAlpha = r.a;
-      ctx.fillStyle = lead ? '#7fd1a4' : '#f0b44a'; ctx.strokeStyle = '#061c30'; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.arc(u, v, rad, 0, 7); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#082742'; ctx.font = '700 ' + Math.round((j.n > 99 ? 34 : 44) * pop) + 'px "IBM Plex Sans Arabic", Tahoma, sans-serif';
-      ctx.fillText(String(j.n), u, v + 2);
-      if (age < 0.6) {
-        ctx.globalAlpha = r.a * (1 - age / 0.6); ctx.fillStyle = '#f7f5ee'; ctx.font = '700 34px "IBM Plex Sans Arabic", Tahoma, sans-serif';
-        ctx.fillText('+1', u + 62, v - 20 - age * 50);
-      }
-    });
+    ctx.fillStyle = '#f0b44a'; ctx.strokeStyle = '#061c30'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(u, v, 50 * pop, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#082742'; ctx.font = '700 ' + Math.round((j.n > 99 ? 42 : 54) * pop) + 'px "IBM Plex Sans Arabic", Tahoma, sans-serif';
+    ctx.fillText(String(j.n), u, v + 2);
+    if (age < 0.6) {
+      ctx.globalAlpha = 1 - age / 0.6; ctx.fillStyle = '#f7f5ee'; ctx.font = '700 40px "IBM Plex Sans Arabic", Tahoma, sans-serif';
+      ctx.fillText('+1', u + 78, v - 24 - age * 50);
+    }
     ctx.globalAlpha = 1; ctx.direction = 'inherit';
   }
+  // زرّ «ابدأ تحدّي القفز» (اللمس على الـiPad) — وأثناء التحدّي يوقفه
+  function jumpStart() {
+    if (G.st === 'jready' || G.st === 'jump') { go('free'); G.since = now(); toast('أُوقف تحدّي القفز'); return; }
+    if (mode === 'loop') setMode('live');
+    holdLive = now() + 180;
+    if (!camOk || !engine) { toast(!camOk ? 'الكاميرا غير جاهزة' : 'نموذج الكشف يُحمَّل… لحظات'); return; }
+    go('jready');
+  }
+  $('jumpBtn').addEventListener('click', e => { e.stopPropagation(); audioUnlock(); jumpStart(); });
 
   // ── الرسم ──
   const R = new Map();     // لكلّ شخصٍ موضعه المرسوم (يُنعَّم بين اللقطات) وأثره
@@ -1003,6 +1022,8 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   function fullscreen() { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {}); }
   addEventListener('dblclick', fullscreen);
   addEventListener('pointerdown', audioUnlock);
+  // على الـiPad لا لوحة مفاتيح: لمسةٌ أثناء العرض تعيد التجربة
+  addEventListener('pointerdown', () => { if (mode === 'loop') { setMode('live'); holdLive = now() + 180; toast('التجربة — اضغط «ابدأ تحدّي القفز»'); } });
   const VIEWS = { mosaic: 'مربّعات', video: 'الصورة كما هي', dots: 'نقاطٌ فقط' };
   addEventListener('keydown', e => {
     audioUnlock();
@@ -1011,8 +1032,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       if (mode === 'loop') { setMode('live'); holdLive = now() + 180; toast('التجربة — ثلاث دقائق قبل أن يعود العرض تلقائيّاً'); }
       else { setMode('loop'); toast('عرض المنظومة'); }
     } else if (k === 'j' || k === 'J' || k === 'ت') {
-      if (mode === 'loop') { setMode('live'); holdLive = now() + 180; }
-      go('jready');
+      jumpStart();
     } else if (k === 'w' || k === 'W' || k === 'ص') {
       if (mode === 'loop') { setMode('live'); holdLive = now() + 180; }
       go('arm'); G.since = now();
@@ -1058,7 +1078,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
   // للفحص
-  window.__tryEye = { G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, jump: () => go('jready'), jumpRank };
+  window.__tryEye = { G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, jump: () => jumpStart(), jumpCount };
 
   renderRecs();
   requestAnimationFrame(frame);

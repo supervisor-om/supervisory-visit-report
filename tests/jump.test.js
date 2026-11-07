@@ -73,6 +73,13 @@ const expectJumps = (hz, dur, start) => Math.floor((dur - (start || 1)) * hz);
     const n2 = scene({ motion: jumps(2.2, 0.3, 7) });
     const e2 = expectJumps(2.2, 20);
     check('قفزٌ صغيرٌ سريع (٢٫٢ في الثانية، ٨٪) ← ' + e2, Math.abs(n2 - e2) <= 2, 'عُدّ ' + n2);
+    // قفزٌ خفيفٌ سريع كما يقفز الزوّار في المكان: ٠٫٢٢ ث في الهواء (٦ سم ≈ ٣٫٥٪) ٢٫٥ في الثانية — لاعبٌ قريب طوله ١١٠ بكسلاً (الصورة بعرض ٤٨٠)
+    const n4 = scene({ motion: jumps(2.5, 0.22, 4), ph: 110, pw: 44, top: 14 });
+    check('قفزٌ خفيفٌ سريع (٢٫٥ في الثانية، ٣٫٥٪) ← ' + expectJumps(2.5, 20), Math.abs(n4 - expectJumps(2.5, 20)) <= 2, 'عُدّ ' + n4);
+    // ومعه انثناء الركبتين عند كلّ هبوط (٣٪ تحت الوقوف) — الهبوط لا يُنسي مستوى الوقوف ولا يحجب القفزة التالية
+    const bend = t => { if (t < 1) return 0; const u = (t - 1) % 0.4; return u < 0.22 ? jumps(2.5, 0.22, 4.5)(t) : u < 0.37 ? -3.3 * Math.sin(Math.PI * (u - 0.22) / 0.15) : 0; };
+    const n5 = scene({ motion: bend, ph: 110, pw: 44, top: 14, seed: 5 });
+    check('قفزٌ خفيفٌ بانثناء الركبتين عند الهبوط ← ' + expectJumps(2.5, 20), Math.abs(n5 - expectJumps(2.5, 20)) <= 2, 'عُدّ ' + n5);
     const n3 = scene({ motion: jumps(1.2, 0.5, 24), seed: 11 });
     check('قفزٌ عالٍ (٢٧٪) ← ' + expectJumps(1.2, 20), Math.abs(n3 - expectJumps(1.2, 20)) <= 1, 'عُدّ ' + n3);
 }
@@ -122,6 +129,13 @@ const expectJumps = (hz, dur, start) => Math.floor((dur - (start || 1)) * hz);
     check('try-eye: البصمتان من الإطارين على النافذة نفسها', /SvfJump\.profile\(JG\.prev, JW, JH, c0, c1, r0, r1\)/.test(H5) && /SvfJump\.profile\(gray, JW, JH, c0, c1, r0, r1\)/.test(H5));
     check('try-eye: يُعدّ في «jump» وحده لا في العدّ التنازليّ', /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(H5));
     check('try-eye: مفتاح J و?game=jump ودوران التحدّيات', /k === 'j' \|\| k === 'J'/.test(H5) && /Q\.get\('game'\) === 'jump'/.test(H5) && /CFG\.cycle\[/.test(H5));
+    check('try-eye: لاعبٌ واحد — الأقرب (الأطول) يُثبَّت عند العدّ التنازليّ ويُتابَع وحده، ويرث عدّه إن انقطع تتبّعه',
+          /function pickJumper\(\)/.test(H5) && /let p = P\.list\.find\(q => q\.id === G\.jid\);/.test(H5) && /const p = jumper\(t, ar\);/.test(H5)
+          && /n: JG\.j\.n, pop: JG\.j\.pop/.test(H5) && !/JG\.M\b/.test(H5));
+    check('try-eye: زرّ «ابدأ تحدّي القفز» يبدأ ويوقف، والقفز لا يبدأ وحده (الصفّارة وحدها في الدور)',
+          /<button class="jbtn" id="jumpBtn" type="button">ابدأ تحدّي القفز<\/button>/.test(H5) && /\$\('jumpBtn'\)\.addEventListener\('click'/.test(H5)
+          && /cycle: Q\.get\('game'\) === 'jump' \? \[\] : \['whistle'\]/.test(H5) && /if \(!g\) \{ G\.since = now\(\); return; \}/.test(H5));
+    check('try-eye: الصورة بعرض ٤٨٠ للعدّ', /const JW = 480;/.test(H5));
     check('try-eye: لا تسجيل', !/toDataURL|MediaRecorder|toBlob/.test(H5));
 }
 
