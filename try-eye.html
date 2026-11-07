@@ -234,7 +234,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
 <video id="vid" playsinline muted autoplay></video>
 
 <script src="js/eye-core.js"></script>
-<script src="js/jump-core.js"></script>
+<script src="js/jump-core.js?v=3"></script>
 <script>
 (function () {
   'use strict';
@@ -727,7 +727,10 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   // يُختار الأقرب إلى الكاميرا (الأطول في الصورة) حين يبدأ العدّ التنازليّ، ويُتابَع هو وحده حتّى النهاية؛ ومن عداه لا يُعدّ.
   // صورةٌ رماديّة بعرض JW، وبصمةٌ رأسيّة في وسط صندوقه تُقارَن بالإطار السابق على الصفوف نفسها.
   const JW = 480;
-  const JG = { canvas: document.createElement('canvas'), prev: null, at: 0, vf: 0, seen: -1, vfAt: -1e9, j: null };
+  const JG = { canvas: document.createElement('canvas'), prev: null, at: 0, vf: 0, seen: -1, vfAt: -1e9, j: null, dbg: null };
+  // ?debug=1: لوحةٌ صغيرةٌ أعلى الصورة بما تقيسه العين للاعب (الإطارات في الثانية، والموضع الرأسيّ، والعتبة، والحجب) —
+  // صورة شاشةٍ منها تكفي لمعرفة لماذا لا تُعدّ القفزات (2026-11-07)
+  const DBG = Q.get('debug') === '1';
   JG.cx = JG.canvas.getContext('2d', { willReadFrequently: true });
   if (window.HTMLVideoElement && 'requestVideoFrameCallback' in HTMLVideoElement.prototype) {
     const vfc = () => { JG.vf++; JG.vfAt = now(); video.requestVideoFrameCallback(vfc); };
@@ -767,19 +770,55 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     if (JG.prev && p) {
       if (!JG.j) JG.j = Object.assign(SvfJump.newJumper(), { n: 0, pop: 0 });
       const j = JG.j;
-      const gap = j.seen != null && t - j.seen > 0.15;          // غاب اللاعب لحظةً: لا قفزةٌ مبتورة
+      const gap = j.seen != null && t - j.seen > 0.4;           // غاب اللاعب لحظةً: لا قفزةٌ مبتورة (وتوقّف الصفحة لحظةً على الـiPad ليس غياباً — كانت ٠٫١٥ ث)
       j.seen = t; j.x = p.x; j.h = p.h;
-      // زائرٌ يمرّ عبر اللاعب أو يقف أمامه: لا قياس في هذا الإطار
-      if (SvfJump.occluded(p, P.list)) { SvfJump.hold(j, t); j.occ = t; }
+      const hpx = p.h * JH;
+      let occ = false, hit = false;
+      // زائرٌ يمرّ أمام اللاعب: لا قياس في هذا الإطار
+      if (SvfJump.occluded(p, P.list)) { SvfJump.hold(j, t); j.occ = t; occ = true; }
       else {
         if (gap) SvfJump.hold(j, t);
-        const bw = p.w * JW, hpx = p.h * JH, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
+        const bw = p.w * JW, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
         const c0 = Math.round(bx + bw * 0.2), c1 = Math.round(bx + bw * 0.8), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
-        const s = SvfJump.shift(SvfJump.profile(JG.prev, JW, JH, c0, c1, r0, r1), SvfJump.profile(gray, JW, JH, c0, c1, r0, r1), Math.max(4, Math.round(hpx * 0.22)));
-        if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { j.n++; j.pop = t; beep(1250, 0.06, 0.12); $('jnN').textContent = String(j.n); }
+        const s = SvfJump.measure(JG.prev, gray, JW, JH, c0, c1, r0, r1, Math.max(4, Math.round(hpx * 0.22)));    // ما تغيّر وحده، لا الخلفيّة الثابتة
+        if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { hit = true; j.n++; j.pop = t; beep(1250, 0.06, 0.12); $('jnN').textContent = String(j.n); }
       }
+      if (DBG) dbgPush(t, j, hpx, occ, hit);
     }
     JG.prev = gray;
+  }
+  function dbgPush(t, j, hpx, occ, hit) {
+    const d = JG.dbg || (JG.dbg = { tr: [], n: 0, at: t, fps: 0, h: 0 });
+    d.n++; if (t - d.at >= 1) { d.fps = d.n / (t - d.at); d.n = 0; d.at = t; }
+    d.tr.push([t, j.y / hpx, j.b / hpx, j.st === 'a' ? 1 : 0, occ ? 1 : 0, hit ? 1 : 0]);
+    while (d.tr.length && t - d.tr[0][0] > 6) d.tr.shift();
+    d.h = hpx;
+  }
+  // آخر ستّ ثوانٍ (الأحدث يساراً كبقيّة الرسوم): الموضع الرأسيّ ذهبيّ، وخطّ الأرض أبيض، والعتبة فوقه متقطّعة،
+  // وفي الهواء ظلٌّ ذهبيّ، والحجب أحمر، وكلّ قفزةٍ عُدّت خطٌّ أخضر
+  function drawDebug(t) {
+    const d = JG.dbg, w = 450, h = 210, x0 = MW - w - 20, y0 = MH - h - 20;      // أسفل اليمين خارج منطقة اللاعب: العدّاد أسفل اليسار والتلميح في الأعلى
+    ctx.save(); ctx.globalAlpha = 1; ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(4,16,30,.85)'; rrect(x0, y0, w, h, 14); ctx.fill();
+    ctx.font = '600 17px "IBM Plex Sans Arabic", Tahoma, sans-serif'; ctx.fillStyle = '#f7f5ee'; ctx.textBaseline = 'top'; ctx.textAlign = 'right';
+    ctx.fillText(d ? 'قياس ' + Math.round(d.fps) + ' إطاراً/ث · طول اللاعب ' + Math.round(d.h) + ' من ' + JW + ' · العدد ' + jumpCount() : 'لا قياس بعد — لم يُختر لاعب', x0 + w - 12, y0 + 10);
+    ctx.fillText('v3 · الكشف ' + Math.round(D.msAvg) + ' م.ث · اللاعب ' + (G.jid == null ? '—' : G.jid) + ' · ' + G.st + (d && d.tr.length && d.tr[d.tr.length - 1][4] ? ' · محجوب' : ''), x0 + w - 12, y0 + 34);
+    const gx = x0 + 12, gy = y0 + 62, gw = w - 24, gh = h - 74, span = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.strokeRect(gx, gy, gw, gh);
+    if (d && d.tr.length > 1) {
+      const tr = d.tr, T = Math.max(SvfJump.T_MIN / Math.max(4, d.h), SvfJump.T_FRAC);
+      let lo = Infinity, hi = -Infinity;
+      tr.forEach(r => { lo = Math.min(lo, r[1], r[2]); hi = Math.max(hi, r[1], r[2] + T); });
+      const pad = Math.max(0.01, (hi - lo) * 0.12); lo -= pad; hi += pad;
+      const X = tt => gx + (t - tt) / span * gw, Y = v => gy + gh - (v - lo) / (hi - lo) * gh;
+      tr.forEach(r => { if (r[3] || r[4]) { ctx.fillStyle = r[4] ? 'rgba(181,69,47,.55)' : 'rgba(240,180,74,.22)'; ctx.fillRect(X(r[0]) - 3, gy, 6, gh); } });
+      const line = (f, col, lw, dash) => { ctx.beginPath(); tr.forEach((r, i) => { const xx = X(r[0]), yy = Y(f(r)); if (i) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); }); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]); };
+      line(r => r[2], 'rgba(255,255,255,.6)', 2);
+      line(r => r[2] + T, 'rgba(255,255,255,.4)', 1.5, [6, 6]);
+      line(r => r[1], '#f0b44a', 3);
+      tr.forEach(r => { if (r[5]) { ctx.strokeStyle = '#5fd08a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(X(r[0]), gy); ctx.lineTo(X(r[0]), gy + gh); ctx.stroke(); } });
+    }
+    ctx.restore();
   }
   function jumpDone() {
     const n = jumpCount();
@@ -982,6 +1021,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     else { ctx.fillStyle = '#061c30'; ctx.fillRect(0, 0, MW, MH); drawMosaic(c); }
     drawPeople(t);
     drawJumps(t);
+    if (DBG) drawDebug(t);
   }
 
   // ── العمود ──
@@ -1121,7 +1161,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) await new Promise(r => { navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }); setTimeout(r, 5000); });
       if (!navigator.serviceWorker.controller) return;
-      const files = ['try-eye.html', 'festival.html', 'js/eye-core.js', 'js/jump-core.js', 'js/eye-yolox.js', 'js/eye-detect-worker.js', 'favicon.svg',
+      const files = ['try-eye.html', 'festival.html', 'js/eye-core.js', 'js/jump-core.js?v=3', 'js/eye-yolox.js', 'js/eye-detect-worker.js', 'favicon.svg',
         'vendor/onnx/ort.wasm.min.mjs', 'vendor/onnx/ort-wasm-simd-threaded.mjs', 'vendor/onnx/ort-wasm-simd-threaded.wasm', 'vendor/onnx/yolox_nano.onnx'];
       let ok = 0;
       for (const f of files) {

@@ -1886,8 +1886,8 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('try43: يعمل دون إنترنت بعد أوّل فتح — عامل الخدمة يحفظ الصفحة والعرض والنموذج',
           /navigator\.serviceWorker\.register\('sw\.js'\)/.test(JS) && /'vendor\/onnx\/yolox_nano\.onnx'/.test(JS) && /'festival\.html'/.test(JS));
     check('try43: تحدّي القفز (2026-11-07) — لاعبٌ واحد بزرّ «ابدأ تحدّي القفز»، js/jump-core.js يعدّ من الصورة في كلّ إطار، ويُعدّ في «jump» وحده، ورقم اليوم',
-          /<script src="js\/jump-core\.js"><\/script>/.test(H) && /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(JS)
-          && /cycle: Q\.get\('game'\) === 'jump' \? \[\] : \['whistle'\]/.test(JS) && /id="jumpBtn"/.test(H) && /'js\/jump-core\.js'/.test(JS) && /DAY\.jump = n;/.test(JS));
+          /<script src="js\/jump-core\.js(\?v=\d+)?"><\/script>/.test(H) && /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(JS)
+          && /cycle: Q\.get\('game'\) === 'jump' \? \[\] : \['whistle'\]/.test(JS) && /id="jumpBtn"/.test(H) && /'js\/jump-core\.js(\?v=\d+)?'/.test(JS) && /DAY\.jump = n;/.test(JS));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {
