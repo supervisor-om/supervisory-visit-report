@@ -201,13 +201,26 @@ const expectJumps = (hz, dur, start) => Math.floor((dur - (start || 1)) * hz);
     check('try-eye: ?debug=1 لوحة القياس (أرقامٌ وحدها)', /const DBG = Q\.get\('debug'\) === '1';/.test(H5) && /if \(DBG\) dbgPush\(t, j, hpx, occ, hit\);/.test(H5) && /if \(DBG\) drawDebug\(t\);/.test(H5));
     check('try-eye: القياس على ما تغيّر بين الإطارين بالنافذة نفسها', /SvfJump\.measure\(JG\.prev, gray, JW, JH, c0, c1, r0, r1, /.test(H5));
     check('try-eye: يُعدّ في «jump» وحده لا في العدّ التنازليّ', /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(H5));
-    check('try-eye: مفتاح J و?game=jump ودوران التحدّيات', /k === 'j' \|\| k === 'J'/.test(H5) && /Q\.get\('game'\) === 'jump'/.test(H5) && /CFG\.cycle\[/.test(H5));
+    check('try-eye: مفتاح J و?all=1&game=jump ودوران التحدّيات', /k === 'j' \|\| k === 'J'/.test(H5) && /Q\.get\('game'\) !== 'jump'/.test(H5) && /CFG\.cycle\[/.test(H5));
     check('try-eye: لاعبٌ واحد — من في منطقة اللاعب يُثبَّت عند العدّ التنازليّ ويُتابَع وحده، ويرث عدّه شبيهه إن انقطع تتبّعه',
           /const pickJumper = \(\) => SvfJump\.pickPlayer\(P\.list, ZONE\);/.test(H5) && /const p = P\.list\.find\(q => q\.id === G\.jid\);/.test(H5) && /const p = jumper\(t, ar\);/.test(H5)
           && /n: JG\.j\.n, pop: JG\.j\.pop/.test(H5) && !/JG\.M\b/.test(H5));
     check('try-eye: زرّ «ابدأ تحدّي القفز» يبدأ ويوقف، والقفز لا يبدأ وحده (الصفّارة وحدها في الدور)',
           /<button class="jbtn" id="jumpBtn" type="button">ابدأ تحدّي القفز<\/button>/.test(H5) && /\$\('jumpBtn'\)\.addEventListener\('click'/.test(H5)
-          && /cycle: Q\.get\('game'\) === 'jump' \? \[\] : \['whistle'\]/.test(H5) && /if \(!g\) \{ G\.since = now\(\); return; \}/.test(H5));
+          && /cycle: ALL && Q\.get\('game'\) !== 'jump' \? \['whistle'\] : \[\]/.test(H5) && /if \(!g\) \{ G\.since = now\(\); return; \}/.test(H5));
+    // «اجعل التركيز في الصفحة على لعبة القفز فقط» (2026-11-07): القفز وحده افتراضاً، والتجربة الكاملة بـ?all=1
+    check('try-eye: القفز وحده افتراضاً — لا صفّارة ولا عرض، والزرّ في العمود، ومسافة تبدأ التحدّي',
+          /const ALL = Q\.get\('all'\) === '1';/.test(H5) && /<body data-mode="live" data-focus="jump"/.test(H5)
+          && /auto: ALL && Q\.get\('loop'\) !== '0'/.test(H5) && /getElementById\('jSlot'\)\.appendChild\(document\.getElementById\('jumpBtn'\)\)/.test(H5)
+          && /if \(!ALL && \(k === ' ' \|\| k === 'Enter'\)\) jumpStart\(\);/.test(H5) && /\} else if \(ALL && \(k === 'w'/.test(H5)
+          && /body\[data-focus="jump"\] \.allOnly\{display:none!important\}/.test(H5) && /<div class="flash allOnly" id="flash">/.test(H5)
+          && /<p class="cap allOnly">/.test(H5) && /<title>تحدّي القفز — منظومة الإشراف التربوي<\/title>/.test(H5));
+    check('try-eye: العمود — حالة اللاعب، ورقم اليوم، وأفضل خمس نتائج بأعدادها وحدها (textContent)، والترتيب في النتيجة',
+          /function renderJumpState\(t\)/.test(H5) && /else if \(pickJumper\(\)\) \{ txt = 'جاهز: لاعبٌ في المنطقة الذهبيّة'; k = 'ok'; \}/.test(H5)
+          && /DAY\.list\.push\(n\);/.test(H5) && /const rank = 1 \+ DAY\.list\.filter\(x => x > n\)\.length;/.test(H5)
+          && /sm\.textContent = String\(i \+ 1\); b\.textContent = top\[i\] != null \? String\(top\[i\]\) : '—';/.test(H5)
+          && /'ترتيبك اليوم \(' \+ r\.rank \+ '\) من \(' \+ r\.of \+ '\)'/.test(H5));
+    check('try-eye: قبل البدء يُرسم من سيُختار لاعباً (إطارٌ متقطّع)', /if \(jumpOnly \|\| \(G\.st === 'jready' && G\.jid == null\)\) \{\s+const c = pickJumper\(\)/.test(H5));
     check('try-eye: الصورة بعرض ٤٨٠ للعدّ', /const JW = 480;/.test(H5));
     check('try-eye: منطقة اللاعب، والاختيار بلمس الطالب، ولا قياس حين يُحجب', /SvfJump\.pickPlayer\(P\.list, ZONE\)/.test(H5)
           && /SvfJump\.relock\(P\.list, JG\.j, G\.manual \? null : ZONE, ar\)/.test(H5) && /if \(p && JG\.j && SvfJump\.swapped\(p, JG\.j, ar\)\)/.test(H5) && /if \(SvfJump\.occluded\(p, P\.list\)\) \{ SvfJump\.hold\(j, t\);/.test(H5)

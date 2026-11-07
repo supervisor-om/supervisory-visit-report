@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>جرّب عين المشرف — منظومة الإشراف التربوي</title>
+<title>تحدّي القفز — منظومة الإشراف التربوي</title>
 <meta name="theme-color" content="#082742">
 <meta name="robots" content="noindex">
 <meta name="author" content="أسعد الخصيبي">
@@ -14,15 +14,17 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!--
   «جرّب عين المشرف» — ركنٌ حيّ لمهرجان عمان للعلوم (2026-11-03).
-  حاسوبٌ بكاميرا موصولٌ بالشاشة الكبيرة: المارّة يرون أنفسهم مربّعاتٍ ونقاطاً كما ترى العين طلبة الحصة، وعدّاد «أمام الكاميرا الآن»،
-  و«نسبة الحركة» بمستويات البند ٧، وتحدّي القفز (لاعبٌ واحد، كم قفزةً في ٢٠ ثانية — بزرّ «ابدأ تحدّي القفز»، js/jump-core.js، 2026-11-07)،
-  وتحدّي الصفّارة (كم ثانيةً حتّى يتوقّفوا) يبدأ وحده بعد الحركة الحرّة، وتحدّي الصفّ الواحد.
+  **افتراضاً (منذ 2026-11-07، طلب المشرف «اجعل التركيز في الصفحة على لعبة القفز فقط»): تحدّي القفز وحده** — لاعبٌ واحد، كم قفزةً في ٢٠ ثانية
+  (js/jump-core.js): العمود زرّ «ابدأ تحدّي القفز» وحالة اللاعب ورقم اليوم وأفضل النتائج، وتحت الصورة الخطوات الثلاث؛
+  لا صفّارة ولا صفّ ولا نسبة حركة ولا عرض festival.html. مسافة أو J يبدأ التحدّي ويوقفه.
+  **?all=1 التجربة الكاملة السابقة:** المارّة يرون أنفسهم مربّعاتٍ ونقاطاً كما ترى العين طلبة الحصة، وعدّاد «أمام الكاميرا الآن»،
+  و«نسبة الحركة» بمستويات البند ٧، وتحدّي القفز بالزرّ، وتحدّي الصفّارة (كم ثانيةً حتّى يتوقّفوا) يبدأ وحده بعد الحركة الحرّة، وتحدّي الصفّ الواحد.
   صفحةٌ مستقلّة بلا بوّابة: لا تقرأ شيئاً من بيانات المنظومة. الكشف نفسه الذي في عين المشرف (YOLOX‑Nano في عاملٍ في الخلفيّة،
   js/eye-detect-worker.js + vendor/onnx/) والتتبّع نفسه (js/eye-core.js). المخزَّن في المتصفّح: اختيار العرض والصوت والكاميرا،
   و«أرقام اليوم» (أعدادٌ لا غير).
-  حين لا يقف أحدٌ أمام الكاميرا يُعرض festival.html (العرض المتكرّر) ثمّ تعود التجربة حين يقترب أحد، أو يلوّح للكاميرا أثناء العرض.
-  المفاتيح: مسافة التجربة/العرض · J تحدّي القفز الآن · W تحدّي الصفّارة الآن · V شكل الصورة · S الصوت · C الكاميرا التالية · F ملء الشاشة.
-  ?loop=0 تجربةٌ وحدها بلا عرض · ?view=video|dots|mosaic · ?game=jump القفز وحده بالزرّ (بلا صفّارةٍ تلقائيّة)
+  في ?all=1: حين لا يقف أحدٌ أمام الكاميرا يُعرض festival.html (العرض المتكرّر) ثمّ تعود التجربة حين يقترب أحد، أو يلوّح للكاميرا أثناء العرض.
+  المفاتيح (?all=1): مسافة التجربة/العرض · J تحدّي القفز الآن · W تحدّي الصفّارة الآن · V شكل الصورة · S الصوت · C الكاميرا التالية · F ملء الشاشة.
+  ?all=1&loop=0 تجربةٌ وحدها بلا عرض · ?all=1&game=jump القفز بالزرّ بلا صفّارةٍ تلقائيّة · ?view=video|dots|mosaic · ?zone=0.2–1 · ?debug=1
 -->
 <style>
 :root{--bg:#082742;--panel:#0b3354;--panel2:#0e3c62;--line:rgba(255,255,255,.10);--ink:#f7f5ee;--muted:#a3b8cc;
@@ -84,6 +86,7 @@ b,strong{font-weight:700}
 .jn span{font-size:30px;font-weight:600}
 .jbtn{flex:none;font:inherit;font-size:30px;font-weight:700;background:var(--gold);color:#082742;border:0;border-radius:20px;padding:18px 34px;cursor:pointer;box-shadow:0 5px 0 rgba(0,0,0,.28);-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .jbtn:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.28)}
+.jbtn:focus:not(:focus-visible){outline:none}
 .jbtn.stop{background:rgba(255,255,255,.1);color:var(--ink);border:2px solid var(--line);box-shadow:none}
 body.idle .jbtn{cursor:pointer}
 .res{position:absolute;left:50%;top:50%;width:880px;transform:translate(-50%,-50%) scale(.95);background:rgba(8,39,66,.96);border:1px solid rgba(240,180,74,.55);
@@ -153,10 +156,32 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
 .teaser i{font-style:normal;background:#082742;color:var(--gold);border-radius:999px;padding:1px 12px;font-size:19px}
 .teaser.on{opacity:1}
 
+/* تحدّي القفز وحده (الافتراض) — ?all=1 التجربة الكاملة */
+body[data-focus="jump"] .allOnly{display:none!important}
+body:not([data-focus="jump"]) .jumpOnly{display:none!important}
+.side .jbtn{width:100%;font-size:42px;padding:26px 20px 24px;border-radius:24px;margin-top:22px}
+.jstate{display:flex;align-items:center;gap:12px;margin:16px 0 0;font-size:23px;font-weight:600;color:var(--muted)}
+.jstate i{flex:none;width:14px;height:14px;border-radius:50%;background:var(--muted)}
+.jstate.ok{color:var(--green)}.jstate.ok i{background:var(--green)}
+.jstate.go{color:var(--gold)}.jstate.go i{background:var(--gold);animation:pulseG 1.2s infinite}
+@keyframes pulseG{0%{box-shadow:0 0 0 0 rgba(240,180,74,.6)}70%{box-shadow:0 0 0 11px rgba(240,180,74,0)}100%{box-shadow:0 0 0 0 rgba(240,180,74,0)}}
+.jrec{margin-top:26px;background:var(--panel2);border:1px solid rgba(240,180,74,.4);border-radius:22px;padding:16px 22px 18px}
+.jrec .cnt b{color:var(--gold)}
+.jtop{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.jtop li{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:6px 4px 8px;text-align:center}
+.jtop small{display:block;font-size:15px;color:var(--muted)}
+.jtop b{display:block;font-size:34px;line-height:1.15;font-variant-numeric:tabular-nums}
+.jtop li.me{border-color:var(--gold)}.jtop li.me b{color:var(--gold)}
+.jfoot{margin-top:auto;display:flex;justify-content:space-between;gap:16px;font-size:20px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+.jfoot b{color:var(--ink);font-size:24px;margin-right:8px}
+.steps{list-style:none;margin:0;padding:0;display:flex;gap:16px;width:100%}
+.steps li{flex:1;display:flex;align-items:center;gap:14px;font-size:21px;line-height:1.4;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 18px}
+.steps b{flex:none;width:44px;height:44px;border-radius:50%;background:var(--gold);color:#082742;display:flex;align-items:center;justify-content:center;font-size:24px}
+
 .ftr{position:absolute;bottom:0;right:0;left:0;height:80px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);border-top:1px solid var(--line)}
 </style>
 </head>
-<body data-mode="live" class="idle">
+<body data-mode="live" data-focus="jump" class="idle">
 <div id="viewport"><div id="stage">
 
 <header class="hdr">
@@ -170,14 +195,14 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
 <section class="main">
   <div class="mirror" id="mirror">
     <canvas id="cv" aria-label="ما تراه العين أمام الكاميرا"></canvas>
-    <div class="empty off" id="empty"><b>اقتربوا من الكاميرا</b><span>تحدّي القفز: كم قفزةً في 20 ثانية؟ — «ابدأ تحدّي القفز» أسفل الصورة</span></div>
+    <div class="empty off" id="empty"><b>اقتربوا من الكاميرا</b><span>تحدّي القفز: كم قفزةً في 20 ثانية؟ — قف داخل المنطقة الذهبيّة</span></div>
     <div class="cue off" id="cue"><b id="cueB"></b><span id="cueS"></span></div>
-    <div class="chipF off" id="chipF">التشكيل: <b id="frm">—</b></div>
+    <div class="chipF off allOnly" id="chipF">التشكيل: <b id="frm">—</b></div>
     <div class="status" id="status"></div>
     <div class="timer" id="timer">0.0</div>
     <div class="cd" id="cd"></div>
     <div class="jn" id="jn"><b id="jnN">0</b><span>قفزة</span></div>
-    <div class="flash" id="flash">
+    <div class="flash allOnly" id="flash">
       <svg viewBox="0 0 120 120" aria-hidden="true"><path d="M18 70a30 30 0 0 0 58 10h26a6 6 0 0 0 6-6V58a6 6 0 0 0-6-6H52a30 30 0 0 0-34 18z" fill="#082742"/><circle cx="46" cy="72" r="11" fill="#f0b44a"/><path d="M60 40 66 24M76 42l12-12M88 52l16-6" stroke="#082742" stroke-width="7" stroke-linecap="round"/></svg>
       <b>صفّارة!</b><span>توقّفوا</span>
     </div>
@@ -191,12 +216,33 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   </div>
   <div class="under">
     <button class="jbtn" id="jumpBtn" type="button">ابدأ تحدّي القفز</button>
-    <p class="cap">هكذا ترى <b>عين المشرف</b> طلبة الحصة: من يتحرّك ومن يقف، وكم يستغرقون حتّى يتوقّفوا عند الصفّارة — شواهد للبند ٧ «فاعلية الإدارة الصفية».</p>
-    <div class="dotkey"><span><i style="background:#f0b44a"></i>يتحرّك</span><span><i style="background:#7fd1a4"></i>في مكانه</span><span><i style="background:#f7f5ee"></i>يقف</span></div>
+    <ol class="steps jumpOnly">
+      <li><b>1</b><span>قف داخل المنطقة الذهبيّة، وجسمك كلّه في الصورة</span></li>
+      <li><b>2</b><span>«ابدأ تحدّي القفز» — أو المس اللاعب على الشاشة</span></li>
+      <li><b>3</b><span>اقفز في مكانك بكلتا القدمين حتّى تنتهي الثواني العشرون</span></li>
+    </ol>
+    <p class="cap allOnly">هكذا ترى <b>عين المشرف</b> طلبة الحصة: من يتحرّك ومن يقف، وكم يستغرقون حتّى يتوقّفوا عند الصفّارة — شواهد للبند ٧ «فاعلية الإدارة الصفية».</p>
+    <div class="dotkey allOnly"><span><i style="background:#f0b44a"></i>يتحرّك</span><span><i style="background:#7fd1a4"></i>في مكانه</span><span><i style="background:#f7f5ee"></i>يقف</span></div>
   </div>
 </section>
 
 <aside class="side">
+ <div class="jumpOnly" style="display:flex;flex-direction:column;height:100%">
+  <h1>تحدّي <em>القفز</em></h1>
+  <p class="lead">كم قفزةً في 20 ثانية؟ لاعبٌ واحد يقف في المنطقة الذهبيّة، و<b>عين المشرف</b> تعدّ قفزاته.</p>
+  <div id="jSlot"></div>
+  <p class="jstate" id="jState"><i></i><span id="jStateT">تشغيل الكاميرا…</span></p>
+  <div class="jrec">
+    <span class="lbl">رقم اليوم</span>
+    <div class="cnt"><b class="num" id="jRec">—</b><span id="jRecU">في 20 ثانية</span></div>
+  </div>
+  <div class="blk">
+    <span class="lbl">أفضل النتائج اليوم</span>
+    <ol class="jtop" id="jTop"></ol>
+  </div>
+  <div class="jfoot"><span>تحدّيات اليوم<b class="num" id="jRounds">0</b></span><span>متوسّط اليوم<b class="num" id="jAvg">—</b></span></div>
+ </div>
+ <div class="allOnly" style="display:flex;flex-direction:column;height:100%">
   <h1>جرّب <em>عين المشرف</em></h1>
   <p class="lead">قفوا أمام الكاميرا وتحرّكوا: العين تراكم كما ترى الطلبة في حصة الرياضة المدرسية.</p>
   <div class="blk">
@@ -223,12 +269,13 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       <div class="rec"><b class="num" id="rRounds">0</b><span>تحدّيات اليوم</span></div>
     </div>
   </div>
+ </div>
 </aside>
 
 <iframe id="loop" title="عرض منظومة الإشراف التربوي" tabindex="-1" aria-hidden="true"></iframe>
-<div class="teaser" id="teaser">لوّحوا للكاميرا — تحدّي القفز: كم قفزةً في 20 ثانية؟<i id="teaserN"></i></div>
+<div class="teaser allOnly" id="teaser">لوّحوا للكاميرا — تحدّي القفز: كم قفزةً في 20 ثانية؟<i id="teaserN"></i></div>
 <div class="toast" id="toast"></div>
-<div class="keys" id="keys"><kbd>مسافة</kbd> التجربة/العرض · <kbd>J</kbd> القفز · <kbd>W</kbd> صفّارة · <kbd>V</kbd> الصورة · <kbd>S</kbd> الصوت · <kbd>C</kbd> الكاميرا · <kbd>F</kbd> ملء الشاشة<span id="keysInfo"></span></div>
+<div class="keys" id="keys"><span class="allOnly"><kbd>مسافة</kbd> التجربة/العرض · <kbd>J</kbd> القفز · <kbd>W</kbd> صفّارة · </span><span class="jumpOnly"><kbd>مسافة</kbd> أو <kbd>J</kbd> ابدأ/أوقف التحدّي · </span><kbd>V</kbd> الصورة · <kbd>S</kbd> الصوت · <kbd>C</kbd> الكاميرا · <kbd>F</kbd> ملء الشاشة<span id="keysInfo"></span></div>
 <footer class="ftr">إعداد وتصميم: أ. أسعد الخصيبي · مشرف الرياضة المدرسية · جميع حقوق التصميم والتطوير محفوظة © 2026</footer>
 </div></div>
 <video id="vid" playsinline muted autoplay></video>
@@ -241,12 +288,14 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
 
   // ── ما يُضبط قبل العرض ────────────────────────────────────────────────
   const Q = new URLSearchParams(location.search);
+  // الافتراض تحدّي القفز وحده (طلب المشرف 2026-11-07)؛ ?all=1 التجربة الكاملة: نسبة الحركة والصفّارة والصفّ وعرض المنظومة
+  const ALL = Q.get('all') === '1';
   const CFG = {
     person: 0.3,        // أدنى ثقةٍ للشخص (العين في الحصة 0.22 — هنا الزائرون قريبون، واللافتات حول الركن كثيرة)
     near: 0.18,         // اللاعب في التحدّي: طوله في الصورة خُمسها تقريباً فأكثر — المارّون البعيدون لا يفسدون الصفّارة
     freeSec: 18,        // حركةٌ حرّة قبل تحدّي الصفّارة
-    // التحدّي الذي يبدأ وحده بعد الحركة الحرّة: الصفّارة؛ وتحدّي القفز بالزرّ وحده. ?game=jump ← لا تحدّي وحده (القفز بالزرّ)
-    cycle: Q.get('game') === 'jump' ? [] : ['whistle'],
+    // التحدّي الذي يبدأ وحده بعد الحركة الحرّة (?all=1): الصفّارة؛ وتحدّي القفز بالزرّ وحده. ?all=1&game=jump ← لا تحدّي وحده
+    cycle: ALL && Q.get('game') !== 'jump' ? ['whistle'] : [],
     jumpSec: 20,        // زمن تحدّي القفز — لاعبٌ واحد
     jumpWait: 15,       // أطول انتظارٍ للاعبٍ يقف قريباً قبل العدّ التنازليّ ثمّ يُلغى
     armMax: 14,         // أطول انتظارٍ لحركة الجميع قبل الصفّارة
@@ -256,7 +305,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     idleToLoop: 15,     // بلا أحدٍ أمام الكاميرا ← عرض المنظومة
     liveMax: 150,       // أطول تجربةٍ متّصلة ثمّ يُعرض العرض مرّة
     loopSec: 90,        // طول festival.html
-    auto: Q.get('loop') !== '0'
+    auto: ALL && Q.get('loop') !== '0'     // عرض festival.html حين لا يقف أحد — في التجربة الكاملة وحدها
   };
   // منطقة اللاعب في تحدّي القفز: شريطٌ في وسط الصورة (٤٠٪ من عرضها، ?zone=0.5 يغيّره) — يُختار اللاعب منها وحدها،
   // ومن خارجها من الزوّار لا يُختار ولا يرث اللاعب. وللمشغّل أن يلمس الطالب على الشاشة فيختاره هو.
@@ -289,7 +338,10 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   let DAY = store.get('svf_try_day', null);
   if (!DAY || DAY.d !== today()) DAY = { d: today(), peak: 0, best: null, top: 0, rounds: 0, jump: 0 };
   if (!DAY.jump) DAY.jump = 0;
+  if (!Array.isArray(DAY.list)) DAY.list = [];     // نتائج تحدّيات القفز اليوم (أعدادٌ وحدها) — للترتيب وأفضل النتائج
   const saveDay = () => store.set('svf_try_day', DAY);
+  if (ALL) { document.body.removeAttribute('data-focus'); document.title = 'جرّب عين المشرف — منظومة الإشراف التربوي'; }
+  else document.getElementById('jSlot').appendChild(document.getElementById('jumpBtn'));    // الزرّ في العمود، كبيراً
 
   // ── المسرح يملأ الشاشة ──
   const MW = 1276, MH = 718;
@@ -644,8 +696,9 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       lv.textContent = '';
       $('resBest').textContent = r.rec ? 'رقم اليوم الجديد!' : '';
       $('resP').textContent = !n ? 'لم ترَ العين قفزاً هذه المرّة — قف قريباً من الكاميرا، وجسمك كلّه في الصورة، واقفز في مكانك بكلتا القدمين.'
-        : (!r.rec && DAY.jump ? 'رقم اليوم (' + DAY.jump + ') — من يتجاوزه؟ ' : '')
-          + 'وفي الحصة تقيس العين شدّة نشاط الطلبة — من يجري ومن يتمرّن بقوّة في مكانه.';
+        : ALL ? (!r.rec && DAY.jump ? 'رقم اليوم (' + DAY.jump + ') — من يتجاوزه؟ ' : '')
+          + 'وفي الحصة تقيس العين شدّة نشاط الطلبة — من يجري ومن يتمرّن بقوّة في مكانه.'
+        : 'ترتيبك اليوم (' + r.rank + ') من (' + r.of + ')' + (!r.rec && DAY.jump ? ' · رقم اليوم (' + DAY.jump + ') — من يتجاوزه؟' : '');
     } else {
       G.next = 'free';
       $('resK').textContent = r.n ? 'صفٌّ واحد' : 'التشكيل الذي رأته العين';
@@ -825,8 +878,11 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     DAY.rounds++;
     const rec = n > 0 && n > (DAY.jump || 0);
     if (rec) DAY.jump = n;
+    DAY.list.push(n); while (DAY.list.length > 3000) DAY.list.shift();
+    const rank = 1 + DAY.list.filter(x => x > n).length;
     saveDay();
-    result('jump', { n, rec });
+    lastJump = n;
+    result('jump', { n, rec, rank, of: DAY.list.length });
   }
   // من يُتابَع في تحدّي القفز (وغيره يُرسم باهتاً)
   function focusId() { return (G.st === 'jready' || G.st === 'jump' || (G.st === 'result' && G.kind === 'jump')) && G.jid != null ? G.jid : null; }
@@ -850,6 +906,14 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     const jumpOnly = !CFG.cycle.length && (G.st === 'free' || G.st === 'idle');
     if ((G.st === 'jready' && !G.manual) || jumpOnly) drawZone('منطقة اللاعب');
     else if (G.st === 'jump' && !G.manual) drawZone('');
+    // قبل البدء: من سيُختار لاعباً حين يُضغط الزرّ (إطارٌ ذهبيٌّ متقطّع) — فيرى المشغّل أنّه الطالب الصحيح
+    if (jumpOnly || (G.st === 'jready' && G.jid == null)) {
+      const c = pickJumper(), rc = c ? R.get(c.id) : null;
+      if (rc) {
+        ctx.globalAlpha = 1; ctx.setLineDash([16, 10]); ctx.strokeStyle = '#f0b44a'; ctx.lineWidth = 5;
+        rrect(rc.u - rc.bw / 2 - 8, rc.v - rc.bh / 2 - 8, rc.bw + 16, rc.bh + 16, 18); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
     if (G.st !== 'jready' && G.st !== 'jump' && !(G.st === 'result' && G.kind === 'jump')) return;
     const r = G.jid != null ? R.get(G.jid) : null;
     if (!r) return;
@@ -1052,9 +1116,43 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     if (P.F && P.n >= 3 && mode === 'live' && G.st !== 'jready' && G.st !== 'jump' && G.kind !== 'jump') { $('frm').textContent = (E.FORMS[P.F.dom] || '—') + (P.F.maxLine >= 3 ? ' · أطول صفٍّ (' + P.F.maxLine + ')' : ''); fm.classList.remove('off'); }
     else fm.classList.add('off');
     $('empty').classList.toggle('off', !(camOk && engine && G.st === 'idle'));
+    if (!ALL) renderJumpState(t);
     renderRecs();
   }
+  // حالة اللاعب تحت الزرّ: هل يقف أحدٌ في المنطقة الذهبيّة؟
+  function renderJumpState(t) {
+    let txt, k = '';
+    if (!camOk) txt = camErr || 'تشغيل الكاميرا…';
+    else if (!engine) txt = engineErr ? 'تعذّر تحميل نموذج الكشف على هذا الجهاز' : 'تحميل نموذج الكشف…';
+    else if (G.st === 'jready') { txt = G.cdAt ? 'استعدّ… العدّ التنازليّ' : 'بانتظار لاعبٍ في المنطقة الذهبيّة'; k = 'go'; }
+    else if (G.st === 'jump') { txt = 'التحدّي جارٍ — العين تعدّ'; k = 'go'; }
+    else if (G.st === 'result') { txt = 'انتهى التحدّي — النتيجة على الشاشة'; k = 'ok'; }
+    else if (pickJumper()) { txt = 'جاهز: لاعبٌ في المنطقة الذهبيّة'; k = 'ok'; }
+    else if (P.n) txt = 'قف داخل المنطقة الذهبيّة، وجسمك كلّه في الصورة';
+    else txt = 'لا أحد أمام الكاميرا';
+    const el = $('jState');
+    if (el.className !== 'jstate ' + k) el.className = 'jstate ' + k;
+    if ($('jStateT').textContent !== txt) $('jStateT').textContent = txt;
+  }
+  let lastJump = null;     // آخر نتيجة: تُبرز في «أفضل النتائج» إن دخلتها
   function renderRecs() {
+    if (!ALL) {
+      $('jRec').textContent = DAY.jump ? String(DAY.jump) : '—';
+      const L = DAY.list, ok = L.filter(x => x > 0), top = ok.slice().sort((a, b) => b - a).slice(0, 5), ol = $('jTop');
+      const sig = top.join(',') + '|' + lastJump;
+      if (ol.dataset.sig !== sig) {
+        ol.dataset.sig = sig; ol.textContent = '';
+        const me = lastJump != null && lastJump > 0 ? top.indexOf(lastJump) : -1;
+        for (let i = 0; i < 5; i++) {
+          const li = document.createElement('li'), sm = document.createElement('small'), b = document.createElement('b');
+          sm.textContent = String(i + 1); b.textContent = top[i] != null ? String(top[i]) : '—';
+          if (i === me) li.className = 'me';
+          li.append(sm, b); ol.appendChild(li);
+        }
+      }
+      $('jRounds').textContent = String(L.length);
+      $('jAvg').textContent = ok.length ? String(Math.round(ok.reduce((s, x) => s + x, 0) / ok.length)) : '—';     // بلا الأصفار (لم ترَ العين قفزاً)
+    }
     $('rPeak').textContent = DAY.peak ? String(DAY.peak) : '—';
     $('rBest').innerHTML = DAY.best != null ? fmt1(DAY.best) + ' <small>ث</small>' : '—';
     $('rJump').textContent = DAY.jump ? String(DAY.jump) : '—';
@@ -1129,19 +1227,20 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   addEventListener('keydown', e => {
     audioUnlock();
     const k = e.key;
-    if (k === ' ' || k === 'Enter') {
+    if (!ALL && (k === ' ' || k === 'Enter')) jumpStart();          // تحدّي القفز وحده: مسافة تبدأ التحدّي وتوقفه
+    else if (k === ' ' || k === 'Enter') {
       if (mode === 'loop') { setMode('live'); holdLive = now() + 180; toast('التجربة — ثلاث دقائق قبل أن يعود العرض تلقائيّاً'); }
       else { setMode('loop'); toast('عرض المنظومة'); }
     } else if (k === 'j' || k === 'J' || k === 'ت') {
       jumpStart();
-    } else if (k === 'w' || k === 'W' || k === 'ص') {
+    } else if (ALL && (k === 'w' || k === 'W' || k === 'ص')) {
       if (mode === 'loop') { setMode('live'); holdLive = now() + 180; }
       go('arm'); G.since = now();
     } else if (k === 'v' || k === 'V' || k === 'ر') {
       const ks = Object.keys(VIEWS); prefs.view = ks[(ks.indexOf(prefs.view) + 1) % ks.length]; savePrefs(); toast('الصورة: ' + VIEWS[prefs.view]);
     } else if (k === 's' || k === 'S' || k === 'س') {
-      prefs.sound = !prefs.sound; savePrefs(); audioUnlock(); toast('صوت الصفّارة: ' + (prefs.sound ? 'مُشغَّل' : 'مطفأ'));
-      if (prefs.sound) whistleSound();
+      prefs.sound = !prefs.sound; savePrefs(); audioUnlock(); toast((ALL ? 'صوت الصفّارة: ' : 'الصوت: ') + (prefs.sound ? 'مُشغَّل' : 'مطفأ'));
+      if (prefs.sound) { if (ALL) whistleSound(); else beep(990, 0.2); }
     } else if (k === 'c' || k === 'C' || k === 'ؤ') nextCam();
     else if (k === 'f' || k === 'F' || k === 'ب') fullscreen();
     else return;
@@ -1179,7 +1278,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
   // للفحص
-  window.__tryEye = { G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, R, ZONE, jump: () => jumpStart(), jumpCount };
+  window.__tryEye = { ALL, G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, R, ZONE, jump: () => jumpStart(), jumpCount };
 
   renderRecs();
   requestAnimationFrame(frame);

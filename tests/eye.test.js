@@ -1880,14 +1880,14 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /near: p\.h >= CFG\.near/.test(JS) && /const pl = list\.filter\(p => p\.near\), pool = pl\.length \? pl : list;/.test(JS));
     check('try43: اللافتة أو الصورة على جدار الركن لا تُعدّ زائراً، ومن خارج ما تعرضه المرآة لا يُعدّ',
           /if \(t - b\.t0 > 45 && b\.dev < 0\.2 && b\.act < 0\.05\) return;/.test(JS) && /\/\/ خارج ما تعرضه المرآة/.test(JS));
-    check('try43: بلا أحدٍ يُعرض festival.html، ويعود حين يقترب أحد أو يلوّح، ومسافة تبدّل بينهما',
+    check('try43: (?all=1) بلا أحدٍ يُعرض festival.html، ويعود حين يقترب أحد أو يلوّح، ومسافة تبدّل بينهما',
           /f\.setAttribute\('src', 'festival\.html'\)/.test(JS) && /t - P\.lastSeen > CFG\.idleToLoop/.test(JS) && /if \(P\.wave >= 4\) \{ setMode\('live'\);/.test(JS)
-          && /if \(k === ' ' \|\| k === 'Enter'\)/.test(JS) && /auto: Q\.get\('loop'\) !== '0'/.test(JS) && /pointer-events:none/.test(H));
+          && /else if \(k === ' ' \|\| k === 'Enter'\)/.test(JS) && /auto: ALL && Q\.get\('loop'\) !== '0'/.test(JS) && /pointer-events:none/.test(H));
     check('try43: يعمل دون إنترنت بعد أوّل فتح — عامل الخدمة يحفظ الصفحة والعرض والنموذج',
           /navigator\.serviceWorker\.register\('sw\.js'\)/.test(JS) && /'vendor\/onnx\/yolox_nano\.onnx'/.test(JS) && /'festival\.html'/.test(JS));
     check('try43: تحدّي القفز (2026-11-07) — لاعبٌ واحد بزرّ «ابدأ تحدّي القفز»، js/jump-core.js يعدّ من الصورة في كلّ إطار، ويُعدّ في «jump» وحده، ورقم اليوم',
           /<script src="js\/jump-core\.js(\?v=\d+)?"><\/script>/.test(H) && /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(JS)
-          && /cycle: Q\.get\('game'\) === 'jump' \? \[\] : \['whistle'\]/.test(JS) && /id="jumpBtn"/.test(H) && /'js\/jump-core\.js(\?v=\d+)?'/.test(JS) && /DAY\.jump = n;/.test(JS));
+          && /cycle: ALL && Q\.get\('game'\) !== 'jump' \? \['whistle'\] : \[\]/.test(JS) && /id="jumpBtn"/.test(H) && /'js\/jump-core\.js(\?v=\d+)?'/.test(JS) && /DAY\.jump = n;/.test(JS));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {
