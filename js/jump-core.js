@@ -119,7 +119,54 @@
         return false;
     }
 
-    const api = { T_FRAC, T_MIN, V_MIN, V_RISE, FALL, AIR_MAX, profile, shift, newJumper, step };
+    // ── اللاعب الواحد بين الزوّار (2026-11-07 بعد تجربة المشرف: «متشتّت مع مجموعة الطلبة … لا يحدّد الطالب الواحد بدقّة») ──
+    // list: [{id, x (موضع القدم أفقيّاً ٠–١), cy (وسط الصندوق ٠–١), h, w, near, now}] — كما في P.list في try-eye.html
+    const ZONE_H = [0.75, 1.33];      // من يرث اللاعب بعد انقطاع تتبّعه: طوله بين ٧٥٪ و١٣٣٪ من طول اللاعب (لا طفلٌ يمرّ ولا من يقف أمامه)
+    function inZone(p, zone) { return !zone || (p.x >= zone[0] && p.x <= zone[1]); }
+    // يُختار تلقائيّاً من في منطقة اللاعب وحدها: الأطول (الأقرب إلى الكاميرا)، وعند التقارب الأقرب إلى وسطها
+    function pickPlayer(list, zone) {
+        const c = list.filter(p => p.near && inZone(p, zone));
+        if (!c.length) return null;
+        const mid = zone ? (zone[0] + zone[1]) / 2 : 0.5, hMax = Math.max.apply(null, c.map(p => p.h));
+        return c.filter(p => p.h >= hMax * 0.85).sort((a, b) => Math.abs(a.x - mid) - Math.abs(b.x - mid))[0];
+    }
+    // انقطع تتبّع اللاعب: يرثه من في المنطقة بطولٍ قريبٍ من طوله، وأقرب من ٠٫٤ طول جسمٍ أفقيّاً إلى آخر موضعه
+    // (اللاعب يقفز في مكانه؛ الواقف بجانبه أبعد من ذلك) — وإلّا لا أحد، ويُنتظر رجوعه
+    function relock(list, last, zone, ar) {
+        let best = null, bd = 0.4;
+        list.forEach(q => {
+            if (!q.near || !inZone(q, zone)) return;
+            if (last.h && (q.h < last.h * ZONE_H[0] || q.h > last.h * ZONE_H[1])) return;
+            const d = Math.abs(q.x - last.x) * (ar || 1) / Math.max(0.05, q.h);
+            if (d < bd) { bd = d; best = q; }
+        });
+        return best;
+    }
+    // تبادل المعرّفات: حين يتقاطع اللاعب وزميلٌ قد يعطي التتبّع معرّف اللاعب لزميله — صندوقٌ «يقفز» أفقيّاً
+    // أكثر من نصف طول جسمٍ بين لحظتين (القافز في مكانه لا يفعل ذلك) أو يتغيّر طوله كثيراً ← ليس هو
+    const SWAP_X = 0.5;
+    function swapped(p, last, ar) {
+        if (!p || !last || last.x == null || !last.h) return false;
+        const r = p.h / last.h;
+        return r < ZONE_H[0] || r > ZONE_H[1] || Math.abs(p.x - last.x) * (ar || 1) / last.h > SWAP_X;
+    }
+    // شخصٌ آخر يدخل نافذة القياس (يتحرّك فيها، أو يقف أمام اللاعب) يُفسد البصمة ← لا قياس في هذا الإطار.
+    // ومن هو أقصر منه كثيراً (دون ٦٠٪ من طوله) بعيدٌ خلفه: جسم اللاعب يغطّيه، ومروره لا يُفسد القياس — كان يوقفه ربع الوقت في الفحص
+    const BEHIND = 0.6;
+    function occluded(p, list) {
+        const wx0 = p.x - p.w * 0.3, wx1 = p.x + p.w * 0.3, wy0 = p.cy - p.h * 0.75, wy1 = p.cy + p.h * 0.55;
+        const ww = wx1 - wx0, wh = wy1 - wy0;
+        return list.some(q => {
+            if (q.id === p.id || q.h < p.h * BEHIND || !(q.now || q.h > p.h * 0.85)) return false;
+            const qx0 = q.x - q.w * 0.55, qx1 = q.x + q.w * 0.55, qy0 = q.cy - q.h * 0.55, qy1 = q.cy + q.h * 0.55;
+            const ox = Math.min(wx1, qx1) - Math.max(wx0, qx0), oy = Math.min(wy1, qy1) - Math.max(wy0, qy0);
+            return ox > ww * 0.2 && oy > wh * 0.2;
+        });
+    }
+    // إيقاف القياس لحظةً بلا قفزةٍ مبتورة: الموضع يبقى، والحالة على الأرض
+    function hold(J, t) { J.st = 'g'; J.b = J.y; J.vmax = 0; J.vr = 0; J.lt = t; J.hist = [[t, J.y]]; }
+
+    const api = { T_FRAC, T_MIN, V_MIN, V_RISE, FALL, AIR_MAX, ZONE_H, SWAP_X, inZone, pickPlayer, relock, swapped, occluded, hold, profile, shift, newJumper, step };
     root.SvfJump = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : typeof window !== 'undefined' ? window : globalThis);

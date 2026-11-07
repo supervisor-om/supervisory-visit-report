@@ -258,6 +258,9 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     loopSec: 90,        // طول festival.html
     auto: Q.get('loop') !== '0'
   };
+  // منطقة اللاعب في تحدّي القفز: شريطٌ في وسط الصورة (٤٠٪ من عرضها، ?zone=0.5 يغيّره) — يُختار اللاعب منها وحدها،
+  // ومن خارجها من الزوّار لا يُختار ولا يرث اللاعب. وللمشغّل أن يلمس الطالب على الشاشة فيختاره هو.
+  const ZONE = (() => { const z = +Q.get('zone'); const w = z >= 0.2 && z <= 1 ? z : 0.4; return [0.5 - w / 2, 0.5 + w / 2]; })();
   // مستويات الاستمارة وألوانها (styles.css · SVF_COLORS.rating)، و ink لونٌ فاتحٌ منها يُقرأ على الكحليّ
   const LV = [
     { n: 'متميز', c: '#1d6b45', ink: '#7fd1a4' }, { n: 'جيد', c: '#0f4c81', ink: '#8fc1ec' }, { n: 'ملائم', c: '#9a6f24', ink: '#f0b44a' },
@@ -520,12 +523,12 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   }
 
   // ── اللعبة: حركةٌ حرّة ← تحدّي الصفّارة ← (ثلاثةٌ فأكثر) صفٌّ واحد ← من جديد ──
-  const G = { st: 'idle', since: 0, armOk: 0, fireAt: 0, wAt: 0, pre: 0, lowAt: 0, low: 0, lineOk: 0, next: 'free', last: 0, ci: 0, kind: '', cdAt: 0, cdN: 0, jEnd: 0, jid: null };
+  const G = { st: 'idle', since: 0, armOk: 0, fireAt: 0, wAt: 0, pre: 0, lowAt: 0, low: 0, lineOk: 0, next: 'free', last: 0, ci: 0, kind: '', cdAt: 0, cdN: 0, jEnd: 0, jid: null, manual: false, jLast: null };
   function go(st) {
     G.st = st; G.since = now();
     if (st === 'arm') { G.armOk = 0; G.fireAt = 0; }
     if (st === 'line') G.lineOk = 0;
-    if (st === 'jready') { G.cdAt = 0; G.cdN = 0; G.jid = null; JG.j = null; JG.prev = null; $('jnN').textContent = '0'; }
+    if (st === 'jready') { G.cdAt = 0; G.cdN = 0; G.jid = null; G.manual = false; G.jLast = null; JG.j = null; JG.prev = null; $('jnN').textContent = '0'; }
     if (st !== 'result') G.kind = '';
     $('flash').classList.toggle('on', false);
     if (st !== 'result') $('res').classList.remove('on');
@@ -572,13 +575,15 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       case 'jready': {
         // العدّ التنازليّ يبدأ حين يقف أحدٌ قريباً من الكاميرا
         const cd = $('cd');
-        if (!G.cdAt || !P.list.some(p => p.id === G.jid)) {
-          // اللاعب الأقرب؛ وإن غاب قبل البدء يُختار من جديد ويُعاد العدّ
-          const pl = pickJumper();
-          if (pl) { G.jid = pl.id; if (!G.cdAt) { G.cdAt = t; G.cdN = 0; } }
+        const cur = G.jid != null ? P.list.find(p => p.id === G.jid) : null;
+        if (cur) G.jLast = { x: cur.x, h: cur.h };
+        else {
+          // الطالب المختار باللمس يُنتظر في موضعه؛ وإلّا يُختار من في منطقة اللاعب (وإن غاب قبل البدء يُختار من جديد)
+          const pl = G.manual && G.jLast ? SvfJump.relock(P.list, G.jLast, null, vAr()) : pickJumper();
+          if (pl) { G.jid = pl.id; G.jLast = { x: pl.x, h: pl.h }; if (!G.cdAt) { G.cdAt = t; G.cdN = 0; } }
           else if (!G.cdAt && t - G.since > CFG.jumpWait) { go(present ? 'free' : 'idle'); G.since = t; break; }
-          if (!G.cdAt) break;
         }
+        if (!G.cdAt) break;
         const k = Math.floor(t - G.cdAt);
         if (k >= 3) { G.jEnd = t + CFG.jumpSec; go('jump'); cd.textContent = 'انطلقوا!'; cd.classList.add('on', 'go'); beep(990, 0.25); break; }
         if (G.cdN !== k + 1) { G.cdN = k + 1; cd.textContent = String(3 - k); cd.classList.remove('go'); cd.classList.add('on'); beep(660, 0.15); }
@@ -662,15 +667,17 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       case 'free': {
         const left = '(' + Math.max(1, Math.ceil(CFG.freeSec - (t - G.since))) + ') ثانية';
         if (nextGame() === 'whistle') { b = 'تحرّكوا أمام الكاميرا — ارفعوا نسبة الحركة إلى «متميز»'; s = 'تحدّي الصفّارة بعد ' + left + ' · أو «ابدأ تحدّي القفز»'; }
-        else { b = 'تحدّي القفز: كم قفزةً في ' + CFG.jumpSec + ' ثانية؟'; s = 'لاعبٌ واحد يقف قريباً من الكاميرا، ثمّ «ابدأ تحدّي القفز»'; }
+        else { b = 'تحدّي القفز: كم قفزةً في ' + CFG.jumpSec + ' ثانية؟'; s = 'لاعبٌ واحد يقف في المنطقة الذهبيّة ثمّ «ابدأ تحدّي القفز» — أو المس الطالب على الشاشة'; }
         break;
       }
       case 'jready':
-        if (G.cdAt) { b = 'استعدّ…'; s = 'العين تعدّ قفزات صاحب الإطار الذهبيّ — اقفز في مكانك بكلتا القدمين'; }
-        else { b = 'تحدّي القفز: قف قريباً من الكاميرا'; s = 'لاعبٌ واحد، وجسمه كلّه في الصورة من الرأس إلى القدمين'; }
+        if (G.cdAt) { b = 'استعدّ…'; s = 'العين تعدّ قفزات صاحب الإطار الذهبيّ وحده — اقفز في مكانك بكلتا القدمين'; }
+        else { b = 'تحدّي القفز: قف في المنطقة الذهبيّة'; s = 'أو المس الطالب على الشاشة لتختاره — وجسمه كلّه في الصورة'; }
         break;
       case 'jump':
-        b = 'اقفز!'; s = P.list.some(p => p.id === G.jid) ? 'العين تعدّ قفزات صاحب الإطار الذهبيّ' : 'ارجع إلى مكانك أمام الكاميرا';
+        b = 'اقفز!';
+        s = JG.j && t - (JG.j.occ || -9) < 0.6 ? 'شخصٌ يمرّ أمام اللاعب — ابتعدوا عنه قليلاً'
+          : P.list.some(p => p.id === G.jid) ? 'العين تعدّ قفزات صاحب الإطار الذهبيّ وحده' : 'ارجع إلى مكانك أمام الكاميرا';
         break;
       case 'arm':
         if (G.fireAt) { b = 'استمرّوا في الحركة… استعدّوا!'; s = 'عند الصفّارة توقّفوا تماماً'; }
@@ -727,21 +734,22 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     video.requestVideoFrameCallback(vfc);
   }
   const jumpCount = () => (JG.j ? JG.j.n : 0);
-  // اللاعب: الأطول في الصورة من القريبين، وعند التقارب الأقرب إلى وسطها
-  function pickJumper() {
-    const pl = P.list.filter(p => p.near);
-    if (!pl.length) return null;
-    const hMax = Math.max.apply(null, pl.map(p => p.h));
-    return pl.filter(p => p.h >= hMax * 0.9).sort((a, b) => Math.abs(a.x - 0.5) - Math.abs(b.x - 0.5))[0];
-  }
-  // اللاعب نفسه: بمعرّف تتبّعه، وإن انقطع تتبّعه فأقرب قريبٍ إلى آخر موضعه (يرث عدّه، وتبدأ القياسات من جديد)
+  const vAr = () => (video.videoWidth || 16) / (video.videoHeight || 9);
+  // اللاعب: من في منطقة اللاعب وحدها، الأطول (الأقرب إلى الكاميرا)، وعند التقارب الأقرب إلى وسطها
+  const pickJumper = () => SvfJump.pickPlayer(P.list, ZONE);
+  // اللاعب نفسه: بمعرّف تتبّعه، وإن انقطع تتبّعه فمن في موضعه بطولٍ قريبٍ من طوله (يرث عدّه، وتبدأ القياسات من جديد)؛
+  // ومن يمرّ — طفلٌ أقصر، أو من يقف أمامه، أو الواقف بجانبه — لا يرثه
   function jumper(t, ar) {
-    let p = P.list.find(q => q.id === G.jid);
-    if (p || !JG.j || t - JG.j.seen > 2.5) return p || null;
-    let best = null, bd = 0.8;
-    P.list.forEach(q => { if (!q.near) return; const d = Math.abs(q.x - JG.j.x) * ar / Math.max(0.05, q.h); if (d < bd) { bd = d; best = q; } });
-    if (best) { G.jid = best.id; JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, seen: t }); }
-    return best;
+    const p = P.list.find(q => q.id === G.jid);
+    // المعرّف انتقل إلى زميلٍ تقاطع معه: من في موضع اللاعب بطوله هو اللاعب (وإلّا يُتابَع المعرّف كما هو)
+    if (p && JG.j && SvfJump.swapped(p, JG.j, ar)) {
+      const q = SvfJump.relock(P.list, JG.j, G.manual ? null : ZONE, ar);
+      if (q && q.id !== p.id) { G.jid = q.id; JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, h: JG.j.h, seen: t }); return q; }
+    }
+    if (p || !JG.j || t - JG.j.seen > 8) return p || null;
+    const q = SvfJump.relock(P.list, JG.j, G.manual ? null : ZONE, ar);
+    if (q) { G.jid = q.id; JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, h: JG.j.h, seen: t }); }
+    return q;
   }
   function jumpTick(t) {
     if (G.st !== 'jready' && G.st !== 'jump') return;
@@ -759,11 +767,17 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     if (JG.prev && p) {
       if (!JG.j) JG.j = Object.assign(SvfJump.newJumper(), { n: 0, pop: 0 });
       const j = JG.j;
-      const bw = p.w * JW, hpx = p.h * JH, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
-      const c0 = Math.round(bx + bw * 0.2), c1 = Math.round(bx + bw * 0.8), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
-      const s = SvfJump.shift(SvfJump.profile(JG.prev, JW, JH, c0, c1, r0, r1), SvfJump.profile(gray, JW, JH, c0, c1, r0, r1), Math.max(4, Math.round(hpx * 0.22)));
-      j.seen = t; j.x = p.x;
-      if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { j.n++; j.pop = t; beep(1250, 0.06, 0.12); $('jnN').textContent = String(j.n); }
+      const gap = j.seen != null && t - j.seen > 0.15;          // غاب اللاعب لحظةً: لا قفزةٌ مبتورة
+      j.seen = t; j.x = p.x; j.h = p.h;
+      // زائرٌ يمرّ عبر اللاعب أو يقف أمامه: لا قياس في هذا الإطار
+      if (SvfJump.occluded(p, P.list)) { SvfJump.hold(j, t); j.occ = t; }
+      else {
+        if (gap) SvfJump.hold(j, t);
+        const bw = p.w * JW, hpx = p.h * JH, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
+        const c0 = Math.round(bx + bw * 0.2), c1 = Math.round(bx + bw * 0.8), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
+        const s = SvfJump.shift(SvfJump.profile(JG.prev, JW, JH, c0, c1, r0, r1), SvfJump.profile(gray, JW, JH, c0, c1, r0, r1), Math.max(4, Math.round(hpx * 0.22)));
+        if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { j.n++; j.pop = t; beep(1250, 0.06, 0.12); $('jnN').textContent = String(j.n); }
+      }
     }
     JG.prev = gray;
   }
@@ -775,8 +789,28 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     saveDay();
     result('jump', { n, rec });
   }
+  // من يُتابَع في تحدّي القفز (وغيره يُرسم باهتاً)
+  function focusId() { return (G.st === 'jready' || G.st === 'jump' || (G.st === 'result' && G.kind === 'jump')) && G.jid != null ? G.jid : null; }
+  // منطقة اللاعب: ما خارجها معتم، وحدّاها خطّان ذهبيّان (المرآة معكوسة: طرفها الأيمن من حدّها الأيسر)
+  function drawZone(label) {
+    const c = crop(), u0 = clamp(toU(ZONE[1], c), 0, MW), u1 = clamp(toU(ZONE[0], c), 0, MW);
+    ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(6,28,48,.5)';
+    ctx.fillRect(0, 0, u0, MH); ctx.fillRect(u1, 0, MW - u1, MH);
+    ctx.setLineDash([18, 12]); ctx.strokeStyle = 'rgba(240,180,74,.9)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(u0, 0); ctx.lineTo(u0, MH); ctx.moveTo(u1, 0); ctx.lineTo(u1, MH); ctx.stroke();
+    ctx.setLineDash([]);
+    if (label) {
+      ctx.font = '700 28px "IBM Plex Sans Arabic", Tahoma, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(label).width + 40, x = (u0 + u1) / 2, y = MH - 44;
+      ctx.fillStyle = 'rgba(240,180,74,.95)'; rrect(x - w / 2, y - 24, w, 48, 24); ctx.fill();
+      ctx.fillStyle = '#082742'; ctx.fillText(label, x, y + 1);
+    }
+  }
   // اللاعب بإطارٍ ذهبيّ، وعدد قفزاته فوق رأسه (أثناء التحدّي وفي نتيجته)
   function drawJumps(t) {
+    const jumpOnly = !CFG.cycle.length && (G.st === 'free' || G.st === 'idle');
+    if ((G.st === 'jready' && !G.manual) || jumpOnly) drawZone('منطقة اللاعب');
+    else if (G.st === 'jump' && !G.manual) drawZone('');
     if (G.st !== 'jready' && G.st !== 'jump' && !(G.st === 'result' && G.kind === 'jump')) return;
     const r = G.jid != null ? R.get(G.jid) : null;
     if (!r) return;
@@ -805,6 +839,29 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     go('jready');
   }
   $('jumpBtn').addEventListener('click', e => { e.stopPropagation(); audioUnlock(); jumpStart(); });
+  // لمس الطالب على الشاشة يختاره لاعباً ويبدأ العدّ التنازليّ (للمشغّل حين يكثر الزوّار) — لا أثناء الـ٢٠ ثانية
+  function personAt(ev) {
+    const rc = cv.getBoundingClientRect();
+    if (!rc.width) return null;
+    const u = (ev.clientX - rc.left) / rc.width * MW, v = (ev.clientY - rc.top) / rc.height * MH;
+    let best = null, bd = Infinity;
+    R.forEach((r, id) => {
+      if (Math.abs(u - r.u) > r.bw / 2 + 30 || Math.abs(v - r.v) > r.bh / 2 + 30) return;
+      const d = Math.hypot(u - r.u, (v - r.v) * 0.5);
+      if (d < bd) { bd = d; best = id; }
+    });
+    return best;
+  }
+  $('cv').addEventListener('pointerdown', ev => {
+    if (mode !== 'live' || G.st === 'jump' || !camOk || !engine) return;
+    const id = personAt(ev), p = id != null ? P.list.find(q => q.id === id) : null;
+    if (!p) return;
+    ev.stopPropagation(); audioUnlock();
+    holdLive = now() + 180;
+    if (G.st !== 'jready') go('jready');
+    G.jid = id; G.manual = true; G.jLast = { x: p.x, h: p.h }; G.cdAt = now(); G.cdN = 0; JG.j = null; JG.prev = null;
+    toast('اخترت هذا اللاعب — استعدّ');
+  });
 
   // ── الرسم ──
   const R = new Map();     // لكلّ شخصٍ موضعه المرسوم (يُنعَّم بين اللقطات) وأثره
@@ -846,7 +903,8 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     mctx.restore();
     const d = mctx.getImageData(0, 0, 64, 36).data, tw = MW / 64, th = MH / 36;
     const boxes = [];
-    R.forEach(r => boxes.push({ x0: r.u - r.bw / 2, x1: r.u + r.bw / 2, y0: r.v - r.bh / 2, y1: r.v + r.bh / 2, c: TINT[r.st], a: (r.st === 'still' ? 0.32 : 0.58) * r.a, z: r.st === 'still' ? 0 : 1 }));
+    const f = focusId();
+    R.forEach((r, id) => boxes.push({ x0: r.u - r.bw / 2, x1: r.u + r.bw / 2, y0: r.v - r.bh / 2, y1: r.v + r.bh / 2, c: TINT[r.st], a: (r.st === 'still' ? 0.32 : 0.58) * r.a * (f != null && id !== f ? 0.25 : 1), z: r.st === 'still' ? 0 : 1 }));
     boxes.sort((a, b) => a.z - b.z);
     for (let y = 0; y < 36; y++) for (let x = 0; x < 64; x++) {
       const i = (y * 64 + x) * 4, L = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
@@ -872,8 +930,9 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     ctx.drawImage(video, c.x * vw, c.y * vh, c.w * vw, c.h * vh, 0, 0, MW, MH);
     ctx.restore();
     ctx.fillStyle = 'rgba(6,28,48,.22)'; ctx.fillRect(0, 0, MW, MH);
-    R.forEach(r => {
-      ctx.globalAlpha = r.a; ctx.strokeStyle = COL[r.st]; ctx.lineWidth = 4;
+    const f = focusId();
+    R.forEach((r, id) => {
+      ctx.globalAlpha = r.a * (f != null && id !== f ? 0.25 : 1); ctx.strokeStyle = COL[r.st]; ctx.lineWidth = 4;
       rrect(r.u - r.bw / 2, r.v - r.bh / 2, r.bw, r.bh, 14); ctx.stroke();
     });
     ctx.globalAlpha = 1;
@@ -889,7 +948,9 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
   function drawPeople(t) {
-    R.forEach(r => {
+    const f = focusId();
+    R.forEach((r0, id) => {
+      const r = f != null && id !== f ? Object.assign({}, r0, { a: r0.a * 0.22 }) : r0;      // في تحدّي القفز: غير اللاعب باهت
       if (r.trail.length > 1 && prefs.view !== 'video') {
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         for (let i = 1; i < r.trail.length; i++) {
@@ -1078,7 +1139,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
   // للفحص
-  window.__tryEye = { G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, jump: () => jumpStart(), jumpCount };
+  window.__tryEye = { G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, R, ZONE, jump: () => jumpStart(), jumpCount };
 
   renderRecs();
   requestAnimationFrame(frame);

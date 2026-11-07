@@ -122,6 +122,44 @@ const expectJumps = (hz, dur, start) => Math.floor((dur - (start || 1)) * hz);
     check('shift: نزل صفّين ← −٢', Math.abs(J.shift(a, b, 8) + 2) < 0.6, J.shift(a, b, 8));
     check('shift: نافذةٌ ملساء ← ٠', J.shift(new Float32Array(40).fill(90), new Float32Array(40).fill(91), 6) === 0);
 }
+/* ٤ب) لاعبٌ واحدٌ بين الزوّار */
+{
+    const P = (id, x, h, o) => Object.assign({ id, x, cy: 0.6, h, w: h * 0.25, near: h >= 0.18, now: false }, o || {});
+    const zone = [0.3, 0.7];
+    // الأطول خارج المنطقة لا يُختار، ومن في المنطقة يُختار
+    const L1 = [P(1, 0.15, 0.6), P(2, 0.52, 0.45), P(3, 0.85, 0.5)];
+    check('pickPlayer: من في المنطقة لا الأطول خارجها', J.pickPlayer(L1, zone).id === 2);
+    check('pickPlayer: بلا أحدٍ في المنطقة ← لا لاعب', J.pickPlayer([P(1, 0.1, 0.6), P(3, 0.9, 0.5)], zone) === null);
+    check('pickPlayer: البعيد (غير القريب) لا يُختار', J.pickPlayer([P(1, 0.5, 0.12)], zone) === null);
+    check('pickPlayer: اثنان متقاربان في المنطقة ← الأقرب إلى وسطها', J.pickPlayer([P(1, 0.36, 0.5), P(2, 0.49, 0.47)], zone).id === 2);
+    // انقطاع التتبّع: يرثه شبيهه في موضعه، لا طفلٌ أقصر ولا من يقف أمامه ولا البعيد عنه
+    const last = { x: 0.5, h: 0.5 };
+    check('relock: الشبيه في الموضع نفسه يرثه', (J.relock([P(7, 0.51, 0.49)], last, zone, 16 / 9) || {}).id === 7);
+    check('relock: طفلٌ أقصر يمرّ ← لا', J.relock([P(8, 0.5, 0.3)], last, zone, 16 / 9) === null);
+    check('relock: من يقف أمامه (أطول كثيراً) ← لا', J.relock([P(9, 0.5, 0.8)], last, zone, 16 / 9) === null);
+    check('relock: بعيدٌ عن آخر موضعه ← لا', J.relock([P(10, 0.66, 0.5)], last, zone, 16 / 9) === null);
+    check('relock: خارج المنطقة ← لا', J.relock([P(11, 0.75, 0.5)], { x: 0.72, h: 0.5 }, zone, 16 / 9) === null);
+    check('swapped: القافز في مكانه (طوله يتغيّر قليلاً) ← لا', !J.swapped(P(1, 0.505, 0.55), last, 16 / 9));
+    check('swapped: المعرّف قفز إلى زميلٍ على بعد طول جسم ← نعم', J.swapped(P(1, 0.8, 0.5), last, 16 / 9));
+    check('swapped: المعرّف صار لطفلٍ أقصر في الموضع نفسه ← نعم', J.swapped(P(1, 0.5, 0.3), last, 16 / 9));
+    check('swapped: بلا آخر موضع ← لا', !J.swapped(P(1, 0.9, 0.2), { x: null, h: 0 }, 16 / 9));
+    // الحجب: يتحرّك عبر نافذة اللاعب، أو يقف أمامه
+    const pl = P(1, 0.5, 0.5);
+    check('occluded: زائرٌ يمرّ عبر اللاعب ← نعم', J.occluded(pl, [pl, P(2, 0.52, 0.45, { now: true })]));
+    check('occluded: من يقف أمامه ← نعم', J.occluded(pl, [pl, P(3, 0.5, 0.7)]));
+    check('occluded: جمهورٌ واقفٌ خلفه (أقصر، لا يتحرّك) ← لا', !J.occluded(pl, [pl, P(4, 0.5, 0.3, { cy: 0.5 }), P(5, 0.47, 0.28, { cy: 0.5 })]));
+    check('occluded: يتحرّك بعيداً عنه ← لا', !J.occluded(pl, [pl, P(6, 0.85, 0.45, { now: true })]));
+    check('occluded: طفلٌ صغيرٌ يمرّ بعيداً خلفه (أقصر كثيراً) ← لا', !J.occluded(pl, [pl, P(12, 0.5, 0.2, { cy: 0.45, now: true })]));
+    check('occluded: زميلٌ بطوله يمرّ بجانبه عبر نافذته ← نعم', J.occluded(pl, [pl, P(13, 0.47, 0.4, { now: true })]));
+    // hold: لا قفزةٌ مبتورة بعد الحجب
+    const st = J.newJumper();
+    let tt = 0, cnt = 0;
+    for (let k = 0; k < 30; k++) { tt += 1 / 30; J.step(st, 0, 100, tt); }
+    for (let k = 0; k < 4; k++) { tt += 1 / 30; J.step(st, 3, 100, tt); }      // صعودٌ سريعٌ ثمّ حُجب
+    J.hold(st, tt);
+    for (let k = 0; k < 6; k++) { tt += 1 / 30; if (J.step(st, -2, 100, tt)) cnt++; }
+    check('hold: صعودٌ قُطع بالحجب ثمّ نزولٌ ← لا يُعدّ', cnt === 0 && st.st === 'g');
+}
 /* ٥) التوصيل في try-eye.html */
 {
     const H5 = fs.readFileSync(path.join(__dirname, '..', 'try-eye.html'), 'utf8');
@@ -129,13 +167,16 @@ const expectJumps = (hz, dur, start) => Math.floor((dur - (start || 1)) * hz);
     check('try-eye: البصمتان من الإطارين على النافذة نفسها', /SvfJump\.profile\(JG\.prev, JW, JH, c0, c1, r0, r1\)/.test(H5) && /SvfJump\.profile\(gray, JW, JH, c0, c1, r0, r1\)/.test(H5));
     check('try-eye: يُعدّ في «jump» وحده لا في العدّ التنازليّ', /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(H5));
     check('try-eye: مفتاح J و?game=jump ودوران التحدّيات', /k === 'j' \|\| k === 'J'/.test(H5) && /Q\.get\('game'\) === 'jump'/.test(H5) && /CFG\.cycle\[/.test(H5));
-    check('try-eye: لاعبٌ واحد — الأقرب (الأطول) يُثبَّت عند العدّ التنازليّ ويُتابَع وحده، ويرث عدّه إن انقطع تتبّعه',
-          /function pickJumper\(\)/.test(H5) && /let p = P\.list\.find\(q => q\.id === G\.jid\);/.test(H5) && /const p = jumper\(t, ar\);/.test(H5)
+    check('try-eye: لاعبٌ واحد — من في منطقة اللاعب يُثبَّت عند العدّ التنازليّ ويُتابَع وحده، ويرث عدّه شبيهه إن انقطع تتبّعه',
+          /const pickJumper = \(\) => SvfJump\.pickPlayer\(P\.list, ZONE\);/.test(H5) && /const p = P\.list\.find\(q => q\.id === G\.jid\);/.test(H5) && /const p = jumper\(t, ar\);/.test(H5)
           && /n: JG\.j\.n, pop: JG\.j\.pop/.test(H5) && !/JG\.M\b/.test(H5));
     check('try-eye: زرّ «ابدأ تحدّي القفز» يبدأ ويوقف، والقفز لا يبدأ وحده (الصفّارة وحدها في الدور)',
           /<button class="jbtn" id="jumpBtn" type="button">ابدأ تحدّي القفز<\/button>/.test(H5) && /\$\('jumpBtn'\)\.addEventListener\('click'/.test(H5)
           && /cycle: Q\.get\('game'\) === 'jump' \? \[\] : \['whistle'\]/.test(H5) && /if \(!g\) \{ G\.since = now\(\); return; \}/.test(H5));
     check('try-eye: الصورة بعرض ٤٨٠ للعدّ', /const JW = 480;/.test(H5));
+    check('try-eye: منطقة اللاعب، والاختيار بلمس الطالب، ولا قياس حين يُحجب', /SvfJump\.pickPlayer\(P\.list, ZONE\)/.test(H5)
+          && /SvfJump\.relock\(P\.list, JG\.j, G\.manual \? null : ZONE, ar\)/.test(H5) && /if \(p && JG\.j && SvfJump\.swapped\(p, JG\.j, ar\)\)/.test(H5) && /if \(SvfJump\.occluded\(p, P\.list\)\) \{ SvfJump\.hold\(j, t\);/.test(H5)
+          && /\$\('cv'\)\.addEventListener\('pointerdown'/.test(H5) && /function personAt\(/.test(H5));
     check('try-eye: لا تسجيل', !/toDataURL|MediaRecorder|toBlob/.test(H5));
 }
 
