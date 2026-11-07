@@ -15,13 +15,14 @@
 <!--
   «جرّب عين المشرف» — ركنٌ حيّ لمهرجان عمان للعلوم (2026-11-03).
   حاسوبٌ بكاميرا موصولٌ بالشاشة الكبيرة: المارّة يرون أنفسهم مربّعاتٍ ونقاطاً كما ترى العين طلبة الحصة، وعدّاد «أمام الكاميرا الآن»،
-  و«نسبة الحركة» بمستويات البند ٧، وتحدّي الصفّارة (كم ثانيةً حتّى يتوقّفوا)، وتحدّي الصفّ الواحد.
+  و«نسبة الحركة» بمستويات البند ٧، وتحدّي القفز (كم قفزةً في ٢٠ ثانية — js/jump-core.js، 2026-11-07)، وتحدّي الصفّارة
+  (كم ثانيةً حتّى يتوقّفوا)، وتحدّي الصفّ الواحد. التحدّيات بالدور (CFG.cycle).
   صفحةٌ مستقلّة بلا بوّابة: لا تقرأ شيئاً من بيانات المنظومة. الكشف نفسه الذي في عين المشرف (YOLOX‑Nano في عاملٍ في الخلفيّة،
   js/eye-detect-worker.js + vendor/onnx/) والتتبّع نفسه (js/eye-core.js). المخزَّن في المتصفّح: اختيار العرض والصوت والكاميرا،
   و«أرقام اليوم» (أعدادٌ لا غير).
   حين لا يقف أحدٌ أمام الكاميرا يُعرض festival.html (العرض المتكرّر) ثمّ تعود التجربة حين يقترب أحد، أو يلوّح للكاميرا أثناء العرض.
-  المفاتيح: مسافة التجربة/العرض · W تحدّي الصفّارة الآن · V شكل الصورة · S صوت الصفّارة · C الكاميرا التالية · F ملء الشاشة.
-  ?loop=0 تجربةٌ وحدها بلا عرض · ?view=video|dots|mosaic
+  المفاتيح: مسافة التجربة/العرض · J تحدّي القفز الآن · W تحدّي الصفّارة الآن · V شكل الصورة · S الصوت · C الكاميرا التالية · F ملء الشاشة.
+  ?loop=0 تجربةٌ وحدها بلا عرض · ?view=video|dots|mosaic · ?game=jump تحدّي القفز وحده
 -->
 <style>
 :root{--bg:#082742;--panel:#0b3354;--panel2:#0e3c62;--line:rgba(255,255,255,.10);--ink:#f7f5ee;--muted:#a3b8cc;
@@ -73,6 +74,10 @@ b,strong{font-weight:700}
 @keyframes jolt{0%{transform:scale(1.25)}60%{transform:scale(.97)}100%{transform:scale(1)}}
 .timer{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font-size:64px;font-weight:700;direction:ltr;background:rgba(6,28,48,.88);border-radius:20px;padding:4px 30px;opacity:0;transition:opacity .2s;font-variant-numeric:tabular-nums}
 .timer.on{opacity:1}
+.cd{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:300px;font-weight:700;line-height:1;color:var(--gold);white-space:nowrap;
+  text-shadow:0 6px 40px rgba(0,0,0,.65);opacity:0;pointer-events:none;transition:opacity .15s}
+.cd.on{opacity:1}
+.cd.go{font-size:170px}
 .res{position:absolute;left:50%;top:50%;width:880px;transform:translate(-50%,-50%) scale(.95);background:rgba(8,39,66,.96);border:1px solid rgba(240,180,74,.55);
   border-radius:30px;padding:34px 46px 32px;text-align:center;opacity:0;visibility:hidden;transition:opacity .35s,transform .35s,visibility 0s linear .35s}
 .res.on{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);transition:opacity .35s,transform .35s}
@@ -157,11 +162,12 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
 <section class="main">
   <div class="mirror" id="mirror">
     <canvas id="cv" aria-label="ما تراه العين أمام الكاميرا"></canvas>
-    <div class="empty off" id="empty"><b>اقتربوا من الكاميرا</b><span>العين تبحث عنكم…</span></div>
+    <div class="empty off" id="empty"><b>اقتربوا من الكاميرا</b><span>تحدّي القفز: كم قفزةً في 20 ثانية؟</span></div>
     <div class="cue off" id="cue"><b id="cueB"></b><span id="cueS"></span></div>
     <div class="chipF off" id="chipF">التشكيل: <b id="frm">—</b></div>
     <div class="status" id="status"></div>
     <div class="timer" id="timer">0.0</div>
+    <div class="cd" id="cd"></div>
     <div class="flash" id="flash">
       <svg viewBox="0 0 120 120" aria-hidden="true"><path d="M18 70a30 30 0 0 0 58 10h26a6 6 0 0 0 6-6V58a6 6 0 0 0-6-6H52a30 30 0 0 0-34 18z" fill="#082742"/><circle cx="46" cy="72" r="11" fill="#f0b44a"/><path d="M60 40 66 24M76 42l12-12M88 52l16-6" stroke="#082742" stroke-width="7" stroke-linecap="round"/></svg>
       <b>صفّارة!</b><span>توقّفوا</span>
@@ -203,21 +209,22 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     <div class="recg">
       <div class="rec"><b class="num" id="rPeak">—</b><span>أكبر عددٍ أمام الكاميرا</span></div>
       <div class="rec"><b class="num" id="rBest">—</b><span>أسرع توقّفٍ عند الصفّارة</span></div>
-      <div class="rec"><b class="num" id="rTop">—</b><span>أعلى حركةٍ لثلاثةٍ فأكثر</span></div>
-      <div class="rec"><b class="num" id="rRounds">0</b><span>تحدّيات الصفّارة</span></div>
+      <div class="rec"><b class="num" id="rJump">—</b><span>أكثر قفزاتٍ في 20 ثانية</span></div>
+      <div class="rec"><b class="num" id="rRounds">0</b><span>تحدّيات اليوم</span></div>
     </div>
   </div>
 </aside>
 
 <iframe id="loop" title="عرض منظومة الإشراف التربوي" tabindex="-1" aria-hidden="true"></iframe>
-<div class="teaser" id="teaser">لوّحوا للكاميرا لتجرّبوا عين المشرف<i id="teaserN"></i></div>
+<div class="teaser" id="teaser">لوّحوا للكاميرا — تحدّي القفز: كم قفزةً في 20 ثانية؟<i id="teaserN"></i></div>
 <div class="toast" id="toast"></div>
-<div class="keys" id="keys"><kbd>مسافة</kbd> التجربة/العرض · <kbd>W</kbd> صفّارة · <kbd>V</kbd> الصورة · <kbd>S</kbd> الصوت · <kbd>C</kbd> الكاميرا · <kbd>F</kbd> ملء الشاشة<span id="keysInfo"></span></div>
+<div class="keys" id="keys"><kbd>مسافة</kbd> التجربة/العرض · <kbd>J</kbd> القفز · <kbd>W</kbd> صفّارة · <kbd>V</kbd> الصورة · <kbd>S</kbd> الصوت · <kbd>C</kbd> الكاميرا · <kbd>F</kbd> ملء الشاشة<span id="keysInfo"></span></div>
 <footer class="ftr">إعداد وتصميم: أ. أسعد الخصيبي · مشرف الرياضة المدرسية · جميع حقوق التصميم والتطوير محفوظة © 2026</footer>
 </div></div>
 <video id="vid" playsinline muted autoplay></video>
 
 <script src="js/eye-core.js"></script>
+<script src="js/jump-core.js"></script>
 <script>
 (function () {
   'use strict';
@@ -227,7 +234,11 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   const CFG = {
     person: 0.3,        // أدنى ثقةٍ للشخص (العين في الحصة 0.22 — هنا الزائرون قريبون، واللافتات حول الركن كثيرة)
     near: 0.18,         // اللاعب في التحدّي: طوله في الصورة خُمسها تقريباً فأكثر — المارّون البعيدون لا يفسدون الصفّارة
-    freeSec: 18,        // حركةٌ حرّة قبل تحدّي الصفّارة
+    freeSec: Q.get('game') === 'jump' ? 8 : 18,   // حركةٌ حرّة قبل التحدّي التالي
+    // التحدّيات بالدور بعد كلّ حركةٍ حرّة: ?game=jump ← القفز وحده
+    cycle: Q.get('game') === 'jump' ? ['jump'] : ['jump', 'whistle'],
+    jumpSec: 20,        // زمن تحدّي القفز
+    jumpWait: 10,       // أطول انتظارٍ لمن يقف قريباً قبل العدّ التنازليّ ثمّ يُلغى
     armMax: 14,         // أطول انتظارٍ لحركة الجميع قبل الصفّارة
     stopMax: 8,         // ثوانٍ بعد الصفّارة ثمّ «لم يتوقّف الجميع»
     resultSec: 7,
@@ -263,7 +274,8 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   const savePrefs = () => store.set('svf_try_prefs', prefs);
   const today = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
   let DAY = store.get('svf_try_day', null);
-  if (!DAY || DAY.d !== today()) DAY = { d: today(), peak: 0, best: null, top: 0, rounds: 0 };
+  if (!DAY || DAY.d !== today()) DAY = { d: today(), peak: 0, best: null, top: 0, rounds: 0, jump: 0 };
+  if (!DAY.jump) DAY.jump = 0;
   const saveDay = () => store.set('svf_try_day', DAY);
 
   // ── المسرح يملأ الشاشة ──
@@ -498,15 +510,21 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   }
 
   // ── اللعبة: حركةٌ حرّة ← تحدّي الصفّارة ← (ثلاثةٌ فأكثر) صفٌّ واحد ← من جديد ──
-  const G = { st: 'idle', since: 0, armOk: 0, fireAt: 0, wAt: 0, pre: 0, lowAt: 0, low: 0, lineOk: 0, next: 'free', last: 0 };
+  const G = { st: 'idle', since: 0, armOk: 0, fireAt: 0, wAt: 0, pre: 0, lowAt: 0, low: 0, lineOk: 0, next: 'free', last: 0, ci: 0, kind: '', cdAt: 0, cdN: 0, jEnd: 0 };
   function go(st) {
     G.st = st; G.since = now();
     if (st === 'arm') { G.armOk = 0; G.fireAt = 0; }
     if (st === 'line') G.lineOk = 0;
+    if (st === 'jready') { G.cdAt = 0; G.cdN = 0; JG.M.clear(); JG.prev = null; }
+    if (st !== 'result') G.kind = '';
     $('flash').classList.toggle('on', false);
     if (st !== 'result') $('res').classList.remove('on');
-    $('timer').classList.toggle('on', st === 'stop');
+    $('timer').classList.toggle('on', st === 'stop' || st === 'jump');
+    if (st !== 'jready' && st !== 'jump') $('cd').classList.remove('on');
   }
+  // بعد الحركة الحرّة: التحدّي التالي بالدور
+  const nextGame = () => CFG.cycle[G.ci % CFG.cycle.length];
+  function startNext() { const g = nextGame(); G.ci++; go(g === 'jump' ? 'jready' : 'arm'); }
   function preLevel(t) {
     const h = P.hist.filter(x => x.t >= t - 1.6 && x.inst != null);
     return h.length ? h.reduce((s, x) => s + x.inst, 0) / h.length : 0;
@@ -517,7 +535,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       case 'idle': if (present && engine) go('free'); break;
       case 'free':
         if (!present) go('idle');
-        else if (t - G.since > CFG.freeSec) go('arm');
+        else if (t - G.since > CFG.freeSec) startNext();
         break;
       case 'arm':
         if (!present) { go('idle'); break; }
@@ -537,7 +555,26 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
         if (!present) { go('idle'); break; }
         if (t - G.wAt > CFG.stopMax) whistleDone(null);
         break;
-      case 'result': if (t - G.since > CFG.resultSec) go(present ? G.next : 'idle'); break;
+      case 'result': if (t - G.since > CFG.resultSec + (G.kind === 'jump' ? 2 : 0)) go(present ? G.next : 'idle'); break;
+      case 'jready': {
+        // العدّ التنازليّ يبدأ حين يقف أحدٌ قريباً من الكاميرا
+        const cd = $('cd');
+        if (!G.cdAt) {
+          if (P.near > 0) { G.cdAt = t; G.cdN = 0; }
+          else if (t - G.since > CFG.jumpWait) { go(present ? 'free' : 'idle'); G.since = t - CFG.freeSec * 0.5; }
+          break;
+        }
+        const k = Math.floor(t - G.cdAt);
+        if (k >= 3) { G.jEnd = t + CFG.jumpSec; go('jump'); cd.textContent = 'انطلقوا!'; cd.classList.add('on', 'go'); beep(990, 0.25); break; }
+        if (G.cdN !== k + 1) { G.cdN = k + 1; cd.textContent = String(3 - k); cd.classList.remove('go'); cd.classList.add('on'); beep(660, 0.15); }
+        break;
+      }
+      case 'jump':
+        $('timer').textContent = fmt1(Math.max(0, G.jEnd - t));
+        if (t - G.since > 0.9) $('cd').classList.remove('on', 'go');
+        if (t >= G.jEnd) jumpDone();
+        else if (!present && t - G.since > 3) { if (jumpRank().length && jumpRank()[0] > 0) jumpDone(); else go('idle'); }
+        break;
       case 'line':
         if (!present || P.n < 3) { go(present ? 'free' : 'idle'); break; }
         if (P.F && P.F.maxLine >= Math.max(3, Math.ceil(P.n * 0.7))) G.lineOk += dt; else G.lineOk = 0;
@@ -578,6 +615,18 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       $('resBest').textContent = r.best && DAY.rounds > 1 ? 'أسرع توقّفٍ اليوم!' : '';
       $('resP').textContent = r.sec == null ? 'لم يتوقّف الجميع بعد الصفّارة — حاولوا مرّةً أخرى بعد قليل.'
         : 'في الحصة تقيس العين هذا عند كلّ صفّارة: «الاستجابة السريعة لإشارات البدء والتوقّف» من شواهد البند ٧.';
+    } else if (kind === 'jump') {
+      G.next = 'free';
+      const n = r.best, unit = n === 2 ? 'قفزتان' : n >= 3 && n <= 10 ? 'قفزات' : 'قفزة';
+      $('resK').textContent = r.list.length > 1 ? 'أكثرُكم قفزاً في ' + CFG.jumpSec + ' ثانية' : 'قفزاتك في ' + CFG.jumpSec + ' ثانية';
+      $('resN').textContent = String(n);
+      $('resU').textContent = n === 2 ? '' : unit;
+      if (n === 2) $('resN').textContent = 'قفزتان';
+      lv.textContent = '';
+      $('resBest').textContent = r.rec ? 'رقم اليوم الجديد!' : '';
+      $('resP').textContent = !n ? 'لم ترَ العين قفزاً هذه المرّة — اقفزوا في أماكنكم بكلتا القدمين، والجسم كلّه داخل الصورة.'
+        : (r.list.length > 1 ? 'أرقامكم فوق رؤوسكم: ' + r.list.join(' · ') + '. ' : 'رقمك فوق رأسك على الشاشة. ')
+          + 'وفي الحصة تقيس العين شدّة نشاط الطلبة — من يجري ومن يتمرّن بقوّة في مكانه.';
     } else {
       G.next = 'free';
       $('resK').textContent = r.n ? 'صفٌّ واحد' : 'التشكيل الذي رأته العين';
@@ -588,6 +637,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
         : 'قفوا متجاورين في خطٍّ واحد في المرّة القادمة.';
     }
     $('resN').style.fontSize = $('resN').textContent.length > 4 ? '96px' : '';
+    G.kind = kind;
     $('res').classList.add('on');
     renderRecs();
   }
@@ -595,7 +645,21 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     let b = '', s = '';
     const n = P.n;
     switch (G.st) {
-      case 'free': b = 'تحرّكوا أمام الكاميرا — ارفعوا نسبة الحركة إلى «متميز»'; s = 'تحدّي الصفّارة بعد (' + Math.max(1, Math.ceil(CFG.freeSec - (t - G.since))) + ') ثانية'; break;
+      case 'free': {
+        const left = '(' + Math.max(1, Math.ceil(CFG.freeSec - (t - G.since))) + ') ثانية';
+        if (nextGame() === 'jump') { b = 'تحدّي القفز: كم قفزةً في ' + CFG.jumpSec + ' ثانية؟'; s = 'يبدأ بعد ' + left + ' — قفوا قريباً من الكاميرا، والجسم كلّه في الصورة'; }
+        else { b = 'تحرّكوا أمام الكاميرا — ارفعوا نسبة الحركة إلى «متميز»'; s = 'تحدّي الصفّارة بعد ' + left; }
+        break;
+      }
+      case 'jready':
+        if (G.cdAt) { b = 'استعدّوا…'; s = 'اقفزوا في أماكنكم بكلتا القدمين — العين تعدّ قفزات كلّ واحد'; }
+        else { b = 'تحدّي القفز: اقتربوا من الكاميرا'; s = 'قفوا حيث يظهر الجسم كلّه، من الرأس إلى القدمين'; }
+        break;
+      case 'jump': {
+        const top = jumpRank()[0] || 0;
+        b = 'اقفزوا!'; s = P.near ? 'الأكثر حتّى الآن: (' + top + ')' : 'اقتربوا من الكاميرا — العين تعدّ من يقف قريباً';
+        break;
+      }
       case 'arm':
         if (G.fireAt) { b = 'استمرّوا في الحركة… استعدّوا!'; s = 'عند الصفّارة توقّفوا تماماً'; }
         else if (t - G.since > 6 && G.armOk < 0.5) { b = 'تحرّكوا أكثر — الصفّارة لا تأتي والجميع واقف'; s = 'امشوا، اقفزوا، لوّحوا بأيديكم'; }
@@ -625,6 +689,102 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       o.connect(g); g.connect(AC.destination);
       o.start(t); lfo.start(t); o.stop(t + 0.85); lfo.stop(t + 0.85);
     } catch (e) { /* لا صوت */ }
+  }
+
+  // نغمةٌ قصيرة (العدّ التنازليّ وكلّ قفزة) — مع الصوت وحده
+  function beep(f, dur, gain) {
+    if (!prefs.sound) return;
+    audioUnlock();
+    if (!AC) return;
+    try {
+      const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain || 0.25, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) { /* لا صوت */ }
+  }
+
+  // ── تحدّي القفز: القفزة تُقاس من الصورة نفسها في كلّ إطار (js/jump-core.js)، والكشف يعطي موضع كلّ لاعبٍ وطوله ──
+  // صورةٌ رماديّةٌ صغيرة بعرض JW، ولكلّ لاعبٍ قريبٍ بصمةٌ رأسيّة في وسط صندوقه تُقارَن بالإطار السابق على الصفوف نفسها
+  const JW = 240;
+  const JG = { canvas: document.createElement('canvas'), prev: null, at: 0, vf: 0, seen: -1, vfAt: -1e9, M: new Map() };
+  JG.cx = JG.canvas.getContext('2d', { willReadFrequently: true });
+  if (window.HTMLVideoElement && 'requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    const vfc = () => { JG.vf++; JG.vfAt = now(); video.requestVideoFrameCallback(vfc); };
+    video.requestVideoFrameCallback(vfc);
+  }
+  function jumpRank() {
+    const out = [];
+    JG.M.forEach(j => { if (j.n || j.inGame) out.push(j.n); });
+    return out.sort((a, b) => b - a);
+  }
+  function jumpTick(t) {
+    if (G.st !== 'jready' && G.st !== 'jump') return;
+    if (!camOk || video.readyState < 2 || !video.videoWidth) return;
+    // إطارٌ جديدٌ من الكاميرا وحده (requestVideoFrameCallback)، وإلّا كلّ ٣٠ م.ث
+    if (t - JG.vfAt < 0.5) { if (JG.vf === JG.seen) return; JG.seen = JG.vf; }
+    else if (t - JG.at < 0.03) return;
+    JG.at = t;
+    const vw = video.videoWidth, vh = video.videoHeight, JH = Math.max(32, Math.round(JW * vh / vw)), ar = vw / vh;
+    const c = JG.canvas;
+    if (c.width !== JW || c.height !== JH) { c.width = JW; c.height = JH; JG.prev = null; }
+    JG.cx.drawImage(video, 0, 0, JW, JH);
+    const gray = E.toGray(JG.cx.getImageData(0, 0, JW, JH).data, JW * JH);
+    if (JG.prev) {
+      const ids = new Set(P.list.map(p => p.id));
+      P.list.forEach(p => {
+        if (!p.near) return;
+        let j = JG.M.get(p.id);
+        if (!j) {
+          // مسارٌ جديد لمن انقطع تتبّعه: يرث أقرب لاعبٍ فُقد قبل قليل (لا تضيع قفزاته)
+          let bk = null, bd = 0.8;
+          JG.M.forEach((o, k) => { if (ids.has(k) || t - o.seen > 2.5) return; const d = Math.abs(o.x - p.x) * ar / Math.max(0.05, p.h); if (d < bd) { bd = d; bk = k; } });
+          const o = bk != null ? JG.M.get(bk) : null;
+          if (bk != null) JG.M.delete(bk);
+          j = Object.assign(SvfJump.newJumper(), { n: o ? o.n : 0, pop: o ? o.pop : 0, inGame: o ? o.inGame : false });
+          JG.M.set(p.id, j);
+        }
+        const bw = p.w * JW, hpx = p.h * JH, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
+        const c0 = Math.round(bx + bw * 0.2), c1 = Math.round(bx + bw * 0.8), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
+        const s = SvfJump.shift(SvfJump.profile(JG.prev, JW, JH, c0, c1, r0, r1), SvfJump.profile(gray, JW, JH, c0, c1, r0, r1), Math.max(4, Math.round(hpx * 0.22)));
+        j.seen = t; j.x = p.x;
+        if (G.st === 'jump') j.inGame = true;
+        if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { j.n++; j.pop = t; beep(1250, 0.06, 0.12); }
+      });
+      JG.M.forEach((o, k) => { if (t - o.seen > 30) JG.M.delete(k); });
+    }
+    JG.prev = gray;
+  }
+  function jumpDone() {
+    const list = jumpRank(), best = list[0] || 0;
+    DAY.rounds++;
+    const rec = best > 0 && best > (DAY.jump || 0);
+    if (rec) DAY.jump = best;
+    saveDay();
+    result('jump', { best, list: list.slice(0, 4), rec });
+  }
+  // عدد قفزات كلّ لاعبٍ فوق رأسه (أثناء التحدّي وفي نتيجته)
+  function drawJumps(t) {
+    if (G.st !== 'jready' && G.st !== 'jump' && !(G.st === 'result' && G.kind === 'jump')) return;
+    const top = jumpRank()[0] || 0;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'ltr';      // «+1» لا «1+» (الصفحة من اليمين)
+    R.forEach((r, id) => {
+      const j = JG.M.get(id);
+      if (!j || (G.st === 'jready')) return;
+      const u = r.u, v = Math.max(46, r.v - r.bh / 2 - 44), age = t - (j.pop || -9), pop = age < 0.45 ? 1 + 0.4 * (1 - age / 0.45) : 1;
+      const lead = G.st === 'result' && j.n === top && top > 0;
+      const rad = 40 * pop;
+      ctx.globalAlpha = r.a;
+      ctx.fillStyle = lead ? '#7fd1a4' : '#f0b44a'; ctx.strokeStyle = '#061c30'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(u, v, rad, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#082742'; ctx.font = '700 ' + Math.round((j.n > 99 ? 34 : 44) * pop) + 'px "IBM Plex Sans Arabic", Tahoma, sans-serif';
+      ctx.fillText(String(j.n), u, v + 2);
+      if (age < 0.6) {
+        ctx.globalAlpha = r.a * (1 - age / 0.6); ctx.fillStyle = '#f7f5ee'; ctx.font = '700 34px "IBM Plex Sans Arabic", Tahoma, sans-serif';
+        ctx.fillText('+1', u + 62, v - 20 - age * 50);
+      }
+    });
+    ctx.globalAlpha = 1; ctx.direction = 'inherit';
   }
 
   // ── الرسم ──
@@ -741,6 +901,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     else if (prefs.view === 'dots') drawField();
     else { ctx.fillStyle = '#061c30'; ctx.fillRect(0, 0, MW, MH); drawMosaic(c); }
     drawPeople(t);
+    drawJumps(t);
   }
 
   // ── العمود ──
@@ -768,7 +929,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       $('sparkL').setAttribute('d', line); $('sparkA').setAttribute('d', area);
     }
     const fm = $('chipF');
-    if (P.F && P.n >= 3 && mode === 'live') { $('frm').textContent = (E.FORMS[P.F.dom] || '—') + (P.F.maxLine >= 3 ? ' · أطول صفٍّ (' + P.F.maxLine + ')' : ''); fm.classList.remove('off'); }
+    if (P.F && P.n >= 3 && mode === 'live' && G.st !== 'jready' && G.st !== 'jump' && G.kind !== 'jump') { $('frm').textContent = (E.FORMS[P.F.dom] || '—') + (P.F.maxLine >= 3 ? ' · أطول صفٍّ (' + P.F.maxLine + ')' : ''); fm.classList.remove('off'); }
     else fm.classList.add('off');
     $('empty').classList.toggle('off', !(camOk && engine && G.st === 'idle'));
     renderRecs();
@@ -776,7 +937,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   function renderRecs() {
     $('rPeak').textContent = DAY.peak ? String(DAY.peak) : '—';
     $('rBest').innerHTML = DAY.best != null ? fmt1(DAY.best) + ' <small>ث</small>' : '—';
-    $('rTop').textContent = DAY.top ? DAY.top + '%' : '—';
+    $('rJump').textContent = DAY.jump ? String(DAY.jump) : '—';
     $('rRounds').textContent = String(DAY.rounds);
   }
 
@@ -828,6 +989,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     watchVideo(t);
     if (mode === 'live') {
       updateR(t, dt);
+      jumpTick(t);
       draw(t);
       gameTick(t, dt);
       cue(t);
@@ -848,6 +1010,9 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
     if (k === ' ' || k === 'Enter') {
       if (mode === 'loop') { setMode('live'); holdLive = now() + 180; toast('التجربة — ثلاث دقائق قبل أن يعود العرض تلقائيّاً'); }
       else { setMode('loop'); toast('عرض المنظومة'); }
+    } else if (k === 'j' || k === 'J' || k === 'ت') {
+      if (mode === 'loop') { setMode('live'); holdLive = now() + 180; }
+      go('jready');
     } else if (k === 'w' || k === 'W' || k === 'ص') {
       if (mode === 'loop') { setMode('live'); holdLive = now() + 180; }
       go('arm'); G.since = now();
@@ -875,7 +1040,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) await new Promise(r => { navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }); setTimeout(r, 5000); });
       if (!navigator.serviceWorker.controller) return;
-      const files = ['try-eye.html', 'festival.html', 'js/eye-core.js', 'js/eye-yolox.js', 'js/eye-detect-worker.js', 'favicon.svg',
+      const files = ['try-eye.html', 'festival.html', 'js/eye-core.js', 'js/jump-core.js', 'js/eye-yolox.js', 'js/eye-detect-worker.js', 'favicon.svg',
         'vendor/onnx/ort.wasm.min.mjs', 'vendor/onnx/ort-wasm-simd-threaded.mjs', 'vendor/onnx/ort-wasm-simd-threaded.wasm', 'vendor/onnx/yolox_nano.onnx'];
       let ok = 0;
       for (const f of files) {
@@ -893,7 +1058,7 @@ body[data-mode="loop"] #loop{opacity:1;visibility:visible;transition:opacity .8s
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
   // للفحص
-  window.__tryEye = { G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()) };
+  window.__tryEye = { G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, jump: () => go('jready'), jumpRank };
 
   renderRecs();
   requestAnimationFrame(frame);
