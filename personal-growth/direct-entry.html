@@ -63,6 +63,7 @@
 .simple-mode .paragraph-editor-tools button:disabled{opacity:.5;cursor:default}
 @media(max-width:600px){.simple-mode .integrated-preview [data-paragraph-editor]{min-height:200px;font-size:16px}.simple-mode .paragraph-editor-tools{align-items:stretch;flex-direction:column}}
 .pg-report-summary{background:#fbfcfc;border:1px solid #dbe5e7;border-radius:9px;padding:12px;margin:16px 0 25px}.pg-report-summary h4{margin:14px 0 7px;color:#25515d}.pg-report-detail{margin-top:20px}.pg-standard-title{background:#edf3f4;padding:8px 10px;border-radius:5px}@media print{.pg-report-summary{border:0;padding:0}.pg-report-detail{break-before:page}}
+.pg-evidence-status{display:block;width:100%;margin-top:5px;border:1px solid #cbdadd;background:#fff;border-radius:8px;padding:8px;font:inherit;font-size:13px;min-height:44px;cursor:pointer}.pg-evidence-unit{padding:10px!important;border:1px solid #e0e9e8!important;border-radius:9px}.pg-evidence-chosen{border-color:#80aaa5!important;background:#f4f9f8!important}.pg-evidence-unit .tick{font-weight:600}.pg-evidence-unit .tick input{display:none}.pg-evidence-unit details{margin-top:5px}
 </style></head><body><header class="top noPrint"><div class="topin"><div class="brand"><h1>استمارة تقويم النمو الشخصي</h1><small>المجال الثاني · 4 معايير · 13 مؤشرًا</small></div><div class="tools"><span id="saveStatus" class="hint">جاهز</span><button class="btn secondary" id="backupBtn" type="button">نسخة احتياطية</button><button class="btn secondary" id="importBtn" type="button">استيراد</button><input type="file" id="importFile" accept=".json,application/json" hidden><button class="btn" id="reportBtn" type="button">عرض التقرير</button></div></div></header><main><section class="box noPrint"><div style="display:flex;justify-content:space-between;gap:9px;align-items:center;flex-wrap:wrap"><h2>بيانات الزيارة</h2><div class="stats"><span class="stat" id="progress">0 من 13 مؤشرًا</span><button type="button" class="btn muted" id="newSchool">زيارة جديدة</button></div></div><div class="fields"><div class="field"><label for="school">المدرسة</label><input id="school" autocomplete="off" placeholder="اسم المدرسة"></div><div class="field"><label for="year">العام الدراسي</label><input id="year" placeholder="2026/2027"></div><div class="field"><label for="day1">اليوم الأول</label><input id="day1" type="date"></div><div class="field"><label for="day2">اليوم الثاني</label><input id="day2" type="date"></div></div><div class="note">العبارات الاسترشادية قابلة للاختيار والتعديل كما في الأداة الأصلية. قد تتضمن أمثلة افتراضية؛ تحقق من الوقائع قبل اعتماد التقرير.</div></section><section class="box noPrint" style="padding:12px 18px"><div class="stats"><button class="btn muted" id="attendanceToggle" type="button">حاسبة الحضور</button><span id="attStatus" class="hint"></span></div><div class="attendance" id="attPanel"><div class="row2" style="margin:12px 0"><div class="field"><label for="attTotal">إجمالي الطلبة</label><input id="attTotal" type="number" min="1" step="1"></div><div class="field"><label for="attPresent">الحاضرون</label><input id="attPresent" type="number" min="0" step="1"></div></div><button class="btn secondary" id="attInsert" type="button">إضافة النسبة إلى دليل 2.1.2</button><p class="hint">النسبة اليومية استرشادية فقط ولا تمثل حكمًا نهائيًا على انتظام الطلبة.</p></div></section><div id="groups" class="noPrint"></div><div class="bottom noPrint"><button class="btn" id="finishBtn" type="button">إعداد التقرير من المدخلات</button></div><section id="report" class="box report"><div class="noPrint" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2>مسودة التقرير</h2><div class="tools"><button class="btn secondary" id="copyBtn" type="button">نسخ</button><button class="btn secondary" id="printBtn" type="button">طباعة / PDF</button><button class="btn muted" id="hideReport" type="button">العودة للتقييم</button></div></div><div id="reportContent"></div></section></main><div class="floating" id="toast"></div><script>/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
@@ -706,6 +707,76 @@ showReport=function(){
 $('reportBtn').onclick=$('finishBtn').onclick=showReport;
 $('copyBtn').onclick=async()=>{const t=getReport().parts.join('\n\n');try{await navigator.clipboard.writeText(t);notify('نُسخ التقرير والملخص')}catch(e){notify('تعذر النسخ؛ استخدم الطباعة')}};
 const execButton=document.createElement('button');execButton.type='button';execButton.className='btn secondary';execButton.id='executiveCopyBtn';execButton.textContent='نسخ الملخص الإشرافي';execButton.onclick=async()=>{try{await navigator.clipboard.writeText(pgExecutiveText());notify('نُسخ الملخص الإشرافي')}catch(e){notify('تعذر النسخ')}};$('copyBtn').after(execButton);
+
+
+/* تحسينات الرصد: حالة صريحة لكل شاهد، أثر نوعي مناسب لكل شاهد، واعتماد مشروط.
+   لا تُغيّر قوالب العبارات الأصلية أو نصوص المشرف التي عدّلها يدويًا. */
+const pgSourceImpactBank={"2.1.1":[["تعزز الاحترام المتبادل في المواقف اليومية.","تكررت سلوكيات خلافية تتطلب متابعة."],["تحسن الحوار والثقة بين الطلبة والمعلمين.","استمر ضعف التواصل واحترام الآخرين."],["ساعدت التسويات السلمية في تقليل النزاعات.","تكررت النزاعات دون تسوية مستدامة."],["ازدادت المبادرة إلى مساعدة الآخرين.","ظلت الممارسات القيمية مرتبطة بالمناسبات فقط."],["تعزز الشعور بالأمان والانتماء.","تراجعت مؤشرات الطمأنينة لدى بعض الطلبة."]],"2.1.2":[["ساعد الانتظام في تقليل الوقت التعليمي المفقود.","أثر الغياب المتكرر في استمرارية التعلم."],["تحسن استثمار زمن الحصص والطابور.","أدى التأخر إلى فقد جزء من زمن التعلم."],["أسهمت المحافظة على المرافق في جاهزية بيئة التعلم.","أدت مخالفات استخدام المرافق إلى تعطيل بعض الأنشطة."],["ساعدت المتابعة على تحسن الالتزام باللوائح.","استمرت المخالفات رغم إجراءات المتابعة."],["ارتفعت المسؤولية الذاتية واحترام الأنظمة.","ظل الالتزام مرتبطًا بالتوجيه المباشر."]],"2.1.3":[["زاد التفاعل والمشاركة في المواقف التعليمية.","انخفضت مشاركة بعض الطلبة في الأنشطة."],["تحسن إنجاز المهام باستقلالية.","استمر الاعتماد على المعلم في إتمام المهام."],["زادت المبادرات والمشاركات الإثرائية.","اقتصرت المبادرات على شريحة محدودة."],["عزز الوعي بأهداف التعلم المثابرة.","ضعفت المثابرة عند مواجهة الصعوبات."]],"2.2.1":[["تعزز الاعتزاز بالرموز الوطنية.","ظهرت مشاركة محدودة في المواقف الوطنية."],["انعكست الهوية على الممارسات اليومية.","اقتصر التعبير عن الهوية على مناسبات محددة."],["ازدادت المعرفة بالموروث العماني.","بقيت معرفة بعض الطلبة بالموروث محدودة."],["أسهمت المشروعات الثقافية في إبراز الهوية.","لم تتسع فرص المشاركة في المشروعات الثقافية."],["تحسن ربط التاريخ بالانتماء الوطني.","ظل فهم بعض الطلبة للتاريخ الوطني سطحيًا."]],"2.2.2":[["تحسنت الممارسة اللغوية في المواقف الرسمية.","ظل استخدام العربية في الأنشطة محدودًا."],["تعزز الالتزام بالآداب والقيم لدى الفئات المعنية.","تباين تمثل القيم في المواقف اليومية."],["ازدادت المشاركة في الأنشطة اللغوية والدينية.","اقتصرت الأنشطة على مجموعة محدودة."],["تطورت جودة الإنتاج الأدبي باللغة العربية.","ضعفت فرص الإبداع اللغوي لدى بعض الطلبة."],["تعزز الانتماء الثقافي لدى الفئات المعنية.","ظل الانتماء الثقافي تعبيرًا نظريًا محدود الأثر."]],"2.2.3":[["ارتفعت المشاركة المنتظمة في التطوع.","اقتصرت الأعمال التطوعية على مناسبات متفرقة."],["تعززت المبادرة لخدمة الآخرين.","ضعفت المبادرة الذاتية لخدمة المجتمع."],["امتدت المبادرات لخدمة البيئة المحيطة.","اقتصرت المشاركات على داخل المدرسة."],["ساعد استمرار المبادرات في استدامة أثرها.","لم تستمر المبادرات بعد تنفيذها الأول."],["تحسن التخطيط والتنظيم الطلابي للعمل التطوعي.","ظل التنظيم معتمدًا على توجيه العاملين."]],"2.2.4":[["زادت المشاركة الواعية في الاقتراع.","اقتصرت المشاركة الانتخابية على عدد محدود."],["أصبح صوت الطلبة أكثر حضورًا في القرارات.","لم تظهر انعكاسات مقترحات الطلبة على القرارات."],["تحسنت مهارات الحوار وتقبل الرأي.","ظهرت صعوبات في الإصغاء وتقبل الرأي المخالف."],["ازدادت قدرة ممثلي الطلبة على تحمل المسؤوليات.","بقيت أدوار المجلس الطلابي شكلية."]],"2.3.1":[["انعكست الاختيارات الغذائية على تبني عادات صحية.","استمرت اختيارات غذائية غير صحية في اليوم الدراسي."],["زادت مشاركة الطلبة في النشاط البدني.","ظل النشاط البدني محدودًا لدى بعض الطلبة."],["تحسنت الاستجابة لإجراءات السلامة الصحية.","تأخرت الاستجابة لبعض إجراءات السلامة."],["تعزز الشعور بالطمأنينة والأمان النفسي.","ظهرت مؤشرات تتطلب دعم الأمان النفسي."],["تحولت التوعية إلى ممارسات وقائية منتظمة.","بقيت التوعية نظرية دون تطبيق يومي كافٍ."]],"2.3.2":[["تحسنت ممارسات ترشيد المياه والطاقة.","استمر هدر الموارد في بعض المرافق."],["ازدادت المحافظة على المزروعات المدرسية.","ضعفت العناية بالمساحات الخضراء."],["ارتفع الوعي العملي بالتغيرات المناخية.","بقيت المعرفة المناخية دون مشاركة عملية."],["تحسنت نظافة الساحات بعد الاستراحة.","استمر تراكم المخلفات في بعض المواقع."],["ازدادت مشاركة الطلبة في الحلول البيئية.","اقتصر النشاط البيئي على التوعية دون تنفيذ."]],"2.4.1":[["تحولت أفكار طلابية إلى حلول عملية.","توقفت بعض الأفكار عند مرحلة الاقتراح."],["تحسنت جودة النماذج والمنتجات الطلابية.","واجهت المشروعات صعوبة في تطوير المنتج."],["ازدادت القدرة على ابتكار حلول للمشكلات.","غلبت محاكاة الأفكار الجاهزة على المبادرة."],["ارتبط الابتكار بحاجات واقعية.","افتقرت بعض الأفكار إلى جدوى تطبيقية."],["توسعت مشاركة الطلبة في توليد الأفكار.","اقتصر الابتكار على عدد محدود من المشاركين."]],"2.4.2":[["تحسن إنجاز المشروعات ضمن خطة زمنية.","تأخر إنجاز بعض مراحل المشروعات."],["ازدادت دقة توزيع الأدوار والموارد.","أدى سوء توزيع المهام إلى تعطّل التنفيذ."],["تحسن التزام الفرق بمواعيد التسليم.","استمر التأخر في تسليم المخرجات."],["تحسن استثمار الخامات والموارد المتاحة.","ظهرت ممارسات هدر في الموارد."],["تعززت قدرة الفرق على متابعة التقدم.","ضعفت متابعة مؤشرات الإنجاز بين المراحل."]],"2.4.3":[["تعزز توثيق المصادر والأمانة العلمية.","استمرت أعمال دون توثيق كافٍ للمصادر."],["تحسنت الاستقلالية في أداء المهام.","ظهر اعتماد مفرط على أعمال الآخرين."],["ارتفعت دقة الأعمال المقدمة.","استمرت أخطاء ناتجة عن ضعف التحقق."],["تحسن الالتزام بالموضوعية والإنصاف.","ظهرت ممارسات تقييم غير منصفة."]],"2.4.4":[["تحسن توزيع الأدوار والمشاركة داخل الفرق.","احتكر بعض الطلبة القيادة أو المهام."],["تطورت مهارات العرض والتواصل.","ضعفت قدرة بعض الطلبة على عرض أفكارهم."],["تعززت المبادرة القيادية لدى الطلبة.","تركزت القيادة في مجموعة محدودة."],["تحسن التفاوض والإقناع وحل الخلافات.","تكررت خلافات عرقلت إنجاز الفرق."]]};
+const pgCurrentRender=render,pgCurrentSync=syncIndicator,pgCurrentImpact=linkedEffectText,pgCurrentApprovalErrors=approvalErrors;
+function pgSourceImpacts(ind,source){
+ const i=ind.evidenceList.indexOf(source),options=pgSourceImpactBank[ind.id]||[];
+ const pair=i>=0?options[i]:null;
+ return pair||effectBank[ind.id]||['أثر إيجابي متوقع يحتاج التحقق.','أثر سلبي متوقع يحتاج التحقق.'];
+}
+linkedEffectText=function(id,kind,source){
+ const ind=indicators.find(x=>x.id===id),pair=ind?pgSourceImpacts(ind,source):null;
+ const sentence=pair?.[kind==='positive'?0:1]||pgCurrentImpact(id,kind,source);
+ return 'في ضوء الشاهد المتعلق بـ«'+source+'»، '+sentence;
+};
+function pgSetFinding(ind,source,status){
+ const d=getRec(ind.id);d.findings||={};const previous=d.findings[source]||{};
+ if(!status){d.findings[source]={...previous,status:'',selected:false}}
+ else{d.findings[source]={...previous,status,selected:true}}
+ if(d.effectSource===source){d.effectVerified=false;if(!status)d.effectSource=''}
+ d.approved=false;
+ const panel=$('ind-'+ind.id),check=panel.querySelectorAll('[data-finding]')[ind.evidenceList.indexOf(source)];
+ if(check)check.checked=!!status;
+ syncIndicator(ind);updateEffectUI(ind);refreshIntegratedPreview(ind);schedule();
+}
+function pgUpdateEvidenceSelects(ind){
+ const panel=$('ind-'+ind.id);if(!panel)return;
+ panel.querySelectorAll('[data-evidence-status]').forEach(sel=>{
+ const source=ind.evidenceList[Number(sel.dataset.evidenceStatus)];
+ const value=getRec(ind.id).findings?.[source]?.status||'';
+ if(document.activeElement!==sel)sel.value=['verified','partial','unverified'].includes(value)?value:'';
+ sel.closest('.pg-evidence-unit')?.classList.toggle('pg-evidence-chosen',!!sel.value);
+ });
+}
+render=function(){
+ pgCurrentRender();
+ for(const ind of indicators){
+  const panel=$('ind-'+ind.id);
+  if(!panel)continue;
+  const cards=[...panel.querySelectorAll('.ticklist [data-finding]')];
+  cards.forEach((checkbox,j)=>{
+   const label=checkbox.closest('label'),wrap=checkbox.closest('.box');
+   if(!label||!wrap||wrap.querySelector('[data-evidence-status]'))return;
+   wrap.classList.add('pg-evidence-unit');
+   label.removeAttribute('for');
+   checkbox.style.display='none';
+   checkbox.tabIndex=-1;
+   const field=document.createElement('select');field.className='pg-evidence-status';
+   field.dataset.evidenceStatus=j;
+   field.setAttribute('aria-label','حالة الشاهد: '+ind.evidenceList[j]);
+   [['','لم يُقيّم الشاهد'],['verified','متحقق'],['partial','متحقق جزئيًا'],['unverified','غير متحقق']].forEach(([value,text])=>{
+    const opt=document.createElement('option');opt.value=value;opt.textContent=text;field.append(opt)
+   });
+   label.after(field);
+   field.addEventListener('change',()=>pgSetFinding(ind,ind.evidenceList[j],field.value));
+  });
+  pgUpdateEvidenceSelects(ind);
+ }
+};
+syncIndicator=function(ind){pgCurrentSync(ind);pgUpdateEvidenceSelects(ind)};
+approvalErrors=function(d){
+ const errors=pgCurrentApprovalErrors(d);
+ const recorded=findings(d);
+ if(recorded.some(([,v])=>!['verified','partial','unverified'].includes(v.status)))errors.push('حدد حالة صريحة لكل شاهد مختار');
+ if(!recorded.some(([,v])=>['verified','partial','unverified'].includes(v.status)))errors.push('حدد نتيجة شاهد واحد على الأقل');
+ if(d.impact?.trim()&&!d.effectVerified)errors.push('أكّد تحقق الأثر قبل اعتماد المؤشر، أو اتركه كمسودة');
+ if(d.effectSource&&recorded.length&&!recorded.some(([source])=>source===d.effectSource))errors.push('اختر الشاهد المرتبط بالأثر مجددًا');
+ return [...new Set(errors)];
+};
 
 window.addEventListener('pagehide',save);load();render();
 </script></body></html>
