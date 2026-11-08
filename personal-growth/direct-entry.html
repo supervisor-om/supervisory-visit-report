@@ -821,8 +821,8 @@ function pgEffectClause(d){
  if(!raw)return '';
  let phrase=raw.replace(/^(?:والأثر المتوقع غير المؤكد|الأثر المتوقع غير المؤكد|الأثر المتوقع|الأثر المتحقق)\s*[:：]\s*/u,'');
  if(!d.effectVerified){
-  phrase=phrase.replace(/^من المتوقع أن\s+/u,'').replace(/^يُتوقع أن\s+/u,'');
-  return '، ويُتوقع أن '+phrase;
+  if(/^من المتوقع أن\s+|^يُتوقع أن\s+/u.test(phrase))return '، ويُتوقع أن '+phrase.replace(/^(?:من المتوقع أن|يُتوقع أن)\s+/u,'');
+  return '، ويبقى الأثر المقترح التالي بحاجة إلى تحقق ميداني: «'+phrase+'»';
  }
  if(/^(?:أسهمت|أسهم|أدت|أدى|تحسنت|تحسن|تعززت|تعزز|زادت|زاد|ارتفعت|ارتفع|انخفضت|انخفض|انعكس|انعكست|ساعدت|ساعد|ضعفت|ضعف|استمرت|استمر|تراجعت|تراجع|تكررت|تكرر)\s/u.test(phrase))return '، وقد '+phrase;
  if(/^وقد\s/u.test(phrase))return '، '+phrase;
@@ -842,12 +842,12 @@ pgReportSentence=function(ind,d){
  const main=score>=4?g.no:g.yes;
  const secondary=score>=4?g.yes:g.no;
  if(main.length){
-  if(score>=4)sentence+='، ويتضح ذلك من خلال ما رُصد من قصور في '+main.join('، و');
+  if(score>=4)sentence+='، ويتضح ذلك من خلال رصد '+main.join('، و');
   else sentence+='، ويتضح ذلك من خلال '+main.join('، و');
  }
  if(g.partial.length)sentence+=(main.length?'، مع ':'، حيث رُصد تحقق جزئي في ')+(main.length?'تحقق جزئي في ':'')+g.partial.join('، و');
  if(secondary.length){
-  sentence+=score>=4?'، في مقابل ممارسات تحققت في '+secondary.join('، و'):'، مع وجود جوانب لم تتحقق في '+secondary.join('، و');
+  sentence+=score>=4?'، في مقابل تحقق ممارسات في '+secondary.join('، و'):'، مع رصد '+secondary.join('، و');
  }
  const reference=cleanedSentence(d.evidenceReferenceText);
  if(reference)sentence+='، وفق '+reference;
