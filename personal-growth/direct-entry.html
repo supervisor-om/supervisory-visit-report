@@ -782,34 +782,75 @@ approvalErrors=function(d){
 
 /* Make the report paragraph identical across on-screen preview, Word export, and report copy.
    Each documented observation appears once even if repeated in freeform evidence. */
+/* صيغ معيارية مرتبطة بالفعل الفعلي لكل مؤشر، على منهجية وصف الزيارة الإشرافية. */
+const pgPractice={
+'2.1.1':'الالتزام بالقيم الإنسانية المشتركة وحسن التعامل',
+'2.1.2':'إدراك الحقوق والواجبات والالتزام بالأنظمة المدرسية',
+'2.1.3':'الحماس والدافعية والمبادرة في التعلم',
+'2.2.1':'الاعتزاز بالهوية العمانية والولاء للوطن والسلطان',
+'2.2.2':'الانتماء للهوية العربية والإسلامية وتقدير اللغة العربية',
+'2.2.3':'المشاركة في الأعمال والمبادرات التطوعية',
+'2.2.4':'المشاركة في الشورى والممارسات الانتخابية والحوار',
+'2.3.1':'اتباع أنماط الحياة الصحية والسليمة',
+'2.3.2':'المشاركة في الأنشطة البيئية وقضايا المناخ',
+'2.4.1':'المبادرة بطرح الأفكار وإطلاق المشروعات',
+'2.4.2':'إدارة المشروعات وتنفيذ المهام لتحقيق النتائج',
+'2.4.3':'الالتزام بأخلاقيات العمل والأمانة العلمية',
+'2.4.4':'التواصل الفاعل وتحمل الأدوار القيادية في الفرق'
+};
+function pgEvidencePhrase(ind,d){
+ const group={yes:[],partial:[],no:[]},noted=[];
+ for(const [source,v] of findings(d)){
+  const note=cleanedSentence(v.note||''),label=cleanedSentence(source);
+  const phrase=note?note:label;
+  if(note)noted.push(note);
+  if(v.status==='verified')group.yes.push(phrase);
+  else if(v.status==='partial')group.partial.push(phrase);
+  else if(v.status==='unverified')group.no.push(phrase);
+ }
+ for(const key of Object.keys(group))group[key]=uniqueParagraphItems(group[key]);
+ const notes=observedParagraphNotes(ind,d).filter(x=>{
+  const key=paragraphKey(x);return !noted.some(y=>{const n=paragraphKey(y);return key===n||key.includes(n)||n.includes(key)})
+ });
+ if(notes.length)group.yes.push(...notes);
+ group.yes=uniqueParagraphItems(group.yes);
+ return group;
+}
+function pgEffectClause(d){
+ const raw=cleanedSentence(d.impact).replace(/^في ضوء الشاهد المتعلق بـ«[^»]+»[،,]?\s*/u,'');
+ if(!raw)return '';
+ let phrase=raw.replace(/^(?:والأثر المتوقع غير المؤكد|الأثر المتوقع غير المؤكد|الأثر المتوقع|الأثر المتحقق)\s*[:：]\s*/u,'');
+ if(!d.effectVerified){
+  phrase=phrase.replace(/^من المتوقع أن\s+/u,'').replace(/^يُتوقع أن\s+/u,'');
+  return '، ويُتوقع أن '+phrase;
+ }
+ if(/^(?:أسهمت|أسهم|أدت|أدى|تحسنت|تحسن|تعززت|تعزز|زادت|زاد|ارتفعت|ارتفع|انخفضت|انخفض|انعكس|انعكست|ساعدت|ساعد|ضعفت|ضعف|استمرت|استمر|تراجعت|تراجع|تكررت|تكرر)\s/u.test(phrase))return '، وقد '+phrase;
+ if(/^وقد\s/u.test(phrase))return '، '+phrase;
+ return '، وتمثّل الأثر المرصود في '+phrase;
+}
 pgReportSentence=function(ind,d){
  if(d.finalText?.trim())return d.finalText.trim();
- if(!d.score)return 'لم يُقيّم هذا المؤشر.';
- const score=Number(d.score),levels={1:'متميز',2:'جيد',3:'ملائم',4:'غير ملائم',5:'يحتاج إلى تدخل سريع'};
+ const score=Number(d.score);
+ if(!score||score<1||score>5)return 'لم يُقيّم هذا المؤشر بعد.';
  const who=ind.id==='2.2.1'?'الطلبة العمانيون':ind.id==='2.2.2'?'الطلبة المعنيون':'الطلبة';
  const share={1:'جميع',2:'معظم',3:'أغلب',4:'عدد محدود من',5:'قلة قليلة من'};
- const element=cleanedSentence(d.evaluationElement)||cleanedSentence(ind.text);
- let sentence='يُظهر '+share[score]+' '+who+' '+element+' بمستوى '+levels[score];
- const groups=pgEvidenceGroups(d);
- const positive=groups.positive,partial=groups.partial,negative=groups.negative;
- const pos=positive.concat(partial.map(s=>s+' (تحقق جزئيًا)'));
- if(score<=2){
-  if(pos.length)sentence+='، ويتضح ذلك من خلال '+pos.join('، و');
-  if(negative.length)sentence+='، مع عدم تحقق بعض الممارسات، ومنها '+negative.join('، و');
- }else if(score===3){
-  if(pos.length)sentence+='، ويتضح ذلك من خلال '+pos.join('، و');
-  if(negative.length)sentence+='، مع جوانب تحتاج إلى تطوير تتمثل في '+negative.join('، و');
- }else{
-  if(negative.length)sentence+='، ويتضح ذلك من خلال عدم تحقق '+negative.join('، و');
-  if(pos.length)sentence+='، مع تحقق بعض الممارسات المتمثلة في '+pos.join('، و');
+ const qualitative={1:'بصورة متميزة',2:'بصورة جيدة',3:'بصورة ملائمة',4:'بصورة محدودة',5:'بصورة محدودة جدًا تستدعي تدخلًا سريعًا'};
+ const practice=cleanedSentence(d.evaluationElement)||pgPractice[ind.id]||cleanedSentence(ind.text);
+ const g=pgEvidencePhrase(ind,d);
+ let sentence='يُظهر '+share[score]+' '+who+' '+practice+' '+qualitative[score];
+ const main=score>=4?g.no:g.yes;
+ const secondary=score>=4?g.yes:g.no;
+ if(main.length){
+  if(score>=4)sentence+='، ويتضح ذلك من خلال ما رُصد من قصور في '+main.join('، و');
+  else sentence+='، ويتضح ذلك من خلال '+main.join('، و');
  }
- const indexed=findings(d).map(([,v])=>cleanedSentence(v.note||'')).filter(Boolean);
- const extra=observedParagraphNotes(ind,d).filter(x=>!indexed.some(y=>paragraphKey(y)===paragraphKey(x)||paragraphKey(y).includes(paragraphKey(x))||paragraphKey(x).includes(paragraphKey(y))));
- if(extra.length)sentence+='؛ ومن الملاحظات الأخرى '+uniqueParagraphItems(extra).join('؛ ');
- const ref=cleanedSentence(d.evidenceReferenceText);
- if(ref)sentence+='، وفق '+ref;
- const effect=structuredParagraphImpact(d);
- if(effect)sentence+='، '+effect.replace(/^،\s*/u,'');
+ if(g.partial.length)sentence+=(main.length?'، مع ':'، حيث رُصد تحقق جزئي في ')+(main.length?'تحقق جزئي في ':'')+g.partial.join('، و');
+ if(secondary.length){
+  sentence+=score>=4?'، في مقابل ممارسات تحققت في '+secondary.join('، و'):'، مع وجود جوانب لم تتحقق في '+secondary.join('، و');
+ }
+ const reference=cleanedSentence(d.evidenceReferenceText);
+ if(reference)sentence+='، وفق '+reference;
+ sentence+=pgEffectClause(d);
  return cleanedSentence(sentence)+'.';
 };
 integratedParagraph=pgReportSentence;
