@@ -63,7 +63,7 @@
 .simple-mode .paragraph-editor-tools button:disabled{opacity:.5;cursor:default}
 @media(max-width:600px){.simple-mode .integrated-preview [data-paragraph-editor]{min-height:200px;font-size:16px}.simple-mode .paragraph-editor-tools{align-items:stretch;flex-direction:column}}
 .pg-report-summary{background:#fbfcfc;border:1px solid #dbe5e7;border-radius:9px;padding:12px;margin:16px 0 25px}.pg-report-summary h4{margin:14px 0 7px;color:#25515d}.pg-report-detail{margin-top:20px}.pg-standard-title{background:#edf3f4;padding:8px 10px;border-radius:5px}@media print{.pg-report-summary{border:0;padding:0}.pg-report-detail{break-before:page}}
-.pg-evidence-status{display:block;width:100%;margin-top:5px;border:1px solid #cbdadd;background:#fff;border-radius:8px;padding:8px;font:inherit;font-size:13px;min-height:44px;cursor:pointer}.pg-evidence-unit{padding:10px!important;border:1px solid #e0e9e8!important;border-radius:9px}.pg-evidence-chosen{border-color:#80aaa5!important;background:#f4f9f8!important}.pg-evidence-unit .tick{font-weight:600}.pg-evidence-unit .tick input{display:none}.pg-evidence-unit details{margin-top:5px}
+.pg-evidence-status{font-size:16px;display:block;width:100%;margin-top:5px;border:1px solid #cbdadd;background:#fff;border-radius:8px;padding:8px;font:inherit;font-size:13px;min-height:44px;cursor:pointer}.pg-evidence-unit{padding:10px!important;border:1px solid #e0e9e8!important;border-radius:9px}.pg-evidence-chosen{border-color:#80aaa5!important;background:#f4f9f8!important}.pg-evidence-unit .tick{font-weight:600}.pg-evidence-unit .tick input{display:none}.pg-evidence-unit details{margin-top:5px}
 </style></head><body><header class="top noPrint"><div class="topin"><div class="brand"><h1>استمارة تقويم النمو الشخصي</h1><small>المجال الثاني · 4 معايير · 13 مؤشرًا</small></div><div class="tools"><span id="saveStatus" class="hint">جاهز</span><button class="btn secondary" id="backupBtn" type="button">نسخة احتياطية</button><button class="btn secondary" id="importBtn" type="button">استيراد</button><input type="file" id="importFile" accept=".json,application/json" hidden><button class="btn" id="reportBtn" type="button">عرض التقرير</button></div></div></header><main><section class="box noPrint"><div style="display:flex;justify-content:space-between;gap:9px;align-items:center;flex-wrap:wrap"><h2>بيانات الزيارة</h2><div class="stats"><span class="stat" id="progress">0 من 13 مؤشرًا</span><button type="button" class="btn muted" id="newSchool">زيارة جديدة</button></div></div><div class="fields"><div class="field"><label for="school">المدرسة</label><input id="school" autocomplete="off" placeholder="اسم المدرسة"></div><div class="field"><label for="year">العام الدراسي</label><input id="year" placeholder="2026/2027"></div><div class="field"><label for="day1">اليوم الأول</label><input id="day1" type="date"></div><div class="field"><label for="day2">اليوم الثاني</label><input id="day2" type="date"></div></div><div class="note">العبارات الاسترشادية قابلة للاختيار والتعديل كما في الأداة الأصلية. قد تتضمن أمثلة افتراضية؛ تحقق من الوقائع قبل اعتماد التقرير.</div></section><section class="box noPrint" style="padding:12px 18px"><div class="stats"><button class="btn muted" id="attendanceToggle" type="button">حاسبة الحضور</button><span id="attStatus" class="hint"></span></div><div class="attendance" id="attPanel"><div class="row2" style="margin:12px 0"><div class="field"><label for="attTotal">إجمالي الطلبة</label><input id="attTotal" type="number" min="1" step="1"></div><div class="field"><label for="attPresent">الحاضرون</label><input id="attPresent" type="number" min="0" step="1"></div></div><button class="btn secondary" id="attInsert" type="button">إضافة النسبة إلى دليل 2.1.2</button><p class="hint">النسبة اليومية استرشادية فقط ولا تمثل حكمًا نهائيًا على انتظام الطلبة.</p></div></section><div id="groups" class="noPrint"></div><div class="bottom noPrint"><button class="btn" id="finishBtn" type="button">إعداد التقرير من المدخلات</button></div><section id="report" class="box report"><div class="noPrint" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2>مسودة التقرير</h2><div class="tools"><button class="btn secondary" id="copyBtn" type="button">نسخ</button><button class="btn secondary" id="printBtn" type="button">طباعة / PDF</button><button class="btn muted" id="hideReport" type="button">العودة للتقييم</button></div></div><div id="reportContent"></div></section></main><div class="floating" id="toast"></div><script>/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
@@ -753,6 +753,7 @@ render=function(){
    if(!label||!wrap||wrap.querySelector('[data-evidence-status]'))return;
    wrap.classList.add('pg-evidence-unit');
    label.removeAttribute('for');
+   label.style.pointerEvents='none';
    checkbox.style.display='none';
    checkbox.tabIndex=-1;
    const field=document.createElement('select');field.className='pg-evidence-status';
@@ -777,6 +778,41 @@ approvalErrors=function(d){
  if(d.effectSource&&recorded.length&&!recorded.some(([source])=>source===d.effectSource))errors.push('اختر الشاهد المرتبط بالأثر مجددًا');
  return [...new Set(errors)];
 };
+
+
+/* Make the report paragraph identical across on-screen preview, Word export, and report copy.
+   Each documented observation appears once even if repeated in freeform evidence. */
+pgReportSentence=function(ind,d){
+ if(d.finalText?.trim())return d.finalText.trim();
+ if(!d.score)return 'لم يُقيّم هذا المؤشر.';
+ const score=Number(d.score),levels={1:'متميز',2:'جيد',3:'ملائم',4:'غير ملائم',5:'يحتاج إلى تدخل سريع'};
+ const who=ind.id==='2.2.1'?'الطلبة العمانيون':ind.id==='2.2.2'?'الطلبة المعنيون':'الطلبة';
+ const share={1:'جميع',2:'معظم',3:'أغلب',4:'عدد محدود من',5:'قلة قليلة من'};
+ const element=cleanedSentence(d.evaluationElement)||cleanedSentence(ind.text);
+ let sentence='يُظهر '+share[score]+' '+who+' '+element+' بمستوى '+levels[score];
+ const groups=pgEvidenceGroups(d);
+ const positive=groups.positive,partial=groups.partial,negative=groups.negative;
+ const pos=positive.concat(partial.map(s=>s+' (تحقق جزئيًا)'));
+ if(score<=2){
+  if(pos.length)sentence+='، ويتضح ذلك من خلال '+pos.join('، و');
+  if(negative.length)sentence+='، مع عدم تحقق بعض الممارسات، ومنها '+negative.join('، و');
+ }else if(score===3){
+  if(pos.length)sentence+='، ويتضح ذلك من خلال '+pos.join('، و');
+  if(negative.length)sentence+='، مع جوانب تحتاج إلى تطوير تتمثل في '+negative.join('، و');
+ }else{
+  if(negative.length)sentence+='، ويتضح ذلك من خلال عدم تحقق '+negative.join('، و');
+  if(pos.length)sentence+='، مع تحقق بعض الممارسات المتمثلة في '+pos.join('، و');
+ }
+ const indexed=findings(d).map(([,v])=>cleanedSentence(v.note||'')).filter(Boolean);
+ const extra=observedParagraphNotes(ind,d).filter(x=>!indexed.some(y=>paragraphKey(y)===paragraphKey(x)||paragraphKey(y).includes(paragraphKey(x))||paragraphKey(x).includes(paragraphKey(y))));
+ if(extra.length)sentence+='؛ ومن الملاحظات الأخرى '+uniqueParagraphItems(extra).join('؛ ');
+ const ref=cleanedSentence(d.evidenceReferenceText);
+ if(ref)sentence+='، وفق '+ref;
+ const effect=structuredParagraphImpact(d);
+ if(effect)sentence+='، '+effect.replace(/^،\s*/u,'');
+ return cleanedSentence(sentence)+'.';
+};
+integratedParagraph=pgReportSentence;
 
 window.addEventListener('pagehide',save);load();render();
 </script></body></html>
