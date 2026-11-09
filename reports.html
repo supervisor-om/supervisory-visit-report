@@ -505,6 +505,24 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
 
             <!-- عين المشرف (js/eye-core.js + js/eye.js) — لأصحابها في gate.js -->
             <div id="eye-view" class="hidden fade-in space-y-5">
+                <details class="bg-white border border-slate-200 rounded-2xl px-5 py-4">
+                    <summary class="cursor-pointer font-bold text-slate-900">
+                        <i class="fa-solid fa-book-open ml-2 text-blue-600" aria-hidden="true"></i>تحضير المعلم من نور
+                    </summary>
+                    <form autocomplete="off" class="mt-4 space-y-3">
+                        <p id="eyeNoorHelp" class="text-sm text-slate-600 leading-7">
+                            افتح تحضير الحصة في نور، وانسخ النص المطلوب ثم ألصقه هنا لمراجعته أثناء الرصد. يبقى النص في هذه الصفحة حتى تمسحه أو تعيد تحميلها.
+                        </p>
+                        <label for="eyeNoorPreparation" class="block text-sm font-semibold text-slate-700">نص التحضير</label>
+                        <textarea id="eyeNoorPreparation" rows="7" dir="auto" aria-describedby="eyeNoorHelp"
+                                  class="block w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm leading-7"
+                                  placeholder="ألصق المخرجات التعليمية، واستراتيجيات التدريس، وإجراءات الدرس، وأساليب التقويم."></textarea>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="https://lms.moe.gov.om/tsupv" target="_blank" rel="noopener noreferrer" class="svf-btn svf-btn-secondary svf-btn-sm">فتح نور في تبويب جديد</a>
+                            <button type="reset" class="svf-btn svf-btn-ghost svf-btn-sm">مسح نص التحضير</button>
+                        </div>
+                    </form>
+                </details>
                 <div id="eyeBody" class="space-y-5"></div>
             </div>
 
