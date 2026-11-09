@@ -8,8 +8,13 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v74';
+const VERSION = 'v75';
 const CACHE_NAME = `supervisory-${VERSION}`;
+// النماذج والمكتبات الثقيلة (vendor/) في ذاكرةٍ مستقلّةٍ لا يمسحها رفع VERSION — النموذج القويّ وحده ٣٦ ميغابايت،
+// فلا يُعاد تنزيله مع كلّ تحديثٍ للموقع. تُرفع VENDOR_VERSION فقط إن تغيّر ملفٌّ في vendor/ بالاسم نفسه.
+const VENDOR_VERSION = 'v1';
+const VENDOR_CACHE = `supervisory-vendor-${VENDOR_VERSION}`;
+const isVendor = url => url.pathname.indexOf('/vendor/') !== -1;
 
 const ASSETS = [
     './',
@@ -79,21 +84,29 @@ self.addEventListener('install', event => {
     );
 });
 
-// التفعيل: امسح أي ذاكرة من إصدار سابق ثم تولَّ التحكم فوراً
+// ملفّات vendor/ في ذاكرةٍ قديمة (قبل الذاكرة المستقلّة) تُنقل إليها قبل المسح، فلا يُعاد تنزيل النموذج
+async function keepVendor(oldName) {
+    const old = await caches.open(oldName), keep = await caches.open(VENDOR_CACHE);
+    const reqs = (await old.keys()).filter(r => isVendor(new URL(r.url)));
+    await Promise.all(reqs.map(async r => { const res = await old.match(r); if (res && !(await keep.match(r))) await keep.put(r, res); }));
+}
+
+// التفعيل: امسح أي ذاكرة من إصدار سابق (بعد نقل نماذجها) ثم تولَّ التحكم فوراً
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys()
             .then(keys => Promise.all(
-                keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+                keys.filter(k => k !== CACHE_NAME && k !== VENDOR_CACHE).map(k =>
+                    (/^supervisory-v\d/.test(k) ? keepVendor(k).catch(() => {}) : Promise.resolve()).then(() => caches.delete(k)))
             ))
             .then(() => self.clients.claim())
     );
 });
 
-function putInCache(request, response) {
+function putInCache(request, response, name) {
     if (response && response.status === 200) {
         const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+        caches.open(name || CACHE_NAME).then(cache => cache.put(request, clone));
     }
     return response;
 }
@@ -109,11 +122,11 @@ self.addEventListener('fetch', event => {
     const sameOrigin = url.origin === self.location.origin;
 
     // نموذج كشف الطلبة (vendor/ — ملفّاتٌ ثابتةٌ كبيرة لا تتغيّر إلّا بإصدار): الذاكرة أولاً،
-    // فيُجلب مرّةً عند أوّل استعمالٍ لعين المشرف ثمّ يعمل بلا شبكة. لا يُخزَّن مسبقاً: يحتاجه صاحبها وحده.
-    if (sameOrigin && url.pathname.indexOf('/vendor/') !== -1) {
+    // فيُجلب مرّةً عند أوّل استعمالٍ لعين المشرف (أو «فحص الجاهزيّة») ثمّ يعمل بلا شبكة. لا يُخزَّن مسبقاً: يحتاجه صاحبها وحده.
+    if (sameOrigin && isVendor(url)) {
         event.respondWith(
             caches.match(request).then(cached =>
-                cached || fetch(request).then(response => putInCache(request, response))
+                cached || fetch(request).then(response => putInCache(request, response, VENDOR_CACHE))
             )
         );
         return;

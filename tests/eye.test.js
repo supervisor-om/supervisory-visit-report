@@ -430,9 +430,9 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('wiring: الميكروفون يُختار، و«على المعلّم»', /deviceId = \{ exact: id \}/.test(UI) && /chk\('eyeTeacherMic'/.test(UI) && /enumerateDevices/.test(UI));
     check('wiring: أزرار عناصر الحصة الخمسة والعدّادات تُنقص', /E\(\)\.PARTS\.map/.test(UI) && /data-dec="\$\{k\}"/.test(UI) && /function resuggest\(\)/.test(UI));
     check('wiring: لا تُحفظ صورٌ ولا صوت (بعد المرحلة الأولى)', !/toDataURL|MediaRecorder|toBlob/.test(UI)
-          && (UI.match(/localStorage\.setItem\(/g) || []).length === 5 && /localStorage\.setItem\('svf_eye_show'/.test(UI)
+          && (UI.match(/localStorage\.setItem\(/g) || []).length === 6 && /localStorage\.setItem\('svf_eye_show'/.test(UI) && /localStorage\.setItem\(BENCH_KEY, JSON\.stringify\(/.test(UI)
           && /localStorage\.setItem\(CK_KEY, JSON\.stringify\(ck\)\)/.test(UI) && /localStorage\.setItem\(LAST_KEY, JSON\.stringify\(\{ at: Date\.now\(\), form: formSig\(\), data \}\)\)/.test(UI) && /localStorage\.setItem\(REC_KEY/.test(UI)
-          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv', 'eyeTrial'\];/.test(UI));
+          && /localStorage\.setItem\(PREF_KEY, JSON\.stringify\(p\)\)/.test(UI) && /const PREF_IDS = \['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeModel', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv', 'eyeTrial'\];/.test(UI));
 }
 
 /* ── ١٦) التوصيل — العناصر والبطاقة والمداولة والنموذج ── */
@@ -1337,9 +1337,9 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('yolox: فكّ الشبكة (الإزاحة × الخطوة، والعرض بالأسّ) بنسبة الصورة', P.length === 1 && Math.abs(P[0].x * 416 - 28) < 0.01 && Math.abs(P[0].y * 416 - 44) < 0.01 && Math.abs(P[0].w * 416 - 32) < 0.01 && Math.abs(P[0].h * 416 - 80) < 0.01);
     check('yolox: الثقة = «فيه شيء» × الصنف، والمكرّر يُزال، والكرة صنفها، والضعيف يُترك', Math.abs(P[0].score - 0.81) < 1e-6 && D.filter(d => d.label === 'sports ball').length === 1 && D.length === 2);
     const UI = read('js/eye.js'), WK = read('js/eye-detect-worker.js'), SW = read('sw.js');
-    check('wiring: العامل يحمّل ONNX Runtime والمعالجة نفسها، على المعالج بخيطٍ واحد', /import \* as ortNS from '\.\.\/vendor\/onnx\/ort\.wasm\.min\.mjs';/.test(WK) && /import '\.\/eye-yolox\.js';/.test(WK)
-          && /executionProviders: \['wasm'\]/.test(WK) && /numThreads = 1/.test(WK) && !/postMessage\([^)]*buf/.test(WK.replace(/m\.buf/g, '')));
-    check('wiring: YOLOX أوّلاً وإن تعذّر فـCenterNet، والصورة نسخةٌ تُنقل ولا تُحفظ', /try \{ eng = await yoloxEngine\(\); \} catch/.test(UI) && /if \(!eng\) eng = await humanEngine\(\);/.test(UI)
+    check('wiring: العامل يحمّل ONNX Runtime والمعالجة نفسها، على المعالج بخيطٍ واحد', /await import\('\.\.\/vendor\/onnx\/ort\.wasm\.min\.mjs'\)/.test(WK) && /import '\.\/eye-yolox\.js';/.test(WK)
+          && /executionProviders: \[gpu \? 'webgpu' : 'wasm'\]/.test(WK) && /numThreads = 1/.test(WK) && !/postMessage\([^)]*buf/.test(WK.replace(/m\.buf/g, '')));
+    check('wiring: YOLOX أوّلاً وإن تعذّر فـCenterNet، والصورة نسخةٌ تُنقل ولا تُحفظ', /if \(!eng\) try \{ eng = await yoloxEngine\('light', 'wasm', false, onProgress\); \} catch/.test(UI) && /if \(!eng\) eng = await humanEngine\(\);/.test(UI)
           && /const res = await AI\.engine\.detect\(c, rgba, cw, ch\);/.test(UI) && /new Uint8ClampedArray\(rgba\)\.buffer/.test(UI) && !/toDataURL|MediaRecorder|toBlob/.test(UI + WK));
     const fs = require('fs'), path = require('path'), V = f => fs.existsSync(path.join(__dirname, '..', 'vendor', 'onnx', f));
     check('vendor: النموذج والمشغّل وترخيصاهما، وفي عامل الخدمة', ['ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm', 'yolox_nano.onnx', 'LICENSE-YOLOX', 'LICENSE-onnxruntime', 'README.md'].every(V)
@@ -1888,6 +1888,103 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('try43: تحدّي القفز (2026-11-07) — لاعبٌ واحد بزرّ «ابدأ تحدّي القفز»، js/jump-core.js يعدّ من الصورة في كلّ إطار، ويُعدّ في «jump» وحده، ورقم اليوم',
           /<script src="js\/jump-core\.js(\?v=\d+)?"><\/script>/.test(H) && /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(JS)
           && /cycle: ALL && Q\.get\('game'\) !== 'jump' \? \['whistle'\] : \[\]/.test(JS) && /id="jumpBtn"/.test(H) && /'js\/jump-core\.js(\?v=\d+)?'/.test(JS) && /DAY\.jump = n;/.test(JS));
+}
+
+/* ── ٤٤) نموذج الكشف خفيفٌ أو قويّ، وفحص الجاهزيّة (2026-11-09): القويّ YOLOX‑S ‏640 على بطاقة الرسوم لـiPad M4 والحواسيب الحديثة ── */
+{
+    const M = E.MODELS;
+    check('model: الخفيف YOLOX‑Nano ‏416 كما كان، والقويّ YOLOX‑S ‏640 بلقطاتٍ أقرب وكاميرا ‎1080p',
+          M.light.file === 'yolox_nano.onnx' && M.light.size === 416 && M.light.name === 'yolox' && M.light.every === 500
+          && M.strong.file === 'yolox_s.onnx' && M.strong.size === 640 && M.strong.name === 'yolox-s' && M.strong.every < M.light.every && M.strong.cam[0] === 1920);
+    const files = ['light', 'strong'].flatMap(l => ['webgpu', 'wasm'].flatMap(ep => E.filesFor(l, ep)));
+    check('model: ملفّات النموذجين والمشغّلين موجودةٌ في vendor/onnx', files.every(f => fs.existsSync(path.join(ROOT, 'vendor/onnx', f))), files.filter(f => !fs.existsSync(path.join(ROOT, 'vendor/onnx', f))).join());
+    const Y = require('../js/eye-yolox.js');
+    check('model: المعالجة بعد النموذج تعمل للمقاسين (٣٥٤٩ و٨٤٠٠ صفّاً)', Y.rows(416) === 3549 && Y.rows(640) === 8400);
+
+    const P = o => E.pickModel(o);
+    check('model: «خفيف» خفيفٌ دائماً، و«قويّ» يجرّب بطاقة الرسوم ما لم يُعرف أنّها غير متاحة',
+          P({ want: 'light', gpu: true, bench: { strong: { ms: 30, ep: 'webgpu' } } }).level === 'light'
+          && P({ want: 'strong', gpu: null }).ep === 'webgpu' && P({ want: 'strong', gpu: true }).ep === 'webgpu' && P({ want: 'strong', gpu: false }).ep === 'wasm');
+    check('model: «تلقائيّ» بلا فحصٍ ← الخفيف (لا يُنزّل ٣٦ ميغابايت وسط الحصة)', P({ want: 'auto', gpu: true }).level === 'light' && /فحص الجاهزيّة/.test(P({ gpu: true }).why));
+    check('model: «تلقائيّ» يختار القويّ حين أثبت الفحص سرعته، على طريقه (بطاقة الرسوم أو المعالج)',
+          P({ want: 'auto', gpu: true, bench: { strong: { ms: 60, ep: 'webgpu' } } }).level === 'strong' && P({ gpu: true, bench: { strong: { ms: 60, ep: 'webgpu' } } }).ep === 'webgpu'
+          && P({ gpu: false, bench: { strong: { ms: 380, ep: 'wasm' } } }).ep === 'wasm' && P({ gpu: true, bench: { strong: { ms: E.MODEL_AUTO_MS, ep: 'webgpu' } } }).level === 'strong');
+    check('model: «تلقائيّ» يعود إلى الخفيف: بطيء، أو تعذّر، أو لم يُجرَّب، أو زالت بطاقة الرسوم، أو مُسحت ملفّاته',
+          P({ gpu: true, bench: { strong: { ms: E.MODEL_AUTO_MS + 1, ep: 'webgpu' } } }).level === 'light'
+          && P({ gpu: true, bench: { strong: { fail: 'x', ep: 'webgpu' } } }).level === 'light' && P({ gpu: false, bench: { strong: { skip: true } } }).level === 'light'
+          && P({ gpu: false, bench: { strong: { ms: 50, ep: 'webgpu' } } }).level === 'light' && P({ gpu: true, cached: false, bench: { strong: { ms: 50, ep: 'webgpu' } } }).level === 'light'
+          && P({ gpu: true, cached: null, bench: { strong: { ms: 50, ep: 'webgpu' } } }).level === 'strong');
+    check('model: يُجرَّب القويّ في الفحص مع بطاقة الرسوم، وبدونها إن كان المعالج سريعاً كفاية',
+          E.strongWorth(true, 0) && E.strongWorth(false, 30) && !E.strongWorth(false, 140) && !E.strongWorth(false, 0) && E.MODEL_SLOW_MS > E.MODEL_AUTO_MS);
+
+    const R = (r, w) => E.readyRows(r, w || 'auto');
+    const ipad = { platform: 'ios', secure: true, sw: true, standalone: false, cam: { w: 1920, h: 1080 }, mic: true, gpu: { ok: true, name: 'apple' },
+                   light: { ms: 40 }, strong: { ms: 45, ep: 'webgpu' }, store: { usage: 1e8, quota: 5e10, persisted: false }, battery: false };
+    const r1 = R(ipad), k = (x, key) => x.rows.find(z => z.k === key);
+    check('ready: iPad جاهز ← القويّ على بطاقة الرسوم، والتثبيت بشرح Safari، والبطارية نصيحةٌ لا خطأ',
+          r1.ok && r1.pick.level === 'strong' && /القويّ \(YOLOX‑S، بطاقة الرسوم\)/.test(r1.text) && /إضافة إلى الشاشة الرئيسيّة/.test(k(r1, 'install').fix)
+          && k(r1, 'battery').ok === null && k(r1, 'store').ok === null && /ثبّت/.test(k(r1, 'store').fix), r1.text);
+    check('ready: الكاميرا المرفوضة أو الخفيف المتعذّر أو الاتّصال غير الآمن ← غير جاهز بإصلاحٍ واضح',
+          !R(Object.assign({}, ipad, { cam: { err: 'denied' } })).ok && /إعدادات المتصفّح/.test(k(R(Object.assign({}, ipad, { cam: { err: 'denied' } })), 'cam').fix)
+          && !R(Object.assign({}, ipad, { light: { fail: 'x' } })).ok && !R(Object.assign({}, ipad, { secure: false })).ok);
+    const slow = R(Object.assign({}, ipad, { gpu: { ok: false }, strong: { skip: true }, light: { ms: 300 } }));
+    check('ready: جهازٌ ضعيف بلا بطاقة رسوم ← جاهزٌ بالخفيف، والقويّ «لم يُجرَّب» وبطاقة الرسوم معلومةٌ بنصيحة التحديث',
+          slow.ok && slow.pick.level === 'light' && k(slow, 'strong').ok === null && k(slow, 'gpu').ok === null && /iPadOS/.test(k(slow, 'gpu').fix), slow.text);
+    const prog = R({ light: { p: 40 }, strong: { p: 10, ep: 'webgpu' } });
+    check('ready: أثناء التنزيل نسبته وحجمه، والصفوف غير المفحوصة لا تظهر',
+          prog.rows.length === 2 && /٤٠|40/.test(prog.rows[0].t) && /65 ميغابايت/.test(prog.rows[1].t) && R({}).rows.length === 0);
+    check('ready: «قويّ» المختار يُحترم في الخلاصة ولو كان بطيئاً', R(Object.assign({}, ipad, { strong: { ms: 700, ep: 'webgpu' } }), 'strong').pick.level === 'strong'
+          && R(Object.assign({}, ipad, { strong: { ms: 700, ep: 'webgpu' } })).pick.level === 'light');
+    check('ready: البطارية المنخفضة بلا شحن تنبيه، وتخزينٌ دائم ومثبّت ← علامتا جاهز',
+          k(R({ battery: { level: 0.3, charging: false } }), 'battery').ok === false && k(R({ battery: { level: 0.3, charging: true } }), 'battery').ok === true
+          && k(R({ store: { usage: 1, quota: 5e10, persisted: true } }), 'store').ok === true && k(R({ standalone: true }), 'install').ok === true
+          && k(R({ store: { usage: 4.99e10, quota: 5e10, persisted: true } }), 'store').ok === false);
+
+    // العامل: يختار المشغّل بطريقه، ويُبلغ التنزيل، ولا يعود صامتاً إلى المعالج بنموذجٍ ثقيل
+    const W = read('js/eye-detect-worker.js');
+    check('worker: مشغّل بطاقة الرسوم أو المعالج بحسب الطلب، وطريقٌ واحدٌ في الجلسة، وبلا خيوطٍ متعدّدة',
+          /gpu \? await import\('\.\.\/vendor\/onnx\/ort\.webgpu\.min\.mjs'\) : await import\('\.\.\/vendor\/onnx\/ort\.wasm\.min\.mjs'\)/.test(W)
+          && /executionProviders: \[gpu \? 'webgpu' : 'wasm'\]/.test(W) && /numThreads = 1/.test(W) && !/^import \* as ortNS/m.test(W));
+    check('worker: تقدّم التنزيل، و«nogpu» حين لا يرى العامل بطاقة الرسوم، والاستقبال يُربط في العامل وحده',
+          /post\(\{ type: 'progress', p \}\)/.test(W) && /code: 'nogpu'/.test(W) && /export function createRunner\(post\)/.test(W)
+          && /if \(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope\)/.test(W) && /post\(\{ type: 'ready', ep: EP, size: SIZE \}\)/.test(W));
+    const PEND = (async () => {
+        const mod = await import(path.join(ROOT, 'js/eye-detect-worker.js'));
+        const got = [];
+        const run = mod.createRunner(m => got.push(m));
+        await run({ type: 'init', ep: 'webgpu', base: '', model: 'x', size: 640 });     // node بلا بطاقة رسوم
+        await run({ type: 'detect', id: 3, w: 2, h: 2, buf: new ArrayBuffer(16) });
+        check('worker: بلا بطاقة رسوم ← خطأ nogpu بلا تحميل، والكشف قبل التحميل خطأٌ برقمه',
+              got[0] && got[0].type === 'error' && got[0].code === 'nogpu' && got[1] && got[1].type === 'error' && got[1].id === 3, JSON.stringify(got));
+    })();
+    PENDING.push(PEND);
+
+    const UI = read('js/eye.js');
+    check('ui: «نموذج كشف الطلبة» (تلقائيّ/خفيف/قويّ) يُحفظ مع الإعدادات، وسببه يُعرض تحته',
+          /<select id="eyeModel"/.test(UI) && /<option value="auto">تلقائيّ/.test(UI) && /<option value="light">خفيف/.test(UI) && /<option value="strong">قويّ — iPad M4/.test(UI)
+          && /const PREF_IDS = \[[^\]]*'eyeModel'/.test(UI) && /id="eyeModelWhy"/.test(UI) && /function modelWhy\(\)/.test(UI));
+    check('ui: الحصة تحمّل ما يختاره pickModel، وتبدّل المحرّك إن تغيّر المستوى، والكاميرا بدقّة النموذج',
+          /const plan = modelPlan\(\);\s+aiState\('كشف الطلبة: تحميل…'\);\s+loadAI\(plan,/.test(UI) && /if \(AI\.loading && AI\.planKey === key\) return AI\.loading;/.test(UI)
+          && /E\(\)\.MODELS\[\(AI\.engine && AI\.engine\.level\) \|\| modelPlan\(\)\.level\]\.cam/.test(UI) && (UI.match(/const video = camConstraints\(\);/g) || []).length === 2
+          && /const base = Math\.round\(\(\(AI\.engine && AI\.engine\.every\) \|\| 500\) \/ r\);/.test(UI));
+    check('ui: القويّ يتعذّر ← الخفيف؛ وبطاقة الرسوم في العامل ثمّ في الصفحة؛ وبطؤه أو خطؤه أثناء الحصة ← الخفيف ويُذكر للتلقائيّ',
+          /if \(!eng\) try \{ eng = await yoloxEngine\('light', 'wasm', false, onProgress\); \}/.test(UI) && /if \(e && e\.code === 'nogpu'\) return yoloxEngine\('strong', 'webgpu', true, onProgress\);/.test(UI)
+          && /AI\.sslow = AI\.lastMs > E\(\)\.MODEL_SLOW_MS \? AI\.sslow \+ 1 : 0;\s+if \(AI\.sslow >= 3\) \{ downgrade\('slow'\); return; \}/.test(UI)
+          && /saveBench\(\{ strong: why === 'slow'/.test(UI) && /loadAI\(\{ level: 'light', ep: 'wasm' \}\)/.test(UI));
+    check('ui: فحص الجاهزيّة: الكاميرا لحظةً وتُغلق، والنموذجان بإطارٍ صناعيّ، والتخزين الدائم، والبطارية — ونتيجته للتلقائيّ',
+          /id="eyeReadyGo"/.test(UI) && /async function runReady\(\)/.test(UI) && /st\.getTracks\(\)\.forEach\(x => x\.stop\(\)\);/.test(UI)
+          && /async function benchEngine\(level, ep, onProgress\)/.test(UI) && /sto\.persist\(\)/.test(UI) && /navigator\.getBattery/.test(UI)
+          && /saveBench\(\{ at: Date\.now\(\), dev, gpu: g\.ok, light: r\.light, strong: r\.strong \}\)/.test(UI) && /if \(S\.running \|\| AI\.readyBusy\) return;/.test(UI));
+    check('ui: نصوص الفحص تدخل بـesc، ونافذة التثبيت لصاحب العين وحده',
+          /esc\(x\.t\)/.test(UI) && /esc\(x\.fix\)/.test(UI) && /esc\(R\.text\)/.test(UI)
+          && /addEventListener\('beforeinstallprompt', e => \{\s+if \(!\(root\.SupervisorGate && SupervisorGate\.canEye && SupervisorGate\.canEye\(\)\)\) return;/.test(UI));
+    check('ui: التجربة الميدانيّة تذكر طريق الكشف والقويّ المتروك، وتسمّي النموذجين', /ep: S\.src !== 'none' && AI\.engine && AI\.count \? AI\.engine\.ep \|\| null : null, down: AI\.down \|\| null/.test(UI)
+          && /'yolox-s': 'YOLOX‑S'/.test(UI) && E.trialLesson({ trial: { ep: 'webgpu', det: 'yolox-s' } }).ep === 'webgpu' && /,backend$/.test(E.trialCsv({ lessons: [] })));
+
+    const SW = read('sw.js');
+    check('sw: النماذج في ذاكرةٍ مستقلّةٍ لا يمسحها رفع VERSION، وتُنقل إليها من الذاكرة القديمة',
+          /const VENDOR_CACHE = `supervisory-vendor-\$\{VENDOR_VERSION\}`;/.test(SW) && /k !== CACHE_NAME && k !== VENDOR_CACHE/.test(SW)
+          && /putInCache\(request, response, VENDOR_CACHE\)/.test(SW) && /keepVendor\(k\)/.test(SW) && !/vendor\/onnx/.test(SW.slice(SW.indexOf('const ASSETS'), SW.indexOf('];'))));
 }
 
 Promise.all(PENDING).catch(e => { failures++; console.log('FAIL async: ' + (e && e.message)); }).then(() => {

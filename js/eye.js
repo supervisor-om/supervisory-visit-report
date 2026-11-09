@@ -82,8 +82,20 @@
     const LANGS = () => (SX() && SX().LANGS) || ['ar-OM', 'ar-SA'];
     const LG = () => root.SvfLessonGuide;
     const AI = { engine: null, loading: null, ok: false, busy: false, fail: 0, T: null, prevG: null, prevKey: '', canvas: null, cx: null,
-                 timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5 };
+                 timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5,
+                 // نموذج الكشف: gpu/cached ‏null حتّى يُفحص الجهاز، planKey المستوى المحمَّل، sslow بطء القويّ، down القويّ إن تُرك أثناء الحصة
+                 gpu: null, gpuName: '', cached: null, planKey: '', fellBack: '', sslow: 0, r: 1, down: '', readyBusy: false };
     const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false, lost: false });
+    // نافذة «التثبيت على الجهاز» في Chrome وEdge: تُحفظ لزرّ الفحص — لصاحب العين وحده، فلا يتغيّر المتصفّح عند غيره من المشرفين
+    let installEvt = null;
+    try {
+        root.addEventListener('beforeinstallprompt', e => {
+            if (!(root.SupervisorGate && SupervisorGate.canEye && SupervisorGate.canEye())) return;
+            e.preventDefault(); installEvt = e;
+            const b = document.getElementById('eyeInstall');
+            if (b) b.classList.remove('hidden');
+        });
+    } catch (e) { /* لا تثبيت */ }
 
     // ── سياق الزيارة المفتوحة ──
     const female = () => { try { return typeof getSupervisoryGender === 'function' && getSupervisoryGender() === 1; } catch (e) { return false; } };
@@ -207,6 +219,21 @@ function tagRowHtml(k) {
                                 <select id="eyeMicDev" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm" aria-label="الميكروفون"><option value="">الميكروفون الافتراضي</option></select>
                                 ${chk('eyeTeacherMic', 'الميكروفون على المعلّم (لاسلكيّ)', false, 'ميكروفونٌ لاسلكيٌّ على ياقة المعلّم: يصير الكلام المرصود كلامه')}
                                 <label id="eyeSpeechLbl" class="flex items-center gap-2 text-sm text-slate-700" title="يحوّل كلام المعلّم إلى نصٍّ ويحلّله: التعزيز والتصحيح والأسئلة والتحقّق من الفهم والسلامة — بإذن المعلّم"><input type="checkbox" id="eyeSpeech" class="w-5 h-5"> فهم الكلام (بإذن المعلّم)</label>
+                            </div>
+                            <div class="space-y-2 sm:col-span-2">
+                                <div class="text-xs font-bold text-slate-500">الجهاز ونموذج الكشف</div>
+                                <label class="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-700">نموذج كشف الطلبة
+                                    <select id="eyeModel" class="max-w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                                        <option value="auto">تلقائيّ — بحسب فحص الجاهزيّة</option>
+                                        <option value="light">خفيف — للأجهزة الضعيفة</option>
+                                        <option value="strong">قويّ — iPad M4 والحواسيب الحديثة</option>
+                                    </select></label>
+                                <p id="eyeModelWhy" class="text-xs text-slate-500 leading-5"></p>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" id="eyeReadyGo" class="svf-btn svf-btn-secondary svf-btn-sm" title="يفتح الكاميرا لحظةً، وينزّل النموذجين مرّةً للعمل بلا شبكة، ويقيس سرعتهما على هذا الجهاز"><i class="fa-solid fa-stethoscope" aria-hidden="true"></i> فحص الجاهزيّة</button>
+                                    <button type="button" id="eyeInstall" class="hidden svf-btn svf-btn-ghost svf-btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> ثبّت على الجهاز</button>
+                                </div>
+                                <div id="eyeReady" class="hidden text-sm text-slate-700" aria-live="polite"></div>
                             </div>
                             <div class="space-y-1 sm:col-span-2">
                                 <div class="text-xs font-bold text-slate-500">التجربة الميدانيّة</div>
@@ -608,6 +635,14 @@ function tagRowHtml(k) {
         applyAdv();
         PREF_IDS.forEach(id => { const el = $(id); if (el) el.addEventListener('change', savePrefs); });
         setSummary();
+        // نموذج الكشف وفحص الجاهزيّة: ما يُختار للحصة القادمة يُعرض تحت الاختيار
+        $('eyeModel').addEventListener('change', modelWhy);
+        $('eyeAI').addEventListener('change', modelWhy);
+        $('eyeReadyGo').addEventListener('click', runReady);
+        $('eyeInstall').addEventListener('click', installApp);
+        if (installEvt) $('eyeInstall').classList.remove('hidden');
+        modelWhy();
+        probeDevice();
         // مجرى الحصة: المرور (أو اللمس) يعرض وقت المقطع وعنصره وحالته وأرقامه
         $('eyeTimeline').addEventListener('pointermove', tlTip);
         $('eyeTimeline').addEventListener('pointerdown', tlTip);
@@ -626,7 +661,7 @@ function tagRowHtml(k) {
 
     // ── الإعدادات المحفوظة ──
     const PREF_KEY = 'svf_eye_prefs';
-    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv', 'eyeTrial'];
+    const PREF_IDS = ['eyeFacing', 'eyeSens', 'eyeRate', 'eyeAI', 'eyeModel', 'eyeMic', 'eyeMicDev', 'eyeTeacherMic', 'eyeSpeech', 'eyeDraftUrl', 'eyeDraftKey', 'eyeAdv', 'eyeTrial'];
     function readPrefs() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); return p && typeof p === 'object' ? p : null; } catch (e) { return null; } }
     // الأدوات المتقدّمة تُضبط في المحرّك من أوّل تحميلٍ للصفحة — قبل أن تُفتح العين (أدلّة الاستمارة تُقرأ منه أيضاً)
     try { if (E()) E().setAdv(!!(readPrefs() || {}).eyeAdv); } catch (e) { /* الافتراض */ }
@@ -665,7 +700,7 @@ function tagRowHtml(k) {
         const mic = $('eyeMicDev'), micName = mic && mic.value ? (mic.selectedOptions[0] || {}).textContent : '';
         el.textContent = '— ' + [
             $('eyeFacing').value === 'user' ? 'الكاميرا الأماميّة' : 'الكاميرا الخلفيّة',
-            checked('eyeAI') ? 'كشف الطلبة' : 'بلا كشف الطلبة',
+            checked('eyeAI') ? 'كشف الطلبة' + ({ light: ' (خفيف)', strong: ' (قويّ)' }[$('eyeModel').value] || '') : 'بلا كشف الطلبة',
             checked('eyeMic') ? 'الصوت' + (checked('eyeTeacherMic') ? ' من ميكروفون المعلّم' : micName ? ': ' + micName : '') : 'بلا صوت',
             checked('eyeSpeech') ? 'فهم الكلام' : '',
             checked('eyeAdv') ? 'الأدوات المتقدّمة' : '',
@@ -2001,8 +2036,7 @@ function tagRowHtml(k) {
             message('هذا المتصفّح لا يتيح الكاميرا هنا. افتح الموقع عبر https في Chrome أو Safari أو Edge.');
             return;
         }
-        const hi = checked('eyeAI');
-        const video = { facingMode: { ideal: $('eyeFacing').value }, width: { ideal: hi ? 1280 : 640 }, height: { ideal: hi ? 720 : 480 } };
+        const video = camConstraints();
         const wantMic = checked('eyeMic');
         let stream = null;
         try {
@@ -2421,33 +2455,204 @@ function tagRowHtml(k) {
     // نموذج الكشف (2026-10-29): YOLOX‑Nano في عاملٍ في الخلفيّة (vendor/onnx/، المعالج — لا تتجمّد الصفحة ولا يعتمد على بطاقة الرسوم)،
     // وإن تعذّر فـCenterNet السابق (vendor/human/). كلاهما يُرجع {object: [{label, score, boxRaw: [x, y, w, h]}]} بنسبة اللوح.
     // SVF_EYE_ENGINE = 'human' يفرض السابق (للفحص والمقارنة).
-    function yoloxEngine() {
+    // ── نموذج الكشف: خفيفٌ أو قويّ (2026-11-09) — الاختيار والجداول في النواة (MODELS، pickModel، readyRows) ──
+    // منفذ الكشف: عاملٌ في الخلفيّة، أو الصفحة نفسها حين لا يرى العامل بطاقة الرسوم (احتياط؛ البروتوكول نفسه — createRunner)
+    async function detPort(inPage) {
+        const url = new URL('js/eye-detect-worker.js', document.baseURI).href;
+        if (!inPage) return new Worker(url, { type: 'module' });
+        const mod = await import(url);
+        let dead = false;
+        const port = { onmessage: null, onerror: null };
+        const run = mod.createRunner(msg => { if (!dead && port.onmessage) port.onmessage({ data: msg }); });
+        port.postMessage = m => { if (!dead) run(m); };
+        port.terminate = () => { if (!dead) run({ type: 'close' }); dead = true; };
+        return port;
+    }
+    // محرّك YOLOX بمستواه (light|strong) وطريقه (wasm|webgpu). onProgress(نسبة التنزيل)
+    function yoloxEngine(level, ep, inPage, onProgress) {
+        const M = E().MODELS[level === 'strong' ? 'strong' : 'light'];
         return new Promise((resolve, reject) => {
-            let w;
-            try { w = new Worker(new URL('js/eye-detect-worker.js', document.baseURI), { type: 'module' }); } catch (e) { reject(e); return; }
             const base = new URL('vendor/onnx/', document.baseURI).href, wait = new Map();
-            let seq = 0, ready = false;
-            const fail = err => { clearTimeout(to); try { w.terminate(); } catch (e) { /* انتهى */ } wait.forEach(p => p.rej(err)); wait.clear(); if (!ready) reject(err); };
-            const to = setTimeout(() => fail(new Error('انتهت مهلة تحميل النموذج')), 60000);
-            const engine = {
-                name: 'yolox', label: 'YOLOX',
-                detect: (canvas, rgba, cw, ch) => new Promise((res, rej) => {
-                    const id = ++seq, buf = new Uint8ClampedArray(rgba).buffer;      // نسخةٌ تُنقل إلى العامل؛ الأصل يبقى للزيّ والحركة
-                    wait.set(id, { res, rej });
-                    w.postMessage({ type: 'detect', id, w: cw, h: ch, buf, person: E().PERSON_MIN_SCORE, ball: E().BALL_MIN_SCORE }, [buf]);
-                }).then(m => ({ object: m.dets.map(d => ({ label: d.label, score: d.score, boxRaw: [d.x, d.y, d.w, d.h] })), ms: m.ms })),
-                stop: () => { try { w.terminate(); } catch (e) { /* انتهى */ } }
-            };
-            w.onmessage = e => {
-                const m = e.data || {};
-                if (m.type === 'ready') { ready = true; clearTimeout(to); resolve(engine); return; }
-                const p = m.id != null ? wait.get(m.id) : null;
-                if (p) { wait.delete(m.id); if (m.type === 'dets') p.res(m); else p.rej(new Error(m.error)); }
-                else if (m.type === 'error') fail(new Error(m.error));
-            };
-            w.onerror = e => { if (e && e.preventDefault) e.preventDefault(); fail(new Error((e && e.message) || 'عامل الكشف')); };
-            w.postMessage({ type: 'init', base, model: base + 'yolox_nano.onnx', size: 416 });
+            let w = null, seq = 0, ready = false, to = 0;
+            const fail = err => { clearTimeout(to); try { if (w) w.terminate(); } catch (e) { /* انتهى */ } wait.forEach(p => p.rej(err)); wait.clear(); if (!ready) reject(err); };
+            const arm = () => { clearTimeout(to); to = setTimeout(() => fail(new Error('انتهت مهلة تحميل النموذج')), 60000); };   // تتجدّد مع كلّ تقدّمٍ في التنزيل
+            arm();
+            detPort(inPage).then(port => {
+                w = port;
+                const engine = {
+                    name: M.name, label: M.label, level: level === 'strong' ? 'strong' : 'light', ep, every: M.every,
+                    detect: (canvas, rgba, cw, ch) => new Promise((res, rej) => {
+                        const id = ++seq, buf = new Uint8ClampedArray(rgba).buffer;      // نسخةٌ تُنقل إلى العامل؛ الأصل يبقى للزيّ والحركة
+                        wait.set(id, { res, rej });
+                        w.postMessage({ type: 'detect', id, w: cw, h: ch, buf, person: E().PERSON_MIN_SCORE, ball: E().BALL_MIN_SCORE }, [buf]);
+                    }).then(m => ({ object: m.dets.map(d => ({ label: d.label, score: d.score, boxRaw: [d.x, d.y, d.w, d.h] })), ms: m.ms })),
+                    stop: () => { try { w.terminate(); } catch (e) { /* انتهى */ } }
+                };
+                w.onmessage = e => {
+                    const m = e.data || {};
+                    if (m.type === 'progress') { arm(); if (onProgress) onProgress(m.p); return; }
+                    if (m.type === 'ready') { ready = true; clearTimeout(to); engine.ep = m.ep || ep; resolve(engine); return; }
+                    const p = m.id != null ? wait.get(m.id) : null;
+                    if (p) { wait.delete(m.id); if (m.type === 'dets') p.res(m); else p.rej(new Error(m.error)); }
+                    else if (m.type === 'error') { const err = new Error(m.error); err.code = m.code || ''; fail(err); }
+                };
+                w.onerror = e => { if (e && e.preventDefault) e.preventDefault(); fail(new Error((e && e.message) || 'عامل الكشف')); };
+                w.postMessage({ type: 'init', base, model: base + M.file, size: M.size, ep });
+            }, fail);
         });
+    }
+    // القويّ: بطاقة الرسوم في العامل، ثمّ في الصفحة إن لم يرها العامل — وعلى المعالج حين يكون هو المطلوب (فحصٌ أثبت سرعته أو لا بطاقة)
+    async function strongEngine(ep, onProgress) {
+        if (ep !== 'webgpu') return yoloxEngine('strong', 'wasm', false, onProgress);
+        try { return await yoloxEngine('strong', 'webgpu', false, onProgress); }
+        catch (e) { if (e && e.code === 'nogpu') return yoloxEngine('strong', 'webgpu', true, onProgress); throw e; }
+    }
+    const engineLabel = g => g.label + (g.level === 'strong' ? (g.ep === 'webgpu' ? ' · بطاقة الرسوم' : ' · المعالج') : '');
+    // نتيجة فحص الجاهزيّة على هذا الجهاز وهذا المتصفّح: تختار بها «تلقائيّ» النموذج
+    const BENCH_KEY = 'svf_eye_bench';
+    function readBench() { try { const b = JSON.parse(localStorage.getItem(BENCH_KEY) || 'null'); return b && typeof b === 'object' ? b : null; } catch (e) { return null; } }
+    function saveBench(b) { try { localStorage.setItem(BENCH_KEY, JSON.stringify(Object.assign({ v: 1, at: Date.now() }, readBench() || {}, b))); } catch (e) { /* لهذه المرّة */ } }
+    async function gpuProbe() {
+        try {
+            if (!navigator.gpu) return { ok: false };
+            const ad = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+            if (!ad) return { ok: false };
+            const i = ad.info || {};
+            return { ok: true, name: [i.vendor, i.architecture].filter(Boolean).join(' ') };
+        } catch (e) { return { ok: false }; }
+    }
+    // ملفّات النموذج ومشغّله محفوظةٌ في الجهاز؟ (عامل الخدمة يحفظ vendor/ — null إن تعذّر السؤال)
+    async function filesCached(level, ep) {
+        try {
+            if (!root.caches || !caches.match) return null;
+            const base = new URL('vendor/onnx/', document.baseURI).href;
+            const hits = await Promise.all(E().filesFor(level, ep).map(f => caches.match(base + f)));
+            return hits.every(Boolean);
+        } catch (e) { return null; }
+    }
+    async function probeDevice() {
+        const g = await gpuProbe();
+        AI.gpu = g.ok; AI.gpuName = g.name || '';
+        const b = readBench(), st = b && b.strong;
+        AI.cached = st && st.ms > 0 ? await filesCached('strong', st.ep) : null;
+        modelWhy();
+    }
+    const modelPlan = () => E().pickModel({ want: $('eyeModel') ? $('eyeModel').value : 'auto', gpu: AI.gpu, bench: readBench(), cached: AI.cached });
+    function modelWhy() {
+        const el = $('eyeModelWhy');
+        if (!el) return;
+        if (!checked('eyeAI')) { el.textContent = 'كشف الطلبة مطفأ — يرصد بحركة الصورة.'; return; }
+        const p = modelPlan();
+        el.textContent = 'في الحصة القادمة: ' + (p.level === 'strong' ? 'القويّ' : 'الخفيف') + ' — ' + p.why + '.';
+    }
+    // دقّة الكاميرا بحسب النموذج: القويّ يطلب ‎1080p ليبقى الطالب البعيد أوضح بعد قصّ منطقة الصفّ
+    function camConstraints() {
+        const cam = checked('eyeAI') ? E().MODELS[(AI.engine && AI.engine.level) || modelPlan().level].cam : [640, 480];
+        return { facingMode: { ideal: $('eyeFacing').value }, width: { ideal: cam[0] }, height: { ideal: cam[1] } };
+    }
+    // ── فحص الجاهزيّة (2026-11-09): قبل الحصة لا أثناءها — الكاميرا والميكروفون لحظةً، وبطاقة الرسوم، وتنزيل النموذجين
+    //    مرّةً للعمل بلا شبكة مع قياس زمن اللقطة على هذا الجهاز، والتخزين الدائم، والبطارية، والتثبيت على الشاشة الرئيسيّة ──
+    const isStandalone = () => !!((root.matchMedia && root.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
+    const camErr = e => (e && /NotAllowed|Security/.test(e.name) ? 'denied' : e && /NotFound|Overconstrained/.test(e.name) ? 'none' : 'other');
+    // قياس نموذجٍ على إطارٍ صناعيّ بحجم قصّ الحصة (٦٤٠×٣٦٠): الزمن لا يتعلّق بما في الصورة، ولا تُلتقط صورةٌ حقيقيّة
+    async function benchEngine(level, ep, onProgress) {
+        let eng = null;
+        try {
+            eng = level === 'strong' ? await strongEngine(ep, onProgress) : await yoloxEngine('light', 'wasm', false, onProgress);
+            const w = 640, h = 360, px = new Uint8ClampedArray(w * h * 4);
+            for (let i = 0, v = 7; i < px.length; i++) { v = (v * 1103515245 + 12345) >>> 0; px[i] = (i & 3) === 3 ? 255 : v >>> 24; }
+            await eng.detect(null, px, w, h);
+            const t = [];
+            for (let i = 0; i < 5; i++) t.push((await eng.detect(null, px, w, h)).ms);
+            t.sort((a, b) => a - b);
+            return { ms: t[2], ep: eng.ep };
+        } catch (e) {
+            return { fail: String((e && e.message) || e).slice(0, 120), ep };
+        } finally { if (eng) eng.stop(); }
+    }
+    function renderReady(r, want, busy) {
+        const el = $('eyeReady');
+        if (!el) return;
+        const R = E().readyRows(r, want);
+        const ic = ok => ok === true ? '<i class="fa-solid fa-circle-check text-emerald-600" aria-hidden="true"></i><span class="sr-only">جاهز</span>'
+            : ok === false ? '<i class="fa-solid fa-circle-xmark text-red-600" aria-hidden="true"></i><span class="sr-only">يحتاج إصلاحاً</span>'
+            : '<i class="fa-solid fa-circle-info text-slate-400" aria-hidden="true"></i><span class="sr-only">معلومة</span>';
+        el.innerHTML = '<ul class="space-y-1.5 mt-1">' + R.rows.map(x => '<li class="flex items-start gap-2"><span class="mt-0.5 flex-none">' + ic(x.ok) + '</span><span class="min-w-0">' + esc(x.t)
+            + (x.fix ? '<span class="block text-xs text-slate-500 leading-5">' + esc(x.fix) + '</span>' : '') + '</span></li>').join('') + '</ul>'
+            + (busy ? '<p class="mt-2 text-xs text-slate-500">يُفحص… أبقِ الصفحة مفتوحة.</p>' : '<p class="mt-2 font-semibold ' + (R.ok ? 'text-emerald-700' : 'text-red-700') + '">' + esc(R.text) + '</p>');
+        el.classList.remove('hidden');
+    }
+    async function runReady() {
+        if (S.running || AI.readyBusy) return;
+        AI.readyBusy = true;
+        const btn = $('eyeReadyGo'), want = $('eyeModel').value, r = {}, dev = devLabel();
+        btn.disabled = true;
+        const paint = () => renderReady(r, want, AI.readyBusy);
+        try {
+            r.platform = /^(iPad|iPhone)$/.test(dev) ? 'ios' : /Android/.test(dev) ? 'android' : 'desktop';
+            r.secure = !!root.isSecureContext;
+            r.sw = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+            r.standalone = isStandalone(); r.canPrompt = !!installEvt;
+            paint();
+            // الكاميرا (بدقّة القويّ) والميكروفون: تُفتح لحظةً وتُغلق — لا يُلتقط شيء
+            const md = navigator.mediaDevices, cam = E().MODELS.strong.cam;
+            const video = { facingMode: { ideal: $('eyeFacing').value }, width: { ideal: cam[0] }, height: { ideal: cam[1] } };
+            if (md && md.getUserMedia) {
+                let st = null;
+                const mic = checked('eyeMic');
+                try { st = await md.getUserMedia({ video, audio: mic ? audioConstraints() : false }); }
+                catch (e) {
+                    if (mic) { r.mic = false; try { st = await md.getUserMedia({ video }); } catch (e2) { r.cam = { err: camErr(e2) }; } }
+                    else r.cam = { err: camErr(e) };
+                }
+                if (st) {
+                    const t = st.getVideoTracks()[0], set = t && t.getSettings ? t.getSettings() : {};
+                    r.cam = { w: set.width || 0, h: set.height || 0 };
+                    if (mic && r.mic !== false) r.mic = st.getAudioTracks().length > 0;
+                    st.getTracks().forEach(x => x.stop());
+                }
+            } else r.cam = { err: 'other' };
+            paint();
+            const g = await gpuProbe();
+            r.gpu = g; AI.gpu = g.ok; AI.gpuName = g.name || '';
+            paint();
+            // النموذجان: يُنزَّلان مرّةً (يحفظهما عامل الخدمة) ويُقاس زمن اللقطة على هذا الجهاز
+            r.light = { p: 0 }; paint();
+            r.light = await benchEngine('light', 'wasm', p => { r.light = { p }; paint(); });
+            paint();
+            if (E().strongWorth(g.ok, r.light.ms)) {
+                const ep = g.ok ? 'webgpu' : 'wasm';
+                r.strong = { p: 0, ep }; paint();
+                r.strong = await benchEngine('strong', ep, p => { r.strong = { p, ep }; paint(); });
+            } else r.strong = { skip: true };
+            saveBench({ at: Date.now(), dev, gpu: g.ok, light: r.light, strong: r.strong });
+            AI.cached = r.strong && r.strong.ms > 0 ? true : null;
+            // التخزين: يُطلب دائماً، فلا يمسح المتصفّح النماذج بعد مدّةٍ بلا استعمال
+            const sto = navigator.storage;
+            if (sto && sto.estimate) {
+                try {
+                    const est = await sto.estimate();
+                    let persisted = sto.persisted ? await sto.persisted() : false;
+                    if (!persisted && sto.persist) persisted = await sto.persist().catch(() => false);
+                    r.store = { usage: est.usage || 0, quota: est.quota || 0, persisted: !!persisted };
+                } catch (e) { /* لا يُعرض */ }
+            }
+            r.battery = false;
+            if (navigator.getBattery) { try { const b = await navigator.getBattery(); r.battery = { level: b.level, charging: !!b.charging }; } catch (e) { /* لا يُعرض */ } }
+        } finally {
+            AI.readyBusy = false;
+            btn.disabled = false;
+            paint();
+            modelWhy();
+        }
+    }
+    // التثبيت: Chrome وEdge يعرضان نافذتهما بلمسة؛ وSafari من زرّ المشاركة (يشرحه صفّ التثبيت في الفحص)
+    async function installApp() {
+        const ev = installEvt;
+        if (!ev) return;
+        installEvt = null;
+        $('eyeInstall').classList.add('hidden');
+        try { ev.prompt(); await ev.userChoice; } catch (e) { /* أُغلقت النافذة */ }
     }
     async function humanEngine() {
         const base = new URL('vendor/human/', document.baseURI).href;
@@ -2463,20 +2668,33 @@ function tagRowHtml(k) {
         if (be && !/webgl|webgpu|humangl/.test(be)) throw new Error('backend ' + be);
         return { name: 'human', label: 'CenterNet', detect: c => human.detect(c), stop: () => {} };
     }
-    function loadAI() {
-        if (AI.loading) return AI.loading;
+    // plan: {level, ep} من modelPlan(). المحرّك يبقى بين الحصص ما لم يتغيّر المستوى المطلوب
+    function loadAI(plan, onProgress) {
+        plan = plan || { level: 'light', ep: 'wasm' };
+        const key = plan.level === 'strong' ? 'strong/' + plan.ep : 'light';
+        if (AI.loading && AI.planKey === key) return AI.loading;
+        if (AI.loading) {                                  // مستوى آخر: يُطفأ السابق ويُحمَّل المطلوب
+            const old = AI.loading; AI.loading = null; AI.engine = null; AI.ok = false;
+            old.then(g => { try { g.stop(); } catch (e) { /* انتهى */ } }, () => {});
+        }
+        AI.planKey = key; AI.fellBack = '';
         AI.loading = (async () => {
             let eng = null;
             if (root.SVF_EYE_ENGINE !== 'human' && typeof Worker === 'function') {
-                try { eng = await yoloxEngine(); } catch (e) { console.warn('YOLOX غير متاح — CenterNet', e); }
+                if (plan.level === 'strong') {
+                    try { eng = await strongEngine(plan.ep, onProgress); }
+                    catch (e) { console.warn('النموذج القويّ غير متاح — الخفيف', e); AI.fellBack = String((e && e.message) || e).slice(0, 120); }
+                }
+                if (!eng) try { eng = await yoloxEngine('light', 'wasm', false, onProgress); } catch (e) { console.warn('YOLOX غير متاح — CenterNet', e); }
             }
             if (!eng) eng = await humanEngine();
             AI.engine = eng;
             AI.ok = true;
             return eng;
         })();
-        AI.loading.catch(() => { AI.loading = null; AI.ok = false; });
-        return AI.loading;
+        const mine = AI.loading;
+        mine.catch(() => { if (AI.loading === mine) { AI.loading = null; AI.ok = false; } });
+        return mine;
     }
     function aiState(text) {
         const el = $('eyeAiState');
@@ -2487,11 +2705,13 @@ function tagRowHtml(k) {
     function startAI(r) {
         const id = S.runId;
         AI.T = E().newTracker();
-        AI.prevG = null; AI.fail = 0; AI.slow = 0; AI.count = 0; AI.lastMs = 0;
+        AI.prevG = null; AI.fail = 0; AI.slow = 0; AI.sslow = 0; AI.count = 0; AI.lastMs = 0; AI.r = r; AI.down = '';
+        const plan = modelPlan();
         aiState('كشف الطلبة: تحميل…');
-        loadAI().then(() => {
+        loadAI(plan, p => { if (S.running && S.runId === id) aiState('كشف الطلبة: تنزيل النموذج ' + (plan.level === 'strong' ? 'القويّ' : 'الخفيف') + ' ' + p + '٪…'); }).then(() => {
             if (!S.running || S.runId !== id) return;
-            aiState('كشف الطلبة: جاهز (' + AI.engine.label + ')');
+            aiState('كشف الطلبة: جاهز (' + engineLabel(AI.engine) + ')');
+            if (plan.level === 'strong' && AI.engine.level !== 'strong') message('تعذّر تشغيل النموذج القويّ هنا — يعمل الخفيف.');
             scheduleDet(id, r);
         }).catch(() => {
             if (!S.running || S.runId !== id) return;
@@ -2501,7 +2721,7 @@ function tagRowHtml(k) {
     }
     // الكشف يتباعد بحسب سرعة الجهاز: لا يأخذ أكثر من ثلث الوقت، فتبقى إطارات الحركة والصوت تتدفّق
     function scheduleDet(id, r) {
-        const base = Math.round(500 / r);
+        const base = Math.round(((AI.engine && AI.engine.every) || 500) / r);
         const ms = AI.count > 1 ? AI.lastMs : 0;           // الكشف الأوّل يهيّئ النموذج فلا يُقاس به
         const delay = Math.min(5000, Math.max(base, Math.round(ms * 2)));
         AI.ttl = Math.max(2.5, delay * 2.5 / 1000);         // الجهاز البطيء يكشف متباعداً: يبقى الطالب متابَعاً بينها
@@ -2560,6 +2780,11 @@ function tagRowHtml(k) {
             AI.lastMs = performance.now() - t0;
             AI.count++;
             if (AI.count > 2 && S.detH) E().histAdd(S.detH, AI.lastMs);      // التجربة الميدانيّة: زمن اللقطة على هذا الجهاز (بعد التهيئة)
+            // القويّ أبطأ ممّا يحتمله الجهاز (ثلاث لقطاتٍ متتالية بعد التهيئة) ← الخفيف، قبل أن يُطفأ الكشف كلّه
+            if (AI.engine.level === 'strong' && AI.count > 2) {
+                AI.sslow = AI.lastMs > E().MODEL_SLOW_MS ? AI.sslow + 1 : 0;
+                if (AI.sslow >= 3) { downgrade('slow'); return; }
+            }
             AI.slow = AI.count > 2 && AI.lastMs > 1500 ? AI.slow + 1 : 0;
             if (AI.slow >= 3 && !root.SVF_EYE_SLOW_OK) {
                 AI.ok = false; aiState(''); S.detSlow = true;
@@ -2570,8 +2795,28 @@ function tagRowHtml(k) {
             aiState('في الملعب: ' + S.pSnap.n + (S.pSnap.r ? ' · خارجها: ' + S.pSnap.o : '') + (S.teacher ? (tc ? ' · المعلّم ' + (tc.edge === true ? 'على الطرف' : tc.edge === false ? 'في الوسط' : 'محدَّد') : ' · المعلّم غاب عن الكشف') : ''));
             drawView();
         } catch (e) {
+            if (AI.engine && AI.engine.level === 'strong' && AI.fail >= 1) { AI.fail = 0; downgrade('error'); return; }
             if (++AI.fail > 5) { AI.ok = false; aiState(''); message('توقّف كشف الطلبة لخطأٍ في الجهاز — يكمل الرصد بحركة الصورة.'); }
         } finally { AI.busy = false; }
+    }
+    // من القويّ إلى الخفيف أثناء الحصة: بطءٌ أو خطأٌ في بطاقة الرسوم. يُذكر في نتيجة الفحص فيختار «تلقائيّ» الخفيف بعدها
+    function downgrade(why) {
+        const id = S.runId, old = AI.engine;
+        if (!old || old.level !== 'strong') return;
+        AI.ok = false; AI.down = old.name + '/' + (old.ep || '');
+        clearTimeout(AI.timer);
+        const q = S.detH && E().histQ ? E().histQ(S.detH, 0.5) : null;
+        saveBench({ strong: why === 'slow' ? { ms: Math.round(q || AI.lastMs), ep: old.ep, live: true } : { fail: 'أثناء الحصة', ep: old.ep } });
+        if (S.detH) S.detH = E().histNew();      // التجربة الميدانيّة: زمن النموذج الذي أكمل الحصة وحده
+        aiState('كشف الطلبة: الانتقال إلى النموذج الخفيف…');
+        message(why === 'slow' ? 'النموذج القويّ بطيءٌ على هذا الجهاز — انتقلت العين إلى الخفيف.' : 'تعثّر النموذج القويّ — انتقلت العين إلى الخفيف.');
+        loadAI({ level: 'light', ep: 'wasm' }).then(() => {
+            if (!S.running || S.runId !== id) return;
+            AI.count = 0; AI.slow = 0; AI.sslow = 0; AI.fail = 0; AI.lastMs = 0; AI.prevG = null;
+            aiState('كشف الطلبة: جاهز (' + engineLabel(AI.engine) + ')');
+            scheduleDet(id, AI.r || 1);
+            modelWhy();
+        }).catch(() => { if (S.running && S.runId === id) aiState(''); });
     }
 
     function liveDot(on) {
@@ -3048,6 +3293,7 @@ function tagRowHtml(k) {
         if (S.trialOn) {
             data.trial = {
                 v: 1, dev: devLabel(), det: S.src !== 'none' && AI.engine && AI.count ? AI.engine.name : null, ms: S.detH ? E().histSum(S.detH) : null, slow: !!S.detSlow,
+                ep: S.src !== 'none' && AI.engine && AI.count ? AI.engine.ep || null : null, down: AI.down || null,   // طريق الكشف (بطاقة الرسوم/المعالج)، والقويّ إن تُرك أثناء الحصة
                 eyeN: keep.people && keep.people.classSize > 0 ? keep.people.classSize : null, supN: null,
                 audio: !!S.hadAudio, wEye: E().whistleEvents(S.secs).slice(0, 400), wTap: S.wTaps.slice(0, 400)
             };
@@ -3197,8 +3443,8 @@ function tagRowHtml(k) {
     };
     async function restartCamera() {
         if (!S.running || S.src !== 'camera' || S.via === 'phone') return;
-        const hi = checked('eyeAI'), hadMic = !!S.audio;
-        const video = { facingMode: { ideal: $('eyeFacing').value }, width: { ideal: hi ? 1280 : 640 }, height: { ideal: hi ? 720 : 480 } };
+        const hadMic = !!S.audio;
+        const video = camConstraints();
         let stream = null;
         try { stream = await navigator.mediaDevices.getUserMedia({ video, audio: hadMic ? audioConstraints() : false }); }
         catch (e) { try { stream = await navigator.mediaDevices.getUserMedia({ video }); } catch (e2) { toast(permissionText(e2), 'error'); return; } }
@@ -4476,7 +4722,7 @@ function tagRowHtml(k) {
         const rv = $('eyeReview');
         if (rv) scrollUnderHead(rv);
     }
-    const ENGINE_NAME = { yolox: 'YOLOX', human: 'CenterNet' };
+    const ENGINE_NAME = { yolox: 'YOLOX‑Nano', 'yolox-s': 'YOLOX‑S', human: 'CenterNet' };
     // بطاقة «التجربة الميدانيّة — قياس هذه الحصة» في النتيجة
     function trialCardHtml(data) {
         const T = data && data.trial;
@@ -4502,7 +4748,7 @@ function tagRowHtml(k) {
         }
         const fr = T.ms
             ? `<span class="block">الوسيط <b class="tabular-nums">${T.ms[0]}</b> م.ث · أبطأ 10% <span class="tabular-nums">${T.ms[1]}</span> م.ث ${mark(T.ms[0] <= X.FRAME_MS, T.ms[0] <= X.FRAME_MS ? 'ضمن الحدّ' : 'فوق الحدّ')}</span>
-               <span class="block text-xs text-slate-500 mt-0.5">${esc(ENGINE_NAME[T.det] || T.det || '')} على ${esc(T.dev || '')} · <span class="tabular-nums">${T.ms[2]}</span> لقطة${T.slow ? ' · أُطفئ الكشف لبطء الجهاز' : ''}</span>`
+               <span class="block text-xs text-slate-500 mt-0.5">${esc((ENGINE_NAME[T.det] || T.det || '') + (T.ep === 'webgpu' ? ' (بطاقة الرسوم)' : ''))} على ${esc(T.dev || '')} · <span class="tabular-nums">${T.ms[2]}</span> لقطة${T.slow ? ' · أُطفئ الكشف لبطء الجهاز' : ''}</span>`
             : muted(data.src === 'none' ? 'بلا كاميرا' : T.slow ? 'أُطفئ الكشف لبطء الجهاز' : 'لم يعمل كشف الطلبة');
         return `<div id="eyeTrialCard" class="bg-white rounded-2xl border border-slate-200 border-r-4 p-5" style="border-right-color:#0f4c81">
             <div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-bold text-slate-900">التجربة الميدانيّة — قياس هذه الحصة</h2>

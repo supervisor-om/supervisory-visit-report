@@ -2467,7 +2467,7 @@
         const BP = d.blind && d.blind.pairs ? d.blind.pairs : {};
         const pairs = Object.keys(BP).map(k => ({ id: Number(k), sup: Number(BP[k][0]), eye: Number(BP[k][1]) }))
             .filter(p => p.sup >= 1 && p.sup <= 5 && p.eye >= 1 && p.eye <= 5);
-        return { dev: T.dev || '', det: T.det || null, src: d.via === 'phone' ? 'phone' : d.src || '', cnt, wh, ms, pairs, slow: !!T.slow };
+        return { dev: T.dev || '', det: T.det || null, ep: T.ep || null, src: d.via === 'phone' ? 'phone' : d.src || '', cnt, wh, ms, pairs, slow: !!T.slow };
     }
     const medOf = arr => { const a = arr.slice().sort((p, q) => p - q), n = a.length; return n ? (n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2) : null; };
     // rows: [{date, d}] من التقارير المحفوظة ← البوابة الأولى ومرحلة كلّ بند
@@ -2502,15 +2502,104 @@
     }
     // الأرقام وحدها لملفٍّ يُرسَل أو يُحلَّل — بلا اسم معلّمٍ ولا مدرسةٍ ولا نصّ
     function trialCsv(R) {
-        const head = ['date', 'source', 'device', 'model', 'det_median_ms', 'det_p90_ms', 'det_frames', 'det_slow', 'count_eye', 'count_actual', 'count_err_pct', 'whistle_taps', 'whistle_eye', 'whistle_matched', 'blind_pairs'];
+        const head = ['date', 'source', 'device', 'model', 'det_median_ms', 'det_p90_ms', 'det_frames', 'det_slow', 'count_eye', 'count_actual', 'count_err_pct', 'whistle_taps', 'whistle_eye', 'whistle_matched', 'blind_pairs', 'backend'];
         const q = v => (v == null ? '' : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
         const rows = ((R && R.lessons) || []).map(x => [x.date, x.src, x.dev, x.det, x.ms && x.ms.med, x.ms && x.ms.p90, x.ms && x.ms.n, x.slow ? 1 : 0,
             x.cnt && x.cnt.eye, x.cnt && x.cnt.sup, x.cnt && x.cnt.err, x.wh && x.wh.tap, x.wh && x.wh.eye, x.wh && x.wh.tp,
-            x.pairs.map(p => p.id + ':' + p.sup + '/' + p.eye).join(' ')].map(q).join(','));
+            x.pairs.map(p => p.id + ':' + p.sup + '/' + p.eye).join(' '), x.ep].map(q).join(','));
         return [head.join(',')].concat(rows).join('\n');
     }
 
+    // ── نموذج الكشف: خفيفٌ للأجهزة الضعيفة، وقويٌّ لـiPad M4 والحواسيب الحديثة (2026-11-09) ──
+    // القياس: مشهدٌ واسعٌ بطلبةٍ صغار (فسيفساء ٢×٢ من مقطع المشاة، ٥ مشاهد، ١١٩ شخصاً يكشفهم القويّ بالدقّة الكاملة):
+    // الخفيف على ٦٤٠ بكسلاً وجد ٨٣٪ منهم، والقويّ على المدخل نفسه ٩٧٪ — وهو أثقل نحو ١٣ مرّة، فيحتاج بطاقة الرسوم (WebGPU) أو معالجاً سريعاً.
+    // every: أقصر فاصلٍ بين لقطتين (م.ث، يتمدّد بحسب سرعة الجهاز)، cam: دقّة الكاميرا المطلوبة، mb: حجم التنزيل
+    const MODELS = {
+        light: { file: 'yolox_nano.onnx', size: 416, name: 'yolox', label: 'YOLOX‑Nano', every: 500, cam: [1280, 720], mb: 4 },
+        strong: { file: 'yolox_s.onnx', size: 640, name: 'yolox-s', label: 'YOLOX‑S', every: 250, cam: [1920, 1080], mb: 36 }
+    };
+    // ملفّات المشغّل لكلّ طريق: بطاقة الرسوم تحتاج نسخةً من المشغّل أكبر (‏٢٩ ميغابايت) تُنزَّل مرّةً واحدة
+    const RUNTIME_FILES = {
+        webgpu: ['ort.webgpu.min.mjs', 'ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.asyncify.wasm'],
+        wasm: ['ort.wasm.min.mjs', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']
+    };
+    const MODEL_AUTO_MS = 400;   // «تلقائيّ» يختار القويّ إن لم يتجاوز زمن لقطته في فحص الجاهزيّة هذا
+    const MODEL_SLOW_MS = 900;   // أثناء الحصة: القويّ أبطأ من هذا ثلاث لقطاتٍ متتالية ← ينتقل إلى الخفيف
+    const MODEL_RATIO = 12;      // القويّ أثقل من الخفيف نحو ١٢–١٣ مرّة على المعالج (قيس في node)
+    const filesFor = (level, ep) => [MODELS[level === 'strong' ? 'strong' : 'light'].file].concat(RUNTIME_FILES[ep === 'webgpu' ? 'webgpu' : 'wasm']);
+
+    // أيّ نموذجٍ يعمل في الحصة. o: {want: 'auto'|'light'|'strong', gpu: true|false|null (لم يُفحص بعد),
+    //   bench: نتيجة فحص الجاهزيّة {strong: {ms, ep} | {fail} | {skip}}, cached: ملفّات القويّ محفوظةٌ في الجهاز true|false|null}
+    // ← {level, ep, why}. «تلقائيّ» لا يُنزّل ٣٦ ميغابايت وسط الحصة: يختار القويّ حين جُرِّب على هذا الجهاز وأثبت سرعته.
+    function pickModel(o) {
+        o = o || {};
+        const want = o.want === 'light' || o.want === 'strong' ? o.want : 'auto';
+        if (want === 'light') return { level: 'light', ep: 'wasm', why: 'اخترت الخفيف' };
+        if (want === 'strong') return { level: 'strong', ep: o.gpu === false ? 'wasm' : 'webgpu', why: 'اخترت القويّ' };
+        const b = o.bench && o.bench.strong;
+        const light = why => ({ level: 'light', ep: 'wasm', why });
+        if (!b) return light('شغّل «فحص الجاهزيّة» ليُجرَّب القويّ على هذا الجهاز');
+        if (b.skip) return light('القويّ يحتاج بطاقة رسوم أو معالجاً أسرع');
+        if (b.fail || !(b.ms > 0)) return light('تعذّر تشغيل القويّ في الفحص');
+        if (b.ep === 'webgpu' && o.gpu === false) return light('بطاقة الرسوم لم تعد متاحة — أعد فحص الجاهزيّة');
+        if (o.cached === false) return light('ملفّات القويّ لم تعد محفوظةً في الجهاز — أعد فحص الجاهزيّة');
+        if (b.ms > MODEL_AUTO_MS) return light('القويّ بطيءٌ على هذا الجهاز (' + Math.round(b.ms) + ' م.ث للّقطة)');
+        return { level: 'strong', ep: b.ep === 'wasm' ? 'wasm' : 'webgpu', why: 'القويّ أسرع من ' + MODEL_AUTO_MS + ' م.ث على هذا الجهاز' };
+    }
+    // يُجرَّب القويّ في الفحص؟ مع بطاقة الرسوم نعم، وبدونها إن كان المعالج سريعاً كفاية (الخفيف × ١٢ لا يتجاوز حدّ التلقائيّ)
+    const strongWorth = (gpu, lightMs) => !!gpu || (lightMs > 0 && lightMs * MODEL_RATIO <= MODEL_AUTO_MS);
+
+    // صفوف «فحص الجاهزيّة» — r: ما قيس على الجهاز (null = لم يُفحص بعد، فلا يظهر صفّه).
+    // ok: true جاهز، false يمنع أو يُضعف الرصد (ومعه fix)، null معلومةٌ أو نصيحة. ← {rows, ok, text, pick}
+    function readyRows(r, want) {
+        r = r || {};
+        const rows = [], add = (k, ok, t, fix) => rows.push({ k, ok, t, fix: fix || '' });
+        const ms = v => Math.round(v) + ' م.ث للّقطة';
+        if (r.secure != null) add('secure', !!r.secure, r.secure ? 'اتّصالٌ آمن (https)' : 'الاتّصال غير آمن — الكاميرا لا تعمل', r.secure ? '' : 'افتح الموقع من رابطه https');
+        if (r.sw != null) add('offline', r.sw ? true : null, r.sw ? 'يعمل بلا شبكة: الموقع والنماذج تُحفظ في الجهاز' : 'الحفظ للعمل بلا شبكة لم يبدأ بعد', r.sw ? '' : 'أعد تحميل الصفحة مرّةً وأنت متّصل');
+        if (r.cam) {
+            if (r.cam.w) add('cam', r.cam.w >= 1280 ? true : null, 'الكاميرا: \u2066' + r.cam.w + '×' + r.cam.h + '\u2069', r.cam.w >= 1280 ? '' : 'دقّتها منخفضة — الطلبة البعيدون أصعب كشفاً');
+            else add('cam', false, r.cam.err === 'denied' ? 'الكاميرا مرفوضة' : r.cam.err === 'none' ? 'لا كاميرا في هذا الجهاز' : 'تعذّر فتح الكاميرا', r.cam.err === 'denied' ? 'اسمح للموقع بالكاميرا من إعدادات المتصفّح' : 'أغلق أيّ تطبيقٍ يستعمل الكاميرا وأعد الفحص');
+        }
+        if (r.mic != null) add('mic', r.mic ? true : null, r.mic ? 'الميكروفون يعمل' : 'الميكروفون غير متاح — يرصد بالصورة وحدها', r.mic ? '' : 'اسمح للموقع بالميكروفون لرصد الكلام والصفّارة');
+        if (r.gpu) add('gpu', r.gpu.ok ? true : null, r.gpu.ok ? 'بطاقة الرسوم (WebGPU) متاحة' + (r.gpu.name ? ' — ' + r.gpu.name : '') : 'بطاقة الرسوم (WebGPU) غير متاحة — يعمل الكشف على المعالج',
+            r.gpu.ok ? '' : r.platform === 'ios' ? 'حدّث iPadOS إلى ٢٦ أو أحدث لتعمل' : 'Chrome أو Edge الحديث يتيحها في أغلب الحواسيب');
+        if (r.light) {
+            if (r.light.p != null) add('light', null, 'النموذج الخفيف: تنزيل ' + r.light.p + '٪…');
+            else if (r.light.ms > 0) add('light', r.light.ms <= 1500, 'النموذج الخفيف (' + MODELS.light.label + '): ' + ms(r.light.ms), r.light.ms <= 1500 ? '' : 'الجهاز بطيءٌ على الكشف — يرصد بحركة الصورة');
+            else add('light', false, 'تعذّر تشغيل النموذج الخفيف', 'أعد الفحص وأنت متّصل، أو جرّب Chrome أو Safari حديثاً');
+        }
+        if (r.strong) {
+            const via = r.strong.ep === 'webgpu' ? 'على بطاقة الرسوم' : 'على المعالج';
+            if (r.strong.p != null) add('strong', null, 'النموذج القويّ: تنزيل ' + r.strong.p + '٪ (نحو ' + (MODELS.strong.mb + (r.strong.ep === 'webgpu' ? 29 : 0)) + ' ميغابايت مرّةً واحدة)…');
+            else if (r.strong.skip) add('strong', null, 'النموذج القويّ لم يُجرَّب: يحتاج بطاقة رسوم أو معالجاً أسرع');
+            else if (r.strong.ms > 0) add('strong', r.strong.ms <= MODEL_AUTO_MS ? true : null, 'النموذج القويّ (' + MODELS.strong.label + ') ' + via + ': ' + ms(r.strong.ms),
+                r.strong.ms <= MODEL_AUTO_MS ? '' : 'أبطأ من ' + MODEL_AUTO_MS + ' م.ث — «تلقائيّ» يعمل بالخفيف');
+            else add('strong', null, 'تعذّر تشغيل النموذج القويّ هنا — يعمل الخفيف');
+        }
+        if (r.store) {
+            const free = r.store.quota > 0 ? (r.store.quota - (r.store.usage || 0)) / 1073741824 : null;
+            if (free != null && free < 0.25) add('store', false, 'مساحة التخزين المتاحة للموقع قليلة', 'أفرغ مساحةً في الجهاز ثمّ أعد الفحص');
+            else add('store', r.store.persisted ? true : null, r.store.persisted ? 'التخزين دائم: لا يمسح المتصفّح النماذج' : 'التخزين مؤقّت: قد يمسح المتصفّح النماذج بعد مدّةٍ بلا استعمال',
+                r.store.persisted ? '' : 'ثبّت الموقع على الشاشة الرئيسيّة (أدناه) ثمّ أعد الفحص');
+        }
+        if (r.battery) {
+            const lv = Math.round((r.battery.level || 0) * 100);
+            add('battery', r.battery.charging || lv >= 50 ? true : false, 'البطارية ' + lv + '٪' + (r.battery.charging ? ' وهو يُشحن' : ''), r.battery.charging || lv >= 50 ? '' : 'اشحن الجهاز قبل الحصة — الكشف المستمرّ يستهلك البطارية');
+        } else if (r.battery === false) add('battery', null, 'البطارية لا يكشفها هذا المتصفّح', 'اشحن الجهاز قبل الحصة — الكشف المستمرّ يستهلك البطارية');
+        if (r.standalone != null) add('install', r.standalone ? true : null, r.standalone ? 'مثبّتٌ على الشاشة الرئيسيّة' : 'غير مثبّتٍ على الشاشة الرئيسيّة',
+            r.standalone ? '' : r.platform === 'ios' ? 'في Safari: زرّ المشاركة ← «إضافة إلى الشاشة الرئيسيّة» — يفتح بملء الشاشة ولا يمسح Safari نماذجه'
+                : r.canPrompt ? 'المس «ثبّت على الجهاز» — يفتح في نافذةٍ مستقلّةٍ بلا شريط المتصفّح' : 'من قائمة المتصفّح: «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسيّة»');
+        const block = rows.some(x => x.ok === false && /^(secure|cam|light)$/.test(x.k));
+        const pick = pickModel({ want, gpu: r.gpu ? !!r.gpu.ok : null, bench: { strong: r.strong && r.strong.p == null ? r.strong : null }, cached: r.strong && r.strong.ms > 0 ? true : null });
+        const M = MODELS[pick.level];
+        const text = block ? 'غير جاهز — أصلح ما عليه علامة الخطأ ثمّ أعد الفحص'
+            : 'جاهز — سيعمل الكشف بالنموذج ' + (pick.level === 'strong' ? 'القويّ' : 'الخفيف') + ' (' + M.label + (pick.level === 'strong' ? (pick.ep === 'webgpu' ? '، بطاقة الرسوم' : '، المعالج') : '') + ')' + (pick.why && want !== 'light' && want !== 'strong' ? ': ' + pick.why : '');
+        return { rows, ok: !block, text, pick };
+    }
+
     const api = {
+        MODELS, RUNTIME_FILES, MODEL_AUTO_MS, MODEL_SLOW_MS, MODEL_RATIO, filesFor, pickModel, strongWorth, readyRows,
         TRIAL, whistleEvents, matchTimes, histNew, histAdd, histQ, histSum, wkappa, maturity, trialLesson, trialReport, trialCsv,
         LIVE_STEP, ALERT_IDLE, ALERT_IDLE_BAD, ALERT_MOVE, ALERT_LINE, live, pack,
         LEVELS, SENS, SHAKE, GRID_W, GRID_H, MIN_OBSERVE, MIN_STRUCTURE, TAGS, GROUPS, TAG, NOT_SEEN, CONTEXTS,
