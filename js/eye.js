@@ -210,7 +210,7 @@ function tagRowHtml(k) {
                             </div>
                             <div class="space-y-1 sm:col-span-2">
                                 <div class="text-xs font-bold text-slate-500">التجربة الميدانيّة</div>
-                                ${chk('eyeTrial', 'قِس دقّة العين، وأخفِ اقتراحها حتّى تقيّم أنت', true, 'زمن الكشف على جهازك، وعدد الطلبة مقابل العدد الفعليّ، والصفّارة مقابل لمساتك — ويُحجب المستوى المقترح حتّى تقيّم البند بنفسك')}
+                                ${chk('eyeTrial', 'قِس دقّة العين، وأخفِ اقتراحها حتّى تقيّم أنت', !(root.SupervisorGate && SupervisorGate.isDemo && SupervisorGate.isDemo()), 'زمن الكشف على جهازك، وعدد الطلبة مقابل العدد الفعليّ، والصفّارة مقابل لمساتك — ويُحجب المستوى المقترح حتّى تقيّم البند بنفسك')}
                                 <p class="text-xs text-slate-500 leading-5">أثناء الحصة المس «صفّارة» في شريط الرصد كلّما سمعتها، وبعدها اكتب عدد الطلبة الفعليّ وقيّم البنود قبل أن تكشف اقتراح العين. من حصصك تُحسب «البوابة الأولى» في لوحة «التجربة الميدانيّة».</p>
                             </div>
                             <div class="space-y-1 sm:col-span-2">
@@ -218,7 +218,7 @@ function tagRowHtml(k) {
                                 ${chk('eyeAdv', 'إظهار الأدوات المتقدّمة (تجريبيّة)', false, 'تحليلاتٌ ثقتها ضعيفةٌ من كاميرا واحدة — مخفيّةٌ ولا تدخل التقييم حتّى تُفعَّل')}
                                 <p class="text-xs text-slate-500 leading-5">الزيّ من لون الملابس، وأنواع التشكيلات وعددها، وعدّ الكرات بالكاميرا، والتزاحم وشدّة النشاط، وموقع المعلّم، و<bdi dir="ltr">SOFIT+</bdi>. وهي مخفيّة لا تُعرض ولا تدخل التقييم ولا المداولة حتّى تُفعَّل، وما تكتبه بيدك (عدد الكرات، ووسم الزيّ) يُعتدّ به دائماً.</p>
                             </div>
-                            <div class="space-y-2 sm:col-span-2">
+                            <div id="eyeDraftBox" class="space-y-2 sm:col-span-2">
                                 <div class="text-xs font-bold text-slate-500">مساعد الصياغة (Claude) — اختياريّ</div>
                                 <p class="text-xs text-slate-500 leading-5">للربط المباشر: رابط الوسيط وكلمته (طريقة الإعداد في <bdi>tools/claude-draft/README.md</bdi>). بدونهما يعمل «نسخ الطلب لـClaude» مجّاناً.</p>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -2130,6 +2130,8 @@ function tagRowHtml(k) {
     }
     async function startPhone() {
         if (S.running || S.link) return;
+        // العرض المستقلّ (gate.js ?demo=eye): ربط الهاتف يكتب وثائق في قاعدة البيانات — يبقى للمشرف بعد الدخول
+        if (root.SupervisorGate && SupervisorGate.isDemo && SupervisorGate.isDemo()) { message('كاميرا الهاتف متاحةٌ للمشرف بعد الدخول.'); return; }
         message('');
         if (!needConsent(true)) return;
         const wantSpeech = speechConsent();

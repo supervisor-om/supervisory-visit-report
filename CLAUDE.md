@@ -30,7 +30,7 @@
 ## خريطة سريعة (الكاملة في `docs/claude/files.md`)
 
 - **الصفحات:** `index.html` بوّابة الدخول · `reports.html` **نظام التقارير نفسه** · `monthly.html` التقرير الشهري · `letters.html`
-  (مستقلّة، غير مربوطة) · `cam.html` صفحة الهاتف لعين المشرف (بلا بوّابة) · `festival.html` و`try-eye.html` ركن مهرجان العلوم (بلا بوّابة ولا بيانات).
+  (مستقلّة، غير مربوطة) · `eye.html` العرض المستقلّ لعين المشرف (بلا بوّابة) · `cam.html` صفحة الهاتف لعين المشرف (بلا بوّابة) · `festival.html` و`try-eye.html` ركن مهرجان العلوم (بلا بوّابة ولا بيانات).
 - **الزيارة الإشرافيّة:** `js/supervisory.js` (الحفظ والتوليد)، `js/templates.js` (البنود والأدلّة)، `js/export.js` (`getReportHTML`: الطباعة وWord
   والتقرير الشهريّ)، `js/evidence.js`، `js/debrief*.js`، `js/teacher-brief.js`، `js/visit-nav.js`، `js/term-board.js`، `js/dash*.js`، `js/charts.js`.
 - **الزيارة المدرسيّة:** `js/school.js`، `js/classroom.js`، `js/recs*.js`، `js/route.js`، `js/term-plan*.js`.
@@ -69,6 +69,8 @@ for f in tests/*.test.js; do node "$f" >/dev/null || echo "FAIL $f"; done   # ك
   `MONTHLY_OWNERS` (التقرير الشهري)، `EVIDENCE_OWNERS` (أدلّة البنود المطوّرة). طلبه الصريح: «كلّ هذه التحديثات لا تظهر لباقي المشرفين،
   تظهر معي فقط، ويبقى العمل لديهم على النظام السابق دون تغيير». **أيّ إضافةٍ لها تمسّ صفحةً مشتركة (نموذج التقييم، الأرشيف) تمرّ بشرط
   صاحبها** (`EYE_OK()` ← `SupervisorGate.canEye()`، …). الإخفاء في الواجهة لا حماية: الملفّات عامّة.
+  **الاستثناء الوحيد: العرض المستقلّ** `eye.html` (`reports.html?demo=eye`) يفتح العين بلا رمزٍ بتخزينٍ معزولٍ في التبويب — ما يكتب في قاعدة البيانات
+  أو يستهلك رصيد المشرف يُحجب فيه بـ`SupervisorGate.isDemo()`.
 - **أيّ نصٍّ يدخل `innerHTML` يمرّ بـ`svfEscapeHtml`** (`js/utils.js`) — المزامنة تجلب أسماءً من أجهزةٍ أخرى.
 - **كلّ كتابةٍ في حقول بوّابة الوزارة تمرّ بـ`sanitizeForPortal()`**: ASP.NET يرفض حفظ الاستمارة **كلّها** إن حمل حقلٌ `&#رقم;` أو `<`.
 - **سلّم التقييم مقلوب: ١ متميّز … ٥ تدخّل سريع.** الدرجات تُقرأ بـ`svfReportScores` من `formData` لا من جذر التقرير، والبند بلا درجةٍ `null`

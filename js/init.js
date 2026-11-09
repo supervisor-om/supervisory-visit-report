@@ -636,8 +636,13 @@
                     });
                 }
 
-                // Finally show welcome view
-                showView(document.getElementById('welcomeView'));
+                // Finally show welcome view — والعرض المستقلّ لعين المشرف (gate.js: ?demo=eye) يفتحها مباشرةً بلا الشاشة الرئيسيّة
+                if (window.SupervisorGate && SupervisorGate.isDemo && SupervisorGate.isDemo()) {
+                    showView(document.getElementById('supervisoryVisitsApp'));
+                    if (typeof toggleSupervisoryView === 'function') toggleSupervisoryView('eye-view');
+                } else {
+                    showView(document.getElementById('welcomeView'));
+                }
 
             } catch (fatalError) {
                 console.error("توقف السكربت كلياً بسبب خطأ:", fatalError);

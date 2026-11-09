@@ -1721,7 +1721,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
 
     // التوصيل
     const UI = read('js/eye.js'), CSS = read('styles.css');
-    check('wiring: إعداد «التجربة الميدانيّة» محفوظ ومفعَّلٌ افتراضاً، ويُقرأ عند البدء', /chk\('eyeTrial', '[^']+', true,/.test(UI) && /S\.trialOn = checked\('eyeTrial'\); S\.wTaps = \[\]; S\.detH = E\(\)\.histNew\(\);/.test(UI));
+    check('wiring: إعداد «التجربة الميدانيّة» محفوظ ومفعَّلٌ افتراضاً (إلّا في العرض المستقلّ)، ويُقرأ عند البدء', /chk\('eyeTrial', '[^']+', !\(root\.SupervisorGate && SupervisorGate\.isDemo && SupervisorGate\.isDemo\(\)\),/.test(UI) && /S\.trialOn = checked\('eyeTrial'\); S\.wTaps = \[\]; S\.detH = E\(\)\.histNew\(\);/.test(UI));
     check('wiring: زرّ «صفّارة» في شريط الرصد يحفظ الوقت وحده، و«−» يحذف آخر لمسة', /id="eyeWhistleTap"/.test(UI) && /S\.wTaps\.push\(Math\.floor\(now\(\)\)\);/.test(UI) && /function undoWhistle\(\)/.test(UI)
           && /b\.classList\.toggle\('hidden', !\(S\.running && S\.trialOn && S\.audio\)\);/.test(UI));
     check('wiring: زمن الكشف بعد التهيئة يدخل المدرّج، وإطفاؤه لبطء الجهاز يُسجَّل', /if \(AI\.count > 2 && S\.detH\) E\(\)\.histAdd\(S\.detH, AI\.lastMs\);/.test(UI) && /aiState\(''\); S\.detSlow = true;/.test(UI));

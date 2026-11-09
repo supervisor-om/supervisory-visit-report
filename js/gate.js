@@ -35,6 +35,44 @@
     // أدلّة البنود المطوّرة (js/evidence.js — مراجعة 2026-11-01): لأصحابها أوّلاً، وغيرهم على القوائم السابقة كما هي
     const EVIDENCE_OWNERS = ['asad'];
 
+    // ── العرض المستقلّ لعين المشرف (طلب أسعد 2026-11-09: «لجهةٍ تريد الاطّلاع على المشروع») ──
+    // reports.html?demo=eye (والرابط القصير eye.html): بلا رمز دخول، والصفحة «عين المشرف» ومعها نموذج التقييم
+    // والمداولة وحدها — لا شريط الأنظمة ولا الأرشيف ولا الشهريّ ولا غيرها. وكلّ ما تكتبه الصفحة في التخزين يذهب
+    // إلى مخزنٍ معزولٍ لهذا التبويب (sessionStorage بمفاتيح «svfdemo:»): لا يقرأ جلسة صاحب الجهاز ولا تقاريره
+    // ولا هويّته، فلا مزامنة سحابيّة ولا قاعدة معلّمين، ويُمحى بإغلاق التبويب. فإن تعذّر العزل لم يُفتح العرض.
+    const DEMO_ATTR = 'data-svf-demo';
+    const DEMO = (function () {
+        let want = false;
+        try {
+            want = /(^|\/)reports(\.html)?$/.test(String(global.location && global.location.pathname || ''))
+                && /[?&]demo=eye(&|$)/.test(String(global.location && global.location.search || ''));
+        } catch (e) { want = false; }
+        return want && isolateStorage();
+    })();
+
+    function isolateStorage() {
+        const P = 'svfdemo:';
+        let back = null;
+        try { back = global.sessionStorage; back.setItem(P + '__', '1'); back.removeItem(P + '__'); } catch (e) { back = null; }
+        const mem = new Map();
+        const keys = () => {
+            if (!back) return Array.from(mem.keys());
+            const out = [];
+            for (let i = 0; i < back.length; i++) { const k = back.key(i); if (k && k.indexOf(P) === 0) out.push(k.slice(P.length)); }
+            return out;
+        };
+        const store = {
+            getItem: k => { k = String(k); return back ? back.getItem(P + k) : (mem.has(k) ? mem.get(k) : null); },
+            setItem: (k, v) => { k = String(k); v = String(v); if (back) back.setItem(P + k, v); else mem.set(k, v); },
+            removeItem: k => { k = String(k); if (back) back.removeItem(P + k); else mem.delete(k); },
+            clear: () => { keys().forEach(k => store.removeItem(k)); },
+            key: i => { const a = keys(); return i >= 0 && i < a.length ? a[i] : null; },
+            get length() { return keys().length; }
+        };
+        try { Object.defineProperty(global, 'localStorage', { configurable: true, enumerable: true, get: () => store }); } catch (e) { return false; }
+        try { return global.localStorage === store; } catch (e) { return false; }
+    }
+
     function readSession() {
         try {
             const v = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -59,26 +97,31 @@
     }
 
     function canLetters() {
+        if (DEMO) return false;
         const s = readSession();
         return !!(s && LETTERS_OWNERS.indexOf(s.id) !== -1);
     }
 
     function canDebrief() {
+        if (DEMO) return true;
         const s = readSession();
         return !!(s && DEBRIEF_OWNERS.indexOf(s.id) !== -1);
     }
 
     function canEye() {
+        if (DEMO) return true;
         const s = readSession();
         return !!(s && EYE_OWNERS.indexOf(s.id) !== -1);
     }
 
     function canEvidence() {
+        if (DEMO) return true;
         const s = readSession();
         return !!(s && EVIDENCE_OWNERS.indexOf(s.id) !== -1);
     }
 
     function canMonthly() {
+        if (DEMO) return false;
         const s = readSession();
         return !!(s && MONTHLY_OWNERS.indexOf(s.id) !== -1);
     }
@@ -134,6 +177,19 @@
                 cursor: pointer; opacity: .55; transition: opacity .15s; }
             #svfLogout:hover { opacity: 1; }
             @media print { #svfGate, #svfLogout { display: none !important; } }
+            /* العرض المستقلّ لعين المشرف: الصفحة وحدها بلا بقيّة المنظومة */
+            html[${DEMO_ATTR}] .svf-nav, html[${DEMO_ATTR}] #svfLogout,
+            html[${DEMO_ATTR}] #welcomeView, html[${DEMO_ATTR}] #schoolVisitsApp, html[${DEMO_ATTR}] #lettersApp,
+            html[${DEMO_ATTR}] #backToWelcomeFromSupervisory,
+            html[${DEMO_ATTR}] .nav-tab:not([data-view="form-view"]):not([data-view="eye-view"]):not([data-view="debrief-view"]),
+            html[${DEMO_ATTR}] #saved-reports-view, html[${DEMO_ATTR}] #stats-view, html[${DEMO_ATTR}] #term-view, html[${DEMO_ATTR}] #dashboard-view,
+            html[${DEMO_ATTR}] .svf-btn-moe, html[${DEMO_ATTR}] #eyeStartPhone, html[${DEMO_ATTR}] #eyeDraftBox { display: none !important; }
+            @media (max-width: 520px) { html[${DEMO_ATTR}] .nav-tab { flex: 1 1 auto !important; padding-inline: 8px !important; } }
+            #svfDemoNote { direction: rtl; margin: 12px auto 0; max-width: 72rem; padding: 0 16px;
+                font: 500 13px/1.8 'IBM Plex Sans Arabic', 'Segoe UI', system-ui, sans-serif; }
+            #svfDemoNote div { background: #fff7e6; border: 1px solid #f3d9a6; color: #6b4a12; border-radius: 12px; padding: 8px 14px; }
+            #svfDemoNote b { color: #082742; }
+            @media print { #svfDemoNote { display: none !important; } }
             html:not([${MONTHLY}]) a[href*="monthly.html"],
             html:not([${MONTHLY}]) #monthlyCard { display: none !important; }
             html:not([${LETTERS}]) #showLettersAppBtn,
@@ -244,11 +300,29 @@
 
     function start() {
         injectStyle();
+        if (DEMO) { openDemo(); return; }
         if (readSession()) { unlock(); addLogout(); return; }
         render();
     }
 
-    lock();   // يُقفل فوراً: لا يُرى المحتوى قبل الحكم على الجلسة
+    // العرض المستقلّ: يُفتح بلا رمز، وتعلوه ملاحظةٌ بما هو
+    function openDemo() {
+        document.documentElement.setAttribute(DEMO_ATTR, 'eye');
+        unlock();
+        try { document.title = 'عين المشرف — منظومة الإشراف التربوي'; } catch (e) {}
+        if (document.getElementById('svfDemoNote')) return;
+        const n = document.createElement('div');
+        n.id = 'svfDemoNote';
+        n.setAttribute('role', 'note');
+        n.innerHTML = '<div><b>عرضٌ للاطّلاع على «عين المشرف»</b> — جرّبها بحرّيّة: ما تُدخله يبقى في هذا التبويب ويُمحى بإغلاقه، '
+            + 'ولا يصل إلى بيانات المنظومة. ابدأ بكتابة بيانات الحصة في «نموذج التقييم»، ثمّ «عين المشرف».</div>';
+        let bar = null;
+        try { bar = document.querySelector && document.querySelector('.svf-id'); } catch (e) { bar = null; }
+        if (bar && bar.parentNode && bar.insertAdjacentElement) bar.insertAdjacentElement('afterend', n);
+        else if (document.body) document.body.insertBefore ? document.body.insertBefore(n, document.body.firstChild) : document.body.appendChild(n);
+    }
+
+    if (!DEMO) lock();   // يُقفل فوراً: لا يُرى المحتوى قبل الحكم على الجلسة
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
     else start();
 
@@ -259,7 +333,8 @@
         canDebrief,
         canEye,
         canEvidence,
-        isOpen: () => !!readSession(),
+        isOpen: () => DEMO || !!readSession(),
+        isDemo: () => DEMO,
         logout: () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); }
     };
 })(typeof window !== 'undefined' ? window : globalThis);

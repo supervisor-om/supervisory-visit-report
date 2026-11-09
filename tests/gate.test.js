@@ -5,6 +5,7 @@
 //   ٣) الرمز الصحيح يفتح، ويربط صاحبه بمعلّميه بلا رمزٍ ثانٍ
 //   ٤) رمزٌ غيّره صاحبه (supervisor_codes) يُقبل بلا إنترنت بعد حفظه
 //   ٥) الخروج يمسح الجلسة، والصفحات الثلاث تحمل البوّابة في <head>
+//   ٦) العرض المستقلّ لعين المشرف (?demo=eye): بلا رمز، والتخزين معزولٌ عن صاحب الجهاز
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
@@ -60,7 +61,14 @@ function env(store, opts) {
         CustomEvent: class { constructor(t) { this.type = t; } },
         Event: class { constructor(t) { this.type = t; } },
         setTimeout: (fn) => { try { fn(); } catch (e) {} },
-        location: { reload() { ctx.__reloaded = true; } },
+        location: Object.assign({ reload() { ctx.__reloaded = true; } }, opts.location || {}),
+        sessionStorage: opts.sess ? {
+            getItem: k => (k in opts.sess ? opts.sess[k] : null),
+            setItem: (k, v) => { opts.sess[k] = String(v); },
+            removeItem: k => { delete opts.sess[k]; },
+            key: i => Object.keys(opts.sess)[i] ?? null,
+            get length() { return Object.keys(opts.sess).length; }
+        } : undefined,
         navigator: { onLine: !opts.offline },
         localStorage: {
             getItem: k => (k in data ? data[k] : null),
@@ -209,6 +217,38 @@ function env(store, opts) {
         stale.els['svfGateCode'].value = 'code-a-new';
         await stale.submit();
         check('codes: وبلا إنترنتٍ ولا نسخةٍ محفوظةٍ لا يُقبل رمزٌ مجهول', stale.root.hasAttribute('data-svf-locked'));
+    }
+
+    /* ── ٦) العرض المستقلّ لعين المشرف (طلب أسعد 2026-11-09) ── */
+    {
+        const asadSess = { svf_gate: JSON.stringify({ id: 'asad', name: 'أسعد', hash: sha('code-asad'), at: Date.now() }), supervision_v6_visit_1: '{"teacherName":"حقيقي"}', svf_identity: '{"id":"asad"}' };
+        const ss = {};
+        const d = env(asadSess, { location: { pathname: '/reports.html', search: '?demo=eye' }, sess: ss, page: 'reports' });
+        const G = d.ctx.SupervisorGate;
+        check('demo: ?demo=eye على reports.html ← عرضٌ مستقلّ', G.isDemo() === true);
+        check('demo: يُفتح بلا رمز ولا نموذج دخول', !d.root.hasAttribute('data-svf-locked') && !d.els['svfGate'] && d.root.attrs['data-svf-demo'] === 'eye');
+        check('demo: العين والمداولة والأدلّة متاحة، والشهريّ والمراسلات لا',
+              G.canEye() && G.canDebrief() && G.canEvidence() && !G.canMonthly() && !G.canLetters()
+              && d.root.hasAttribute('data-svf-eye') && d.root.hasAttribute('data-svf-debrief') && !d.root.hasAttribute('data-svf-monthly'));
+        check('demo: لا زرّ خروج ولا جلسة صاحب الجهاز', !d.els['svfLogout'] && G.session() === null);
+        check('demo: التخزين معزول — لا يرى تقارير صاحب الجهاز ولا هويّته',
+              d.ctx.localStorage.getItem('supervision_v6_visit_1') === null && d.ctx.localStorage.getItem('svf_identity') === null && d.ctx.localStorage.length === 0);
+        d.ctx.localStorage.setItem('supervision_v6_visit_9', '{"teacherName":"تجريبي"}');
+        check('demo: ما يُكتب يذهب إلى sessionStorage بمفاتيح svfdemo: لا إلى التخزين الدائم',
+              ss['svfdemo:supervision_v6_visit_9'] && !('supervision_v6_visit_9' in d.data) && d.ctx.localStorage.key(0) === 'supervision_v6_visit_9');
+        d.ctx.localStorage.removeItem('supervision_v6_visit_9');
+        check('demo: والحذف من المعزول وحده', !ss['svfdemo:supervision_v6_visit_9'] && d.data.supervision_v6_visit_1);
+        const noDemo = env(asadSess, { location: { pathname: '/reports.html', search: '' }, sess: {} });
+        check('demo: بلا المعامل البوّابة كما هي', noDemo.ctx.SupervisorGate.isDemo() === false && noDemo.ctx.localStorage.getItem('svf_identity') !== null);
+        const other = env({}, { location: { pathname: '/monthly.html', search: '?demo=eye' }, sess: {} });
+        check('demo: على غير صفحة التقارير لا يُفتح', other.ctx.SupervisorGate.isDemo() === false && other.root.hasAttribute('data-svf-locked'));
+        check('demo: القاعدة تُخفي بقيّة المنظومة وكاميرا الهاتف ووسيط Claude والتصدير للوزارة',
+              /html\[\$\{DEMO_ATTR\}\] \.svf-nav/.test(GATE) && GATE.includes('#eyeStartPhone') && GATE.includes('#eyeDraftBox') && GATE.includes('.svf-btn-moe')
+              && GATE.includes(':not([data-view="form-view"]):not([data-view="eye-view"]):not([data-view="debrief-view"])'));
+        const INIT = read('js/init.js'), EYEJS = read('js/eye.js'), SHORT = read('eye.html');
+        check('demo: init يفتح الزيارات الإشرافيّة على العين', /isDemo\(\)\) \{\s*showView\(document\.getElementById\('supervisoryVisitsApp'\)\);\s*if \(typeof toggleSupervisoryView === 'function'\) toggleSupervisoryView\('eye-view'\);/.test(INIT));
+        check('demo: ربط الهاتف محجوبٌ في العين نفسها', /async function startPhone\(\) \{[\s\S]{0,260}isDemo\(\)\) \{ message\(/.test(EYEJS) && EYEJS.includes('id="eyeDraftBox"'));
+        check('demo: eye.html رابطٌ قصيرٌ إليه', SHORT.includes("location.replace('reports.html?demo=eye')") && SHORT.includes('url=reports.html?demo=eye'));
     }
 
     /* ── ٥) الخروج والتوصيل ── */
