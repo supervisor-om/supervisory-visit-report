@@ -414,6 +414,7 @@
             if (viewId === 'debrief-view' && typeof svfDebriefOpen === 'function') { try { svfDebriefOpen(); } catch (e) { console.warn(e); } }
             // عين المشرف تُبنى أوّل فتحٍ وتعرض نتيجة التقرير المفتوح (js/eye.js)
             if (viewId === 'eye-view' && typeof svfEyeOpen === 'function') { try { svfEyeOpen(); } catch (e) { console.warn(e); } }
+            if (viewId === 'eye-view' || viewId === 'form-view') window.SvfNoorPreparation?.sync();
             // ونموذج التقييم يعرض شاهدها تحت البنود (أو يزيله إن تغيّرت الزيارة)
             if (viewId === 'form-view' && typeof svfEyeDecorate === 'function') { try { svfEyeDecorate(); } catch (e) { console.warn(e); } }
 
@@ -486,8 +487,9 @@
             const gMode = getSupervisoryGender();
             const item = id => evaluationItems.find(i => i.id === id) || { standard: '' };
             const note = id => document.querySelector(`#notes-${id}`)?.textContent || '';
-            const strengths = g.strengths.map(id => `• ${item(id).standard}: ${note(id)}`).join('\n');
-            const developments = g.developments.map(id => `• ${item(id).standard}: ${note(id)}`).join('\n');
+            const withNoor = id => [note(id), window.SvfNoorPreparation?.reportLine(id)].filter(Boolean).join('\n');
+            const strengths = g.strengths.map(id => `• ${item(id).standard}: ${withNoor(id)}`).join('\n');
+            const developments = g.developments.map(id => `• ${item(id).standard}: ${withNoor(id)}`).join('\n');
             let recs = applyGenderFilter("نوصي [المعلم/المعلمة] بالآتي:\n", gMode);
             const V2 = typeof svfEvidenceOn === 'function' && svfEvidenceOn();
             const score = id => Number(document.querySelector(`#score-${id}`)?.textContent || 0);
@@ -747,6 +749,7 @@
             try { if (typeof svfTeacherBriefRender === 'function') svfTeacherBriefRender(); } catch (e) {}
             // شاهد عين المشرف تحت البنود يزول مع التصفير
             try { if (typeof svfEyeDecorate === 'function') svfEyeDecorate(); } catch (e) {}
+            window.SvfNoorPreparation?.sync();
             showToast('تم إعادة تعيين النموذج');
         }
 
@@ -789,6 +792,7 @@
                     vn.value = ''; try { suggestVisitNumber(); } catch (e) {}
                 }
             }
+            window.SvfNoorPreparation?.sync();
             const reportId = editing ? currentEditingKey : `supervision_v6_visit_${Date.now()}`;
             // عين المشرف: تُكتب الدرجات المعتمدة للبنود التي اقترحتها، فيُقاس اتّفاقها مع المشرف
             if (typeof svfEyeBeforeSave === 'function') { try { svfEyeBeforeSave(); } catch (e) { console.warn(e); } }

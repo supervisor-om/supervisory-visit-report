@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v75';
+const VERSION = 'v76';
 const CACHE_NAME = `supervisory-${VERSION}`;
 // النماذج والمكتبات الثقيلة (vendor/) في ذاكرةٍ مستقلّةٍ لا يمسحها رفع VERSION — النموذج القويّ وحده ٣٦ ميغابايت،
 // فلا يُعاد تنزيله مع كلّ تحديثٍ للموقع. تُرفع VENDOR_VERSION فقط إن تغيّر ملفٌّ في vendor/ بالاسم نفسه.
@@ -65,6 +65,7 @@ const ASSETS = [
     './js/data-quality.js',
     './js/storage.js',
     './js/db.js',
+    './js/noor-preparation.js',
     './js/init.js',
     './manifest.json',
     'https://cdn.tailwindcss.com',
