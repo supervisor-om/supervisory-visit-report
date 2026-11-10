@@ -14,9 +14,9 @@
  */
 (function (root) {
     'use strict';
-    const T_FRAC = 0.022;     // أدنى ارتفاعٍ للقفزة: ٢٫٢٪ من طول الجسم في الصورة (قفزةٌ خفيفة ٣–٤ سم لطولٍ ١٥٠ سم) — كانت ٥٪ ثمّ ٣٪ ففاتت القفزات الخفيفة
-    const T_MIN = 1.5;        // ولا أقلّ من صفٍّ ونصف في الصورة الصغيرة (ضجيج الكاميرا)
-    const V_MIN = 0.2;        // سرعة الصعود: ٠٫٢ طول جسمٍ في الثانية فأكثر — القفزة الخفيفة القصيرة (خُمس ثانيةٍ في الهواء) تُقاس ~٠٫٢٧ على عُشر ثانية
+    const T_FRAC = 0.02;     // أدنى ارتفاعٍ للقفزة: ٢٪ من طول الجسم في الصورة
+    const T_MIN = 1.35;        // حدّ أدنى بالبكسل لعزل ضجيج الكاميرا
+    const V_MIN = 0.18;        // سرعة الصعود: ٠٫١٨ طول جسمٍ في الثانية فأكثر — القفزة الخفيفة القصيرة (خُمس ثانيةٍ في الهواء) تُقاس ~٠٫٢٧ على عُشر ثانية
                               // (كانت ٠٫٣ فلم تُعدّ)؛ والنهوض من القرفصاء والتمايل يردّهما شرط V_RISE ومستوى الوقوف
     const V_WIN = 0.1;        // السرعة على عُشر ثانية — الإطار المكرّر لا يضخّمها
     const FALL = 0.5;         // الهبوط: رجوع نصف ما صعد = هبط
@@ -196,14 +196,16 @@
     // انقطع تتبّع اللاعب: يرثه من في المنطقة بطولٍ قريبٍ من طوله، وأقرب من ٠٫٤ طول جسمٍ أفقيّاً إلى آخر موضعه
     // (اللاعب يقفز في مكانه؛ الواقف بجانبه أبعد من ذلك) — وإلّا لا أحد، ويُنتظر رجوعه
     function relock(list, last, zone, ar) {
-        let best = null, bd = 0.4;
+        const candidates = [];
         list.forEach(q => {
             if (!q.near || !inZone(q, zone)) return;
             if (last.h && (q.h < last.h * ZONE_H[0] || q.h > last.h * ZONE_H[1])) return;
             const d = Math.abs(q.x - last.x) * (ar || 1) / Math.max(0.05, q.h);
-            if (d < bd) { bd = d; best = q; }
+            if (d < 0.4) candidates.push({ q, score: d + (last.h ? Math.abs(Math.log(q.h / last.h)) * 0.25 : 0) });
         });
-        return best;
+        candidates.sort((a, b) => a.score - b.score);
+        if (!candidates.length || (candidates[1] && candidates[1].score - candidates[0].score < 0.06)) return null;
+        return candidates[0].q;
     }
     // تبادل المعرّفات: حين يتقاطع اللاعب وزميلٌ قد يعطي التتبّع معرّف اللاعب لزميله — صندوقٌ «يقفز» أفقيّاً
     // أكثر من نصف طول جسمٍ بين لحظتين (القافز في مكانه لا يفعل ذلك) أو يتغيّر طوله كثيراً ← ليس هو
@@ -220,21 +222,27 @@
     const FRONT = 0.05;       // قدماه أدنى من قدمي اللاعب أو أعلى بأقلّ من ٥٪ من طوله = أمامه أو بجانبه
     const OCC = 0.25;         // ويغطّي ربع النافذة عرضاً وارتفاعاً على الأقلّ
     const foot = q => q.fy != null ? q.fy : q.cy + q.h / 2;
-    function occluded(p, list) {
-        const wx0 = p.x - p.w * 0.3, wx1 = p.x + p.w * 0.3, wy0 = p.cy - p.h * 0.75, wy1 = p.cy + p.h * 0.55;
-        const ww = wx1 - wx0, wh = wy1 - wy0, pf = foot(p);
-        return list.some(q => {
-            if (q.id === p.id || q.h < p.h * BEHIND || !(q.now || q.h > p.h * 0.85)) return false;
-            if (foot(q) < pf - FRONT * p.h) return false;
-            const qx0 = q.x - q.w * 0.55, qx1 = q.x + q.w * 0.55, qy0 = q.cy - q.h * 0.55, qy1 = q.cy + q.h * 0.55;
-            const ox = Math.min(wx1, qx1) - Math.max(wx0, qx0), oy = Math.min(wy1, qy1) - Math.max(wy0, qy0);
-            return ox > ww * OCC && oy > wh * OCC;
-        });
+    function visibleLane(p, list) {
+        const x0 = p.x - p.w * 0.3, x1 = p.x + p.w * 0.3;
+        const y0 = p.cy - p.h * 0.75, y1 = p.cy + p.h * 0.55;
+        let left = x0, right = x1;
+        for (const q of list) {
+            if (q.id === p.id || q.h < p.h * BEHIND || !(q.now || q.h > p.h * 0.85)) continue;
+            if (foot(q) < foot(p) - FRONT * p.h) continue;
+            const l = q.x - q.w * 0.55, r = q.x + q.w * 0.55;
+            const overlapY = Math.min(y1, q.cy + q.h * 0.55) - Math.max(y0, q.cy - q.h * 0.55);
+            if (overlapY <= (y1 - y0) * OCC || r <= left || l >= right) continue;
+            if (l <= p.x && r >= p.x) return null;
+            if (r < p.x) left = Math.max(left, r);
+            else right = Math.min(right, l);
+        }
+        return right - left >= (x1 - x0) * 0.55 ? [left, right] : null;
     }
+    const occluded = (p, list) => !visibleLane(p, list);
     // إيقاف القياس لحظةً بلا قفزةٍ مبتورة: الموضع يبقى، والحالة على الأرض
     function hold(J, t) { J.st = 'g'; J.b = J.y; J.vmax = 0; J.vr = 0; J.lt = t; J.hist = [[t, J.y]]; J.gh = []; }
 
-    const api = { T_FRAC, T_MIN, V_MIN, V_RISE, FALL, AIR_MAX, ZONE_H, SWAP_X, inZone, pickPlayer, relock, swapped, occluded, hold, profile, shift, measure, newJumper, step };
+    const api = { T_FRAC, T_MIN, V_MIN, V_RISE, FALL, AIR_MAX, ZONE_H, SWAP_X, inZone, pickPlayer, relock, swapped, visibleLane, occluded, hold, profile, shift, measure, newJumper, step };
     root.SvfJump = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : typeof window !== 'undefined' ? window : globalThis);

@@ -184,6 +184,12 @@ const expectJumps = (hz, dur, start) => Math.floor((dur - (start || 1)) * hz);
     // الطلبة المتجمّعون خلف اللاعب (أقدامهم أعلى في الصورة) يتحرّكون — لا يوقفون العدّ
     check('occluded: زميلٌ يتحرّك خلفه مباشرةً ← لا', !J.occluded(pl, [pl, P(14, 0.48, 0.42, { cy: 0.55, now: true })]));
     check('occluded: مجموعةٌ تتحرّك خلفه وحوله ← لا', !J.occluded(pl, [pl, P(15, 0.45, 0.4, { cy: 0.55, now: true }), P(16, 0.56, 0.38, { cy: 0.54, now: true }), P(17, 0.7, 0.5, { now: true })]));
+    const beside = P(20, 0.593, 0.5, { now: true });
+    const lane = J.visibleLane(pl, [pl, beside]);
+    check('قصّ التداخل الجانبي والإبقاء على وسط اللاعب', lane && lane[0] < pl.x && lane[1] > pl.x && lane[1] < pl.x + pl.w * 0.3);
+    check('تداخلان جانبيان يحجبان مساحة القياس', !J.visibleLane(pl, [pl, P(20, 0.578, 0.5, { now: true }), P(21, 0.422, 0.5, { now: true })]));
+    check('التتبّع لا ينتقل إلى شخصين متقاربين عند الالتباس', J.relock([P(22, 0.49, 0.5), P(23, 0.51, 0.5)], last, zone, 16 / 9) === null);
+
     // hold: لا قفزةٌ مبتورة بعد الحجب
     const st = J.newJumper();
     let tt = 0, cnt = 0;
@@ -223,7 +229,7 @@ const expectJumps = (hz, dur, start) => Math.floor((dur - (start || 1)) * hz);
     check('try-eye: قبل البدء يُرسم من سيُختار لاعباً (إطارٌ متقطّع)', /if \(jumpOnly \|\| \(G\.st === 'jready' && G\.jid == null\)\) \{\s+const c = pickJumper\(\)/.test(H5));
     check('try-eye: الصورة بعرض ٤٨٠ للعدّ', /const JW = 480;/.test(H5));
     check('try-eye: منطقة اللاعب، والاختيار بلمس الطالب، ولا قياس حين يُحجب', /SvfJump\.pickPlayer\(P\.list, ZONE\)/.test(H5)
-          && /SvfJump\.relock\(P\.list, JG\.j, G\.manual \? null : ZONE, ar\)/.test(H5) && /if \(p && JG\.j && SvfJump\.swapped\(p, JG\.j, ar\)\)/.test(H5) && /if \(SvfJump\.occluded\(p, P\.list\)\) \{ SvfJump\.hold\(j, t\);/.test(H5)
+          && /SvfJump\.relock\(P\.list, JG\.j, G\.manual \? null : ZONE, ar\)/.test(H5) && /if \(p && JG\.j && SvfJump\.swapped\(p, JG\.j, ar\)\)/.test(H5) && /const lane = SvfJump\.visibleLane\(p, P\.list\);/.test(H5) && /if \(!lane\) \{\s+SvfJump\.hold\(j, t\);/.test(H5)
           && /\$\('cv'\)\.addEventListener\('pointerdown'/.test(H5) && /function personAt\(/.test(H5));
     check('try-eye: لا تسجيل', !/toDataURL|MediaRecorder|toBlob/.test(H5));
 }

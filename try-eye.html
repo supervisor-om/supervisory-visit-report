@@ -281,7 +281,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
 <video id="vid" playsinline muted autoplay></video>
 
 <script src="js/eye-core.js"></script>
-<script src="js/jump-core.js?v=3"></script>
+<script src="js/jump-core.js?v=4"></script>
 <script>
 (function () {
   'use strict';
@@ -580,7 +580,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     G.st = st; G.since = now();
     if (st === 'arm') { G.armOk = 0; G.fireAt = 0; }
     if (st === 'line') G.lineOk = 0;
-    if (st === 'jready') { G.cdAt = 0; G.cdN = 0; G.jid = null; G.manual = false; G.jLast = null; JG.j = null; JG.prev = null; $('jnN').textContent = '0'; }
+    if (st === 'jready') { G.cdAt = 0; G.cdN = 0; G.jid = null; G.manual = false; G.jLast = null; JG.j = null; JG.prev = null; JG.issue = ''; $('jnN').textContent = '0'; }
     if (st !== 'result') G.kind = '';
     $('flash').classList.toggle('on', false);
     if (st !== 'result') $('res').classList.remove('on');
@@ -645,7 +645,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
         $('timer').textContent = fmt1(Math.max(0, G.jEnd - t));
         if (t - G.since > 0.9) $('cd').classList.remove('on', 'go');
         if (t >= G.jEnd) jumpDone();
-        else if (!present && t - G.since > 3) { if (jumpCount() > 0) jumpDone(); else go('idle'); }
+        
         break;
       case 'line':
         if (!present || P.n < 3) { go(present ? 'free' : 'idle'); break; }
@@ -800,11 +800,15 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     // المعرّف انتقل إلى زميلٍ تقاطع معه: من في موضع اللاعب بطوله هو اللاعب (وإلّا يُتابَع المعرّف كما هو)
     if (p && JG.j && SvfJump.swapped(p, JG.j, ar)) {
       const q = SvfJump.relock(P.list, JG.j, G.manual ? null : ZONE, ar);
-      if (q && q.id !== p.id) { G.jid = q.id; JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, h: JG.j.h, seen: t }); return q; }
+      if (!q || q.id === p.id) return null;
+      G.jid = q.id;
+      JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, h: JG.j.h, seen: t });
+      JG.prev = null;
+      return q;
     }
     if (p || !JG.j || t - JG.j.seen > 8) return p || null;
     const q = SvfJump.relock(P.list, JG.j, G.manual ? null : ZONE, ar);
-    if (q) { G.jid = q.id; JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, h: JG.j.h, seen: t }); }
+    if (q) { G.jid = q.id; JG.j = Object.assign(SvfJump.newJumper(), { n: JG.j.n, pop: JG.j.pop, x: JG.j.x, h: JG.j.h, seen: t }); JG.prev = null; }
     return q;
   }
   function jumpTick(t) {
@@ -820,7 +824,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     JG.cx.drawImage(video, 0, 0, JW, JH);
     const gray = E.toGray(JG.cx.getImageData(0, 0, JW, JH).data, JW * JH);
     const p = jumper(t, ar);
-    if (JG.prev && p) {
+    if (p) {
       if (!JG.j) JG.j = Object.assign(SvfJump.newJumper(), { n: 0, pop: 0 });
       const j = JG.j;
       const gap = j.seen != null && t - j.seen > 0.4;           // غاب اللاعب لحظةً: لا قفزةٌ مبتورة (وتوقّف الصفحة لحظةً على الـiPad ليس غياباً — كانت ٠٫١٥ ث)
@@ -828,17 +832,29 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
       const hpx = p.h * JH;
       let occ = false, hit = false;
       // زائرٌ يمرّ أمام اللاعب: لا قياس في هذا الإطار
-      if (SvfJump.occluded(p, P.list)) { SvfJump.hold(j, t); j.occ = t; occ = true; }
-      else {
-        if (gap) SvfJump.hold(j, t);
-        const bw = p.w * JW, bx = (p.x - p.w / 2) * JW, by = (p.cy - p.h / 2) * JH;
-        const c0 = Math.round(bx + bw * 0.2), c1 = Math.round(bx + bw * 0.8), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
-        const s = SvfJump.measure(JG.prev, gray, JW, JH, c0, c1, r0, r1, Math.max(4, Math.round(hpx * 0.22)));    // ما تغيّر وحده، لا الخلفيّة الثابتة
-        if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { hit = true; j.n++; j.pop = t; beep(1250, 0.06, 0.12); $('jnN').textContent = String(j.n); }
+      const lane = SvfJump.visibleLane(p, P.list);
+      if (!lane) {
+        SvfJump.hold(j, t);
+        JG.prev = null;
+        JG.issue = 'محجوب';
+        occ = true;
+      } else {
+        JG.issue = '';
+        if (gap) { SvfJump.hold(j, t); JG.prev = null; }
+        const by = (p.cy - p.h / 2) * JH;
+        const c0 = Math.round(lane[0] * JW), c1 = Math.round(lane[1] * JW), r0 = Math.round(by - hpx * 0.25), r1 = Math.round(by + hpx * 1.05);
+        if (JG.prev) {
+          const s = SvfJump.measure(JG.prev, gray, JW, JH, c0, c1, r0, r1, Math.max(4, Math.round(hpx * 0.22)));    // ما تغيّر وحده، لا الخلفيّة الثابتة
+          if (SvfJump.step(j, s, hpx, t) && G.st === 'jump') { hit = true; j.n++; j.pop = t; beep(1250, 0.06, 0.12); $('jnN').textContent = String(j.n); }
+        }
+        JG.prev = gray;
       }
       if (DBG) dbgPush(t, j, hpx, occ, hit);
+    } else {
+      JG.prev = null;
+      JG.issue = 'بانتظار ظهور اللاعب المختار';
+      if (JG.j) SvfJump.hold(JG.j, t);
     }
-    JG.prev = gray;
   }
   function dbgPush(t, j, hpx, occ, hit) {
     const d = JG.dbg || (JG.dbg = { tr: [], n: 0, at: t, fps: 0, h: 0 });
@@ -855,7 +871,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     ctx.fillStyle = 'rgba(4,16,30,.85)'; rrect(x0, y0, w, h, 14); ctx.fill();
     ctx.font = '600 17px "IBM Plex Sans Arabic", Tahoma, sans-serif'; ctx.fillStyle = '#f7f5ee'; ctx.textBaseline = 'top'; ctx.textAlign = 'right';
     ctx.fillText(d ? 'قياس ' + Math.round(d.fps) + ' إطاراً/ث · طول اللاعب ' + Math.round(d.h) + ' من ' + JW + ' · العدد ' + jumpCount() : 'لا قياس بعد — لم يُختر لاعب', x0 + w - 12, y0 + 10);
-    ctx.fillText('v3 · الكشف ' + Math.round(D.msAvg) + ' م.ث · اللاعب ' + (G.jid == null ? '—' : G.jid) + ' · ' + G.st + (d && d.tr.length && d.tr[d.tr.length - 1][4] ? ' · محجوب' : ''), x0 + w - 12, y0 + 34);
+    ctx.fillText('v4 · الكشف ' + Math.round(D.msAvg) + ' م.ث · اللاعب ' + (G.jid == null ? '—' : G.jid) + ' · ' + G.st + (d && d.tr.length && d.tr[d.tr.length - 1][4] ? ' · محجوب' : ''), x0 + w - 12, y0 + 34);
     const gx = x0 + 12, gy = y0 + 62, gw = w - 24, gh = h - 74, span = 6;
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.strokeRect(gx, gy, gw, gh);
     if (d && d.tr.length > 1) {
@@ -1125,7 +1141,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     if (!camOk) txt = camErr || 'تشغيل الكاميرا…';
     else if (!engine) txt = engineErr ? 'تعذّر تحميل نموذج الكشف على هذا الجهاز' : 'تحميل نموذج الكشف…';
     else if (G.st === 'jready') { txt = G.cdAt ? 'استعدّ… العدّ التنازليّ' : 'بانتظار لاعبٍ في المنطقة الذهبيّة'; k = 'go'; }
-    else if (G.st === 'jump') { txt = 'التحدّي جارٍ — العين تعدّ'; k = 'go'; }
+    else if (G.st === 'jump') { txt = JG.issue ? 'القياس متوقف مؤقتًا · ' + JG.issue : 'التحدّي جارٍ — العين تعدّ'; k = 'go'; }
     else if (G.st === 'result') { txt = 'انتهى التحدّي — النتيجة على الشاشة'; k = 'ok'; }
     else if (pickJumper()) { txt = 'جاهز: لاعبٌ في المنطقة الذهبيّة'; k = 'ok'; }
     else if (P.n) txt = 'قف داخل المنطقة الذهبيّة، وجسمك كلّه في الصورة';
@@ -1260,7 +1276,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) await new Promise(r => { navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }); setTimeout(r, 5000); });
       if (!navigator.serviceWorker.controller) return;
-      const files = ['try-eye.html', 'festival.html', 'js/eye-core.js', 'js/jump-core.js?v=3', 'js/eye-yolox.js', 'js/eye-detect-worker.js', 'favicon.svg',
+      const files = ['try-eye.html', 'festival.html', 'js/eye-core.js', 'js/jump-core.js?v=4', 'js/eye-yolox.js', 'js/eye-detect-worker.js', 'favicon.svg',
         'vendor/onnx/ort.wasm.min.mjs', 'vendor/onnx/ort-wasm-simd-threaded.mjs', 'vendor/onnx/ort-wasm-simd-threaded.wasm', 'vendor/onnx/yolox_nano.onnx'];
       let ok = 0;
       for (const f of files) {
