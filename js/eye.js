@@ -2402,6 +2402,8 @@ function tagRowHtml(k) {
         S.runId++;
         renderQuick();                    // «أهمّ ما تلمسه» بعادة المشرف حتّى آخر حصة
         S.src = src;
+        S.endBellState = {};
+        S.endBellCandidates = [];
         S.via = via || null;              // 'phone' ← الصورة من كاميرا الهاتف
         S.lostSec = 0;
         S.video = video;
@@ -2916,6 +2918,8 @@ function tagRowHtml(k) {
         S.acc.af++;
         if (r.voice) S.acc.voice++;
         if (r.whistle) S.acc.whistle = true;
+        const bell = root.SvfEyeLessonEnd?.bellFrame(S.audio.buf, S.audio.binHz, S.ast.t, S.endBellState || (S.endBellState = {}), S.ast.wRun > 0);
+        if (bell != null && (S.endBellCandidates || (S.endBellCandidates = [])).length < 8 && !S.endBellCandidates.some(t => Math.abs(t - bell) < 5)) S.endBellCandidates.push(bell);
     }
 
     const recNow = () => ({ secs: S.secs, grid: S.grid || [], sens: sens(), cells: S.cells, ctx: S.ctxEvents, mic: S.mic });
@@ -3302,6 +3306,7 @@ function tagRowHtml(k) {
             heat: S.grid && M.observed ? E().heatDigits(S.grid).join('') : '',
             counts: Object.assign({}, S.counts),
             ev: S.events.filter(e => e.t != null).slice(-300).map(e => [e.t, e.k]),
+            endBellCandidates: (S.endBellCandidates || []).slice(),
             cx: S.ctxEvents.map(e => e.source === 'auto' ? [e.t, e.k, 'auto'] : [e.t, e.k]),
             outAuto, dishAuto,
             det: S.src !== 'none' && AI.ok && AI.engine && AI.count ? AI.engine.name : null,   // نموذج الكشف الذي رصد هذه الحصة
@@ -3368,6 +3373,7 @@ function tagRowHtml(k) {
         const ck = {
             v: 1, at: Date.now(), sec: S.lastSec, src: S.src, via: S.via, mic: S.mic, hadAudio: !!S.hadAudio, consent: !!S.consent,
             speechConsent: !!S.speechConsent, form: formSig(),
+            endBellCandidates: S.endBellCandidates || [],
             secs: S.secs, grid: S.grid ? Array.from(S.grid) : null, events: S.events, counts: S.counts, ctx: S.ctxEvents, ctxCur: S.ctxCur,
             lost: S.lostSec || 0, gap: S.gapSec || 0, resumes: S.resumes || 0, spOff: S.spOff || 0, classMax: S.classMax || 0,
             roi: S.roi, sample: S.sample, sampleRound: S.sampleRound, marks: S.marks, field: S.field,
@@ -3385,6 +3391,8 @@ function tagRowHtml(k) {
         S.lastSec = S.secs.length;
         S.grid = R.grid ? Uint32Array.from(R.grid) : new Uint32Array(E().GRID_W * E().GRID_H);
         S.events = R.events || []; S.counts = Object.assign({}, R.counts || {});
+        S.endBellCandidates = R.endBellCandidates || [];
+        S.endBellState = {};
         S.ctxEvents = R.ctx || []; S.ctxCur = R.ctxCur || null;
         S.lostSec = R.lost || 0; S.gapSec = (R.gap || 0) + gap; S.resumes = (R.resumes || 0) + (resuming ? 1 : 0);
         S.spOff = (R.spOff || 0) + (R.sp ? gap : 0);
@@ -3856,6 +3864,80 @@ function tagRowHtml(k) {
         const review = $('eyePhaseReview');
         if (review) review.open = true;
     }
+
+
+    function lessonEndReview(data) {
+        const F = root.SvfEyeLessonEnd;
+        if (!F || !Array.isArray(data.endBellCandidates)) return '';
+        const saved = data.lessonEnd?.visit === questionVisitKey() ? data.lessonEnd : null;
+        const end = F.spokenEnd(data, SX()?.norm);
+        const deadline = saved?.bell ?? F.LIMIT;
+        const phase = E().PART[F.phaseAt(data.cx, deadline)]?.label;
+        const after = F.motionAfter(data.fusionStates, deadline);
+        const reached = (data.M?.seconds || 0) >= deadline;
+        const verdict = saved?.end != null ? saved.end <= deadline ? 'انتهى الدرس في الوقت' : 'انتهى الدرس بعد الموعد بـ ' + E().dur(saved.end - deadline)
+            : saved?.continued ? 'الدرس مستمر عند الموعد بحسب رصد المشرف' : 'انتهاء الدرس غير مؤكّد';
+        return `<details id="eyeLessonEnd" class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-7" ${saved ? 'open' : ''}>
+            <summary class="cursor-pointer font-bold">البند ٧ · نهاية الحصة وإدارة الوقت</summary>
+            <p>الموعد المخطط ٤٠:٠٠ من بدء الرصد. مرجع المقارنة ${saved?.bell != null ? 'جرس أكّده المشرف عند ' + mmss(deadline) : 'نهاية الأربعين دقيقة'}.</p>
+            <p><b>${esc(verdict)}</b></p>
+            <p>${reached ? 'آخر عنصر مسجّل عند الموعد · ' + esc(phase || 'غير محدد') : 'توقف الرصد قبل موعد المقارنة.'}</p>
+            <p>${after ? 'بعد الموعد · رُصد نشاط حركي في ' + after.active + ' من ' + after.seen + ' ثوانٍ متاحة من أول ٢٠ ثانية' : 'مؤشر الصورة بعد الموعد غير كافٍ.'}</p>
+            <p>${end ? 'عبارة ختام محتملة عند ' + mmss(end[0]) + ' · «' + esc(end[1]) + '»' : 'لا توجد عبارة ختام واضحة في التفريغ.'}</p>
+            <div class="space-y-2 py-2">
+                <p>إشارات صوتية محتملة للجرس قرب الموعد. اضغط على الوقت لتعبئته إذا تحققت أنه جرس المدرسة.</p>
+                ${data.endBellCandidates.length ? data.endBellCandidates.map(t => `<button type="button" class="svf-btn svf-btn-ghost svf-btn-sm" data-end-bell="${esc(t)}">${mmss(t)}</button>`).join(' ') : '<p>لم ترصد العين إشارة يمكن اقتراحها للجرس.</p>'}
+                <div class="flex flex-wrap gap-3">
+                    <label>وقت الجرس المتحقق <input dir="ltr" data-end-input="bell" placeholder="40:00" value="${saved?.bell != null ? mmss(saved.bell) : ''}" class="w-20 rounded border px-1"></label>
+                    <label>وقت انتهاء الدرس الفعلي <input dir="ltr" data-end-input="end" placeholder="40:00" value="${saved?.end != null ? mmss(saved.end) : ''}" class="w-20 rounded border px-1"></label>
+                </div>
+                <label class="flex items-center gap-2"><input type="checkbox" data-end-continued ${saved?.continued ? 'checked' : ''}> رصدت استمرار الدرس عند الموعد ولم أحدد وقت انتهائه</label>
+                <button type="button" class="svf-btn svf-btn-primary svf-btn-sm" data-end-save>اعتماد شاهد نهاية الحصة</button>
+                ${saved ? '<button type="button" class="svf-btn svf-btn-ghost svf-btn-sm" data-end-clear>إزالة الاعتماد</button>' : ''}
+            </div>
+            <p>بقاء الحركة قد يكون تهدئة أو انصرافًا. يؤخذ وقت النهاية من تحقق المشرف، ويستمر الرصد حتى الإيقاف.</p>
+        </details>`;
+    }
+
+    function bindLessonEnd(box, data) {
+        const panel = box.querySelector('#eyeLessonEnd');
+        if (!panel) return;
+        const F = root.SvfEyeLessonEnd;
+        const field = key => panel.querySelector('[data-end-input="' + key + '"]');
+        const redraw = () => {
+            save(data);
+            if (typeof supRegenderGenerated === 'function') supRegenderGenerated();
+            renderResult(data);
+            const view = $('eyeLessonEnd');
+            if (view) view.open = true;
+        };
+        panel.querySelectorAll('[data-end-bell]').forEach(btn => btn.addEventListener('click', () => { field('bell').value = mmss(Number(btn.dataset.endBell)); }));
+        panel.querySelector('[data-end-save]').addEventListener('click', () => {
+            const rawBell = field('bell').value.trim(), rawEnd = field('end').value.trim();
+            const bell = F.time(rawBell), end = F.time(rawEnd), continued = panel.querySelector('[data-end-continued]').checked;
+            if (rawBell && (bell == null || bell <= 0) || rawEnd && (end == null || end <= 0) || (continued && end != null) ||
+                (end == null && !continued)) {
+                toast('أدخل وقت انتهاء الدرس بصيغة دقيقة:ثانية، أو أكّد أنه استمر عند الموعد. وقت الجرس اختياري.');
+                return;
+            }
+            data.lessonEnd = { visit: questionVisitKey(), bell, end, continued };
+            redraw();
+        });
+        panel.querySelector('[data-end-clear]')?.addEventListener('click', () => { delete data.lessonEnd; redraw(); });
+    }
+
+    root.svfEyeLessonEndEvidence = function (id) {
+        if (Number(id) !== 7 || !root.SupervisorGate?.canEye()) return '';
+        try {
+            const d = JSON.parse($('eyeData')?.value || 'null')?.lessonEnd;
+            if (!d || d.visit !== questionVisitKey()) return '';
+            const deadline = d.bell ?? root.SvfEyeLessonEnd.LIMIT;
+            const reference = d.bell == null ? 'موعد نهاية الأربعين دقيقة' : 'جرس المدرسة عند ' + mmss(deadline);
+            if (d.end == null) return d.continued ? 'رُصد استمرار الدرس عند ' + reference + '.' : '';
+            if (d.end > deadline) return 'انتهى الدرس عند ' + mmss(d.end) + '، بعد ' + reference + ' بـ ' + E().dur(d.end - deadline) + '.';
+            return 'انتهى الدرس عند ' + mmss(d.end) + '، ضمن الوقت المحدد وفق ' + reference + '.';
+        } catch { return ''; }
+    };
 
     function renderResult(data) {
         const box = $('eyeResult');
@@ -4337,6 +4419,7 @@ function tagRowHtml(k) {
             ${questionCards(data)}
             ${fusionReview(data)}
             ${phaseReview(data)}
+            ${lessonEndReview(data)}
             <div id="eyeReview" class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
                 <p class="text-sm text-slate-600 mt-1 leading-6">${blindIds.length ? 'لكلّ بندٍ أدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ للمستوى الذي تختاره' : 'لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ'}. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
@@ -4417,6 +4500,7 @@ function tagRowHtml(k) {
         }
         bindQuestionCards(box, data);
         bindFusionReview(box, data);
+        bindLessonEnd(box, data);
         box.querySelectorAll('[data-phase-edit]').forEach(el => el.addEventListener('change', () => correctPhase(data, Number(el.dataset.phaseEdit), el.value)));
         box.querySelectorAll('[data-phase-remove]').forEach(el => el.addEventListener('click', () => correctPhase(data, Number(el.dataset.phaseRemove), null)));
         box.querySelectorAll('[data-eye-strategy]').forEach(input => input.addEventListener('change', () => {
@@ -4935,6 +5019,7 @@ function tagRowHtml(k) {
     function reset() {
         if (S.running) return;
         if (S.link || !$('eyePair').classList.contains('hidden')) cancelPhone();   // ربطٌ معلَّقٌ لزيارةٍ أخرى
+        S.endBellCandidates = []; S.endBellState = {};
         S.secs = []; S.grid = null; S.events = []; S.counts = {}; S.result = null; S.tl = null; S.savedHeat = null;
         S.ctxEvents = []; S.ctxCur = null; S.pSnap = null; S.src = null; S.consent = false; S.hadAudio = false; S.classMax = 0;
         S.rollSpans = []; S.rollSig = '';
