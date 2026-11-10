@@ -305,6 +305,21 @@
     }
 
     // segs: [{t, x}] بزمن الحصة، opts: {topic, ctx: [{t, k}] عناصر الحصة, seconds, admin: [[من، إلى)] الحضور والزيّ}
+
+    const STRATEGIES = {
+        stations: 'التعلم بالمحطات', peer: 'التعلم بالأقران', discover: 'الاكتشاف الموجّه',
+        demo: 'عرض النموذج', groups: 'العمل بالمجموعات', games: 'التعلم باللعب', levels: 'تدرّج مستويات المهمة'
+    };
+
+    function strategyCues(text) {
+        const s = norm(text);
+        const found = [];
+        if (/محط[هةت]/.test(s) && /انتقل|تنتقل|تنتقلون|تبدل|دوروا|المحطه التاليه/.test(s)) found.push('stations');
+        if (/زميل|شريك|قرين/.test(s) && /راقب|لاحظ|لاحظوا|قيم|قيّم/.test(s) && /صحح|يصحح|ملاحظ[هة]|تغذيه|قل له|قول له|اعطه/.test(s)) found.push('peer');
+        if (/جرب|جرّب|اختبر/.test(s) && /قارن|ايهما|ايش الفرق|ما الفرق/.test(s) && /فسر|فسّر|علل|ليش|لماذا|استنتج|السبب/.test(s)) found.push('discover');
+        return found;
+    }
+
     function analyze(segs, opts) {
         opts = opts || {};
         const adm = opts.admin || [];
@@ -312,7 +327,7 @@
         const admin = { clauses: 0, words: 0 };
         const terms = topicTerms(opts.topic);
         const termRe = termRegex(terms);
-        const cats = {};
+        const cats = {}, strategies = {};
         const forms = {}, formsEx = [];                    // التشكيلات التي طلبها المعلّم بصوته (FORM_CUES)
         ['praise', 'corr', 'q', 'check', 'safe', 'org', 'values', 'health', 'harsh'].forEach(k => { cats[k] = { n: 0, ex: [] }; });
         cats.praise.spec = 0; cats.corr.spec = 0; cats.q.hi = 0; cats.q.hiEx = []; cats.praise.specEx = []; cats.corr.specEx = [];
@@ -337,6 +352,11 @@
                 });
                 return;
             }
+            strategyCues(seg.x).forEach(k => {
+                const item = strategies[k] || (strategies[k] = { n: 0, ex: [] });
+                item.n++;
+                if (item.ex.length < 3) item.ex.push([t, short(seg.x)]);
+            });
             if (first == null) first = t;
             last = t;
             const pk = partAt(opts.ctx, t);
@@ -393,7 +413,7 @@
             wpm: lesson >= 60 ? Math.round(words / (lesson / 60)) : null,
             orgShare: n ? Math.round(100 * cats.org.n / n) : 0,
             topic: { terms, n: topicN },
-            parts, admin, forms, formsEx,
+            parts, admin, forms, formsEx, strategies,
             tb: Array.from(tb, x => x || '-').join(''), to: Array.from(to, x => x || '-').join('')
         }, cats);
     }
@@ -418,10 +438,11 @@
         if (B.praise) B.praise.specEx = [];
         if (B.corr) B.corr.specEx = [];
         if (B.formsEx) B.formsEx = [];
+        Object.values(B.strategies || {}).forEach(item => { item.ex = []; });
         return B;
     }
 
-    const api = { addressee, norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, pickAltIndex, cues, FORM_LABEL,
+    const api = { STRATEGIES, strategyCues, addressee, norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, pickAltIndex, cues, FORM_LABEL,
         foreign, phrases, fixChunks, fixRequest, parseFix, similar, promptText, FIX_CHUNK };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEyeSpeech = api;

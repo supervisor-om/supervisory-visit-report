@@ -3577,6 +3577,30 @@ function tagRowHtml(k) {
         return out;
     }
 
+    function strategyReview(data) {
+        const labels = SX()?.STRATEGIES || {};
+        const speech = data.M?.speech?.strategies || {};
+        const approved = new Set(Object.keys(labels).filter(k => data.strategyApproved?.[k]));
+        const manual = new Set(['demo', 'groups', 'games', 'stations', 'levels', 'discover'].filter(k => data.counts?.[k] > 0));
+        const confirmed = new Set([...manual, ...approved]);
+        const pending = Object.keys(labels).filter(k => speech[k]?.n && !confirmed.has(k)).length;
+        const keys = Object.keys(labels).filter(k => speech[k]?.n || confirmed.has(k));
+        if (!keys.length) return '';
+        const rows = keys.map(k => {
+            const item = speech[k];
+            const quotes = (item?.ex || []).map(([t, x]) => '<li><bdi>' + esc(mmss(t)) + '</bdi> · ' + esc(x) + '</li>').join('');
+            const control = manual.has(k) ? '<span>رصد المشرف</span>' : `<label class="flex items-center gap-2"><input type="checkbox" data-eye-strategy="${k}" ${approved.has(k) ? 'checked' : ''}> تحققت من التطبيق</label>`;
+            return `<li class="border-t border-slate-200 py-2"><div class="flex flex-wrap items-center justify-between gap-2"><b>${esc(labels[k])}</b>${control}</div>
+                ${item?.n ? `<p>إشارات من الكلام: ${esc(item.n)}</p>` : ''}<ul class="text-slate-600">${quotes}</ul></li>`;
+        }).join('');
+        return `<section class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-7">
+            <h3 class="font-bold">استراتيجيات التدريس من كلام المعلم</h3>
+            <p id="eyeStrategyCount" aria-live="polite">أنواع مؤكدة: ${confirmed.size} · مقترحة للمراجعة: ${pending}</p>
+            <p>أكّد النوع إذا رأيت تطبيقه. سجّل الأثر الذي لاحظته على تعلم الطلبة في دليل البند ٨.</p>
+            <ul>${rows}</ul>
+        </section>`;
+    }
+
     function renderResult(data) {
         const box = $('eyeResult');
         if (!box || !data) return;
@@ -4053,6 +4077,7 @@ function tagRowHtml(k) {
             ${trialCardHtml(data)}
             ${followHtml}
             ${targetsHtml}
+            ${strategyReview(data)}
             <div id="eyeReview" class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
                 <p class="text-sm text-slate-600 mt-1 leading-6">${blindIds.length ? 'لكلّ بندٍ أدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ للمستوى الذي تختاره' : 'لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ'}. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
@@ -4131,6 +4156,15 @@ function tagRowHtml(k) {
             box.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.eye-lvb'); if (b && box.contains(b)) pickLevel(b); });
             box.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('eye-apply')) applyCount(); });
         }
+        box.querySelectorAll('[data-eye-strategy]').forEach(input => input.addEventListener('change', () => {
+            const key = input.dataset.eyeStrategy;
+            data.strategyApproved = data.strategyApproved || {};
+            if (input.checked) data.strategyApproved[key] = true;
+            else delete data.strategyApproved[key];
+            save(data);
+            renderResult(data);
+            box.querySelector('[data-eye-strategy="' + key + '"]')?.focus();
+        }));
         applyCount();
         if ($('eyeBlindReveal')) { $('eyeBlindReveal').addEventListener('click', blindReveal); blindProgress(); }
         bindTrialCard();
