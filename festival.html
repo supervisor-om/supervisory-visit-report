@@ -214,6 +214,8 @@ b,strong{font-weight:700}
 .s6.show h2,.s6.show p,.s6.show .sys,.s6.show .cr{opacity:1}
 
 .ftr{position:absolute;bottom:0;right:0;left:0;height:80px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);border-top:1px solid var(--line)}
+.intro-replay{position:absolute;left:56px;padding:9px 20px;border:1px solid rgba(240,180,74,.55);border-radius:999px;background:var(--panel);color:var(--gold);font-family:inherit;font-size:22px;font-weight:600;cursor:pointer}
+.intro-replay:hover,.intro-replay:focus-visible{background:var(--gold);color:var(--bg)}
 .paused .ftr:after{content:"متوقّف — مسافة للمتابعة";margin-right:24px;color:var(--gold)}
 
 /* الافتتاحية — تُقرأ من بعيد على شاشة العرض */
@@ -425,7 +427,7 @@ b,strong{font-weight:700}
 
 </main>
 
-<footer class="ftr">إعداد وتصميم: أ. أسعد الخصيبي · مشرف الرياضة المدرسية · جميع حقوق التصميم والتطوير محفوظة © 2026</footer>
+<footer class="ftr">إعداد وتصميم: أ. أسعد الخصيبي · مشرف الرياضة المدرسية · جميع حقوق التصميم والتطوير محفوظة © 2026<button type="button" class="intro-replay" id="intro-replay" disabled>إعادة الافتتاحية</button></footer>
 
 
 <section class="intro on" id="intro" aria-labelledby="intro-title">
@@ -441,7 +443,7 @@ b,strong{font-weight:700}
     <span class="intro-tag">مهرجان عُمان للعلوم</span>
   </header>
   <div class="intro-body">
-    <h2 class="intro-rise" data-reveal="0" id="intro-title">هل أنت<span>…</span></h2>
+    <h2 id="intro-title">هل أنت<span>…</span></h2>
     <ul class="intro-roles">
       <li class="intro-role intro-rise" data-reveal=".38"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 9h-5a3 3 0 0 0-3 3v28a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3V12a3 3 0 0 0-3-3h-5"/><rect x="17" y="5" width="14" height="8" rx="2"/><path d="m17 27 5 5 10-11"/></svg>مشرف تربوي</li>
       <li class="intro-role intro-rise" data-reveal=".62"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 41h38M8 41V20L24 8l16 12v21M20 41V30h8v11M15 24h3m12 0h3M24 8V3h9"/></svg>مدير مدرسة</li>
@@ -741,7 +743,7 @@ b,strong{font-weight:700}
   var UPDATE = [s1Update, renderS2, s3Update, s4Update, s5Update, s6Update];
 
   // ── المحرّك ──
-  var cur = null, start = null, paused = false, pausedAt = 0;
+  var cur = null, start = null, paused = false, pausedAt = 0, hiddenAt = null;
   var fixed = (function () {
     var intro = /[?&]intro=(\d+(?:\.\d+)?)/.exec(location.search);
     if (intro) return Math.min(Number(intro[1]), INTRO - .01);
@@ -775,13 +777,23 @@ b,strong{font-weight:700}
   function show(i) {
     if (i === cur) return;
     cur = i;
+    $('intro-replay').disabled = i === -1;
     intro.classList.toggle('on', i === -1);
     intro.setAttribute('aria-hidden', i !== -1);
     SCENES.forEach(function (s, j) { $(s.id).className = $(s.id).className.replace(/\s*\bon\b/g, '') + (j === i ? ' on' : ''); });
     var chips = $('chips').children; for (var c = 0; c < chips.length; c++) chips[c].className = 'chip' + (c === i ? ' on' : c < i ? ' done' : '');
     if (i >= 0) ENTER[i]();
   }
+  document.addEventListener('visibilitychange', function () {
+    var now = performance.now();
+    if (document.hidden) hiddenAt = now;
+    else if (hiddenAt != null) {
+      if (start != null && !paused) start += now - hiddenAt;
+      hiddenAt = null;
+    }
+  });
   function frame(now) {
+    if (fixed == null && document.hidden) { requestAnimationFrame(frame); return; }
     if (start == null) start = now;
     var T = fixed != null ? fixed : paused ? pausedAt : (now - start) / 1000, s = at(T);
     show(s.i);
@@ -794,6 +806,10 @@ b,strong{font-weight:700}
     $('prog').style.width = (s.T / TOTAL * 100).toFixed(2) + '%';
     requestAnimationFrame(frame);
   }
+  $('intro-replay').addEventListener('click', function () {
+    fixed = null; start = null; pausedAt = 0; paused = false;
+    document.body.classList.remove('paused');
+  });
   function jump(d) {
     var now = performance.now(), s = at(paused ? pausedAt : (now - (start == null ? now : start)) / 1000);
     var count = SCENES.length + 1, j = (s.i + 1 + d + count) % count - 1;
