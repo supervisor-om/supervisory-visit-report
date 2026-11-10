@@ -487,7 +487,7 @@
             const gMode = getSupervisoryGender();
             const item = id => evaluationItems.find(i => i.id === id) || { standard: '' };
             const note = id => document.querySelector(`#notes-${id}`)?.textContent || '';
-            const withEvidence = id => [note(id), window.SvfNoorPreparation?.reportLine(id), window.svfEyeQuestionEvidence?.(id)].filter(Boolean).join('\n');
+            const withEvidence = id => [note(id), window.SvfNoorPreparation?.reportLine(id), window.svfEyeFusionEvidence?.(id) || window.svfEyeQuestionEvidence?.(id)].filter(Boolean).join('\n');
             const strengths = g.strengths.map(id => `• ${item(id).standard}: ${withEvidence(id)}`).join('\n');
             const developments = g.developments.map(id => `• ${item(id).standard}: ${withEvidence(id)}`).join('\n');
             let recs = applyGenderFilter("نوصي [المعلم/المعلمة] بالآتي:\n", gMode);

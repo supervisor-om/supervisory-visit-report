@@ -3264,6 +3264,7 @@ function tagRowHtml(k) {
             audio: !!S.hadAudio, mic: S.mic || 'device', consent: !!S.consent,
             roi: S.roi || null,
             M: keep,
+            fusionStates: S.src !== 'none' ? M.states.join('') : '',
             tl: M.timeline.map(t => t.k).join(''),
             tv: M.timeline.map(t => Math.round(t.v * 9)).join(''),
             tc: M.timeline.map(t => t.c).join(''),
@@ -3660,6 +3661,118 @@ function tagRowHtml(k) {
             const q = JSON.parse($('eyeData')?.value || 'null')?.questionEvidence;
             return q?.visit === questionVisitKey() ? ['شاهد التقويم: «' + q.question + '»', q.answer && 'الإجابة المرصودة: ' + q.answer,
                 q.follow && 'متابعة المعلّم: ' + q.follow, q.impact && 'الأثر المرصود: ' + q.impact].filter(Boolean).join(' · ') : '';
+        } catch { return ''; }
+    };
+
+
+    function fusionReview(data) {
+        const F = root.SvfEyeFusion;
+        if (!F || !data.sp?.seg?.length) return '';
+        const groups = F.review(data, SX(), logOf(data));
+        const saved = data.fusionEvidence?.visit === questionVisitKey() ? data.fusionEvidence.items || {} : {};
+        const showStats = row => row ? row.active + ' من ' + row.observed + ' ثوانٍ مرصودة فيها نشاط حركي' : 'الصورة غير كافية في هذه الفترة';
+        const showEvents = list => list.length ? list.map(ev => `<li>${esc(mmss(ev.t))} · ${esc(ev.text)}</li>`).join('') : '<li>لا يوجد شاهد مؤقت في هذه النافذة</li>';
+        const cards = Object.entries(F.ITEMS).map(([id, title]) => {
+            const all = groups[id] || [];
+            const approved = saved[id];
+            const existing = approved && all.find(row => row.soundTime === approved.t && row.text === approved.quote);
+            const rows = existing ? [existing, ...all.filter(row => row !== existing).slice(0, 3)] : all.slice(0, 4);
+            return `<details class="rounded border border-slate-200 p-2" ${approved ? 'open' : ''}>
+                <summary class="cursor-pointer font-semibold">البند ${esc(id)} · ${esc(title)} · ${all.length} موقفًا مقترحًا${approved ? ' · شاهد معتمد' : ''}</summary>
+                ${rows.length ? rows.map((row, i) => {
+                    const selected = row === existing;
+                    return `<details class="border-t border-slate-200 py-2" data-fusion-card ${selected ? 'open' : ''}>
+                        <summary class="cursor-pointer"><bdi>${esc(mmss(row.soundTime))}</bdi> · ${esc(row.text)}</summary>
+                        <p><b>وقت المقارنة في الصورة</b> <bdi>${esc(mmss(row.imageTime))}</bdi></p>
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <p><b>قبل العبارة</b> · ${esc(showStats(row.before))}</p><p><b>بعد العبارة</b> · ${esc(showStats(row.after))}</p>
+                        </div>
+                        <p><b>مؤشرات الكاميرا القريبة زمنيًا</b></p><ul>${showEvents(row.camera)}</ul>
+                        <p><b>ملاحظات المشرف القريبة زمنيًا</b></p><ul>${showEvents(row.marks)}</ul>
+                        <label class="block">الدليل الذي تحققت منه<textarea maxlength="400" rows="2" data-fusion-evidence class="block w-full rounded border p-2">${esc(selected ? approved.evidence : '')}</textarea></label>
+                        <label class="block">الأثر الذي شاهدته<textarea maxlength="400" rows="2" data-fusion-impact class="block w-full rounded border p-2">${esc(selected ? approved.impact : '')}</textarea></label>
+                        <button type="button" class="svf-btn svf-btn-primary svf-btn-sm" data-fusion-approve="${id}:${i}" data-fusion-time="${row.soundTime}">${selected ? 'تحديث الشاهد' : 'اعتماد شاهد هذا البند'}</button>
+                    </details>`;
+                }).join('') : '<p>لم يظهر موقف قابل للربط في التفريغ المتاح.</p>'}
+                ${approved ? `<button type="button" data-fusion-clear="${id}" class="svf-btn svf-btn-ghost svf-btn-sm">إزالة اعتماد هذا الشاهد</button>` : ''}
+            </details>`;
+        }).join('');
+        return `<details id="eyeFusionReview" class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-7" ${Object.keys(saved).length ? 'open' : ''}>
+            <summary class="cursor-pointer font-bold">مراجعة الصورة والكلام حسب بنود الاستمارة</summary>
+            <p>المواقف مرتبة بحسب توافر الرصد، ويظهر حتى أربعة لكل بند. النشاط الحركي لا يكفي للتحقق من إتقان المهارة أو تحسن أداء طالب بعينه. اكتب فقط ما تحققت منه.</p>
+            <p>البنود ١١–١٣ تحتاج شواهد إضافية من خارج هذا التحليل.</p>
+            <div class="flex flex-wrap items-end gap-2 py-2">
+                <label>وقت الإشارة في الصوت <input data-fusion-sound dir="ltr" placeholder="00:15" class="w-20 rounded border px-1"></label>
+                <label>وقت الإشارة في الصورة <input data-fusion-image dir="ltr" placeholder="00:17" class="w-20 rounded border px-1"></label>
+                <button type="button" data-fusion-offset class="svf-btn svf-btn-secondary svf-btn-sm">ضبط التزامن</button>
+                <button type="button" data-fusion-reset class="svf-btn svf-btn-ghost svf-btn-sm">إلغاء الضبط</button>
+                <span>فرق التوقيت ${esc(data.fusionOffset || 0)} ثانية</span>
+            </div>
+            <p>عند اختلاف التوقيت، أدخل وقت الإشارة نفسها في المصدرين. المراجعة تعرض مؤشرات الرصد المحفوظة.</p>
+            <div class="space-y-2 mt-2">${cards}</div>
+        </details>`;
+    }
+
+    function bindFusionReview(box, data) {
+        const panel = box.querySelector('#eyeFusionReview');
+        if (!panel) return;
+        const F = root.SvfEyeFusion;
+        const groups = F.review(data, SX(), logOf(data));
+        const redraw = () => {
+            save(data);
+            if (typeof supRegenderGenerated === 'function') supRegenderGenerated();
+            renderResult(data);
+            box.querySelector('#eyeFusionReview').open = true;
+        };
+        panel.querySelector('[data-fusion-offset]').addEventListener('click', () => {
+            const sound = F.time(panel.querySelector('[data-fusion-sound]').value);
+            const image = F.time(panel.querySelector('[data-fusion-image]').value);
+            if (sound == null || image == null || Math.abs(image - sound) > 120) {
+                toast('أدخل وقت الإشارة في المصدرين بصيغة دقيقة:ثانية، وبفرق لا يزيد على دقيقتين.');
+                return;
+            }
+            if (Object.keys(data.fusionEvidence?.items || {}).length) {
+                toast('أزل الشواهد المعتمدة أولاً ثم غيّر ضبط التزامن.');
+                return;
+            }
+            data.fusionOffset = image - sound;
+            redraw();
+        });
+        panel.querySelector('[data-fusion-reset]').addEventListener('click', () => {
+            if (Object.keys(data.fusionEvidence?.items || {}).length) {
+                toast('أزل الشواهد المعتمدة أولاً ثم ألغِ ضبط التزامن.');
+                return;
+            }
+            delete data.fusionOffset;
+            redraw();
+        });
+        panel.querySelectorAll('[data-fusion-approve]').forEach(btn => btn.addEventListener('click', () => {
+            const [id, index] = btn.dataset.fusionApprove.split(':');
+            const saved = data.fusionEvidence?.visit === questionVisitKey() ? data.fusionEvidence.items[id] : null;
+            const all = groups[id] || [];
+            const existing = saved && all.find(row => row.soundTime === saved.t && row.text === saved.quote);
+            const row = (existing ? [existing, ...all.filter(x => x !== existing)] : all)[Number(index)];
+            if (!row) return;
+            const card = btn.closest('[data-fusion-card]');
+            const evidence = card.querySelector('[data-fusion-evidence]').value.trim();
+            const impact = card.querySelector('[data-fusion-impact]').value.trim();
+            if (!evidence) { toast('اكتب الدليل الذي تحققت منه قبل الاعتماد.'); return; }
+            if (data.fusionEvidence?.visit !== questionVisitKey()) data.fusionEvidence = { visit: questionVisitKey(), items: {} };
+            data.fusionEvidence.items[id] = { t: row.soundTime, quote: row.text, evidence, impact };
+            redraw();
+        }));
+        panel.querySelectorAll('[data-fusion-clear]').forEach(btn => btn.addEventListener('click', () => {
+            delete data.fusionEvidence.items[btn.dataset.fusionClear];
+            redraw();
+        }));
+    }
+
+    root.svfEyeFusionEvidence = function (id) {
+        if (!root.SupervisorGate?.canEye()) return '';
+        try {
+            const data = JSON.parse($('eyeData')?.value || 'null')?.fusionEvidence;
+            const row = data?.visit === questionVisitKey() ? data.items?.[id] : null;
+            return row ? 'الدليل المرصود: ' + row.evidence + (row.impact ? ' · الأثر المرصود: ' + row.impact : '') : '';
         } catch { return ''; }
     };
 
@@ -4141,6 +4254,7 @@ function tagRowHtml(k) {
             ${targetsHtml}
             ${strategyReview(data)}
             ${questionCards(data)}
+            ${fusionReview(data)}
             <div id="eyeReview" class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
                 <p class="text-sm text-slate-600 mt-1 leading-6">${blindIds.length ? 'لكلّ بندٍ أدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ للمستوى الذي تختاره' : 'لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ'}. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
@@ -4220,6 +4334,7 @@ function tagRowHtml(k) {
             box.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('eye-apply')) applyCount(); });
         }
         bindQuestionCards(box, data);
+        bindFusionReview(box, data);
         box.querySelectorAll('[data-eye-strategy]').forEach(input => input.addEventListener('change', () => {
             const key = input.dataset.eyeStrategy;
             data.strategyApproved = data.strategyApproved || {};
@@ -4273,6 +4388,7 @@ function tagRowHtml(k) {
             try { ok = root.confirm('يُحذف نصّ كلام المعلّم وأمثلته من هذه الزيارة، وتبقى الأرقام والتقييم المقترح. متابعة؟'); } catch (e) { ok = false; }
             if (!ok) return;
             delete S.result.questionEvidence;
+            delete S.result.fusionEvidence;
             if (S.result.sp) { S.result.sp.seg = []; S.result.sp.purged = true; S.result.sp.fixed = null; }
             if (S.result.M && S.result.M.speech && SX()) S.result.M.speech = SX().stripExamples(S.result.M.speech);
             if (S.result.M && S.result.M.gspeech && LG()) LG().stripExamples(S.result.M.gspeech);
