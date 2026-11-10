@@ -476,7 +476,36 @@
         return out;
     }
 
-    const api = { BLOOM, questionReview, STRATEGIES, strategyCues, addressee, norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, pickAltIndex, cues, FORM_LABEL,
+
+    const PHASE_CUES = {
+        warm: /(?:الاحماء|احماء|التسخين|تسخين)/,
+        fit: /(?:الاعداد البدني|اعداد بدني|تمارين اللياقه|التمارين البدنيه)/,
+        teach: /(?:النشاط التعليمي|الانشطه التعليميه|تعليم المهاره|شرح المهاره|نتعلم (?:اليوم |الحين )?المهاره)/,
+        apply: /(?:النشاط التطبيقي|الانشطه التطبيقيه|تطبيق المهاره|نطبق المهاره|طبقوا المهاره)/,
+        assess: /(?:النشاط التقويمي|الانشطه التقويميه|التقويم الختامي|تقويم الاداء|نقيم اداءكم)/,
+        close: /(?:ختام الدرس|الختام|التهدئه|تمارين الاسترخاء)/
+    };
+    const PHASE_ORDER = ['roll', ...Object.keys(PHASE_CUES)];
+    function phaseTransition(text, current, confidence) {
+        if (confidence != null && confidence < 0.55) return null;
+        const raw = String(text || '').trim();
+        if (/[؟?]/.test(raw)) return null;
+        const normalized = fix(norm(raw));
+        if (/^(?:هل|متى|لماذا|كيف|لو|اذا)( |$)/.test(normalized) || /(?:^| )لا (?:ننتقل|نبدا|تنتقلوا|تبداوا)( |$)/.test(normalized)) return null;
+        const cue = normalized.match(/(?:^| )(?:الحين|الان|هسه|تو)\s+(?:خلونا\s+)?(?:ننتقل(?: الي)?|نبدا(?: ب)?|بنبدأ|نبدي|نروح(?: الي)?|ندخل(?: في)?|نروح|نكمل(?: مع)?)?\s*|(?:^| )(?:ننتقل(?: الان| الحين)? (?:الي|من)|نبدا(?: الان| الحين)?|نشرع في|انتقلوا الي|ابدوا)(?: |$)/g);
+        if (!cue) return null;
+        const segment = normalized.slice(normalized.lastIndexOf(cue[cue.length - 1])).trim();
+        const destination = segment.match(/(?:ننتقل|انتقلوا) من .+? الي (.+)/)?.[1] || segment;
+        if (/(?:^| )(?:بعد شوي|لاحقا|الحصه القادمه|سوف|سننتقل|بعد ان|قبل ما)( |$)/.test(normalized) ||
+            /(?:^| )(?:خلصنا|انتهينا)( |$)/.test(segment)) return null;
+        const targets = Object.entries(PHASE_CUES).filter(([, pattern]) => pattern.test(destination));
+        if (targets.length !== 1) return null;
+        const [target] = targets[0];
+        const from = PHASE_ORDER.indexOf(current), to = PHASE_ORDER.indexOf(target);
+        return to > from ? target : null;
+    }
+
+    const api = { phaseTransition, BLOOM, questionReview, STRATEGIES, strategyCues, addressee, norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, pickAltIndex, cues, FORM_LABEL,
         foreign, phrases, fixChunks, fixRequest, parseFix, similar, promptText, FIX_CHUNK };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEyeSpeech = api;

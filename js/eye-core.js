@@ -141,6 +141,7 @@
         { k: 'fit',   c: 'f', label: 'الإعداد البدني',      short: 'إعداد بدني',  min: 7,  act: 60 },
         { k: 'teach', c: 't', label: 'الأنشطة التعليمية',   short: 'تعليمية',     min: 12, act: 40 },
         { k: 'apply', c: 'a', label: 'الأنشطة التطبيقية',   short: 'تطبيقية',     min: 12, act: 60 },
+        { k: 'assess', c: 'z', label: 'الأنشطة التقويمية', short: 'تقويم', min: 0, act: null, optional: true },
         { k: 'close', c: 'c', label: 'ختام الدرس',          short: 'ختام',        min: 4,  act: null }
     ];
     const PART = {};
@@ -691,7 +692,7 @@
             if (s.p && s.p.n) { r.n += s.p.n; r.mv += s.p.mv; }
             if (s.w) r.whistles++;
         });
-        const order = PARTS.map(x => R[x.k]).filter(r => r.sec >= 30).sort((p, q) => p.first - q.first).map(r => r.k);
+        const order = PARTS.filter(x => !x.optional).map(x => R[x.k]).filter(r => r.sec >= 30).sort((p, q) => p.first - q.first).map(r => r.k);
         const canon = PARTS.map(x => x.k).filter(k => order.includes(k));
         return {
             list: PARTS.map(x => {
@@ -710,9 +711,10 @@
         const recMin = {};
         PARTS.forEach(x => { recMin[x.k] = rec && rec[x.k] > 0 ? Number(rec[x.k]) : x.min; });
         const sumRec = PARTS.reduce((s, x) => s + recMin[x.k], 0);
-        const total = P.list.reduce((s, r) => s + r.sec, 0);
+        const required = P.list.filter(r => PART[r.k] && !PART[r.k].optional);
+        const total = required.reduce((s, r) => s + r.sec, 0);
         const scale = total && sumRec ? total / 60 / sumRec : 1;
-        return P.list.map(r => {
+        return required.map(r => {
             const want = recMin[r.k] * scale, have = r.sec / 60, tol = Math.max(2, 0.4 * want);
             // «غائب» لما لم يُلمس أو لُمس خطأً (أقلّ من ١٠ ث)، و«قصير جدّاً» لما حضر أقلّ من نصف دقيقة — كان كلاهما «غائباً» فسُئل المعلّم
             // في المداولة «لم يظهر الإحماء» عن إحماءٍ رآه المشرف (2026-10-29)

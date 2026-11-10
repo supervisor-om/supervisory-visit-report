@@ -39,7 +39,7 @@
     // نقاط الطلبة فوق الصورة: ذهبيّ ينتقل، أخضر فاتح يتمرّن في مكانه، أبيض ساكن، طوبيّ خارج المنطقة
     const DOT_FADE = 0.7, DOT_HIDE = 1.6;     // ثوانٍ منذ آخر لقطة: تبهت النقاط ثمّ تختفي (drawView)
     const DOT = { move: '#f0b44a', place: '#7fd1a4', still: '#e2e8f0', out: 'rgba(224,122,106,0.95)' };
-    const CTX_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445', r: '#8492a6', e: '#64748b', o: '#b98a32', p: '#5b8fc7', g: '#246445' };
+    const CTX_COLOR = { w: '#d9a441', f: '#9a6f24', t: '#5b8fc7', a: '#2f6fae', c: '#246445', r: '#8492a6', z: '#7c3aed', e: '#64748b', o: '#b98a32', p: '#5b8fc7', g: '#246445' };
     const ROLL_TINT = 'rgba(132,146,166,.22)';       // مساحة الحضور والزيّ في مجرى الحصة
     const FORM_COLOR = { L: '#0f4c81', C: '#246445', G: '#9a6f24', S: '#64748b' };
     const REC_KEY = 'svf_eye_rec';
@@ -365,6 +365,9 @@ function tagRowHtml(k) {
                             <!-- النصّ لحظةً بلحظة (2026-11-01): آخر العبارات بأوقاتها، والجارية باهتة؛ لمسة العبارة تصحّحها -->
                             <div id="eyeSpeechText" class="mt-2 max-h-44 overflow-y-auto rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-[15px] text-slate-800 leading-7" style="max-height:11rem;overflow-y:auto"></div>
                             <p id="eyeSpeechHint" class="text-[11px] text-slate-500 mt-1 leading-4">المس العبارة لتصحيحها إن أخطأ المحوِّل — يُحلَّل المصحَّح ويبقى المسموع محفوظاً.</p>
+                            <label class="flex items-center gap-2 text-xs font-semibold mt-2"><input type="checkbox" id="eyeAutoPhase" checked> نقل عناصر الحصة تلقائيًا من الكلام الواضح</label>
+                            <p id="eyeAutoPhaseStatus" class="text-xs text-slate-600"></p>
+                            <button type="button" id="eyeAutoPhaseUndo" class="hidden svf-btn svf-btn-ghost svf-btn-sm">تراجع عن الانتقال الآلي</button>
                             <div id="eyeSpeechCue" class="hidden mt-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
                                 <p id="eyeCueText" class="text-xs text-blue-900 leading-5"></p>
                                 <div class="flex flex-wrap items-center gap-2 mt-1.5">
@@ -585,6 +588,7 @@ function tagRowHtml(k) {
         body.querySelectorAll('.eye-dec').forEach(b => b.addEventListener('click', () => dec(b.dataset.dec)));
         body.querySelectorAll('.eye-ctx').forEach(b => b.addEventListener('click', () => setCtx(b.dataset.ctx)));
         $('eyeCueOk').addEventListener('click', () => { const c = S.cue; if (c) { setCtx(c.k, c.t); flash($('eyeCueOk'), '#1d6b45', 300); } });
+        $('eyeAutoPhaseUndo').addEventListener('click', undoAutoPhase);
         $('eyeCueNo').addEventListener('click', () => { S.cue = null; renderCue(); });
         $('eyeMark').addEventListener('click', addMark);
         $('eyeWhistleTap').addEventListener('click', tapWhistle);
@@ -1123,14 +1127,16 @@ function tagRowHtml(k) {
 
     // ── سياق الحصة ──
     // at: وقتٌ سابقٌ اختياريّ — حين يُعتمد ما أعلنه المعلّم بصوته يُسجَّل العنصر من لحظة قوله لا من لحظة اللمس
-    function setCtx(k, at) {
+    function setCtx(k, at, source) {
         if (!S.running) { toast('يُلمس عنصر الحصة أثناء الرصد', 'info'); return; }
         if (S.cue) { S.cue = null; renderCue(); }
+        if (source !== 'auto') S.phaseManualAt = Math.round(now());
         if (S.ctxCur === k) return;
         const lastT = S.ctxEvents.length ? S.ctxEvents[S.ctxEvents.length - 1].t : 0;
         const t = at == null ? Math.round(now()) : Math.max(lastT, Math.min(Math.round(now()), Math.round(at)));
         S.ctxCur = k;
-        S.ctxEvents.push({ t, k });
+        S.ctxEvents.push(source === 'auto' ? { t, k, source } : { t, k });
+        renderAutoPhase();
         renderCtx();
         planHint();
     }
@@ -1154,9 +1160,29 @@ function tagRowHtml(k) {
         }
         return mins ? 'الدليل: ' + E().PART[k].label + mins : '';
     }
+    function renderAutoPhase() {
+        const last = S.ctxEvents.at(-1);
+        const automatic = S.running && last?.source === 'auto';
+        $('eyeAutoPhaseUndo').classList.toggle('hidden', !automatic);
+        $('eyeAutoPhaseStatus').textContent = automatic ? 'انتقال آلي · ' + E().PART[last.k].label + ' عند ' + mmss(last.t) : '';
+    }
+
+    function undoAutoPhase() {
+        if (!S.running || S.ctxEvents.at(-1)?.source !== 'auto') return;
+        S.ctxEvents.pop();
+        S.ctxCur = S.ctxEvents.at(-1)?.k || null;
+        S.phaseManualAt = Math.round(now());
+        S.cue = null;
+        renderCtx(); renderAutoPhase(); renderCue(); planHint();
+    }
+
     // ما أعلنه المعلّم بصوته («نبدأ الإحماء»، «الحين النشاط التطبيقي»): **اقتراحٌ** يلمسه المشرف — لا يُسجَّل وحده، فالمحوِّل قد يخطئ
     // والمعلّم قد يذكر العنصر ولا يبدؤه. يُعرض دقيقتين، ولا يُقترح العنصر الجاري.
-    function speechCue(x) {
+    function speechCue(x, confidence, provisional) {
+        const t = Math.round(now());
+        const auto = !provisional && S.running && checked('eyeAutoPhase') &&
+            (S.phaseManualAt == null || t - S.phaseManualAt >= 12) && SX()?.phaseTransition(x, S.ctxCur, confidence > 0 ? confidence : null);
+        if (auto) { setCtx(auto, t, 'auto'); return; }
         const c = SX() && SX().cues ? SX().cues(x) : null;
         if (!c || !c.part || c.part === S.ctxCur || !E().PART[c.part]) return;
         S.cue = { k: c.part, t: Math.round(now()), x: String(x).slice(0, 90) };
@@ -1706,7 +1732,7 @@ function tagRowHtml(k) {
                     sp.foreignRun = 0;
                     if (sp.err && /بغير العربيّة/.test(sp.err) && sp.li) sp.err = '';    // اللهجة الجديدة تكتب بالعربيّة
                     speechAdd(sp, x, { c: a && a.confidence });
-                    speechCue(x);
+                    speechCue(x, a && a.confidence, false);
                 } else {
                     const x = String((r[0] && r[0].transcript) || '').trim();
                     if (x) interim += ' ' + x;
@@ -1734,7 +1760,7 @@ function tagRowHtml(k) {
             // (2026-11-01) ما بقي جارياً حين انتهى التشغيل يُحفظ (Safari على الـiPad قد يُنهي التشغيل والعبارة لم تُعلَّم «نهائيّة»)
             if (sp.interim && S.sp === sp && (sp.rec === rec || !sp.rec)) {
                 const x = sp.interim; sp.interim = '';
-                if (!(SX() && SX().foreign(x))) { speechAdd(sp, x, { p: 1 }); speechCue(x); }
+                if (!(SX() && SX().foreign(x))) { speechAdd(sp, x, { p: 1 }); speechCue(x, null, true); }
             }
             if (!sp.on || !S.running || S.sp !== sp || sp.rec !== rec) return;     // أُعيد التشغيل يدويّاً: لهذا التشغيل خلفٌ
             const t = Date.now();
@@ -2389,6 +2415,9 @@ function tagRowHtml(k) {
         S.counts = {};
         S.ctxEvents = [];
         S.ctxCur = null;
+        S.phaseManualAt = null;
+        S.phaseReviewData = null;
+        renderAutoPhase();
         S.rollSpans = []; S.rollSig = '';
         S.cue = null;
         S.result = null;
@@ -3273,7 +3302,7 @@ function tagRowHtml(k) {
             heat: S.grid && M.observed ? E().heatDigits(S.grid).join('') : '',
             counts: Object.assign({}, S.counts),
             ev: S.events.filter(e => e.t != null).slice(-300).map(e => [e.t, e.k]),
-            cx: S.ctxEvents.map(e => [e.t, e.k]),
+            cx: S.ctxEvents.map(e => e.source === 'auto' ? [e.t, e.k, 'auto'] : [e.t, e.k]),
             outAuto, dishAuto,
             det: S.src !== 'none' && AI.ok && AI.engine && AI.count ? AI.engine.name : null,   // نموذج الكشف الذي رصد هذه الحصة
             // العبارة [وقت، نصّ، ثقة ٠–٩ أو null، المسموع قبل التصحيح] — والقرّاء القدامى يأخذون الأوّلين
@@ -3306,6 +3335,9 @@ function tagRowHtml(k) {
             data.follow = { date: prev.date || '', targets: prev.d.targets, list: prev.d.targets.map(t => E().targetCheck(t, data)).filter(Boolean) };
         data.sugg = E().suggest(keep, data.counts, ctxOf(data));
         data.summary = E().summaryText(keep, ctxOf(data));
+        S.phaseReviewData = data;
+        S.phaseReviewVisit = questionVisitKey();
+        S.phaseOriginalClassSize = data.M.people?.classSize;
         save(data);
         lastSave(data);
         renderResult(data);
@@ -3776,6 +3808,55 @@ function tagRowHtml(k) {
         } catch { return ''; }
     };
 
+
+    function phaseReview(data) {
+        const rows = data.cx || [];
+        if (!rows.length) return '';
+        const editable = S.phaseReviewData === data && S.secs.length > 0 && S.phaseReviewVisit === questionVisitKey();
+        const choices = [E().ROLL, ...E().PARTS];
+        return `<details id="eyePhaseReview" class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-7">
+            <summary class="cursor-pointer font-bold">انتقالات عناصر الحصة · ${rows.length}</summary>
+            <p>${editable ? 'راجع الانتقالات الآلية وعدّل العنصر أو احذف الانتقال قبل مغادرة الصفحة. تُعاد حسابات الحصة بعد التصحيح.' : 'سجل الانتقالات المحفوظ لهذه الزيارة.'}</p>
+            <ol>${rows.map(([t, k, source], i) => `<li class="flex flex-wrap items-center gap-2 border-t py-2">
+                <bdi>${esc(mmss(t))}</bdi> <b>${esc(E().PART[k]?.label || k)}</b> · ${source === 'auto' ? 'من كلام المعلّم' : 'يدوي'}
+                ${editable ? `<select data-phase-edit="${i}" aria-label="تصحيح عنصر الحصة عند ${esc(mmss(t))}">${choices.map(p =>
+                    `<option value="${p.k}" ${p.k === k ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select>
+                    <button type="button" class="svf-btn svf-btn-ghost svf-btn-sm" data-phase-remove="${i}">حذف الانتقال</button>` : ''}
+            </li>`).join('')}</ol>
+        </details>`;
+    }
+
+    function correctPhase(data, index, key) {
+        if (S.phaseReviewData !== data || S.phaseReviewVisit !== questionVisitKey() || !S.secs.length ||
+            !data.cx?.[index] || (key && !E().PART[key])) return;
+        const revised = data.cx.slice();
+        if (key) revised[index] = [revised[index][0], key];
+        else revised.splice(index, 1);
+        data.cx = revised.filter((row, i) => !i || row[1] !== revised[i - 1][1]);
+        S.ctxEvents = data.cx.map(([t, k, source]) => ({ t, k, source }));
+        S.ctxCur = S.ctxEvents.at(-1)?.k || null;
+        const raw = recNow(), M = E().summarize(raw), old = data.M;
+        const states = M.states, timeline = M.timeline;
+        delete M.states; delete M.timeline;
+        if (old.people && M.people) {
+            if (old.people.ballsSet) Object.assign(M.people, { balls: old.people.balls, ballsSet: true });
+            if (old.people.classSize !== S.phaseOriginalClassSize) M.people.classSize = old.people.classSize;
+        }
+        data.M = Object.assign({}, old, M);
+        data.fusionStates = data.src !== 'none' && data.src !== 'taps' ? states.join('') : '';
+        data.tl = timeline.map(row => row.k).join('');
+        data.tv = timeline.map(row => Math.round(row.v * 9)).join('');
+        data.tc = timeline.map(row => row.c).join('');
+        const series = E().live(raw, Object.assign({}, M, {states, timeline})).series;
+        const pack = (k, scale) => { const value = E().pack(series, k, scale); return /[0-9]/.test(value) ? value : ''; };
+        data.tm = pack('mv', 0.1); data.tt = pack('talk', 10);
+        renderCtx();
+        if (data.sp && SX()) speechReanalyze(data); else resuggest();
+        lastSave(data);
+        const review = $('eyePhaseReview');
+        if (review) review.open = true;
+    }
+
     function renderResult(data) {
         const box = $('eyeResult');
         if (!box || !data) return;
@@ -3894,7 +3975,7 @@ function tagRowHtml(k) {
                         </div></div>`;
                 }).join('')}</div>
                 <details class="mt-4 text-sm"><summary class="cursor-pointer text-slate-600">الزمن الموصى به لكلّ عنصر (دقائق لحصّة ٤٠ دقيقة — عدّله وفق دليل المعلّم)</summary>
-                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-2">${E().PARTS.map(x => `<label class="text-xs text-slate-600">${esc(x.label)}
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-2">${E().PARTS.filter(x => !x.optional).map(x => `<label class="text-xs text-slate-600">${esc(x.label)}
                         <input type="number" min="0" max="40" step="1" data-rec="${x.k}" value="${esc(String(rec[x.k] != null ? rec[x.k] : x.min))}" class="w-full border border-slate-300 rounded-md px-2 py-1 mt-0.5"></label>`).join('')}</div>
                     <button type="button" id="eyeRecSave" class="svf-btn svf-btn-secondary svf-btn-sm mt-2">حفظ وإعادة الاقتراح</button>
                 </details></div>`;
@@ -4255,6 +4336,7 @@ function tagRowHtml(k) {
             ${strategyReview(data)}
             ${questionCards(data)}
             ${fusionReview(data)}
+            ${phaseReview(data)}
             <div id="eyeReview" class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
                 <p class="text-sm text-slate-600 mt-1 leading-6">${blindIds.length ? 'لكلّ بندٍ أدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ للمستوى الذي تختاره' : 'لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ'}. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
@@ -4335,6 +4417,8 @@ function tagRowHtml(k) {
         }
         bindQuestionCards(box, data);
         bindFusionReview(box, data);
+        box.querySelectorAll('[data-phase-edit]').forEach(el => el.addEventListener('change', () => correctPhase(data, Number(el.dataset.phaseEdit), el.value)));
+        box.querySelectorAll('[data-phase-remove]').forEach(el => el.addEventListener('click', () => correctPhase(data, Number(el.dataset.phaseRemove), null)));
         box.querySelectorAll('[data-eye-strategy]').forEach(input => input.addEventListener('change', () => {
             const key = input.dataset.eyeStrategy;
             data.strategyApproved = data.strategyApproved || {};
