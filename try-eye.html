@@ -331,7 +331,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* خاصّ أو ممتلئ */ } }
   };
-  const prefs = Object.assign({ view: 'mosaic', sound: false, cam: null }, store.get('svf_try_prefs', {}));
+  const prefs = Object.assign({ view: 'mosaic', sound: false, jumpSound: true, cam: null }, store.get('svf_try_prefs', {}));
   if (/^(mosaic|video|dots)$/.test(Q.get('view') || '')) prefs.view = Q.get('view');
   const savePrefs = () => store.set('svf_try_prefs', prefs);
   const today = () => { const d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
@@ -637,7 +637,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
         }
         if (!G.cdAt) break;
         const k = Math.floor(t - G.cdAt);
-        if (k >= 3) { G.jEnd = t + CFG.jumpSec; go('jump'); cd.textContent = 'انطلقوا!'; cd.classList.add('on', 'go'); beep(990, 0.25); break; }
+        if (k >= 3) { G.jEnd = t + CFG.jumpSec; go('jump'); cd.textContent = 'انطلقوا!'; cd.classList.add('on', 'go'); whistleSound('start'); break; }
         if (G.cdN !== k + 1) { G.cdN = k + 1; cd.textContent = String(3 - k); cd.classList.remove('go'); cd.classList.add('on'); beep(660, 0.15); }
         break;
       }
@@ -746,26 +746,42 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     el.classList.toggle('off', !on);
   }
 
-  // صوت الصفّارة (مطفأٌ افتراضاً — S يشغّله): نغمةٌ مرتعشة نحو ثلاثة كيلوهرتز
+  // صفّارةٌ مرتعشة، بنبضةٍ للبدء ونبضتين لانتهاء القفز.
   let AC = null;
-  function audioUnlock() { if (!prefs.sound) return; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) { AC = null; } }
-  function whistleSound() {
-    if (!prefs.sound) return;
+  function audioUnlock() {
+    if (!prefs.sound && !prefs.jumpSound) return;
+    try {
+      AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+      if (AC.state !== 'running') AC.resume().catch(() => {});
+    } catch (e) { AC = null; }
+  }
+  function whistleSound(kind = 'stop') {
+    const stopGame = kind === 'stop';
+    if (!(stopGame ? prefs.sound : prefs.jumpSound)) return;
     audioUnlock();
     if (!AC) return;
+    const duration = stopGame ? 0.8 : kind === 'start' ? 0.65 : 0.28;
+    const volume = stopGame ? 0.3 : 0.65;
+    const offsets = kind === 'end' ? [0, 0.4] : [0];
     try {
-      const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(), lfo = AC.createOscillator(), lg = AC.createGain();
-      o.type = 'sine'; o.frequency.value = 2950; lfo.frequency.value = 27; lg.gain.value = 170;
-      lfo.connect(lg); lg.connect(o.frequency);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.03); g.gain.setValueAtTime(0.3, t + 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
-      o.connect(g); g.connect(AC.destination);
-      o.start(t); lfo.start(t); o.stop(t + 0.85); lfo.stop(t + 0.85);
+      const start = AC.currentTime;
+      for (const offset of offsets) {
+        const t = start + offset, o = AC.createOscillator(), g = AC.createGain(), lfo = AC.createOscillator(), lg = AC.createGain();
+        o.type = 'sine'; o.frequency.value = 2950; lfo.frequency.value = 27; lg.gain.value = 170;
+        lfo.connect(lg); lg.connect(o.frequency);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(volume, t + 0.03);
+        g.gain.setValueAtTime(volume, t + (stopGame ? 0.6 : duration - 0.07));
+        g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+        o.connect(g); g.connect(AC.destination);
+        o.start(t); lfo.start(t); o.stop(t + duration + 0.05); lfo.stop(t + duration + 0.05);
+      }
     } catch (e) { /* لا صوت */ }
   }
 
   // نغمةٌ قصيرة (العدّ التنازليّ وكلّ قفزة) — مع الصوت وحده
   function beep(f, dur, gain) {
-    if (!prefs.sound) return;
+    if (!prefs.sound || (!ALL && !prefs.jumpSound)) return;
     audioUnlock();
     if (!AC) return;
     try {
@@ -890,6 +906,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     ctx.restore();
   }
   function jumpDone() {
+    whistleSound('end');
     const n = jumpCount();
     DAY.rounds++;
     const rec = n > 0 && n > (DAY.jump || 0);
@@ -951,7 +968,10 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
   }
   // زرّ «ابدأ تحدّي القفز» (اللمس على الـiPad) — وأثناء التحدّي يوقفه
   function jumpStart() {
-    if (G.st === 'jready' || G.st === 'jump') { go('free'); G.since = now(); toast('أُوقف تحدّي القفز'); return; }
+    if (G.st === 'jready' || G.st === 'jump') {
+      if (G.st === 'jump') whistleSound('end');
+      go('free'); G.since = now(); toast('أُوقف تحدّي القفز'); return;
+    }
     if (mode === 'loop') setMode('live');
     holdLive = now() + 180;
     if (!camOk || !engine) { toast(!camOk ? 'الكاميرا غير جاهزة' : 'نموذج الكشف يُحمَّل… لحظات'); return; }
@@ -1255,8 +1275,10 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     } else if (k === 'v' || k === 'V' || k === 'ر') {
       const ks = Object.keys(VIEWS); prefs.view = ks[(ks.indexOf(prefs.view) + 1) % ks.length]; savePrefs(); toast('الصورة: ' + VIEWS[prefs.view]);
     } else if (k === 's' || k === 'S' || k === 'س') {
-      prefs.sound = !prefs.sound; savePrefs(); audioUnlock(); toast((ALL ? 'صوت الصفّارة: ' : 'الصوت: ') + (prefs.sound ? 'مُشغَّل' : 'مطفأ'));
-      if (prefs.sound) { if (ALL) whistleSound(); else beep(990, 0.2); }
+      const soundKey = ALL && G.st !== 'jready' && G.st !== 'jump' ? 'sound' : 'jumpSound';
+      prefs[soundKey] = !prefs[soundKey]; savePrefs(); audioUnlock();
+      toast('صوت الصفّارة: ' + (prefs[soundKey] ? 'مُشغَّل' : 'مطفأ'));
+      if (prefs[soundKey]) whistleSound(soundKey === 'sound' ? 'stop' : 'start');
     } else if (k === 'c' || k === 'C' || k === 'ؤ') nextCam();
     else if (k === 'f' || k === 'F' || k === 'ب') fullscreen();
     else return;
