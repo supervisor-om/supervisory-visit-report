@@ -3601,6 +3601,68 @@ function tagRowHtml(k) {
         </section>`;
     }
 
+    const questionVisitKey = () => JSON.stringify(['teacherName', 'school', 'visitDate', 'class', 'lesson', 'topic'].map(id => $(id)?.value.trim() || ''));
+
+    function questionCards(data) {
+        const X = SX();
+        const rows = X?.questionReview((data.sp?.seg || []).map(r => ({ t: r[0], x: r[1] })), data.M?.admin?.spans || []) || [];
+        if (!rows.length) return '';
+        const counts = {};
+        rows.forEach(q => { counts[q.bloom] = (counts[q.bloom] || 0) + 1; });
+        const summary = Object.entries(X.BLOOM).filter(([k]) => counts[k]).map(([k, label]) => label + ' ' + counts[k]).join(' · ');
+        return `<details class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-7">
+            <summary class="cursor-pointer font-bold">أسئلة المعلّم وإجابات الطلبة · ${rows.length}</summary>
+            <p>${esc(summary)}</p>
+            <p>تصنيف بلوم مقترح. راجع المسموع وحدّد المتحدّث قبل اعتماد الإجابة. دوّن الإجابات دون أسماء الطلبة. يُحفظ شاهد واحد للبند ١٠، واعتماد شاهد جديد يستبدل السابق.</p>
+            ${rows.map(q => {
+                const saved = data.questionEvidence?.visit === questionVisitKey() && data.questionEvidence?.t === q.t && data.questionEvidence?.question === q.x ? data.questionEvidence : null;
+                return `<details class="border-t border-slate-200 py-2" data-eye-question ${saved ? 'open' : ''}>
+                    <summary class="cursor-pointer"><bdi>${esc(mmss(q.t))}</bdi> · ${esc(q.x)} · ${esc(X.BLOOM[q.bloom])}</summary>
+                    <p>العبارة التالية · ${esc(q.reply || 'لا توجد إجابة واضحة في التفريغ')}</p>
+                    <p>متابعة محتملة · ${esc(q.follow || 'غير متاحة للتحقق')}</p>
+                    <label class="block">مستوى بلوم <select data-q-level>${Object.entries(X.BLOOM).map(([k,l]) => `<option value="${k}" ${(saved?.level || q.bloom) === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+                    <label class="block">الإجابة التي تحققت منها <textarea data-q-answer rows="2" maxlength="300" class="block w-full rounded border p-2">${esc(saved?.answer || '')}</textarea></label>
+                    <label class="block">متابعة المعلّم التي رصدتها <textarea data-q-follow rows="2" maxlength="300" class="block w-full rounded border p-2">${esc(saved?.follow || '')}</textarea></label>
+                    <label class="block">الأثر الذي شاهدته <textarea data-q-impact rows="2" maxlength="300" class="block w-full rounded border p-2">${esc(saved?.impact || '')}</textarea></label>
+                    <button type="button" data-q-approve="${q.key}" class="svf-btn svf-btn-primary svf-btn-sm">${saved ? 'تحديث شاهد البند ١٠' : 'اعتماد شاهد البند ١٠'}</button>
+                    ${saved ? '<button type="button" data-q-clear class="svf-btn svf-btn-ghost svf-btn-sm">إزالة الاعتماد</button>' : ''}
+                </details>`;
+            }).join('')}
+        </details>`;
+    }
+
+    function bindQuestionCards(box, data) {
+        const X = SX();
+        const rows = X?.questionReview((data.sp?.seg || []).map(r => ({ t: r[0], x: r[1] })), data.M?.admin?.spans || []) || [];
+        box.querySelectorAll('[data-q-approve]').forEach(btn => btn.addEventListener('click', () => {
+            const q = rows.find(row => row.key === btn.dataset.qApprove);
+            if (!q) return;
+            const card = btn.closest('[data-eye-question]');
+            const value = name => card.querySelector('[data-q-' + name + ']').value.trim();
+            const answer = value('answer'), follow = value('follow'), impact = value('impact');
+            if (!answer && !follow && !impact) { toast('سجّل إجابة أو متابعة أو أثرًا تحققت منه قبل الاعتماد.'); return; }
+            data.questionEvidence = { visit: questionVisitKey(), t: q.t, question: q.x, level: value('level'), answer, follow, impact };
+            save(data);
+            if (typeof supRegenderGenerated === 'function') supRegenderGenerated();
+            renderResult(data);
+        }));
+        box.querySelector('[data-q-clear]')?.addEventListener('click', () => {
+            delete data.questionEvidence;
+            save(data);
+            if (typeof supRegenderGenerated === 'function') supRegenderGenerated();
+            renderResult(data);
+        });
+    }
+
+    root.svfEyeQuestionEvidence = function (id) {
+        if (Number(id) !== 10 || !root.SupervisorGate?.canEye()) return '';
+        try {
+            const q = JSON.parse($('eyeData')?.value || 'null')?.questionEvidence;
+            return q?.visit === questionVisitKey() ? ['شاهد التقويم: «' + q.question + '»', q.answer && 'الإجابة المرصودة: ' + q.answer,
+                q.follow && 'متابعة المعلّم: ' + q.follow, q.impact && 'الأثر المرصود: ' + q.impact].filter(Boolean).join(' · ') : '';
+        } catch { return ''; }
+    };
+
     function renderResult(data) {
         const box = $('eyeResult');
         if (!box || !data) return;
@@ -4078,6 +4140,7 @@ function tagRowHtml(k) {
             ${followHtml}
             ${targetsHtml}
             ${strategyReview(data)}
+            ${questionCards(data)}
             <div id="eyeReview" class="bg-white rounded-2xl border border-slate-200 p-5">
                 <h2 class="text-lg font-bold text-slate-900">مراجعة التقييم والأدلّة</h2>
                 <p class="text-sm text-slate-600 mt-1 leading-6">${blindIds.length ? 'لكلّ بندٍ أدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ للمستوى الذي تختاره' : 'لكلّ بندٍ مستواه المقترح وأدلّته من الحصة بأوقاتها، وما سيُكتب في الوصف الرسميّ'}. راجع وعدّل بلمسة، ثمّ «اعتماد وحفظ».
@@ -4156,6 +4219,7 @@ function tagRowHtml(k) {
             box.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.eye-lvb'); if (b && box.contains(b)) pickLevel(b); });
             box.addEventListener('change', e => { if (e.target.classList && e.target.classList.contains('eye-apply')) applyCount(); });
         }
+        bindQuestionCards(box, data);
         box.querySelectorAll('[data-eye-strategy]').forEach(input => input.addEventListener('change', () => {
             const key = input.dataset.eyeStrategy;
             data.strategyApproved = data.strategyApproved || {};
@@ -4208,11 +4272,13 @@ function tagRowHtml(k) {
             let ok = false;
             try { ok = root.confirm('يُحذف نصّ كلام المعلّم وأمثلته من هذه الزيارة، وتبقى الأرقام والتقييم المقترح. متابعة؟'); } catch (e) { ok = false; }
             if (!ok) return;
+            delete S.result.questionEvidence;
             if (S.result.sp) { S.result.sp.seg = []; S.result.sp.purged = true; S.result.sp.fixed = null; }
             if (S.result.M && S.result.M.speech && SX()) S.result.M.speech = SX().stripExamples(S.result.M.speech);
             if (S.result.M && S.result.M.gspeech && LG()) LG().stripExamples(S.result.M.gspeech);
             save(S.result);
             renderResult(S.result);
+            if (typeof supRegenderGenerated === 'function') supRegenderGenerated();
             toast('حُذف النصّ — احفظ التقرير ليُحذف من نسخته المحفوظة');
         });
         box.querySelectorAll('.eye-target').forEach(cb => cb.addEventListener('change', () => setTarget(cb.dataset.k, cb.checked)));

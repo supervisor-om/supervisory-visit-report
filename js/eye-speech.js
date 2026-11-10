@@ -442,7 +442,41 @@
         return B;
     }
 
-    const api = { STRATEGIES, strategyCues, addressee, norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, pickAltIndex, cues, FORM_LABEL,
+
+    const BLOOM = { remember:'التذكّر', understand:'الفهم', apply:'التطبيق', analyze:'التحليل',
+        evaluate:'التقويم', create:'الإبداع', review:'تحتاج مراجعة' };
+    function bloomOf(s) {
+        if (/صمم|ابتكر|اقترح/.test(s) && /جديد|مختلف|من عندك/.test(s)) return 'create';
+        if (/معيار|اي المحاولتين|اي الاداءين/.test(s) && /برر|حكم|اختيار|افضل/.test(s)) return 'evaluate';
+        if (/قارن|حلل|ما الفرق/.test(s) && /تغير|اثر|سبب|علاقه|بين/.test(s)) return 'analyze';
+        if (/^(طبق|طبقوا|نفذ|نفذوا|اد|ادوا)( |$)/.test(s)) return 'apply';
+        if (/اشرح|وضح|صنف|بكلماتك/.test(s) || /^لماذا يعد/.test(s)) return 'understand';
+        if (/اذكر|عدد|سم |ما اسم|ما نوعا|ما تعريف/.test(s)) return 'remember';
+        return 'review';
+    }
+    function questionReview(segs, admin) {
+        const rows = lessonSegs(segs, admin || []);
+        const out = [];
+        const isQuestion = (x, s) => /[؟?]/.test(x) || /^(اذكر|عدد|اشرح|وضح|صنف|طبق|طبقوا|نفذ|قارن|حلل|برر|صمم|ابتكر)( |$)/.test(s) ||
+            /^(لماذا|كيف|ماذا|ما الفرق|ما نوعا|هل|ايهما)( |$)/.test(s);
+        rows.forEach((row, i) => {
+            const x = row.x.trim(), s = norm(x), t = Number(row.t) || 0;
+            if (!s || L.greet.test(s) || !isQuestion(x, s)) return;
+            const previous = out[out.length - 1];
+            if (previous && t - previous.t <= 10 && (previous.normal === s ||
+                (Math.min(previous.normal.length, s.length) >= 14 &&
+                    (previous.normal.includes(s) || s.includes(previous.normal))))) return;
+            const following = rows.slice(i + 1, i + 4).filter(next => next.t - t <= 18);
+            const next = following[0];
+            const reply = next && !isQuestion(next.x, norm(next.x)) && !/^(احسنت|ممتاز|صحيح|برر|جرب|اعد|صحح|ليش|وضح)( |$)/.test(norm(next.x)) ? next : null;
+            const follow = following.find(line => line !== reply && /^(احسنت|ممتاز|صحيح|برر|جرب|اعد|صحح|ليش|وضح)( |$)/.test(norm(line.x)));
+            out.push({ key: String(i), t, x: short(x), normal: s, bloom: bloomOf(s),
+                reply: reply ? short(reply.x) : '', follow: follow ? short(follow.x) : '' });
+        });
+        return out;
+    }
+
+    const api = { BLOOM, questionReview, STRATEGIES, strategyCues, addressee, norm, analyze, clauses, topicTerms, line, stripExamples, lessonSegs, LEX: L, LANGS, fix, pickAlt, pickAltIndex, cues, FORM_LABEL,
         foreign, phrases, fixChunks, fixRequest, parseFix, similar, promptText, FIX_CHUNK };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
     root.SvfEyeSpeech = api;
