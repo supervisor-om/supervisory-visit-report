@@ -98,6 +98,7 @@
         { k: 'lead',      item: 3,  label: 'قيادة طالب' },
         { k: 'team',      item: 3,  label: 'تعاون وعمل فريق' },
         { k: 'tactic',    item: 3,  label: 'تفكير خططي' },
+        { k: 'digitalLearn', item: 3, label: 'استخدام التقانة لتحليل الأداء أو تحسينه' },
         { k: 'roles',     item: 3,  label: 'التزام الطلبة بأدوارهم في الفريق' },
         { k: 'praise',    item: 4,  label: 'روح رياضية واحترام بين الطلبة' },
         { k: 'fairplay',  item: 4,  label: 'مصافحة وتقبّل الفوز والخسارة' },
@@ -125,7 +126,7 @@
     const GROUPS = [
         { title: 'التدريس', keys: ['demo', 'groups', 'games', 'stations', 'levels', 'discover', 'elim', 'include', 'out'] },
         { title: 'التقويم', keys: ['fbInd', 'fbGrp', 'ask', 'peer', 'obsCard', 'record', 'fbMiss'] },
-        { title: 'تعلّم الطلبة', keys: ['rules', 'answers', 'lead', 'team', 'tactic', 'roles'] },
+        { title: 'تعلّم الطلبة', keys: ['rules', 'answers', 'lead', 'team', 'tactic', 'roles', 'digitalLearn'] },
         { title: 'القيم والسلوك', keys: ['praise', 'fairplay', 'respectRef', 'clean', 'misbehave', 'dish'] },
         { title: 'السلامة والموارد', keys: ['safe', 'checkTools', 'firstAid', 'hazard', 'water', 'shade', 'heatHit', 'tools', 'altTools', 'tech', 'noTools', 'equip'] },
         { title: 'التزام المعلّم', keys: ['tOnTime', 'tLate', 'tKit'] }
@@ -1878,6 +1879,7 @@
         lead:     { pos: 'قيادة الطلبة لزملائهم أثناء الإحماء أو التطبيق' },
         team:     { pos: 'تعاون الطلبة لإنجاز المهام الحركية داخل الفريق' },
         tactic:   { pos: 'اقتراح الطلبة حلولا خططية أثناء اللعب' },
+        digitalLearn: { pos: 'استفادة الطلبة من الصور أو المقاطع أو الأدوات الرقمية في تحليل الأداء أو تحسينه' },
         roles:    { pos: 'التزام الطلبة بالأدوار الموكلة إليهم داخل الفريق' },
         praise:   { pos: 'التعامل بروح رياضية واحترام بين الطلبة' },
         fairplay: { pos: 'مصافحة الطلبة زملاءهم وتقبلهم الفوز والخسارة' },
