@@ -179,6 +179,56 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
 .steps b{flex:none;width:44px;height:44px;border-radius:50%;background:var(--gold);color:#082742;display:flex;align-items:center;justify-content:center;font-size:24px}
 
 .ftr{position:absolute;bottom:0;right:0;left:0;height:80px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--muted);border-top:1px solid var(--line)}
+
+.hdr-actions{display:flex;align-items:center;gap:14px}
+.screen-btn{position:relative;z-index:30;min-height:64px;padding:10px 20px;white-space:nowrap;border:1px solid var(--line);border-radius:16px;
+  background:var(--panel);color:var(--ink);font:inherit;font-size:24px;font-weight:600;cursor:pointer;touch-action:manipulation}
+.screen-btn:hover,.screen-btn:focus-visible{border-color:var(--gold);color:var(--gold)}
+body.idle .screen-btn{cursor:pointer}
+
+/* شاشة المعرض بالطول */
+body.portrait #stage{width:1080px}
+body.portrait .hdr{padding:0 28px}
+body.portrait .hdr-actions{gap:10px}
+body.portrait .brand{gap:12px}
+body.portrait .brand b{font-size:31px}
+body.portrait .live{padding:10px 14px}
+body.portrait .main{inset:122px 28px 388px;display:flex;flex-direction:column;gap:14px}
+body.portrait .mirror{height:auto;min-height:0;flex:1}
+body.portrait .cue{max-width:calc(100% - 36px);padding:14px 20px;pointer-events:none}
+body.portrait .boot,body.portrait .res{max-width:calc(100% - 36px)}
+body.portrait .toast{top:124px;max-width:calc(100% - 56px);text-align:center}
+body.portrait .keys{display:none}
+body.portrait .under{position:static;flex:none;gap:12px}
+body.portrait .steps{gap:10px}
+body.portrait .steps li{gap:10px;padding:10px 12px}
+body.portrait .steps b{width:36px;height:36px;font-size:22px}
+body.portrait .under .jbtn{font-size:25px;padding:14px 17px}
+body.portrait .under .cap,body.portrait .under .dotkey{font-size:16px}
+body.portrait .dotkey{gap:10px}
+body.portrait .side{inset:auto 28px 64px;width:auto;height:306px;padding:20px 24px}
+body.portrait .side h1{font-size:39px}
+body.portrait .side .lead{display:none}
+body.portrait[data-focus="jump"] .side .jumpOnly,body.portrait:not([data-focus="jump"]) .side .allOnly{display:grid!important;min-width:0}
+body.portrait .side .jumpOnly{grid-template-columns:1fr 1fr;grid-template-rows:auto auto 1fr auto;gap:8px 28px}
+body.portrait .side .jumpOnly h1{grid-area:1 / 1}
+body.portrait #jSlot{grid-area:2 / 1}
+body.portrait .side .jbtn{margin:0;padding:16px 18px;font-size:39px}
+body.portrait .jstate{grid-area:3 / 1;align-self:center;margin:0}
+body.portrait .jfoot{grid-area:4 / 1;margin:0}
+body.portrait .jrec{grid-area:1 / 2 / 3;margin:0;padding:12px 18px;display:flex;flex-direction:column;justify-content:center}
+body.portrait .jrec .cnt b{font-size:72px}
+body.portrait .side .jumpOnly .blk{grid-area:3 / 2 / 5;align-self:end;margin:0}
+body.portrait .side .allOnly{grid-template-columns:.8fr 1fr 1.2fr;grid-template-rows:auto 1fr;gap:6px 18px}
+body.portrait .side .allOnly h1{grid-area:1 / 1;font-size:31px}
+body.portrait .side .allOnly .blk{margin:8px 0 0}
+body.portrait .side .allOnly .blk:nth-of-type(1){grid-area:2 / 1}
+body.portrait .side .allOnly .blk:nth-of-type(2){grid-area:1 / 2 / 3}
+body.portrait .side .allOnly .recs{grid-area:1 / 3 / 3;margin:8px 0 0}
+body.portrait .side .allOnly .cnt b{font-size:80px}
+body.portrait .side .allOnly .mv b{font-size:60px}
+body.portrait .ftr{height:49px;font-size:16px;text-align:center;padding:0 24px}
+body.portrait #loop{width:100%;height:100%}
 </style>
 </head>
 <body data-mode="live" data-focus="jump" class="idle">
@@ -189,7 +239,10 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
     <svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#082742" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/><g transform="translate(50 50) scale(.66) translate(-50 -50)"><g transform="translate(-2.6 2.5)"><path d="M22 90 V10" stroke="#f7f5ee" stroke-width="5.5" stroke-linecap="round"/><circle cx="22" cy="9" r="4" fill="#f0b44a"/><path d="M24 14 H38 V52 H24 Z" fill="#c8102e"/><path d="M38 14 Q50 10 62 14 T86 14 V27 Q74 31 62 27 T38 27 Z" fill="#ffffff"/><path d="M38 26.5 Q50 22.5 62 26.5 T86 26.5 V39.5 Q74 43.5 62 39.5 T38 39.5 Z" fill="#c8102e"/><path d="M38 39 Q50 35 62 39 T86 39 V52 Q74 56 62 52 T38 52 Z" fill="#008a3e"/><rect x="36.5" y="76" width="11" height="14" rx="5.5" fill="#f7f5ee"/><circle cx="42" cy="69.2" r="4.6" fill="#f7f5ee"/><rect x="52.5" y="76" width="11" height="14" rx="5.5" fill="#f7f5ee"/><circle cx="58" cy="69.2" r="4.6" fill="#f7f5ee"/><rect x="68.5" y="76" width="11" height="14" rx="5.5" fill="#f7f5ee"/><circle cx="74" cy="69.2" r="4.6" fill="#f7f5ee"/></g></g></svg>
     <div><b>منظومة الإشراف التربوي</b><span>من الحصة إلى الاستمارة إلى المتابعة</span></div>
   </div>
-  <div class="live wait" id="livePill"><i></i><span id="liveTxt">تشغيل الكاميرا</span></div>
+  <div class="hdr-actions">
+    <div class="live wait" id="livePill"><i></i><span id="liveTxt">تشغيل الكاميرا</span></div>
+    <button class="screen-btn" id="screenBtn" type="button" aria-pressed="false">ملء الشاشة</button>
+  </div>
 </header>
 
 <section class="main">
@@ -344,16 +397,27 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
   else document.getElementById('jSlot').appendChild(document.getElementById('jumpBtn'));    // الزرّ في العمود، كبيراً
 
   // ── المسرح يملأ الشاشة ──
-  const MW = 1276, MH = 718;
-  const cv = $('cv'), ctx = cv.getContext('2d');
-  let scale = 1, K = 1;
+  const cv = $('cv'), ctx = cv.getContext('2d'), stage = $('stage'), mirror = $('mirror');
+  let portrait = false, MW = 1276, MH = 718, K = 1;
   function fit() {
-    scale = Math.min(innerWidth / 1920, innerHeight / 1080);
-    $('stage').style.transform = 'scale(' + scale + ')';
+    const viewport = $('viewport');
+    const width = viewport.clientWidth, height = viewport.clientHeight;
+    if (!width || !height) return;
+    portrait = height > width;
+    const scale = portrait ? width / 1080 : Math.min(width / 1920, height / 1080);
+    document.body.classList.toggle('portrait', portrait);
+    stage.style.height = portrait ? height / scale + 'px' : '';
+    stage.style.transform = 'scale(' + scale + ')';
+
+    const nextWidth = portrait ? mirror.clientWidth : 1276;
+    const nextHeight = portrait ? mirror.clientHeight : 718;
+    if (nextWidth !== MW || nextHeight !== MH) R.clear();
+    MW = nextWidth;
+    MH = nextHeight;
     K = clamp(Math.round(scale * (devicePixelRatio || 1) * 4) / 4, 0.5, 2);
-    cv.width = Math.round(MW * K); cv.height = Math.round(MH * K);
+    cv.width = Math.round(MW * K);
+    cv.height = Math.round(MH * K);
   }
-  addEventListener('resize', fit); fit();
 
   let toastT;
   function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2200); }
@@ -1008,6 +1072,13 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
   const mctx = MC.getContext('2d', { willReadFrequently: true });
   function crop() {
     const vw = video.videoWidth || 16, vh = video.videoHeight || 9, ar = vw / vh, A = MW / MH;
+    if (portrait) {
+      // أبقِ كامل ارتفاع الكاميرا وحدّي منطقة اللاعب ظاهرَين.
+      const zoneWidth = Math.min(1, ZONE[1] - ZONE[0] + 0.06);
+      const w = Math.max(zoneWidth, A / ar);
+      const h = w * ar / A;
+      return { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
+    }
     if (ar > A) { const w = A / ar; return { x: (1 - w) / 2, y: 0, w, h: 1 }; }
     const h = ar / A; return { x: 0, y: (1 - h) / 2, w: 1, h };
   }
@@ -1037,6 +1108,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
   function drawMosaic(c) {
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw) return;
+    if (portrait) mctx.clearRect(0, 0, 64, 36);
     mctx.save(); mctx.setTransform(-1, 0, 0, 1, 64, 0);
     mctx.drawImage(video, c.x * vw, c.y * vh, c.w * vw, c.h * vh, 0, 0, 64, 36);
     mctx.restore();
@@ -1254,8 +1326,34 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
   }
 
   // ── المفاتيح ──
-  function fullscreen() { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {}); }
-  addEventListener('dblclick', fullscreen);
+  const screenButton = $('screenBtn');
+  const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+  function syncFullscreen() {
+    const active = Boolean(fullscreenElement());
+    screenButton.setAttribute('aria-pressed', String(active));
+    screenButton.textContent = active ? 'خروج من ملء الشاشة' : 'ملء الشاشة';
+    fit();
+  }
+  async function fullscreen() {
+    try {
+      if (fullscreenElement()) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        await exit.call(document);
+      } else {
+        const root = document.documentElement;
+        const enter = root.requestFullscreen || root.webkitRequestFullscreen;
+        if (!enter) throw new Error('Fullscreen unavailable');
+        await enter.call(root);
+      }
+    } catch (e) { toast('ملء الشاشة غير متاح في متصفّح العرض'); }
+  }
+  screenButton.addEventListener('pointerdown', e => e.stopPropagation());
+  screenButton.addEventListener('click', fullscreen);
+  document.addEventListener('fullscreenchange', syncFullscreen);
+  document.addEventListener('webkitfullscreenchange', syncFullscreen);
+  addEventListener('dblclick', e => {
+    if (!screenButton.contains(e.target) && !fullscreenElement()) fullscreen();
+  });
   addEventListener('pointerdown', audioUnlock);
   // على الـiPad لا لوحة مفاتيح: لمسةٌ أثناء العرض تعيد التجربة
   addEventListener('pointerdown', () => { if (mode === 'loop') { setMode('live'); holdLive = now() + 180; toast('التجربة — اضغط «ابدأ تحدّي القفز»'); } });
@@ -1263,6 +1361,7 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
   addEventListener('keydown', e => {
     audioUnlock();
     const k = e.key;
+    if (e.target === screenButton && (k === ' ' || k === 'Enter')) return;
     if (!ALL && (k === ' ' || k === 'Enter')) jumpStart();          // تحدّي القفز وحده: مسافة تبدأ التحدّي وتوقفه
     else if (k === ' ' || k === 'Enter') {
       if (mode === 'loop') { setMode('live'); holdLive = now() + 180; toast('التجربة — ثلاث دقائق قبل أن يعود العرض تلقائيّاً'); }
@@ -1319,6 +1418,8 @@ body:not([data-focus="jump"]) .jumpOnly{display:none!important}
   window.__tryEye = { ALL, G, P, CFG, D, DAY, go, setMode, get mode() { return mode; }, get engine() { return engine && engine.name; }, whistle: () => whistle(now()), JG, R, ZONE, jump: () => jumpStart(), jumpCount };
 
   renderRecs();
+  addEventListener('resize', fit);
+  fit();
   requestAnimationFrame(frame);
   startCam();
   loadEngine();
