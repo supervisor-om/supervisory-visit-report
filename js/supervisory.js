@@ -416,7 +416,7 @@
             // عين المشرف تُبنى أوّل فتحٍ وتعرض نتيجة التقرير المفتوح (js/eye.js)
             if (viewId === 'eye-view' && typeof svfEyeOpen === 'function') { try { svfEyeOpen(); } catch (e) { console.warn(e); } }
             if (viewId === 'eye-view' || viewId === 'form-view') window.SvfNoorPreparation?.sync();
-            if (viewId === 'eye-view' || viewId === 'debrief-view') window.SvfSmartFollowup?.renderVisit();
+            if (viewId === 'eye-view' || viewId === 'debrief-view' || viewId === 'form-view') window.SvfSmartFollowup?.renderVisit();
             // ونموذج التقييم يعرض شاهدها تحت البنود (أو يزيله إن تغيّرت الزيارة)
             if (viewId === 'form-view' && typeof svfEyeDecorate === 'function') { try { svfEyeDecorate(); } catch (e) { console.warn(e); } }
 
@@ -728,6 +728,27 @@
             showToast('زيارة جديدة لـ' + keep.teacherName + ': اكتب الصف والحصة وقيّم البنود — السابقة محفوظة كما هي');
         }
 
+        function svfStartFollowupVisit(teacher) {
+            performReset();
+            const field = id => document.getElementById(id);
+            field('teacherName').value = teacher.teacher;
+            field('school').value = teacher.school || '';
+            field('fileNumber').value = teacher.file || '';
+            field('subject').value = teacher.subject || '';
+            const noorLink = field('noorDetailUrl');
+            const noorText = field('eyeNoorPreparation');
+            if (noorLink) noorLink.value = '';
+            if (noorText) noorText.value = '';
+            const muscatDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat', year: 'numeric', month: '2-digit', day: '2-digit' });
+            const parts = Object.fromEntries(muscatDate.formatToParts(new Date()).map(part => [part.type, part.value]));
+            field('visitDate').value = [parts.year, parts.month, parts.day].join('-');
+            field('teacherName').dispatchEvent(new Event('change', { bubbles: true }));
+            suggestVisitNumber();
+            toggleSupervisoryView('form-view');
+            window.svfVisitNavRefresh?.('sup', { rebase: true });
+            field('class').focus();
+        }
+
         function performReset() {
             document.querySelector('#evaluationForm').reset();
             // التفريغ محصورٌ في النموذج الإشرافيّ: الصفحة تحمل النظام المدرسيّ أيضاً،
@@ -738,6 +759,7 @@
                  .forEach(input => input.value = '');
             document.querySelector('#visitDate').value = new Date().toISOString().split('T')[0];
             setEditingKey(null);
+            window.SvfSmartFollowup?.clearFocus();
             supLastGenerated = null;   // تقريرٌ جديد: لا نصوص مولَّدة تتبع الجنس
 
             evaluationItems.forEach(item => { 
@@ -752,6 +774,7 @@
             // شاهد عين المشرف تحت البنود يزول مع التصفير
             try { if (typeof svfEyeDecorate === 'function') svfEyeDecorate(); } catch (e) {}
             window.SvfNoorPreparation?.sync();
+            window.SvfSmartFollowup?.renderVisit();
             showToast('تم إعادة تعيين النموذج');
         }
 

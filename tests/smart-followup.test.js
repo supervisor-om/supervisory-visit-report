@@ -39,16 +39,16 @@ test('an equally specific match in two guides requires manual selection', () => 
     finally { guide.setData(data); }
 });
 
-function row(key, d, topic, { goal, outcomes, file = '87', teacher = 'أحمد سالم', school = 'مدرسة الأمل', deleted } = {}) {
+function row(key, d, topic, { goal, outcomes, file = '87', teacher = 'أحمد سالم', school = 'مدرسة الأمل', deleted, subject } = {}) {
     const visit = { teacher, school, file, date: d, cls: '7', period: '2', topic };
     return { key, data: { teacherName: teacher, school, visitDate: d, deleted, formData: {
-        class: visit.cls, lesson: visit.period, topic, fileNumber: file,
+        class: visit.cls, lesson: visit.period, topic, fileNumber: file, subject,
         debriefData: goal ? JSON.stringify({ agree: { goal, action: 'تحقق من المحاولة التالية' } }) : '',
         smartFollowupData: outcomes ? JSON.stringify({ visit: visitKey(visit), reviews: outcomes }) : ''
     } } };
 }
 
-const first = row('supervision_v6_visit_100', '2026-09-10', 'محطات المرونة', { goal: 'قدّم تغذية راجعة محددة' });
+const first = row('supervision_v6_visit_100', '2026-09-10', 'محطات المرونة', { goal: 'قدّم تغذية راجعة محددة', subject: 'الرياضة المدرسية' });
 const deferred = row('supervision_v6_visit_200', '2026-09-30', 'مفاهيم اللياقة', { outcomes: { [first.key]: { outcome: 'deferred' } } });
 const observed = row('supervision_v6_visit_300', '2026-10-20', 'كرة السلة', { outcomes: { [first.key]: { outcome: 'observed', note: 'طبّق الطالبان التوجيه.' } } });
 
@@ -78,20 +78,30 @@ test('ignores deleted reports, identity mismatches, copied draft state and agree
     assert.equal(agreements([first], { ...visit, school: 'مدرسة أخرى' }).length, 0);
 });
 
+test('a new visit can follow an agreement from an earlier report on the same day', () => {
+    const visit = { teacher: first.data.teacherName, school: first.data.school, date: first.data.visitDate };
+    assert.equal(agreements([first], visit)[0].key, first.key);
+    assert.equal(agreements([first], { ...visit, key: first.key }).length, 0);
+});
+
 test('visit cards share the saved form, and status changes are scoped to the current visit', () => {
     const elements = {};
-    for (const id of ['teacherName', 'school', 'fileNumber', 'visitDate', 'class', 'lesson', 'topic', 'smartFollowupData', 'eyeSmartFollowup', 'debriefSmartFollowup']) {
+    for (const id of ['teacherName', 'school', 'fileNumber', 'visitDate', 'class', 'lesson', 'topic', 'smartFollowupData', 'eyeSmartFollowup', 'debriefSmartFollowup', 'formSmartFollowup']) {
         elements[id] = { value: '', querySelector: () => null, innerHTML: '' };
     }
     Object.entries({ teacherName: 'أحمد سالم', school: 'مدرسة الأمل', fileNumber: '87', visitDate: '2026-10-20', class: 'السابع', lesson: '2' })
         .forEach(([id, value]) => { elements[id].value = value; });
     const handlers = {};
+    let started = null, opened = '', alerts = [], busy = true, confirmed = false;
     const ctx = {
         document: { getElementById: id => elements[id], addEventListener: (event, fn) => { handlers[event] = fn; } },
         localStorage: { length: 1, key: () => first.key, getItem: () => JSON.stringify(first.data) },
         SupervisorGate: { canEye: () => true, isDemo: () => false }, SvfLessonGuide: guide,
         SvfTermPlan: require('../js/term-plan.js'), SvfNoorPreparation: { matchedTitle: () => 'محطات المرونة' },
-        svfEscapeHtml: String
+        svfEscapeHtml: String,
+        svfStartFollowupVisit: item => { started = item; },
+        svfEyeVisitBusy: () => busy, svfVisitNavDirty: () => true, confirm: () => confirmed,
+        showToast: message => alerts.push(message), toggleSupervisoryView: view => { opened = view; }
     };
     ctx.window = ctx;
     vm.runInNewContext(source('js/smart-followup.js'), ctx);
@@ -99,6 +109,18 @@ test('visit cards share the saved form, and status changes are scoped to the cur
     feature.renderVisit();
     assert.match(elements.eyeSmartFollowup.innerHTML, /محطات المرونة/);
     assert.match(elements.debriefSmartFollowup.innerHTML, /قدّم تغذية راجعة محددة/);
+    const start = { closest: selector => selector === '[data-smart-start]' ? { dataset: { smartStart: first.key } } : null };
+    handlers.click({ target: start });
+    assert.match(alerts[0], /أوقف الرصد/);
+    busy = false;
+    handlers.click({ target: start });
+    assert.equal(started, null);
+    confirmed = true;
+    handlers.click({ target: start });
+    assert.equal(started.subject, 'الرياضة المدرسية');
+    assert.match(elements.formSmartFollowup.innerHTML, /الممارسة المستهدفة/);
+    handlers.click({ target: start });
+    assert.equal(opened, 'form-view');
     const outcome = { value: 'observed' }, note = { value: '' }, status = { textContent: '' };
     const fields = { '[data-smart-outcome]': outcome, '[data-smart-note]': note, '[data-smart-status]': status };
     const card = { dataset: { smartOrigin: first.key }, querySelector: selector => fields[selector] };
@@ -114,4 +136,26 @@ test('visit cards share the saved form, and status changes are scoped to the cur
     assert.equal(elements.smartFollowupData.value, '');
     assert.match(source('reports.html'), /id="smartFollowupData"/);
     assert.match(source('sw.js'), /\.\/js\/smart-followup\.js/);
+});
+
+test('starting a follow-up prepares an unsaved visit with a fresh lesson and date', () => {
+    const elements = Object.fromEntries(['teacherName', 'school', 'fileNumber', 'subject', 'visitDate', 'class', 'lesson', 'topic']
+        .map(id => [id, { value: 'old', dispatchEvent() {}, focus() {} }]));
+    elements.noorDetailUrl = { value: 'previous-url' };
+    elements.eyeNoorPreparation = { value: 'تحضير درس سابق' };
+    const context = { Event, document: { getElementById: id => elements[id] } };
+    context.window = context;
+    vm.createContext(context);
+    vm.runInContext(source('js/supervisory.js'), context);
+    let view = '';
+    context.performReset = () => Object.entries(elements).forEach(([id, field]) => {
+        if (id !== 'noorDetailUrl' && id !== 'eyeNoorPreparation') field.value = '';
+    });
+    context.suggestVisitNumber = () => {};
+    context.toggleSupervisoryView = id => { view = id; };
+    context.svfStartFollowupVisit({ teacher: first.data.teacherName, school: first.data.school, file: '87', subject: 'الرياضة المدرسية' });
+    assert.deepEqual(['teacherName', 'school', 'fileNumber', 'subject'].map(id => elements[id].value), ['أحمد سالم', 'مدرسة الأمل', '87', 'الرياضة المدرسية']);
+    assert.match(elements.visitDate.value, /^\d{4}-\d{2}-\d{2}$/);
+    assert.deepEqual(['class', 'lesson', 'topic', 'noorDetailUrl', 'eyeNoorPreparation'].map(id => elements[id].value), ['', '', '', '', '']);
+    assert.equal(view, 'form-view');
 });

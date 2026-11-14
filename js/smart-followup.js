@@ -18,14 +18,14 @@
         const report = row.data;
         const fields = report.formData || {};
         return { key: row.key, teacher: report.teacherName || fields.teacherName, school: report.school || fields.school,
-            file: fields.fileNumber, date: date(report.visitDate || fields.visitDate), cls: fields.class,
+            file: fields.fileNumber, subject: fields.subject, date: date(report.visitDate || fields.visitDate), cls: fields.class,
             period: fields.lesson, topic: fields.topic, agreement: parse(fields.debriefData).agree || {},
             state: parse(fields.smartFollowupData) };
     }
 
     function agreements(rows, current) {
         const earlier = visit => !current || (visit.key !== current.key && (visit.date < current.date ||
-            (visit.date === current.date && current.key && visit.key < current.key)));
+            (visit.date === current.date && (!current.key || visit.key < current.key))));
         const visits = rows.filter(row => row?.key && row.data && !row.data.deleted).map(savedVisit).filter(visit => visit.date && earlier(visit))
             .sort((a, b) => b.date.localeCompare(a.date) || b.key.localeCompare(a.key));
         const reviews = new Map();
@@ -65,6 +65,7 @@
     };
     const saveState = state => { $('smartFollowupData').value = JSON.stringify(state); };
     const esc = root.svfEscapeHtml;
+    let focusedAgreement = '';
     const rows = () => {
         const result = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -75,6 +76,29 @@
     };
     const guide = () => root.SvfLessonGuide;
     const noorTitle = () => clean(root.SvfNoorPreparation?.matchedTitle());
+
+    function startFollowup(key) {
+        if (!allowed()) return;
+        if (root.svfEyeVisitBusy?.()) {
+            root.showToast('أوقف الرصد أو ربط الكاميرا قبل بدء زيارة متابعة.', 'error');
+            return;
+        }
+        const target = agreements(rows()).find(item => item.key === key && item.open);
+        if (!target) {
+            root.showToast('الاتفاق لم يعد مفتوحًا. حدّث لوحة المتابعة.', 'error');
+            return;
+        }
+        const visit = current();
+        if (focusedAgreement === key && !visit.key && sameTeacher(target, visit)) {
+            root.toggleSupervisoryView('form-view');
+            return;
+        }
+        if (root.svfVisitNavDirty?.('sup') &&
+            !root.confirm('في الزيارة المفتوحة تعديلات لم تُحفظ. هل تبدأ زيارة متابعة جديدة؟')) return;
+        root.svfStartFollowupVisit(target);
+        focusedAgreement = target.key;
+        renderVisit();
+    }
 
     function guideSelection(info = current()) {
         if (!allowed() || !guide()) return null;
@@ -131,6 +155,9 @@
             '</select></label><label class="text-sm">الدليل والأثر في الدرس الحالي<textarea data-smart-note rows="2" maxlength="500" class="block w-full rounded-lg border border-slate-300 p-2">' +
             esc(review.note || '') + '</textarea></label></div><p data-smart-status class="text-sm text-slate-600" role="status">' +
             (review.outcome ? 'أُدرجت النتيجة في الزيارة المفتوحة.' : '') + '</p>' : '';
+        const start = mode !== 'edit' && item.open
+            ? '<button type="button" data-smart-start="' + esc(item.key) + '" class="svf-btn svf-btn-secondary svf-btn-sm mt-3">' +
+                (focusedAgreement === item.key && !current().key && sameTeacher(item, current()) ? 'متابعة الزيارة المفتوحة' : 'بدء زيارة متابعة') + '</button>' : '';
         return '<article data-smart-origin="' + esc(item.key) + '" class="rounded-xl border border-slate-200 p-4 min-w-0 break-words">' +
             (mode === 'board' ? '<button type="button" data-smart-teacher="' + esc(item.teacher) + '" class="font-bold text-blue-800 underline">' + esc(item.teacher) + '</button>' : '') +
             '<h4 class="font-bold text-slate-900">' + esc(goal || action) + '</h4><p class="text-xs text-slate-600">' +
@@ -139,15 +166,26 @@
             (indicator ? '<p class="text-sm mt-2"><b>مؤشر النجاح</b> · ' + esc(indicator) + '</p>' : '') +
             (latest ? '<p class="text-sm mt-2">' + status[latest.outcome] + ' · <bdi>' + esc(latest.date) + '</bdi>' +
                 (latest.topic ? ' · ' + esc(latest.topic) : '') + (latest.note ? ' · ' + esc(latest.note) : '') + '</p>' : '') +
-            controls + '</article>';
+            controls + start + '</article>';
     }
 
     function renderVisit() {
         const visit = current();
         const enabled = allowed() && !root.svfEyeLabActive?.();
         const prior = enabled && visit.teacher && visit.date ? agreements(rows(), visit).filter(item => item.open) : [];
+        const target = prior.find(item => item.key === focusedAgreement);
+        const ordered = target ? [target, ...prior.filter(item => item !== target)] : prior;
         const state = stateFor(visit);
-        const targets = prior.map(item => agreementCard({ ...item, review: state.reviews?.[item.key] }, 'edit')).join('');
+        const targets = ordered.map(item => agreementCard({ ...item, review: state.reviews?.[item.key] }, 'edit')).join('');
+        const preview = $('formSmartFollowup');
+        if (preview) {
+            preview.hidden = !target;
+            preview.innerHTML = target ? '<section class="bg-white rounded-2xl border border-blue-200 p-4 space-y-2">' +
+                '<h2 class="font-bold">الممارسة المستهدفة في زيارة المتابعة</h2><p>' + esc(clean(target.agreement.goal) || clean(target.agreement.action)) + '</p>' +
+                (clean(target.agreement.indicator) ? '<p class="text-sm text-slate-600">' + esc(target.agreement.indicator) + '</p>' : '') +
+                '<p class="text-sm text-slate-600">حدّد الصف والحصة وموضوع الدرس الحالي.</p>' +
+                '<button type="button" data-smart-view="eye-view" class="svf-btn svf-btn-primary svf-btn-sm">افتح عين المشرف</button></section>' : '';
+        }
         for (const id of ['eyeSmartFollowup', 'debriefSmartFollowup']) {
             const box = $(id);
             if (!box) continue;
@@ -155,7 +193,8 @@
             box.hidden = !enabled;
             if (box.hidden) continue;
             box.innerHTML = id === 'eyeSmartFollowup'
-                ? '<details class="bg-white rounded-2xl border border-slate-200 p-4"' + (expanded ? ' open' : '') + '><summary class="cursor-pointer font-bold">مرجع الدرس ومتابعة الزيارة</summary><div class="space-y-3 mt-3">' +
+                ? '<details class="bg-white rounded-2xl border border-slate-200 p-4"' + (expanded ? ' open' : '') + '><summary class="cursor-pointer font-bold">مرجع الدرس ومتابعة الزيارة' +
+                    (target ? '<span class="block font-normal text-sm text-slate-700 mt-1">' + esc(clean(target.agreement.goal) || clean(target.agreement.action)) + '</span>' : '') + '</summary><div class="space-y-3 mt-3">' +
                     referenceCard(visit) + (prior.length ? '<button type="button" data-smart-view="debrief-view" class="svf-btn svf-btn-secondary svf-btn-sm">متابعة اتفاقات المعلم (' + prior.length + ')</button>' : '') + '</div></details>'
                 : '<details class="bg-white rounded-2xl border border-slate-200 p-4"' + (prior.length ? ' open' : '') + '><summary class="cursor-pointer font-bold">متابعة اتفاقات الزيارات السابقة</summary><div class="space-y-3 mt-3">' +
                     (targets ? targets + '<button type="button" data-smart-view="form-view" class="svf-btn svf-btn-secondary svf-btn-sm">انتقل إلى نموذج التقييم للحفظ</button>'
@@ -189,11 +228,17 @@
         if (!allowed()) return;
         const button = event.target.closest('[data-smart-view]');
         if (button) root.toggleSupervisoryView(button.dataset.smartView);
+        const start = event.target.closest('[data-smart-start]');
+        if (start) startFollowup(start.dataset.smartStart);
         if (event.target.closest('[data-smart-import]')) root.SvfGuideImport?.open();
     });
     document.addEventListener('change', event => {
         const control = event.target;
         if (!allowed() || root.svfEyeLabActive?.()) return;
+        if (focusedAgreement && ['teacherName', 'school', 'fileNumber', 'visitDate'].includes(control.id)) {
+            renderVisit();
+            return;
+        }
         const visit = current();
         const state = stateFor(visit);
         if (control.matches('[data-smart-reference]')) {
@@ -226,5 +271,6 @@
         if (!value('topic') && !stateFor(current()).reference) document.dispatchEvent(new Event('svf-curriculum-changed'));
         renderVisit();
     });
-    root.SvfSmartFollowup = { renderVisit, guideSelection, historyHtml, agreements, allowed, beforeSave, sameTeacher, savedVisit };
+    root.SvfSmartFollowup = { renderVisit, guideSelection, historyHtml, agreements, allowed, beforeSave, sameTeacher, savedVisit,
+        clearFocus() { focusedAgreement = ''; } };
 })(typeof window !== 'undefined' ? window : globalThis);

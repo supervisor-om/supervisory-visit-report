@@ -5902,6 +5902,7 @@ function tagRowHtml(k) {
         layout();
     };
     root.svfEyeStop = function () { stop(false); };
+    root.svfEyeVisitBusy = () => !!(S.running || S.link || lab);
     root.svfEyeLabActive = () => !!lab;
     root.svfEyeLeaveLab = () => {
         if (lab?.started && S.running) { lab.capture?.cancel(); stop(true); }
