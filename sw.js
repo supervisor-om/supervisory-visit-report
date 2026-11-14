@@ -20,6 +20,7 @@ const ASSETS = [
     './',
     './index.html',
     './reports.html',
+    './eye.html',
     './monthly.html',
     './styles.css',
     './js/svf-theme.js',
@@ -97,7 +98,7 @@ self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys()
             .then(keys => Promise.all(
-                keys.filter(k => k !== CACHE_NAME && k !== VENDOR_CACHE).map(k =>
+                keys.filter(k => k !== CACHE_NAME && k !== VENDOR_CACHE && /^supervisory-v\d/.test(k)).map(k =>
                     (/^supervisory-v\d/.test(k) ? keepVendor(k).catch(() => {}) : Promise.resolve()).then(() => caches.delete(k)))
             ))
             .then(() => self.clients.claim())
@@ -136,7 +137,7 @@ self.addEventListener('fetch', event => {
     // ملفات التطبيق: الشبكة أولاً
     if (request.mode === 'navigate' || sameOrigin) {
         event.respondWith(
-            fetch(request)
+            fetch(request, { cache: 'no-cache' })
                 .then(response => putInCache(request, response))
                 .catch(() => caches.match(request).then(cached => {
                     if (cached) return cached;

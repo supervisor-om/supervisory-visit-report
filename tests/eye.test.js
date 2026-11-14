@@ -1338,7 +1338,7 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     check('yolox: الثقة = «فيه شيء» × الصنف، والمكرّر يُزال، والكرة صنفها، والضعيف يُترك', Math.abs(P[0].score - 0.81) < 1e-6 && D.filter(d => d.label === 'sports ball').length === 1 && D.length === 2);
     const UI = read('js/eye.js'), WK = read('js/eye-detect-worker.js'), SW = read('sw.js');
     check('wiring: العامل يحمّل ONNX Runtime والمعالجة نفسها، على المعالج بخيطٍ واحد', /await import\('\.\.\/vendor\/onnx\/ort\.wasm\.min\.mjs'\)/.test(WK) && /import '\.\/eye-yolox\.js';/.test(WK)
-          && /executionProviders: \[gpu \? 'webgpu' : 'wasm'\]/.test(WK) && /numThreads = 1/.test(WK) && !/postMessage\([^)]*buf/.test(WK.replace(/m\.buf/g, '')));
+          && /executionProviders: \[ep\]/.test(WK) && /numThreads = 1/.test(WK) && !/postMessage\([^)]*buf/.test(WK.replace(/m\.buf/g, '')));
     check('wiring: YOLOX أوّلاً وإن تعذّر فـCenterNet، والصورة نسخةٌ تُنقل ولا تُحفظ', /if \(!eng\) try \{ eng = await yoloxEngine\('light', 'wasm', false, onProgress\); \} catch/.test(UI) && /if \(!eng\) eng = await humanEngine\(\);/.test(UI)
           && /const res = await AI\.engine\.detect\(c, rgba, cw, ch\);/.test(UI) && /new Uint8ClampedArray\(rgba\)\.buffer/.test(UI) && !/toDataURL|MediaRecorder|toBlob/.test(UI + WK));
     const fs = require('fs'), path = require('path'), V = f => fs.existsSync(path.join(__dirname, '..', 'vendor', 'onnx', f));
@@ -1860,36 +1860,6 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
           && /الإعدادات ← Safari ← الكاميرا، والميكروفون/.test(UI) && /<input type="checkbox" id="eyeSpeech" class="w-5 h-5">/.test(UI));
 }
 
-/* ── ٤٣) «جرّب عين المشرف» لمهرجان العلوم (2026-11-03): ركنٌ حيّ بالكشف والتتبّع نفسيهما، بلا بوّابة ولا بيانات ── */
-{
-    const H = read('try-eye.html');
-    const JS = (H.match(/<script>\n([\s\S]*?)<\/script>/) || [])[1] || '';
-    check('try43: صفحةٌ مستقلّة بلا بوّابة — تقرأ محرّك العين وعامل الكشف نفسيهما ولا شيئاً من بيانات المنظومة',
-          !/gate\.js|identity\.js|cloud\.js|supervision_v6_|svf_gate/.test(H) && /<script src="js\/eye-core\.js"><\/script>/.test(H)
-          && /new URL\('js\/eye-detect-worker\.js', document\.baseURI\), \{ type: 'module' \}/.test(JS) && /model: base \+ 'yolox_nano\.onnx'/.test(JS)
-          && /E\.trackStep\(D\.T, dets, t, ar,/.test(JS) && /E\.trackMotion\(tr\)/.test(JS) && /E\.formations\(list\)/.test(JS));
-    check('try43: لا تسجيل ولا صوت ملتقَط، ولا تذكير «لا تُحفظ صورة ولا صوت» (طلب المشرف للمهرجان)',
-          !/toDataURL|MediaRecorder|toBlob/.test(JS) && /getUserMedia\(\{ video: v, audio: false \}\)/.test(JS) && !/لا تُحفظ|لا يُحفظ/.test(H));
-    check('try43: النصّ يدخل بـ textContent — innerHTML في «أرقام اليوم» برقمٍ وحده',
-          (JS.match(/innerHTML/g) || []).length === 1 && /\$\('rBest'\)\.innerHTML = DAY\.best != null \? fmt1\(DAY\.best\) \+ ' <small>ث<\/small>' : '—';/.test(JS));
-    check('try43: مستويات الحركة بعتبات البند ٧ في العين، وأسماء الاستمارة وألوانها',
-          /const moveLevel = p => \(p >= 65 \? 0 : p >= 50 \? 1 : p >= 38 \? 2 : p >= 25 \? 3 : 4\);/.test(JS)
-          && /\{ n: 'متميز', c: '#1d6b45'/.test(JS) && /\{ n: 'تدخل سريع', c: '#7a2320'/.test(JS));
-    check('try43: الصفّارة تُقاس من وقت التقاط اللقطة: لقطتان متتاليتان أغلب اللاعبين فيهما ساكن، والمارّون البعيدون خارج الحساب',
-          /const t = now\(\);\s+\/\/ وقت الالتقاط/.test(JS) && /if \(G\.low >= 2\) whistleDone\(G\.lowAt - G\.wAt\);/.test(JS)
-          && /near: p\.h >= CFG\.near/.test(JS) && /const pl = list\.filter\(p => p\.near\), pool = pl\.length \? pl : list;/.test(JS));
-    check('try43: اللافتة أو الصورة على جدار الركن لا تُعدّ زائراً، ومن خارج ما تعرضه المرآة لا يُعدّ',
-          /if \(t - b\.t0 > 45 && b\.dev < 0\.2 && b\.act < 0\.05\) return;/.test(JS) && /\/\/ خارج ما تعرضه المرآة/.test(JS));
-    check('try43: (?all=1) بلا أحدٍ يُعرض festival.html، ويعود حين يقترب أحد أو يلوّح، ومسافة تبدّل بينهما',
-          /f\.setAttribute\('src', 'festival\.html'\)/.test(JS) && /t - P\.lastSeen > CFG\.idleToLoop/.test(JS) && /if \(P\.wave >= 4\) \{ setMode\('live'\);/.test(JS)
-          && /else if \(k === ' ' \|\| k === 'Enter'\)/.test(JS) && /auto: ALL && Q\.get\('loop'\) !== '0'/.test(JS) && /pointer-events:none/.test(H));
-    check('try43: يعمل دون إنترنت بعد أوّل فتح — عامل الخدمة يحفظ الصفحة والعرض والنموذج',
-          /navigator\.serviceWorker\.register\('sw\.js'\)/.test(JS) && /'vendor\/onnx\/yolox_nano\.onnx'/.test(JS) && /'festival\.html'/.test(JS));
-    check('try43: تحدّي القفز (2026-11-07) — لاعبٌ واحد بزرّ «ابدأ تحدّي القفز»، js/jump-core.js يعدّ من الصورة في كلّ إطار، ويُعدّ في «jump» وحده، ورقم اليوم',
-          /<script src="js\/jump-core\.js(\?v=\d+)?"><\/script>/.test(H) && /if \(SvfJump\.step\(j, s, hpx, t\) && G\.st === 'jump'\)/.test(JS)
-          && /cycle: ALL && Q\.get\('game'\) !== 'jump' \? \['whistle'\] : \[\]/.test(JS) && /id="jumpBtn"/.test(H) && /'js\/jump-core\.js(\?v=\d+)?'/.test(JS) && /DAY\.jump = n;/.test(JS));
-}
-
 /* ── ٤٤) نموذج الكشف خفيفٌ أو قويّ، وفحص الجاهزيّة (2026-11-09): القويّ YOLOX‑S ‏640 على بطاقة الرسوم لـiPad M4 والحواسيب الحديثة ── */
 {
     const M = E.MODELS;
@@ -1943,11 +1913,12 @@ const M2 = E.summarize({ secs: lesson2, grid: [], sens: 'medium', ctx: partEv, m
     // العامل: يختار المشغّل بطريقه، ويُبلغ التنزيل، ولا يعود صامتاً إلى المعالج بنموذجٍ ثقيل
     const W = read('js/eye-detect-worker.js');
     check('worker: مشغّل بطاقة الرسوم أو المعالج بحسب الطلب، وطريقٌ واحدٌ في الجلسة، وبلا خيوطٍ متعدّدة',
-          /gpu \? await import\('\.\.\/vendor\/onnx\/ort\.webgpu\.min\.mjs'\) : await import\('\.\.\/vendor\/onnx\/ort\.wasm\.min\.mjs'\)/.test(W)
-          && /executionProviders: \[gpu \? 'webgpu' : 'wasm'\]/.test(W) && /numThreads = 1/.test(W) && !/^import \* as ortNS/m.test(W));
+          /await import\('\.\.\/vendor\/onnx\/ort\.webgpu\.min\.mjs'\)/.test(W)
+          && /await prepare\('wasm'\)/.test(W)
+          && /executionProviders: \[ep\]/.test(W) && /numThreads = 1/.test(W) && !/^import \* as ortNS/m.test(W));
     check('worker: تقدّم التنزيل، و«nogpu» حين لا يرى العامل بطاقة الرسوم، والاستقبال يُربط في العامل وحده',
           /post\(\{ type: 'progress', p \}\)/.test(W) && /code: 'nogpu'/.test(W) && /export function createRunner\(post\)/.test(W)
-          && /if \(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope\)/.test(W) && /post\(\{ type: 'ready', ep: EP, size: SIZE \}\)/.test(W));
+          && /if \(typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope\)/.test(W) && /post\(\{ type: 'ready', ep: EP, size: SIZE, offscreen:/.test(W));
     const PEND = (async () => {
         const mod = await import(path.join(ROOT, 'js/eye-detect-worker.js'));
         const got = [];

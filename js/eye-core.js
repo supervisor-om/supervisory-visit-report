@@ -334,7 +334,7 @@
         const pts = (dets || []).filter(d => d && (d.score == null || d.score >= PERSON_MIN_SCORE)).map(d => ({
             fx: (d.x + d.w / 2) * ar, fy: d.y + d.h, cx: (d.x + d.w / 2) * ar, cy: d.y + d.h / 2, h: d.h,
             nx: d.x + d.w / 2, ny: d.y + d.h, act: d.act || 0, dish: d.dish == null ? null : !!d.dish,
-            hi: d.score == null || d.score >= HIGH_SCORE
+            sig: d.sig || null, hi: d.score == null || d.score >= HIGH_SCORE
         }));
         T.tracks = T.tracks.filter(tr => t - tr.last <= ttl);
         const pred = T.tracks.map(tr => predict(tr, t));
@@ -350,7 +350,11 @@
                     if (usedB.has(b) || d.hi !== wantHi) return;
                     const hh = Math.max(1e-6, Math.max(d.h, p.h));
                     const dist = Math.min(Math.hypot(d.fx - P.fx, d.fy - P.fy), Math.hypot(d.fx - p.fx, d.fy - p.fy)) / hh;
-                    if (dist < gate) pairs.push({ a, b, dist });
+                    if (dist < gate) {
+                        const reid = root.SvfEyeReID;
+                        const penalty = reid && p.sig && d.sig ? (1 - reid.colorSim(p.sig, d.sig)) * 0.8 : 0;
+                        pairs.push({ a, b, dist: dist + penalty });
+                    }
                 });
             });
             pairs.sort((p, q) => p.dist - q.dist);
@@ -400,7 +404,19 @@
         if (!tch) return null;
         const live = T.tracks.filter(tr => t - tr.last <= 1.2 && tr.ok !== false);   // المبدئيّ (كشفٌ ضعيفٌ مرّةً واحدة) لا يُعدّ
         let tr = live.find(x => x.id === tch.id);
-        if (!tr && t - (tch.seen || 0) <= 8) {
+        const reid = root.SvfEyeReID;
+        const last = x => x.hist[x.hist.length - 1];
+        if (reid && tch.sig) {
+            if (tr && last(tr).sig && reid.colorSim(tch.sig, last(tr).sig) < 0.52) tr = null;
+            if (!tr && t - (tch.seen || 0) <= 45) {
+                const matches = live.filter(x => last(x).sig)
+                    .map(x => ({ x, sim: reid.colorSim(tch.sig, last(x).sig) }))
+                    .filter(m => m.sim >= 0.78)
+                    .sort((a, b) => b.sim - a.sim);
+                if (matches[0] && (!matches[1] || matches[0].sim - matches[1].sim >= 0.08)) tr = matches[0].x;
+            }
+        }
+        if (!tr && !tch.sig && t - (tch.seen || 0) <= 8) {
             // حارس الحجب (2026-10-27): حين يمرّ المعلّم خلف طالب، يظهر الطالب وحده قرب موضعه — فلا يُتبنّى من يقصر عنه كثيراً أو يطوله
             // (في الموضع نفسه من الصورة يتقارب الطولان بالمنظور: ٠٫٨–١٫٢٥ من طوله الأخير)، ويبقى المعلّم «منقطعاً» حتّى يظهر هو
             const cands = live.filter(x => x.id > tch.id || x.hist.length <= 2).map(x => {
@@ -411,7 +427,7 @@
         }
         if (!tr) return tch;
         const p = tr.hist[tr.hist.length - 1];
-        return { id: tr.id, fx: p.fx, fy: p.fy, h: p.h, nx: p.nx, ny: p.ny, seen: tr.last };
+        return { id: tr.id, fx: p.fx, fy: p.fy, h: p.h, nx: p.nx, ny: p.ny, seen: tr.last, sig: reid ? reid.blendSig(tch.sig, p.sig) : null };
     }
     // من لمسةٍ على الشاشة (x,y نسبةً إلى الإطار) ← أقرب شخصٍ في اللقطة
     function pickNearest(snap, x, y) {
@@ -429,7 +445,7 @@
             return Object.assign({ id: tr.id, x: last.nx, y: last.ny, fx: last.fx, fy: last.fy, h: last.h, dv: tr.dv || 0, dy: tr.dy || 0,
                 inside: inPoly(last.nx, last.ny, poly) }, trackMotion(tr));
         });
-        const teacher = tch ? all.find(p => p.id === tch.id) || null : null;
+        const teacher = tch && t - tch.seen <= 1.2 ? all.find(p => p.id === tch.id) || null : null;
         const ppl = teacher ? all.filter(p => p !== teacher) : all;
         const ins = ppl.filter(p => p.inside);
         const still = ins.filter(p => !p.moving);
@@ -456,7 +472,10 @@
             const near = still.filter(o => o !== p && Math.hypot(o.fx - p.fx, o.fy - p.fy) <= QUEUE_DIST * Math.max(p.h, o.h)).length;
             if (near >= 2) q++;
         });
-        const F = formations(ins);
+        const advanced = root.SvfEyeFormations?.formations(ins);
+        const F = advanced && advanced.dom !== 'X'
+            ? { dom: advanced.dom, maxLine: advanced.longestLine }
+            : formations(ins);
         // على حافّة الصورة يميناً أو يساراً: مقصوصٌ أو على وشك الخروج منها ← الكاميرا لا تغطّي الملعب كلّه (يُستثنى من هو خارج المنطقة المحدَّدة)
         const e = ppl.filter(p => (p.inside || !(poly && poly.length >= 3)) && (p.x < EDGE || p.x > 1 - EDGE)).length;
         return {

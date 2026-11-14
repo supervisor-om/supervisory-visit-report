@@ -1,5 +1,19 @@
+/* طبقة العرض البصري التفاعلي فوق شاشة الكاميرا (Canvas HUD Overlay) – (js/eye-hud.js)
+ * جزء من محرك "عين المشرف" (Supervisor Eye Interactive HUD Layer)
+ *
+ * المزايا الأساسية:
+ * 1. رسم مضلعات المحطات التدريبية الأربع المعايرة هندسياً (Homography Polygons) بألوان الحالة الحية:
+ *    - أخضر: نشطة (MVPA >= 55%) | أصفر: متوسطة | أحمر: خاملة أو مزدحمة | رمادي: فارغة
+ *    مع عرض شارة اسم المحطة وعدد الطلاب ونسبة النشاط داخل كل محطة.
+ * 2. رسم شارة قفل هوية المعلم (Teacher Re-ID Lock Badge) مع تفاعل النقر المباشر على الكاميرا (Click-to-Lock)
+ *    لاستدعاء `SvfEyeReID.lockTeacherAt` وتثبيت التتبع يدوياً على المعلم.
+ * 3. رسم إطار التركيز الانتقائي (Spotlight ROI) وأقواس الزوايا البيوميكانيكية على مفاصل الطالب المؤدي
+ *    (الركبة، المرفق، الجذع) مع عرض الدرجات والمرحلة الحركية مباشرةً.
+ * 4. احترام وضعيات الخصوصية (`dots` / `mosaic`) دون التأثير على وضوح المؤشرات الإشرافية.
+ */
 (function (root) {
   'use strict';
+
   const COLORS = {
     active:   { fill: 'rgba(16, 185, 129, 0.14)', stroke: '#10b981', text: '#ecfdf5' },
     medium:   { fill: 'rgba(245, 158, 11, 0.14)', stroke: '#f59e0b', text: '#fffbeb' },
@@ -10,12 +24,14 @@
     jointOk:  '#34d399',
     jointWarn:'#fb7185'
   };
+
   function statusStyle(mvpaPct, studentCount) {
     if (!studentCount) return COLORS.empty;
     if (mvpaPct >= 55) return COLORS.active;
     if (mvpaPct >= 30) return COLORS.medium;
     return COLORS.idle;
   }
+
   function roundRectPath(ctx, x, y, w, h, r) {
     const rad = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
@@ -26,6 +42,7 @@
     ctx.arcTo(x, y, x + w, y, rad);
     ctx.closePath();
   }
+
   function drawBadge(ctx, text, x, y, bg, fg, font) {
     ctx.save();
     ctx.font = font || '600 12px "IBM Plex Sans Arabic", Tahoma, sans-serif';
@@ -34,22 +51,27 @@
     const bw = tw + padX * 2;
     const bx = Math.max(4, Math.min(ctx.canvas.width - bw - 4, x - bw / 2));
     const by = Math.max(4, Math.min(ctx.canvas.height - h - 4, y - h / 2));
+
     ctx.fillStyle = bg || 'rgba(8, 39, 66, 0.86)';
     roundRectPath(ctx, bx, by, bw, h, 6);
     ctx.fill();
+
     ctx.fillStyle = fg || '#f8fafc';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, bx + bw / 2, by + h / 2 + 1);
     ctx.restore();
   }
+
   function drawStationsLayer(ctx, W, H, calibration, stationAnalysis) {
     if (!calibration || !calibration.getStationScreenPolygons) return;
     const polys = calibration.getStationScreenPolygons();
     const stats = (stationAnalysis && stationAnalysis.stations) || [];
+
     polys.forEach((p, idx) => {
       const st = stats[idx] || { studentCount: 0, mvpaPct: 0, teacherPresent: false };
       const stStyle = statusStyle(st.mvpaPct, st.studentCount);
+
       ctx.save();
       ctx.beginPath();
       p.polygon.forEach((pt, i) => {
@@ -64,6 +86,7 @@
       ctx.strokeStyle = stStyle.stroke;
       ctx.stroke();
       ctx.restore();
+
       const cx = p.center.x * W, cy = p.center.y * H;
       const label = st.studentCount
         ? `م${p.id}: ${st.studentCount} طلاب | ${st.mvpaPct}%`
@@ -71,20 +94,24 @@
       drawBadge(ctx, label, cx, cy, 'rgba(8, 39, 66, 0.82)', stStyle.text);
     });
   }
+
   function drawTeacherBadge(ctx, W, H, teacher) {
     if (!teacher || teacher.x == null || teacher.y == null) return;
     const x = teacher.x * W, y = teacher.y * H;
     const w = teacher.w * W, h = teacher.h * H;
+
     ctx.save();
     ctx.strokeStyle = COLORS.teacher;
     ctx.lineWidth = 2.5;
     roundRectPath(ctx, x, y, w, h, 8);
     ctx.stroke();
+
     const conf = Math.round((teacher.lockScore || 0.85) * 100);
     const title = teacher.locked ? `المعلم (مثبّت ${conf}%)` : `المعلم (${conf}%)`;
     drawBadge(ctx, title, x + w / 2, Math.max(14, y - 12), 'rgba(240, 180, 74, 0.95)', '#082742');
     ctx.restore();
   }
+
   function drawBiomechanicsLayer(ctx, W, H, spotlights, bioResult) {
     (spotlights || []).forEach((sp, idx) => {
       const bx = sp.box.x * W, by = sp.box.y * H, bw = sp.box.w * W, bh = sp.box.h * H;
@@ -99,6 +126,7 @@
         drawBadge(ctx, `مؤدي نشط #${sp.trackId}`, bx + bw / 2, Math.max(14, by - 12), 'rgba(14, 116, 144, 0.92)', '#f0f9ff');
       }
     });
+
     if (bioResult && bioResult.valid && bioResult.angles) {
       const a = bioResult.angles;
       const parts = [];
@@ -106,10 +134,12 @@
       if (a.releaseAngleDeg != null) parts.push(`الإطلاق: ${a.releaseAngleDeg}°`);
       if (a.trunkArchDeg != null) parts.push(`تقوس الجذع: ${a.trunkArchDeg}°`);
       if (a.kneeAvgDeg != null) parts.push(`الركبتان: ${a.kneeAvgDeg}°`);
+
       const summary = `${bioResult.skillAr} (${bioResult.score}%) — ${parts.join(' | ')}`;
       drawBadge(ctx, summary, W / 2, H - 22, 'rgba(8, 39, 66, 0.9)', '#34d399', '600 13px "IBM Plex Sans Arabic", Tahoma, sans-serif');
     }
   }
+
   function drawTopBar(ctx, W, stats) {
     if (!stats) return;
     const ep = (stats.ep || 'wasm').toUpperCase();
@@ -119,12 +149,19 @@
     const text = [ep, ms, count, mvpa].filter(Boolean).join('  •  ');
     drawBadge(ctx, text, W / 2, 18, 'rgba(8, 39, 66, 0.85)', '#f8fafc');
   }
+
   function renderHUD(canvas, state) {
     if (!canvas || !canvas.getContext) return false;
     const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
+    if (!ctx) return false;
+    const frame = state?.frame;
+    const W = frame ? frame.rw : canvas.width;
+    const H = frame ? frame.rh : canvas.height;
     const st = state || {};
+
     if (st.clear !== false) ctx.clearRect(0, 0, W, H);
+
+    if (frame) { ctx.save(); ctx.translate(frame.ox, frame.oy); }
     if (st.calibration) {
       drawStationsLayer(ctx, W, H, st.calibration, st.stationAnalysis);
     }
@@ -137,8 +174,10 @@
     if (st.topStats) {
       drawTopBar(ctx, W, st.topStats);
     }
+    if (frame) ctx.restore();
     return true;
   }
+
   function bindInteractiveLock(canvas, getTracker, getTeacherRef, onLock) {
     if (!canvas || !canvas.addEventListener) return function () {};
     const handler = function (ev) {
@@ -156,6 +195,7 @@
     canvas.addEventListener('click', handler);
     return function unbind() { canvas.removeEventListener('click', handler); };
   }
+
   const hudApi = {
     COLORS,
     drawStationsLayer,
@@ -165,6 +205,7 @@
     renderHUD,
     bindInteractiveLock
   };
+
   root.SvfEyeHUD = hudApi;
   if (root.SvfEye) {
     Object.assign(root.SvfEye, {
