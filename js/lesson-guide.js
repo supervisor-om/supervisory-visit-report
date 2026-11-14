@@ -40,7 +40,7 @@
     const topics = () => (data().topics || []);
     const byId = id => topics().find(t => t.id === id) || null;
     const skillOf = (G, id) => (G && G.skills || []).find(s => s.id === id) || null;
-    const observable = s => !!(s && s.points && s.points.length && !s.knowledge);
+    const observable = s => !!(s && s.points && s.points.length && !s.knowledge && !s.referenceOnly);
 
     // الدليل من الصفّ وعنوان الدرس: عنوانٌ يسمّي الموضوع أو مهارةً منه ← مؤكَّد ومعه مهاراتُه؛ وعنوانٌ فارغٌ والصفّ له دليلٌ
     // واحد ← يُعرض اقتراحاً (sure: false)؛ وعنوانٌ لموضوعٍ آخر ← لا دليل (ألعاب القوى ليست كرة القدم)
@@ -51,9 +51,17 @@
         const cands = topics().filter(t => t.grade === grade);
         if (!cands.length) return null;
         const title = String(info.topic || '').trim();
-        for (const G of cands) {
-            const skills = G.skills.filter(s => has(title, s.match)).map(s => s.id);
-            if (skills.length || has(title, G.match)) return { guide: G, skills, sure: true };
+        const matchedWords = words => (words || []).filter(word => has(title, [word])).map(norm).filter(Boolean);
+        const matches = cands.map(guide => {
+            const skills = guide.skills.map(skill => ({ id: skill.id, words: matchedWords(skill.match) }));
+            const words = skills.flatMap(skill => skill.words);
+            const specific = word => !words.some(other => other !== word && (' ' + other + ' ').includes(' ' + word + ' '));
+            return { guide, skills: skills.filter(skill => skill.words.some(specific)).map(skill => skill.id),
+                score: Math.max(0, ...words.concat(matchedWords(guide.match)).map(word => word.length)) };
+        }).filter(match => match.score).sort((a, b) => b.score - a.score);
+        if (matches.length) {
+            if (matches[1]?.score === matches[0].score) return null;
+            return { guide: matches[0].guide, skills: matches[0].skills, sure: true };
         }
         return !title && cands.length === 1 ? { guide: cands[0], skills: [], sure: false } : null;
     }
@@ -63,6 +71,7 @@
         const set = new Set(ids || []);
         return (G && G.drills || []).filter(d => d.skills.some(k => set.has(k)));
     }
+    const questionsFor = (G, ids) => (G.assess || []).filter(q => !q.skills || q.skills.some(id => (ids || []).includes(id)));
     // أقلّ «طلبةٍ لكلّ كرة» في تدريبات المهارة (ما يحدّده الدليل) — 0 إن لم يحدّد
     function perBall(G, ids) {
         const p = drillsFor(G, ids).filter(d => d.per > 0 && d.kind === 'teach').map(d => d.per);
@@ -131,7 +140,7 @@
                 return { n: m.length, ex: m.length ? [m[0].t, short(m[0].x)] : null };
             })
         }));
-        const assess = (G.assess || []).map(q => {
+        const assess = questionsFor(G, ids).map(q => {
             const A = lexRe(q.any || []), W = q.with ? lexRe(q.with) : null;
             const m = clauses.filter(c => hit(A, c) && (!W || hit(W, c)));
             return { n: m.length, ex: m.length ? [m[0].t, short(m[0].x)] : null };
@@ -175,7 +184,8 @@
             const names = [];
             C.skills.forEach(s => { const sk = skillOf(G, s.id); if (sk) s.points.forEach((p, i) => names.push({ short: sk.points[i].short, n: p.n })); });
             out.cover = { said: C.said, total: C.total, missing: names.filter(p => !p.n).map(p => p.short), saidList: names.filter(p => p.n).map(p => p.short) };
-            out.assess = { asked: C.asked, total: (G.assess || []).length, missing: (G.assess || []).filter((q, i) => !(C.assess[i] && C.assess[i].n)).map(q => q.short) };
+            const questions = questionsFor(G, ids);
+            out.assess = { asked: C.asked, total: questions.length, missing: questions.filter((q, i) => !(C.assess[i] && C.assess[i].n)).map(q => q.short) };
         }
         out.per = perBall(G, ids);
         out.forms = formsFor(G, ids, 'teach');
@@ -186,7 +196,7 @@
         return out;
     }
 
-    const api = { MIN, FORM, setData, norm, has, topics, byId, skillOf, observable, find, drillsFor, perBall, formsFor,
+    const api = { MIN, FORM, setData, norm, has, topics, byId, skillOf, observable, find, drillsFor, questionsFor, perBall, formsFor,
                   codeOf, syncCodes, setPoint, clearPupil, pointStats, speechCoverage, stripExamples, guideCtx };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.SvfLessonGuide = api;

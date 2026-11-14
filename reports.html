@@ -327,6 +327,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                 <!-- نتيجة «عين المشرف» (js/eye.js): أرقامٌ لا صور — تُحفظ مع التقرير وتُستعاد وتُصفَّر معه -->
                 <textarea id="eyeData" class="hidden" aria-hidden="true" tabindex="-1"></textarea>
                 <textarea id="noorEvidenceData" hidden aria-hidden="true" tabindex="-1"></textarea>
+                <textarea id="smartFollowupData" hidden aria-hidden="true" tabindex="-1"></textarea>
                 <div class="svf-head" style="margin-bottom:0">
                     <div>
                         <h1>استمارة زيارة إشرافية</h1>
@@ -502,11 +503,13 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                         ومحور التطوير. اسأل أوّلاً واستمع، وعلّم السؤال بعد طرحه، واكتب ما يقوله المعلّم، ثمّ اتّفقا على خطوة.</p>
                     </div>
                 </div>
+                <div id="debriefSmartFollowup" hidden></div>
                 <div id="debriefBody" class="space-y-4"></div>
             </div>
 
             <!-- عين المشرف (js/eye-core.js + js/eye.js) — لأصحابها في gate.js -->
             <div id="eye-view" class="hidden fade-in space-y-5">
+                <div id="eyeSmartFollowup" hidden></div>
                 <details class="bg-white border border-slate-200 rounded-2xl px-5 py-4">
                     <summary class="cursor-pointer font-bold text-slate-900">
                         <i class="fa-solid fa-book-open ml-2 text-blue-600" aria-hidden="true"></i>تحضير المعلم من نور
@@ -992,6 +995,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
     <script src="js/letters-core.js"></script>
     <script src="js/letters.js"></script>
     <script src="js/noor-preparation.js?v=2.3"></script>
+    <script src="js/smart-followup.js"></script>
     <script src="js/init.js"></script>
     <script>
     if ('serviceWorker' in navigator) {

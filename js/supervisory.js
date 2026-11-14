@@ -416,6 +416,7 @@
             // عين المشرف تُبنى أوّل فتحٍ وتعرض نتيجة التقرير المفتوح (js/eye.js)
             if (viewId === 'eye-view' && typeof svfEyeOpen === 'function') { try { svfEyeOpen(); } catch (e) { console.warn(e); } }
             if (viewId === 'eye-view' || viewId === 'form-view') window.SvfNoorPreparation?.sync();
+            if (viewId === 'eye-view' || viewId === 'debrief-view') window.SvfSmartFollowup?.renderVisit();
             // ونموذج التقييم يعرض شاهدها تحت البنود (أو يزيله إن تغيّرت الزيارة)
             if (viewId === 'form-view' && typeof svfEyeDecorate === 'function') { try { svfEyeDecorate(); } catch (e) { console.warn(e); } }
 
@@ -796,6 +797,7 @@
             }
             window.SvfNoorPreparation?.sync();
             const reportId = editing ? currentEditingKey : `supervision_v6_visit_${Date.now()}`;
+            window.SvfSmartFollowup?.beforeSave();
             // عين المشرف: تُكتب الدرجات المعتمدة للبنود التي اقترحتها، فيُقاس اتّفاقها مع المشرف
             if (typeof svfEyeBeforeSave === 'function') { try { svfEyeBeforeSave(); } catch (e) { console.warn(e); } }
             const reportData = { 

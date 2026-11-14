@@ -110,7 +110,8 @@
         const range = R[S.period];
         const per = perTeacher();
         const need = per * range.terms;
-        const all = D().visitsFrom(supRows(), normName);
+        const rows = supRows();
+        const all = D().visitsFrom(rows, normName);
         const sKey = S.school;
         const schoolOk = s => !sKey || normSchool(s) === sKey;
         const vis = all.filter(v => schoolOk(v.school));
@@ -124,6 +125,9 @@
         const gr = D().growth(vis.filter(v => D().inRange(v, R.year)));
         const rf = D().recsFollow(schoolRows().filter(r => schoolOk(r.data && r.data.schoolName)), range, today(), normSchool);
         const et = D().eyeTargets(inR);
+        const follow = root.SvfSmartFollowup;
+        const followHtml = follow?.allowed() ? follow.historyHtml(follow.agreements(rows)
+            .filter(item => item.open && schoolOk(item.school)), 'board') : '';
 
         // المدارس للمرشّح: من القائمة ومن الأرشيف
         const schools = new Map();
@@ -154,6 +158,7 @@
                 </div>
                 <div class="flex flex-wrap gap-2"><button type="button" id="dashPrint" class="svf-btn svf-btn-secondary"><i class="fa-solid fa-print" aria-hidden="true"></i>طباعة / PDF</button></div>
             </div>
+            ${followHtml}
             <section class="bg-white rounded-2xl border border-slate-200 p-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                 <label class="flex items-center gap-1.5 text-sm text-slate-600">الفترة
                     <select id="dashPeriod" class="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
@@ -359,6 +364,7 @@
         const box = $('stats-view');
         box.querySelectorAll('.dash-export').forEach(b => b.addEventListener('click', () => exportPanel(b.dataset.export)));
         box.querySelectorAll('.dash-row, .dash-dot[data-tk]').forEach(el => el.addEventListener('click', () => openProfile(el.getAttribute('data-tk'))));
+        box.querySelectorAll('[data-smart-teacher]').forEach(el => el.addEventListener('click', () => openProfile(normName(el.dataset.smartTeacher))));
     }
 
     const FILES = { dashPacePanel: 'الوتيرة', dashDistPanel: 'توزيع-المستويات', dashHeatPanel: 'خريطة-المعلمين', dashGrowthPanel: 'نمو-المعلمين',
@@ -422,7 +428,8 @@
         const box = $('dashboard-view');
         if (!box || !D() || !X()) return;
         dropCharts('prof');
-        const all = D().visitsFrom(supRows(), normName);
+        const rows = supRows();
+        const all = D().visitsFrom(rows, normName);
         const names = new Map();
         all.forEach(v => names.set(v.tk, v.teacher));
         const opts = [...names.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'));
@@ -431,6 +438,10 @@
         if (!S.profile) { const cur = normName((($('teacherName') || {}).value) || ''); if (cur && names.has(cur)) S.profile = cur; }
         const P = S.profile ? D().profile(all, S.profile) : null;
         const R = ranges();
+        const follow = root.SvfSmartFollowup;
+        const profileRow = P && rows.find(row => row.key === P.last.key);
+        const followHtml = profileRow && follow?.allowed() ? follow.historyHtml(follow.agreements(rows)
+            .filter(item => follow.sameTeacher(item, follow.savedVisit(profileRow))), 'profile') : '';
 
         let body = '';
         if (!opts.length) body = `<section class="bg-white rounded-2xl border border-slate-200">${empty('احفظ زيارةً إشرافيّةً من «نموذج التقييم» ليظهر ملفّ معلّمها هنا.')}</section>`;
@@ -468,6 +479,7 @@
                         <option value="">اختر معلّماً…</option>${opts.map(([k, nm]) => `<option value="${esc(k)}"${k === S.profile ? ' selected' : ''}>${esc(nm)}</option>`).join('')}</select></label>
                 ${P && P.school ? `<span class="text-sm text-slate-600 truncate">${esc(P.school)}</span>` : ''}
             </section>
+            ${followHtml}
             ${body}`;
 
         $('profTeacher').addEventListener('change', e => { S.profile = e.target.value; renderProfile(); });

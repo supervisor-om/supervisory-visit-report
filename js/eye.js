@@ -688,6 +688,12 @@ function tagRowHtml(k) {
             if (S.result && S.result.guide) { renderGuide(); return; }
             S.gkey = null; detectGuide(); renderGuide(); renderSample(); planHint();
         });
+        document.addEventListener('svf-curriculum-changed', () => {
+            if (lab) return;
+            S.gkey = null;
+            detectGuide();
+            guideChanged();
+        });
         $('eyeGuide').addEventListener('click', e => {
             if (e.target.closest('[data-gimport]')) { openImport(); return; }
             const b = e.target.closest('[data-gskill],[data-gopen],[data-gmin]');
@@ -1465,10 +1471,12 @@ function tagRowHtml(k) {
     const guideOn = () => (S.guide && S.guide.on && LG() ? LG().byId(S.guide.id) : null);
     function detectGuide() {
         if (!LG()) { S.guide = null; return; }
-        const I = info(), key = I.cls + '|' + I.topic;
+        const I = info(), smart = root.SvfSmartFollowup;
+        const useSmart = smart?.allowed();
+        const key = I.cls + '|' + I.topic;
         if (S.guide && S.gkey === key) return;
         S.gkey = key;
-        const r = LG().find({ cls: I.cls, topic: I.topic });
+        const r = useSmart ? smart.guideSelection(I) : LG().find({ cls: I.cls, topic: I.topic });
         S.guide = r ? { id: r.guide.id, skills: r.skills.slice(), sure: r.sure, on: r.sure, min: false } : null;
     }
     function guideSkill(id) {
@@ -1547,7 +1555,7 @@ function tagRowHtml(k) {
                     <p class="text-slate-700">${esc(d.desc)}</p>${d.dev && d.dev.length ? `<p class="text-xs text-slate-500">تطوير النشاط: ${esc(d.dev.join('، '))}</p>` : ''}</li>`).join('')}</ul></details>` : '';
         const moreHtml = `<details class="text-sm rounded-xl border border-slate-200 px-3 py-2"><summary class="cursor-pointer text-slate-700 font-semibold">أسئلة التقويم ومخرجات الموضوع</summary>
                 <div class="mt-2 space-y-2 leading-6">
-                    <div><div class="text-xs font-bold text-slate-500">أسئلة التقويم — يتابعها «فهم الكلام»</div>${(G.assess || []).map((q, i) => `<div class="flex items-start gap-2"><span class="flex-1 text-slate-700">${esc(q.text)}</span><span class="flex-none" data-ga="${i}"></span></div>`).join('')}
+                    <div><div class="text-xs font-bold text-slate-500">أسئلة التقويم — يتابعها «فهم الكلام»</div>${LG().questionsFor(G, S.guide.skills).map((q, i) => `<div class="flex items-start gap-2"><span class="flex-1 text-slate-700">${esc(q.text)}</span><span class="flex-none" data-ga="${i}"></span></div>`).join('')}
                         ${G.assessGame ? `<p class="text-slate-700">${esc(G.assessGame)}</p>` : ''}</div>
                     ${(G.outcomes || []).length ? `<div><div class="text-xs font-bold text-slate-500">المخرجات التعليميّة</div><p class="text-slate-700">${esc(G.outcomes.join('؛ '))}</p></div>` : ''}
                     ${(G.concepts || []).length || (G.tools || []).length ? `<div><div class="text-xs font-bold text-slate-500">المفاهيم · الأدوات</div><p class="text-slate-700">${esc((G.concepts || []).join('، '))} · ${esc((G.tools || []).join('، '))}</p></div>` : ''}
@@ -2645,12 +2653,14 @@ function tagRowHtml(k) {
             const phone = $('eyeLabSource').value === 'phone';
             const session = { url, key, started: false, done: false, state: null };
             lab = session;
+            root.SvfSmartFollowup?.renderVisit();
             $('eyeLabStart').disabled = true;
             status.textContent = '';
             S.resume = null;
             try { await (phone ? startPhone() : startCamera()); }
             finally {
                 if (lab === session && !session.started && $('eyePair').classList.contains('hidden')) lab = null;
+                root.SvfSmartFollowup?.renderVisit();
                 $('eyeLabStart').disabled = false;
             }
         } catch (err) {
@@ -4725,9 +4735,10 @@ function tagRowHtml(k) {
                         ${pt.ex ? `<span class="block text-xs text-slate-500"><span class="tabular-nums">${mmss(pt.ex[0])}</span> «${esc(pt.ex[1])}»</span>` : ''}</span></li>`).join(''); }).join('')}</ul></div>`;
             }
             let assessBlock = '';
-            if (C && GDd.assess && GDd.assess.length) {
-                assessBlock = `<div><div class="text-xs font-bold text-slate-500 mb-2">أسئلة التقويم في الدليل: سُئل (${C.asked}) من (${GDd.assess.length})</div>
-                    <ul class="space-y-1.5">${GDd.assess.map((q, i) => { const a = C.assess[i] || {}; return `<li class="text-sm leading-6 flex gap-2">
+            const guideQuestions = LG().questionsFor(GDd, ids);
+            if (C && guideQuestions.length) {
+                assessBlock = `<div><div class="text-xs font-bold text-slate-500 mb-2">عبارات تطابق نماذج التقويم في الدليل: (${C.asked}) من (${guideQuestions.length})</div>
+                    <ul class="space-y-1.5">${guideQuestions.map((q, i) => { const a = C.assess[i] || {}; return `<li class="text-sm leading-6 flex gap-2">
                         <i class="fa-solid ${a.n ? 'fa-check text-green-700' : 'fa-minus text-slate-400'} mt-1.5 text-xs" aria-hidden="true"></i>
                         <span class="min-w-0"><span class="${a.n ? 'text-slate-800' : 'text-slate-500'}">${esc(q.short)}</span>
                         ${a.ex ? `<span class="block text-xs text-slate-500"><span class="tabular-nums">${mmss(a.ex[0])}</span> «${esc(a.ex[1])}»</span>` : ''}</span></li>`; }).join('')}</ul></div>`;

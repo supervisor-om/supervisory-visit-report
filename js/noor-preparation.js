@@ -267,6 +267,7 @@
         cancelButton.hidden = true;
         event.preventDefault();
         render();
+        document.dispatchEvent(new Event('svf-noor-matched'));
     });
 
     confirm.addEventListener('change', () => { $('noorApproveEvidence').disabled = !confirm.checked; });
@@ -300,6 +301,7 @@
 
     window.SvfNoorPreparation = {
         reportLine,
+        matchedTitle() { return enabled() && previewKey === key() ? lesson?.title || '' : ''; },
         sync() { sync(); updateObservations(); }
     };
     sync();

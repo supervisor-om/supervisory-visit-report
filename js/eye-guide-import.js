@@ -231,7 +231,10 @@
         const LG = root.SvfLessonGuide;
         if (!LG || !LG.setData) return 0;
         const base = (root.SVF_LESSON_GUIDE && root.SVF_LESSON_GUIDE.topics) || [];
-        const mine = list().filter(r => r.status === 'ok').map(r => r.topic);
+        const mine = list().filter(r => r.status === 'ok').map(r => ({
+            ...r.topic,
+            source: r.topic.source || [r.src?.file, r.src?.pages && 'صفحات PDF ' + r.src.pages].filter(Boolean).join(' · ')
+        }));
         const ids = new Set(mine.map(t => t.id));
         LG.setData({ version: 1, topics: base.filter(t => !ids.has(t.id)).concat(mine) });
         try { root.document && root.document.dispatchEvent(new CustomEvent('svf-guides-changed')); } catch (e) {}
