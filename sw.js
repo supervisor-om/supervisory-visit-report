@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v87';
+const VERSION = 'v88';
 const CACHE_NAME = `supervisory-${VERSION}`;
 // النماذج والمكتبات الثقيلة (vendor/) في ذاكرةٍ مستقلّةٍ لا يمسحها رفع VERSION — النموذج القويّ وحده ٣٦ ميغابايت،
 // فلا يُعاد تنزيله مع كلّ تحديثٍ للموقع. تُرفع VENDOR_VERSION فقط إن تغيّر ملفٌّ في vendor/ بالاسم نفسه.
@@ -44,7 +44,7 @@ const ASSETS = [
     './js/letters.js',
     './js/debrief-core.js',
     './js/debrief.js',
-    './js/eye-core.js', './js/eye-speech.js', './js/eye-fusion.js', './js/eye-lesson-end.js', './js/eye-draft.js', './js/eye-yolox.js', './js/eye-detect-worker.js',
+    './js/eye-core.js', './js/eye-reid.js', './js/eye-formations.js', './js/eye-sofit.js', './js/eye-biomechanics.js', './js/eye-homography.js', './js/eye-hud.js', './js/eye-grow-bridge.js', './js/eye-speech.js', './js/eye-fusion.js', './js/eye-lesson-end.js', './js/eye-draft.js', './js/eye-yolox.js', './js/eye-detect-worker.js',
     './js/lesson-guide-data.js', './js/lesson-guide.js', './js/eye-guide-import.js',
     './js/eye-link.js',
     './js/eye.js',
