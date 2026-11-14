@@ -301,6 +301,7 @@ function tagRowHtml(k) {
                     <button type="button" id="eyeWhistleTap" class="hidden svf-btn svf-btn-secondary" aria-label="سمعتُ صفّارة الآن" title="التجربة الميدانيّة: المسه كلّما سمعت الصفّارة"><span>صفّارة</span><b id="eyeWhistleN" class="tabular-nums">0</b></button>
                     <button type="button" id="eyeMark" class="svf-btn svf-btn-secondary" aria-label="علامة الآن"><i class="fa-solid fa-bookmark" aria-hidden="true"></i><span class="hidden sm:inline">علامة</span></button>
                     <button type="button" id="eyeStop" class="hidden svf-btn svf-btn-primary" aria-label="إيقاف وتحليل"><i class="fa-solid fa-stop" aria-hidden="true"></i><span class="sm:hidden">إيقاف</span><span class="hidden sm:inline">إيقاف وتحليل</span></button>
+                    <button type="button" id="eyeCancelLive" class="svf-btn svf-btn-ghost" aria-label="إلغاء التحليل">إلغاء</button>
                 </section>
 
                 <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
@@ -556,6 +557,7 @@ function tagRowHtml(k) {
         $('eyeResumeAn').addEventListener('click', resumeAnalyze);
         $('eyeResumeDrop').addEventListener('click', resumeDrop);
         $('eyeCancelAnalysis').addEventListener('click', cancelAnalysis);
+        $('eyeCancelLive').addEventListener('click', cancelAnalysis);
         $('eyeNewVisit').addEventListener('click', startNewVisit);
         $('eyeCamRestart').addEventListener('click', restartCamera);
         // الصفحة تُخفى (تطبيقٌ آخر، قفل الشاشة) أو تُغلق: نسخةٌ احتياطيّةٌ فوراً — Safari قد يُغلقها في الخلفيّة دون إنذار
