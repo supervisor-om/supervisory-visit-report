@@ -8,7 +8,7 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v90';
+const VERSION = 'v91';
 const CACHE_NAME = `supervisory-${VERSION}`;
 // النماذج والمكتبات الثقيلة (vendor/) في ذاكرةٍ مستقلّةٍ لا يمسحها رفع VERSION — النموذج القويّ وحده ٣٦ ميغابايت،
 // فلا يُعاد تنزيله مع كلّ تحديثٍ للموقع. تُرفع VENDOR_VERSION فقط إن تغيّر ملفٌّ في vendor/ بالاسم نفسه.
@@ -52,6 +52,7 @@ const ASSETS = [
     './js/lesson-guide-data.js', './js/lesson-guide.js', './js/eye-guide-import.js',
     './js/eye-link.js',
     './js/eye-pose.js',
+    './js/eye-lab.js',
     './js/eye.js',
     './cam.html',
     './js/eye-report.js',

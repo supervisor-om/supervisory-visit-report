@@ -74,6 +74,7 @@
         // التجربة الميدانيّة (2026-10-31): الوضع عند البدء، ولمسات «صفّارة» بأوقاتها، ومدرّج زمن الكشف، وهل أُطفئ الكشف لبطء الجهاز
         trialOn: false, wTaps: [], detH: null, detSlow: false, wUndoT: null
     };
+    let lab = null;
     const IDLE_TEXT = 'ضع الجهاز أفقيّاً على حاملٍ ثابتٍ مرتفع يرى الملعب كلّه، ثمّ شغّل الكاميرا والمس أركان منطقة الصفّ.';
     const SAMPLE_HINT = 'طلبةٌ متفاوتون تقيّمهم في أوّل التطبيق ثمّ في آخره: المس الرقم ليتبدّل لم يتقن ← جزئيّاً ← أتقن. منها شاهد البندين ١ و٢.';
     const GRADE_NAME = ['', 'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر', 'الثاني عشر'];
@@ -202,6 +203,23 @@ function tagRowHtml(k) {
                     ${card('eyeFileBtn', 'fa-film', 'مقطع مصوَّر', 'تحليل فيديو محفوظ في الجهاز', 'label')}
                     ${card('eyeStartNoCam', 'fa-stopwatch', 'بلا كاميرا', 'عناصر الحصة واللمسات والصوت')}
                 </div>
+                <details class="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                    <summary class="cursor-pointer font-bold text-blue-900">مختبر عين المشرف</summary>
+                    <div class="mt-3 flex flex-wrap items-center gap-3">
+                        <label>مصدر الصورة <select id="eyeLabSource" class="rounded border px-2 py-1"><option value="device">كاميرا هذا الجهاز</option><option value="phone">كاميرا الهاتف</option></select></label>
+                        <details class="basis-full">
+                            <summary class="cursor-pointer">ربط وسيط المراجعة</summary>
+                            <div class="mt-2 grid sm:grid-cols-2 gap-2">
+                                <label>رابط الوسيط <input id="eyeLabUrl" type="url" class="block w-full border rounded p-2" autocomplete="off" placeholder="https://"></label>
+                                <label>كلمة وسيط المختبر <input id="eyeLabKey" type="password" class="block w-full border rounded p-2" autocomplete="off"></label>
+                            </div>
+                        </details>
+                        <p class="basis-full text-sm">يتلقى الوسيط وGemini مقاطع تقارب 15 ثانية من الكاميرا وميكروفون هذا الجهاز مع عدّادات العين. تظهر الملاحظات تباعًا. الحدّ خمس دقائق، والتجربة خارج سجل الزيارات.</p>
+                        <label class="basis-full flex items-center gap-2"><input type="checkbox" id="eyeLabConsent"> لدي موافقة المشاركين (وولي الأمر عند الحاجة) على مشاركة الصورة والصوت مع الوسيط وGemini لهذه التجربة.</label>
+                        <button id="eyeLabStart" type="button" class="svf-btn svf-btn-primary">ابدأ الاختبار مع الوكيل</button>
+                        <p id="eyeLabSetupStatus" class="basis-full text-sm" role="status"></p>
+                    </div>
+                </details>
                 <input type="file" id="eyeFile" accept="video/*" class="hidden">
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3">
                     <label class="flex items-center gap-2 text-sm font-semibold text-slate-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -530,6 +548,15 @@ function tagRowHtml(k) {
                 </div>
             </div>
 
+            <section id="eyeLabPanel" class="hidden bg-white rounded-2xl border border-blue-200 p-4 space-y-3" aria-label="ملاحظات وكيل الاختبار">
+                <div class="flex flex-wrap items-center gap-2 justify-between">
+                    <h2 class="font-bold text-blue-900">مختبر عين المشرف</h2>
+                    <button id="eyeLabExit" type="button" class="hidden svf-btn svf-btn-secondary">العودة إلى عين المشرف</button>
+                </div>
+                <p id="eyeLabStatus" role="status"></p>
+                <p id="eyeLabStats" class="text-sm text-slate-700"></p>
+                <ul id="eyeLabNotes" class="space-y-2 text-sm"></ul>
+            </section>
             <section id="eyeResult" class="hidden space-y-4" aria-live="polite"></section>
             <section id="eyeAgree" class="eye-adv bg-white rounded-2xl border border-slate-200 p-5"></section>
             <section id="eyeTrialBox" class="eye-adv hidden bg-white rounded-2xl border border-slate-200 p-5"></section>
@@ -540,7 +567,7 @@ function tagRowHtml(k) {
         S.cx = S.canvas.getContext('2d', { willReadFrequently: true });
 
         const fresh = fn => () => {
-            if (S.running) return;
+            if (S.running || lab) return;
             if (ckRead()) {
                 let ok = false;
                 try { ok = root.confirm('يوجد رصدٌ لم يكتمل — بدء رصدٍ جديدٍ يحذفه.\n«أكمل الرصد» أو «حلّل ما رُصد» في أعلى الشاشة يحفظانه.\n\nبدء رصدٍ جديد؟'); } catch (e) { ok = false; }
@@ -550,6 +577,8 @@ function tagRowHtml(k) {
             S.resume = null;
             fn();
         };
+        $('eyeLabStart').addEventListener('click', startLab);
+        $('eyeLabExit').addEventListener('click', exitLab);
         $('eyeStartCam').addEventListener('click', fresh(startCamera));
         $('eyeStartNoCam').addEventListener('click', fresh(startNoCam));
         $('eyeStartPhone').addEventListener('click', fresh(startPhone));
@@ -754,7 +783,10 @@ function tagRowHtml(k) {
     function layout() {
         if (!$('eyeSetup')) return;
         const pairing = !$('eyePair').classList.contains('hidden');
-        $('eyeSetup').classList.toggle('hidden', S.running || pairing);
+        $('eyeSetup').classList.toggle('hidden', S.running || pairing || !!lab?.done);
+        $('eyeLabPanel').classList.toggle('hidden', !lab?.started);
+        $('eyeLabExit').classList.toggle('hidden', !lab?.done);
+        $('eyeNewVisit').classList.toggle('hidden', !!lab);
         $('eyeWork').classList.toggle('hidden', !(S.running || S.result));
         $('eyeLiveBar').classList.toggle('hidden', !S.running);
         $('eyeCancelAnalysis').classList.toggle('hidden', !S.running && !S.result);
@@ -1067,7 +1099,7 @@ function tagRowHtml(k) {
 
     // الكاميرا أو الميكروفون بعلم المعلّم — شرطٌ للبدء
     function needConsent(media) {
-        if (!media || checked('eyeConsent')) return true;
+        if (!media || lab || checked('eyeConsent')) return true;
         // سؤالٌ مباشرٌ بدل رسالةٍ قد لا تُرى على الجوّال (تجربة المشرف 2026-10-26) — يبقى داخل الضغطة نفسها
         let ok = false;
         try { ok = root.confirm('هل أبلغت المعلّم بالرصد؟\nاضغط «موافق» للتأكيد وبدء التشغيل.'); } catch (e) { ok = false; }
@@ -2146,15 +2178,16 @@ function tagRowHtml(k) {
 
     async function startCamera() {
         if (S.running) return;
+        const requestedLab = lab;
         message('');
         if (!needConsent(true)) return;
-        const wantSpeech = speechConsent();
+        const wantSpeech = !lab && speechConsent();
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             message('هذا المتصفّح لا يتيح الكاميرا هنا. افتح الموقع عبر https في Chrome أو Safari أو Edge.');
             return;
         }
         const video = camConstraints();
-        const wantMic = checked('eyeMic');
+        const wantMic = !!lab || checked('eyeMic');
         let stream = null;
         try {
             stream = await navigator.mediaDevices.getUserMedia({ video, audio: wantMic ? audioConstraints() : false });
@@ -2165,12 +2198,14 @@ function tagRowHtml(k) {
                 toast('الميكروفون غير متاح — يُحلَّل الفيديو وحده', 'info');
             } catch (e2) { message(permissionText(e2)); return; }
         }
+        if (requestedLab && lab !== requestedLab) { stream.getTracks().forEach(t => t.stop()); return; }
         S.stream = stream;
         refreshMics();
         const v = freshVideo();
         v.srcObject = stream;
         v.muted = true;
         try { await v.play(); } catch (e) { /* يبدأ مع أوّل إطار */ }
+        if (requestedLab && lab !== requestedLab) { stream.getTracks().forEach(t => t.stop()); if (S.stream === stream) S.stream = null; return; }
         if (stream.getAudioTracks().length) startAudio(ctx => ctx.createMediaStreamSource(stream), false);
         begin('camera', v);
         if (wantSpeech) speechStart(stream.getAudioTracks()[0] || null);
@@ -2281,22 +2316,26 @@ function tagRowHtml(k) {
     }
     async function startPhone() {
         if (S.running || S.link) return;
+        const requestedLab = lab;
         // العرض المستقلّ (gate.js ?demo=eye): ربط الهاتف يكتب وثائق في قاعدة البيانات — يبقى للمشرف بعد الدخول
         if (root.SupervisorGate && SupervisorGate.isDemo && SupervisorGate.isDemo()) { message('كاميرا الهاتف متاحةٌ للمشرف بعد الدخول.'); return; }
         message('');
         if (!needConsent(true)) return;
-        const wantSpeech = speechConsent();
+        const wantSpeech = !lab && speechConsent();
         if (!root.RTCPeerConnection || !LK()) { message('هذا المتصفّح لا يتيح الاتّصال المباشر بالهاتف. استعمل Safari أو Chrome حديثاً.'); return; }
         const sup = linkSup();
         if (!sup) { message('«كاميرا الهاتف» تحتاج الدخول برمزك (الربط بقاعدة المعلمين): به يُنشأ رمز الربط في مسارك.'); return; }
         // الميكروفون يُفتح الآن داخل الضغطة (iOS لا يبدأ تحليل الصوت إلّا بلمسة)، ويبدأ عدّه حين تصل الصورة
-        if (checked('eyeMic') && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        if ((lab || checked('eyeMic')) && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
-                S.stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints() });
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints() });
+                if (requestedLab && lab !== requestedLab) { stream.getTracks().forEach(t => t.stop()); return; }
+                S.stream = stream;
                 refreshMics();
                 startAudio(ctx => ctx.createMediaStreamSource(S.stream), false);
             } catch (e) { toast('الميكروفون غير متاح — تُحلَّل صورة الهاتف وحدها', 'info'); }
         }
+        if (requestedLab && lab !== requestedLab) return;
         S.wantSpeech = wantSpeech;
         await openLink(sup);
     }
@@ -2330,6 +2369,7 @@ function tagRowHtml(k) {
         pairUi(true, 'ينتظر الهاتف… الرمز صالحٌ ربع ساعة.');
     }
     function cancelPhone() {
+        if (lab && !lab.started) { lab = null; $('eyeLabConsent').checked = false; }
         S.linkGen++;
         if (S.link) { const l = S.link; S.link = null; try { l.close(); } catch (e) { /* أُغلق */ } }
         pairUi(false);
@@ -2519,14 +2559,14 @@ function tagRowHtml(k) {
         S.pSnap = null; S.pSnapAt = -1; S.classMax = 0;
         S.tl = null;
         S.poseReadings = [];
-        S.consent = src !== 'none' || !!S.audio || checked('eyeSpeech') ? checked('eyeConsent') : false;
+        S.consent = !!lab || ((src !== 'none' || !!S.audio || checked('eyeSpeech')) && checked('eyeConsent'));
         S.sp = null;
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
         S.field = freshField();
         S.teacher = null; S.pickTeacher = false;
         setRoi(null);                       // كلّ رصدٍ جديد يبدأ بالإطار كلّه: الكاميرا قد تحرّكت
         S.gapSec = 0; S.resumes = 0; S.spOff = 0; S.camFrozenFor = 0; S.ckWarned = false; S.spFixNote = null; S.spOpen = false; S.spEditing = false;
-        S.trialOn = checked('eyeTrial'); S.wTaps = []; S.detH = E().histNew(); S.detSlow = false;
+        S.trialOn = !!lab || checked('eyeTrial'); S.wTaps = []; S.detH = E().histNew(); S.detSlow = false;
         // رصدٌ يُكمَل من نسخته الاحتياطيّة: أرقامه ولمساته تعود، والمدّة منذ آخر نسخةٍ «غير محسوبة»، والساعة تكمل
         const RS = S.resume; S.resume = null;
         let resumed = null;
@@ -2561,6 +2601,7 @@ function tagRowHtml(k) {
         if (S.audio) S.timers.push(setInterval(audioTick, Math.round(100 / r)));
         S.timers.push(setInterval(liveTick, 1000));
         if (video && checked('eyeAI')) startAI(r);
+        if (lab) connectLab();
         if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(w => { S.wake = w; }).catch(() => {});
         layout();
         // شريط الرصد أعلى الشاشة: الصورة و«عناصر الحصة» و«أهمّ ما تلمسه» دون تمرير (الـiPad أفقيّاً كان يُخفي العناصر — فحص 2026-11-01)
@@ -2572,6 +2613,109 @@ function tagRowHtml(k) {
         toast(src === 'file' ? 'بدأ تحليل المقطع' : src === 'none' ? 'بدأ الرصد بلا كاميرا'
             : (S.via === 'phone' ? 'وصلت صورة الهاتف — ' : 'بدأ الرصد — ') + 'حدّد منطقة الصف، والمس السياق والوسوم طوال الحصة');
         drawView();
+    }
+
+    // ── مختبر العين: جلسة مستقلة لا تكتب في الاستمارة أو الأرشيف ──
+    const roundLabTime = t => Math.max(0, Math.round(t));
+    async function startLab() {
+        if (S.running || lab) return;
+        const status = $('eyeLabSetupStatus');
+        try {
+            const api = root.SvfEyeLab, key = $('eyeLabKey').value.trim();
+            if (!api || !root.MediaRecorder?.isTypeSupported || !root.MediaStream) throw new Error('هذا المتصفح لا يدعم تسجيل الصورة والصوت.');
+            if (!checked('eyeLabConsent')) throw new Error('أكّد موافقة المشاركين قبل مشاركة الصورة والصوت.');
+            if (key.length < 24) throw new Error('أدخل كلمة وسيط المختبر (24 حرفًا على الأقل).');
+            if (!$('eyeLabUrl').value.trim()) throw new Error('أدخل رابط وسيط المختبر.');
+            const url = api.endpoint($('eyeLabUrl').value);
+            if (navigator.onLine === false) throw new Error('يحتاج الوكيل إلى اتصال بالإنترنت.');
+            const phone = $('eyeLabSource').value === 'phone';
+            const session = { url, key, started: false, done: false, state: null };
+            lab = session;
+            $('eyeLabStart').disabled = true;
+            status.textContent = '';
+            S.resume = null;
+            try { await (phone ? startPhone() : startCamera()); }
+            finally {
+                if (lab === session && !session.started && $('eyePair').classList.contains('hidden')) lab = null;
+                $('eyeLabStart').disabled = false;
+            }
+        } catch (err) {
+            status.textContent = err instanceof TypeError ? 'تحقّق من رابط الوسيط والكاميرا.' : err.message;
+        }
+    }
+
+    function labSample(from, to) {
+        flushTo(Math.floor(now()));
+        const secs = S.secs.slice(from, to);
+        return {
+            counts: secs.map(r => r.p ? r.p.n : null),
+            moving: secs.map(r => r.p ? r.p.mv : null),
+            whistleEye: E().whistleEvents(S.secs).filter(t => t >= from && t < to),
+            whistleReference: S.wTaps.filter(t => t >= from && t < to),
+            phase: E().ctxSeries(S.ctxEvents, to).slice(from),
+            phaseChanges: S.ctxEvents.filter(e => e.t >= from && e.t < to).map(e => [e.t, e.k, e.source === 'auto' ? 'auto' : 'manual']),
+            mic: S.mic,
+            detection: AI.ok ? AI.engine?.name || null : null,
+            pose: (lab?.poseSamples || []).filter(r => r.t >= from && r.t < to)
+        };
+    }
+
+    async function connectLab() {
+        const session = lab;
+        session.started = true;
+        session.poseSamples = [];
+        try {
+            const video = S.video?.srcObject?.getVideoTracks()[0], audio = S.stream?.getAudioTracks()[0];
+            if (!video || !audio) throw new Error('يلزم مسار كاميرا وميكروفون. لم تُشارك صورة أو صوت.');
+            renderLab({ status: 'جارٍ التحقق من وسيط المراجعة…' });
+            const check = await fetch(session.url, {
+                method: 'POST', redirect: 'error', credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer',
+                headers: { 'content-type': 'application/json', 'x-svf-key': session.key },
+                body: JSON.stringify({ task: 'eye-lab-check' }), signal: AbortSignal.timeout(10000)
+            });
+            if (!check.ok || !(await check.json()).ready) throw new Error('الوسيط غير جاهز. تحقّق من الرابط وكلمة المختبر وإعداد Gemini.');
+            if (lab !== session || !S.running || document.hidden) {
+                if (lab === session && S.running) renderLab({ status: 'لم تبدأ المشاركة لأن صفحة الاختبار غير ظاهرة.' });
+                return;
+            }
+            session.capture = root.SvfEyeLab.create({
+                video, audio, url: session.url, key: session.key, clock: now, sample: labSample,
+                onUpdate(state) { if (lab === session) { session.state = state; renderLab(state); } }
+            });
+        } catch (err) {
+            if (lab !== session || !S.running) return;
+            session.state = { status: 'المشاركة متوقفة. ' + err.message, notes: [], reviewed: 0, failed: 0, skipped: 0 };
+            renderLab(session.state);
+        }
+    }
+
+    function renderLab(state) {
+        if (!lab) return;
+        let status = state?.status || '';
+        if (state?.active) status = 'مشاركة الصورة والصوت فعّالة · ' + status;
+        $('eyeLabStatus').textContent = status;
+        const totals = lab.summary;
+        $('eyeLabStats').textContent = (totals ? 'زمن التجربة ' + mmss(lab.duration) + ' · صورة قابلة للتحليل ' + mmss(totals.observed) +
+            ' · صفارات العين ' + totals.detectedWhistles + ' · الصفارات المرجعية ' + totals.taggedWhistles + ' · ' : '') +
+            'مقاطع راجعها الوكيل: ' + (state?.reviewed || 0) + ' · تعذّرت: ' + (state?.failed || 0) + ' · تجاوزها: ' + (state?.skipped || 0);
+        $('eyeLabNotes').replaceChildren(...(state?.notes || []).map(row => {
+            const li = document.createElement('li');
+            li.className = 'border-b pb-2';
+            li.textContent = [mmss(row.t), row.observed, row.eye, row.suggestion].filter(Boolean).join(' · ');
+            return li;
+        }));
+    }
+
+    function exitLab() {
+        if (!lab) return;
+        if (S.running) stop(false);
+        lab.capture?.cancel();
+        lab = null;
+        $('eyeLabKey').value = '';
+        $('eyeLabConsent').checked = false;
+        reset();
+        S.written = null;
+        root.svfEyeOpen();
     }
 
     // ── كشف الطلبة (نموذجٌ داخل الجهاز) ──
@@ -3023,6 +3167,11 @@ function tagRowHtml(k) {
             return;
         }
         POSE.frame = frame && { ...frame, target, t };
+        if (lab?.poseSamples && lab.poseSamples.at(-1)?.t !== Math.floor(t)) {
+            lab.poseSamples.push({ t: Math.floor(t), skill: POSE.skill, track: frame ? target.trackId : null,
+                angles: frame?.angles || [] });
+            if (lab.poseSamples.length > 65) lab.poseSamples.shift();
+        }
         $('eyePoseSave').disabled = !frame;
         if (!frame) {
             poseStatus('تعذّرت قراءة المؤدي بوضوح. أبعد التداخل أو أعد البحث عن مؤدٍ.');
@@ -3141,6 +3290,7 @@ function tagRowHtml(k) {
         flushTo(Math.floor(now()));
         const M = E().summarize(recNow());
         $('eyeClock').textContent = mmss(S.lastSec);
+        if (lab && S.lastSec >= 300) { stop(true); return; }
         if (S.lastSec - S.lastCk >= 10) ckSave();
         // كاميرا الجهاز متوقّفة ثلاث ثوانٍ: زرّ «إعادة تشغيل الكاميرا» يكملها في الرصد نفسه
         if (S.src === 'camera' && S.via !== 'phone') {
@@ -3460,7 +3610,17 @@ function tagRowHtml(k) {
         disarmStop();
         flushTo(Math.floor(now()));
         S.running = false;
-        ckClear();
+        if (lab?.started) {
+            lab.done = true;
+            lab.duration = roundLabTime(now());
+            lab.summary = {
+                observed: S.secs.filter(s => s.m != null).length,
+                detectedWhistles: E().whistleEvents(S.secs).length,
+                taggedWhistles: S.wTaps.length
+            };
+            if (analyze) lab.capture?.stop(true);
+            else lab.capture?.cancel();
+        } else ckClear();
         $('eyeCamRestart').classList.add('hidden');
         S.roiMode = false; S.roiDraft = null; S.pickTeacher = false;
         const view = $('eyeView'); if (view) { view.style.pointerEvents = 'none'; view.style.cursor = ''; }
@@ -3488,7 +3648,10 @@ function tagRowHtml(k) {
         drawView();
         layout();
         // آخر عبارةٍ يُسلّمها التعرّف على الكلام بعد الإيقاف بلحظة — تُنتظر قبل التحليل
-        if (analyze) { if (S.sp) setTimeout(finish, 900); else finish(); }
+        if (lab?.done) {
+            renderLab(lab.state);
+            if (analyze) scrollUnderHead($('eyeLabPanel'));
+        } else if (analyze) { if (S.sp) setTimeout(finish, 900); else finish(); }
     }
 
     const segRow = x => { const r = [x.t, x.x]; const c = x.c != null ? Math.round(x.c * 9) : null; if (c != null || x.o) r.push(c); if (x.o) r.push(x.o); return r; };
@@ -3602,7 +3765,7 @@ function tagRowHtml(k) {
     function lastClear() { try { localStorage.removeItem(LAST_KEY); } catch (e) { /* لا تخزين */ } }
     function lastSave(data) { try { localStorage.setItem(LAST_KEY, JSON.stringify({ at: Date.now(), form: formSig(), data })); } catch (e) { /* النتيجة في النموذج */ } }
     function ckSave() {
-        if (!S.running || S.src === 'file') return;            // المقطع المصوَّر يُعاد تحليله من الملفّ
+        if (!S.running || lab || S.src === 'file') return;            // المقطع المصوَّر يُعاد تحليله من الملفّ
         S.lastCk = S.lastSec;
         const sp = S.sp && S.sp.segs.length ? S.sp : S.spSeed;
         const ck = {
@@ -5291,6 +5454,10 @@ function tagRowHtml(k) {
     }
 
     function cancelAnalysis() {
+        if (lab) {
+            if (root.confirm('إنهاء الاختبار ومسح ملاحظاته من الصفحة؟')) exitLab();
+            return;
+        }
         if (!root.confirm('إلغاء رصد العين وتحليله في النموذج المفتوح؟ ستبقى بيانات الزيارة والدرجات والملاحظات في الاستمارة.')) return;
         clearAnalysis();
         scrollUnderHead($('eyeSetup'));
@@ -5600,6 +5767,7 @@ function tagRowHtml(k) {
     root.svfEyeOpen = function () {
         if (!E()) return;
         if (!S.bound) build();
+        if (lab?.done) { layout(); return; }
         renderLesson();
         setTimeout(renderResume, 0);
         renderAgreement();
@@ -5642,6 +5810,11 @@ function tagRowHtml(k) {
         layout();
     };
     root.svfEyeStop = function () { stop(false); };
+    root.svfEyeLabActive = () => !!lab;
+    root.svfEyeLeaveLab = () => {
+        if (lab?.started && S.running) { lab.capture?.cancel(); stop(true); }
+        else if (lab && !lab.started) cancelPhone();
+    };
     // نموذج التقييم يستدعيها عند ظهوره (toggleSupervisoryView) وبعد التصفير: الشاهد تحت البنود أو إزالته
     root.svfEyeDecorate = function () { try { decorate(); } catch (e) { /* لا أثر على النموذج */ } };
     // المداولة (js/debrief.js): لوحة «من عين المشرف» للزيارة المفتوحة، أو فراغ

@@ -390,6 +390,7 @@
         }
 
         function toggleSupervisoryView(viewId) {
+            if (viewId !== 'eye-view') window.svfEyeLeaveLab?.();
             // المداولة لأصحابها وحدهم (gate.js: DEBRIEF_OWNERS) — لغيرهم يبقى النموذج
             if (viewId === 'debrief-view' && !(window.SupervisorGate && SupervisorGate.canDebrief && SupervisorGate.canDebrief())) viewId = 'form-view';
             // وعين المشرف كذلك (gate.js: EYE_OWNERS)
@@ -756,6 +757,7 @@
         // opts.svfMode: 'new' زيارةٌ جديدة وإن كان النموذج مربوطاً بتقرير، 'update' تحديثه بلا سؤال.
         // يُستدعى من زرّ الحفظ بحدث النقر — فلا يُقرأ منه إلّا svfMode.
         function savePermanentReport(opts) {
+            if (window.svfEyeLabActive?.()) { showToast('اخرج من مختبر عين المشرف قبل حفظ زيارة رسمية', 'error'); return; }
             const mode = opts && typeof opts === 'object' && typeof opts.svfMode === 'string' ? opts.svfMode : '';
             const teacherName = document.querySelector('#teacherName').value.trim();
             const visitDate = document.querySelector('#visitDate').value;
