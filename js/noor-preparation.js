@@ -8,6 +8,7 @@
     const preview = $('noorImportPreview');
     const saved = $('noorEvidenceData');
     const importButton = $('noorImportPrepared');
+    const cancelButton = $('noorCancelImport');
     const confirm = $('noorConfirmMatch');
     const visitFields = ['teacherName', 'school', 'subject', 'class', 'visitDate', 'lesson', 'topic'];
     const groups = [
@@ -18,22 +19,24 @@
     const limit = 500;
     let lesson = null;
     let previewKey = '';
+    let pendingKey = '';
     const key = () => JSON.stringify(visitFields.map(id => ($(id)?.value || '').trim()));
     const enabled = () => !!window.SupervisorGate?.canEye() && !window.SupervisorGate.isDemo();
     const normalize = text => text.normalize('NFKC').replace(/[\u0640\u064B-\u065F\u0670]/g, '')
         .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
     const words = text => normalize(text).split(' ').filter(Boolean);
 
-    function matchVisit() {
+    function matchVisit(candidate) {
         const [teacher, school, subject, grade, date, period] = JSON.parse(key());
         if (!teacher || !school || !subject || !grade || !date || !period)
             return 'أكمل المعلّم والمدرسة والمادة والصف والتاريخ ورقم الحصة في نموذج التقييم.';
-        const expected = words(teacher), actual = words(lesson.teacher);
+        if (!candidate) return '';
+        const expected = words(teacher), actual = words(candidate.teacher);
         const sameName = actual.every(word => expected.includes(word)) || expected.every(word => actual.includes(word));
         if (expected.length < 2 || actual.length < 2 || expected[0] !== actual[0] ||
             expected[expected.length - 1] !== actual[actual.length - 1] || !sameName)
             return 'اسم المعلّم في نور لا يطابق المعلّم في الزيارة.';
-        const schoolWords = words(lesson.school);
+        const schoolWords = words(candidate.school);
         const expectedSchool = words(school).filter(word => !['مدرسه', 'بن', 'ابن'].includes(word));
         if (!expectedSchool.length || !expectedSchool.every(word => schoolWords.includes(word)))
             return 'المدرسة في نور لا تطابق المدرسة في الزيارة.';
@@ -77,6 +80,10 @@
 
     function sync() {
         panel.hidden = !enabled();
+        if (pendingKey && (pendingKey !== key() || !enabled())) {
+            finishRequest();
+            status.textContent = 'تغيّرت بيانات الزيارة. اسحب التحضير للزيارة المفتوحة.';
+        }
         if (lesson && (previewKey !== key() || !enabled())) {
             lesson = null;
             preview.hidden = true;
@@ -102,8 +109,12 @@
     function render() {
         $('noorPreparationTitle').textContent = lesson.title;
         $('noorPreparationIdentity').textContent = [lesson.teacher, lesson.school].filter(Boolean).join(' · ');
-        const mismatch = matchVisit();
-        status.textContent = mismatch || 'راجع مطابقة التحضير مع الحصة، ثم اختر الشواهد التي تريد اعتمادها.';
+        const mismatch = matchVisit(lesson);
+        const topic = $('topic')?.value.trim();
+        const titleDiffers = topic && normalize(topic) !== normalize(lesson.title);
+        status.textContent = mismatch || (titleDiffers
+            ? 'عنوان التحضير يختلف عن عنوان الدرس في الاستمارة. تحقّق من الصف وموضوع الحصة قبل اعتماد الشواهد.'
+            : 'راجع الصف والحصة ثم اختر الشواهد التي تريد اعتمادها.');
         confirm.checked = false;
         confirm.disabled = !!mismatch;
         $('noorApproveEvidence').disabled = true;
@@ -165,18 +176,55 @@
     }
 
     importButton.addEventListener('click', () => {
-        if (importButton.dataset.noorBridge !== 'ready')
-            status.textContent = 'أضف سكربت الربط ثم حدّث الصفحتين. يمكنك استخدام اللصق اليدوي الآن.';
+        if (importButton.dataset.noorBridge !== '2')
+            status.textContent = 'ثبّت أو حدّث سكربت الربط، ثم أعد تحميل عين المشرف. يمكنك أيضًا استخدام اللصق اليدوي.';
+    });
+
+    function finishRequest() {
+        pendingKey = '';
+        cancelButton.hidden = true;
+        importButton.dispatchEvent(new CustomEvent('svf:noor-cancel'));
+    }
+
+    importButton.addEventListener('svf:noor-request', event => {
+        if (!enabled()) return;
+        const mismatch = matchVisit();
+        if (mismatch) { status.textContent = mismatch; return; }
+        const link = $('noorDetailUrl').value.trim();
+        if (link) {
+            let url;
+            try { url = new URL(link); } catch { /* يُعرض تنبيه الرابط أدناه. */ }
+            if (url?.origin !== 'https://lms.moe.gov.om' || url.username || url.password ||
+                !/^\/tsupv\/courses\/view_preparation\/[A-Za-z0-9_-]+(?:\/cid:[A-Za-z0-9_-]+)?\/?$/.test(url.pathname)) {
+                status.textContent = 'ألصق رابط «عرض التحضير» من نور، أو اترك الحقل فارغًا وافتح التحضير من قائمة المعلمين.';
+                return;
+            }
+        }
+        finishRequest();
+        pendingKey = key();
+        preview.hidden = true;
+        confirm.checked = false;
+        $('noorApproveEvidence').disabled = true;
+        cancelButton.hidden = false;
+        status.textContent = 'بانتظار فتح تحضير الحصة في تبويب نور. إذا لم يفتح التبويب، اسمح لعين المشرف بفتح نافذة جديدة وأعد المحاولة.';
+        event.preventDefault();
+    });
+
+    cancelButton.addEventListener('click', () => {
+        finishRequest();
+        if (lesson && previewKey === key()) render();
+        status.textContent = 'أُلغي طلب سحب التحضير.';
     });
 
     importButton.addEventListener('svf:noor-preparation', event => {
-        if (!enabled() || typeof event.detail !== 'string' || event.detail.length > 70000) return;
+        if (!enabled() || !pendingKey || pendingKey !== key() || typeof event.detail !== 'string' || event.detail.length > 70000) return;
         let data;
         try { data = JSON.parse(event.detail); } catch { return; }
         const incoming = data?.lesson;
         const clean = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
         if (!incoming) {
             status.textContent = clean(data?.error, 250) || 'لم يصل تحضير صالح.';
+            if (data?.done) finishRequest();
             return;
         }
         const fields = {};
@@ -190,14 +238,22 @@
             status.textContent = 'التحضير المستورد لا يتضمن عنواناً ومعلّماً وحقولاً قابلة للمراجعة.';
             return;
         }
+        const mismatch = matchVisit(next);
+        if (mismatch) {
+            status.textContent = mismatch + ' افتح تحضير المعلم الصحيح في تبويب نور.';
+            return;
+        }
         lesson = next;
-        previewKey = key();
+        previewKey = pendingKey;
+        pendingKey = '';
+        cancelButton.hidden = true;
+        event.preventDefault();
         render();
     });
 
     confirm.addEventListener('change', () => { $('noorApproveEvidence').disabled = !confirm.checked; });
     $('noorApproveEvidence').addEventListener('click', () => {
-        if (!enabled() || !lesson || previewKey !== key() || !confirm.checked || matchVisit()) return;
+        if (!enabled() || !lesson || previewKey !== key() || !confirm.checked || matchVisit(lesson)) return;
         const evidence = {};
         preview.querySelectorAll('input[data-noor-item]:checked').forEach(box => {
             const id = box.dataset.noorItem;

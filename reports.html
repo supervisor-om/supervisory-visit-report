@@ -512,11 +512,14 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                     </summary>
                     <section id="noorImportPanel" hidden class="mt-4 space-y-3 border-b border-slate-200 pb-4">
                         <p class="text-sm text-slate-700 leading-7">
-                            أكمل بيانات الزيارة، ثم افتح التحضير في نور واضغط «جهّز هذا التحضير لعين المشرف». ارجع هنا لاستيراده ومراجعة مطابقته مع الحصة.
+                            أكمل بيانات الزيارة واضغط «اسحب التحضير من نور». افتح تحضير الحصة في التبويب الذي سيظهر. ستظهر المعاينة هنا تلقائيًا. إذا كان رابط التحضير لديك، ألصقه لفتح الصفحة مباشرةً.
                         </p>
                         <div class="flex flex-wrap items-center gap-2">
-                            <button type="button" id="noorImportPrepared" class="svf-btn svf-btn-primary svf-btn-sm">استيراد التحضير المجهّز</button>
-                            <a href="tools/noor-eye.user.js" target="_blank" rel="noopener noreferrer" class="svf-btn svf-btn-ghost svf-btn-sm">سكربت ربط نور</a>
+                            <label for="noorDetailUrl" class="basis-full text-sm font-semibold">رابط عرض التحضير في نور (اختياري)</label>
+                            <input id="noorDetailUrl" type="url" dir="ltr" autocomplete="off" class="basis-full rounded-lg border border-slate-300 p-2 text-sm" placeholder="https://lms.moe.gov.om/…">
+                            <button type="button" id="noorImportPrepared" class="svf-btn svf-btn-primary svf-btn-sm">اسحب التحضير من نور</button>
+                            <button type="button" id="noorCancelImport" hidden class="svf-btn svf-btn-secondary svf-btn-sm">إلغاء السحب</button>
+                            <a href="tools/noor-eye.user.js" target="_blank" rel="noopener noreferrer" class="svf-btn svf-btn-ghost svf-btn-sm">تثبيت أو تحديث سكربت الربط</a>
                             <button type="button" id="noorClearApproved" hidden class="svf-btn svf-btn-ghost svf-btn-sm">إزالة شواهد نور المعتمدة</button>
                         </div>
                         <p id="noorImportStatus" role="status" class="text-sm text-blue-900"></p>
