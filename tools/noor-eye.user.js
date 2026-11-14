@@ -1,15 +1,21 @@
 // ==UserScript==
 // @name         استيراد تحضير نور إلى عين المشرف
 // @namespace    https://supervisor-mct.com/
-// @version      2.2.0
+// @version      2.3.0
 // @description  يقرأ التحضير المفتوح في نور ويرسله إلى الاستمارة التي طلبته.
 // @match        https://lms.moe.gov.om/*
 // @match        https://supervisor-mct.com/reports.html
+// @match        https://supervisor-mct.com/reports
+// @match        https://supervisor-mct.com/reports/
 // @updateURL    https://supervisor-mct.com/tools/noor-eye.user.js
 // @downloadURL  https://supervisor-mct.com/tools/noor-eye.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
+// @grant        GM.getValue
+// @grant        GM.setValue
+// @grant        GM.deleteValue
+// @sandbox      DOM
 // @noframes
 // @run-at       document-start
 // ==/UserScript==
@@ -26,6 +32,11 @@
     const token = /^[a-z0-9-]{36}$/i;
     const eventName = 'svf:noor-preparation';
     const cancelName = 'svf:noor-cancel';
+    const storage = {
+        get: typeof GM_getValue === 'function' ? GM_getValue : typeof GM === 'object' && GM.getValue?.bind(GM),
+        set: typeof GM_setValue === 'function' ? GM_setValue : typeof GM === 'object' && GM.setValue?.bind(GM),
+        delete: typeof GM_deleteValue === 'function' ? GM_deleteValue : typeof GM === 'object' && GM.deleteValue?.bind(GM)
+    };
     const detailPath = /^\/tsupv\/courses\/view_preparation\/[A-Za-z0-9_-]+(?:\/cid:[A-Za-z0-9_-]+)?\/?$/;
     const normalize = text => text.normalize('NFKC').replace(/[\u0640\u064B-\u065F\u0670]/g, '').trim();
     const read = (element, limit = 250) => (element?.innerText || '').trim().slice(0, limit);
@@ -238,12 +249,12 @@
             status.textContent = text;
             if (linked && progress !== text && await valid(id)) {
                 progress = text;
-                await GM_setValue(prefix + id + ':progress', text);
+                await storage.set(prefix + id + ':progress', text);
             }
         }
         async function valid(request) {
             if (!token.test(request || '')) return null;
-            const data = await GM_getValue(requestKey(request), null);
+            const data = await storage.get(requestKey(request), null);
             return data?.expires > Date.now() ? data : null;
         }
 
@@ -253,10 +264,10 @@
             if (!lesson || !(await valid(request))) return false;
             const out = prefix + request + ':lesson';
             const sentAt = Date.now();
-            await GM_setValue(out, { lesson, sentAt });
+            await storage.set(out, { lesson, sentAt });
             const expires = (await valid(request))?.expires || 0;
             setTimeout(async () => {
-                try { if ((await GM_getValue(out, null))?.sentAt === sentAt) await GM_deleteValue(out); } catch { /* ربما حُذفت بالفعل. */ }
+                try { if ((await storage.get(out, null))?.sentAt === sentAt) await storage.delete(out); } catch { /* ربما حُذفت بالفعل. */ }
             }, Math.max(0, expires - Date.now()));
             status.textContent = 'أُرسل التحضير. ارجع إلى تبويب عين المشرف لمراجعة المطابقة واعتماد الشواهد.';
             send.hidden = true;
@@ -268,7 +279,7 @@
             send.disabled = true;
             try {
                 // If Noor opened the details in a new tab, recover only on an explicit click.
-                const current = await GM_getValue(pendingRequest, null);
+                const current = await storage.get(pendingRequest, null);
                 delivered = await deliver(current);
                 if (!delivered) status.textContent = 'تعذّر إرسال التحضير. تأكّد أن طلب السحب ما زال مفتوحًا في عين المشرف.';
             } catch {
@@ -278,7 +289,7 @@
 
         const inspect = async () => {
             try {
-                const request = linked ? id : await GM_getValue(pendingRequest, null);
+                const request = linked ? id : await storage.get(pendingRequest, null);
                 const job = await valid(request);
                 if (!job) {
                     if (linked && attempts++ < 5) setTimeout(inspect, 700);
@@ -323,24 +334,30 @@
     }
 
     function eyePage() {
-        if (location.pathname !== '/reports.html' || new URLSearchParams(location.search).has('demo')) return;
+        if (!/^\/reports(?:\.html)?\/?$/.test(location.pathname) || new URLSearchParams(location.search).has('demo')) return;
         const button = document.getElementById('noorImportPrepared');
-        if (!button) return;
+        if (!button || button.dataset.noorBridge === '2.3') return;
+        if (!storage.get || !storage.set || !storage.delete) {
+            button.dataset.noorBridge = 'storage-unavailable';
+            return;
+        }
         let active = null;
-        button.dataset.noorBridge = '2.2';
-        const notify = (data, accept = false) => !button.dispatchEvent(new CustomEvent(eventName, {
-            detail: JSON.stringify(data), cancelable: accept
-        }));
+        const notify = (data, accept = false) => {
+            button.dataset.noorResponse = JSON.stringify(data);
+            const accepted = !button.dispatchEvent(new Event(eventName, { cancelable: accept }));
+            delete button.dataset.noorResponse;
+            return accepted;
+        };
 
         async function cleanup() {
             const prev = active;
             active = null;
             if (!prev) return;
             clearTimeout(prev.timer);
-            await GM_deleteValue(prev.req);
-            await GM_deleteValue(prev.out);
-            await GM_deleteValue(prev.progress);
-            if ((await GM_getValue(pendingRequest, null)) === prev.id) await GM_deleteValue(pendingRequest);
+            await storage.delete(prev.req);
+            await storage.delete(prev.out);
+            await storage.delete(prev.progress);
+            if ((await storage.get(pendingRequest, null)) === prev.id) await storage.delete(pendingRequest);
         }
 
         async function poll(state) {
@@ -351,14 +368,14 @@
                     notify({ error: 'انتهت مهلة السحب. اضغط «اسحب التحضير من نور» مجددًا.', done: true });
                     return;
                 }
-                const result = await GM_getValue(state.out, null);
+                const result = await storage.get(state.out, null);
                 if (active !== state) return;
                 if (result && result.sentAt >= state.started && result.sentAt < state.expires) {
-                    await GM_deleteValue(state.out);
+                    await storage.delete(state.out);
                     if (active !== state) return;
                     if (notify(result, true)) { await cleanup(); return; }
                 } else {
-                    const progress = await GM_getValue(state.progress, '');
+                    const progress = await storage.get(state.progress, '');
                     if (active !== state) return;
                     if (progress && state.lastProgress !== progress) {
                         state.lastProgress = progress;
@@ -377,7 +394,7 @@
         button.addEventListener('click', event => {
             if (!event.isTrusted || button.closest('#noorImportPanel')?.hidden) return;
             // Let the form validate the current visit before opening Noor.
-            const ready = !button.dispatchEvent(new CustomEvent('svf:noor-request', { cancelable: true }));
+            const ready = !button.dispatchEvent(new Event('svf:noor-request', { cancelable: true }));
             if (!ready) return;
             const id = crypto.randomUUID();
             const started = Date.now();
@@ -397,9 +414,9 @@
                 .map(field => (document.getElementById(field)?.value || '').trim());
             const visit = { teacher, school, subject, grade, date, period, topic };
             previous.then(async () => {
-                await GM_setValue(state.req, { expires: state.expires, visit });
-                if (active !== state) { await GM_deleteValue(state.req); return; }
-                await GM_setValue(pendingRequest, id);
+                await storage.set(state.req, { expires: state.expires, visit });
+                if (active !== state) { await storage.delete(state.req); return; }
+                await storage.set(pendingRequest, id);
                 if (active === state) poll(state);
             }).catch(() => {
                 if (active !== state) return;
@@ -407,9 +424,11 @@
                 notify({ error: 'تعذّر بدء السحب. تحقق من صلاحيات سكربت الربط.', done: true });
             });
         });
+        button.dataset.noorBridge = '2.3';
     }
 
     if (location.origin === noor) {
+        if (!storage.get || !storage.set || !storage.delete) return;
         const id = noorSession();
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => noorPage(id), { once: true });
         else noorPage(id);
@@ -417,5 +436,6 @@
     else if (location.origin === eye) {
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', eyePage, { once: true });
         else eyePage();
+        window.addEventListener('pageshow', eyePage);
     }
 })();

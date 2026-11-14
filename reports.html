@@ -122,6 +122,7 @@ body[data-svf-page="form"] .svf-nav{display:none}
   border:1px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;
   transition:background-color .15s ease,border-color .15s ease,color .15s ease}
 .svf-btn.hidden{display:none}   /* .svf-btn بعد Tailwind في الصفحة فيغلب .hidden — يُعاد هنا صراحةً */
+#noorImportPanel [hidden], #noorImportPanel[hidden] { display: none !important; }
 .svf-btn:focus-visible{outline:2px solid var(--svf-gold);outline-offset:2px}
 .svf-btn:disabled,.svf-btn[disabled]{opacity:.45;cursor:not-allowed}
 .svf-btn i{font-size:.95em;opacity:.9}
@@ -522,6 +523,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
                             <a href="tools/noor-eye.user.js" target="_blank" rel="noopener noreferrer" class="svf-btn svf-btn-ghost svf-btn-sm">تثبيت أو تحديث سكربت الربط</a>
                             <button type="button" id="noorClearApproved" hidden class="svf-btn svf-btn-ghost svf-btn-sm">إزالة شواهد نور المعتمدة</button>
                         </div>
+                        <p id="noorBridgeStatus" class="text-sm text-slate-600" aria-live="polite"></p>
                         <p id="noorImportStatus" role="status" class="text-sm text-blue-900"></p>
                         <div id="noorImportPreview" hidden class="space-y-3">
                             <h2 id="noorPreparationTitle" class="text-lg font-bold text-slate-900"></h2>
@@ -989,7 +991,7 @@ var a=document.querySelector('.svf-nav a[data-p="'+k+'"]');if(a)a.setAttribute('
     <script src="js/eye-report.js"></script>
     <script src="js/letters-core.js"></script>
     <script src="js/letters.js"></script>
-    <script src="js/noor-preparation.js"></script>
+    <script src="js/noor-preparation.js?v=2.3"></script>
     <script src="js/init.js"></script>
     <script>
     if ('serviceWorker' in navigator) {

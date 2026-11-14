@@ -5,6 +5,7 @@
     const panel = $('noorImportPanel');
     if (!panel) return;
     const status = $('noorImportStatus');
+    const bridgeStatus = $('noorBridgeStatus');
     const preview = $('noorImportPreview');
     const saved = $('noorEvidenceData');
     const importButton = $('noorImportPrepared');
@@ -22,6 +23,14 @@
     let pendingKey = '';
     const key = () => JSON.stringify(visitFields.map(id => ($(id)?.value || '').trim()));
     const enabled = () => !!window.SupervisorGate?.canEye() && !window.SupervisorGate.isDemo();
+    const bridgeReady = () => importButton.dataset.noorBridge === '2.3';
+    function showBridge() {
+        const detected = importButton.dataset.noorBridge;
+        bridgeStatus.textContent = bridgeReady() ? 'سكربت الربط متصل · 2.3'
+            : detected === 'storage-unavailable' ? 'السكربت يعمل، لكن مدير السكربتات لا يتيح تخزين الربط.'
+            : detected ? 'نسخة السكربت الحالية ' + detected + '. حدّثها إلى 2.3.'
+            : 'سكربت الربط غير متصل بهذه الصفحة. فعّل الإضافة للموقع في Safari ثم حدّث الصفحة.';
+    }
     const normalize = text => text.normalize('NFKC').replace(/[\u0640\u064B-\u065F\u0670]/g, '')
         .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
     const words = text => normalize(text).split(' ').filter(Boolean);
@@ -80,6 +89,7 @@
 
     function sync() {
         panel.hidden = !enabled();
+        showBridge();
         if (pendingKey && (pendingKey !== key() || !enabled())) {
             finishRequest();
             status.textContent = 'تغيّرت بيانات الزيارة. اسحب التحضير للزيارة المفتوحة.';
@@ -176,18 +186,20 @@
     }
 
     importButton.addEventListener('click', () => {
-        if (importButton.dataset.noorBridge !== '2.2')
-            status.textContent = 'ثبّت أو حدّث سكربت الربط، ثم أعد تحميل عين المشرف. يمكنك أيضًا استخدام اللصق اليدوي.';
+        if (!bridgeReady()) {
+            showBridge();
+            status.textContent = 'تأكّد من ظهور «سكربت الربط متصل» قبل بدء السحب. في Safari اسمح للإضافة بالعمل على موقع التقارير ونور.';
+        }
     });
 
     function finishRequest() {
         pendingKey = '';
         cancelButton.hidden = true;
-        importButton.dispatchEvent(new CustomEvent('svf:noor-cancel'));
+        importButton.dispatchEvent(new Event('svf:noor-cancel'));
     }
 
     importButton.addEventListener('svf:noor-request', event => {
-        if (!enabled() || importButton.dataset.noorBridge !== '2.2') return;
+        if (!enabled() || !bridgeReady()) return;
         const mismatch = matchVisit();
         if (mismatch) { status.textContent = mismatch; return; }
         const link = $('noorDetailUrl').value.trim();
@@ -218,9 +230,10 @@
     });
 
     importButton.addEventListener('svf:noor-preparation', event => {
-        if (!enabled() || !pendingKey || pendingKey !== key() || typeof event.detail !== 'string' || event.detail.length > 70000) return;
+        const response = importButton.dataset.noorResponse;
+        if (!enabled() || !bridgeReady() || !pendingKey || pendingKey !== key() || typeof response !== 'string' || response.length > 70000) return;
         let data;
-        try { data = JSON.parse(event.detail); } catch { return; }
+        try { data = JSON.parse(response); } catch { return; }
         const incoming = data?.lesson;
         const clean = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
         if (typeof data?.progress === 'string') {
@@ -283,6 +296,7 @@
     });
     visitFields.forEach(id => $(id)?.addEventListener('input', sync));
     document.addEventListener('svf-gate-open', sync);
+    new MutationObserver(showBridge).observe(importButton, { attributes: true, attributeFilter: ['data-noor-bridge'] });
 
     window.SvfNoorPreparation = {
         reportLine,

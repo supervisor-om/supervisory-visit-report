@@ -26,7 +26,7 @@ function node() {
     };
 }
 
-function fixture(visit) {
+function fixture(visit, { manager = 'legacy', reportsPath = '/reports.html' } = {}) {
     const elements = new Map();
     const get = id => {
         if (!elements.has(id)) elements.set(id, node());
@@ -38,13 +38,23 @@ function fixture(visit) {
     const share = new Map(), tab = new Map(), timeouts = new Map();
     let next = 0;
     let opened;
-    const base = { URL, URLSearchParams, Date, crypto: { randomUUID: () => token },
-        GM_setValue: (k, v) => share.set(k, v), GM_getValue: (k, fallback) => share.get(k) ?? fallback,
-        GM_deleteValue: k => share.delete(k), setTimeout(fn, ms) { timeouts.set(++next, { fn, ms }); return next; },
+    const getValue = (k, fallback) => share.get(k) ?? fallback;
+    const setValue = (k, v) => share.set(k, v);
+    const deleteValue = k => share.delete(k);
+    const base = { URL, URLSearchParams, Date, Event, crypto: { randomUUID: () => token },
+        setTimeout(fn, ms) { timeouts.set(++next, { fn, ms }); return next; },
         clearTimeout: k => timeouts.delete(k)
     };
+    if (manager === 'legacy') Object.assign(base, { GM_getValue: getValue, GM_setValue: setValue, GM_deleteValue: deleteValue });
+    if (manager === 'modern') base.GM = {
+        async getValue(key, fallback) { assert.equal(this, base.GM); return getValue(key, fallback); },
+        async setValue(key, value) { return setValue(key, value); },
+        async deleteValue(key) { return deleteValue(key); }
+    };
     const formEnv = {
-        ...base, location: new URL(eye + '/reports.html'),
+        ...base, location: new URL(eye + reportsPath),
+        addEventListener() {},
+        MutationObserver: class { observe() {} },
         document: { readyState: 'complete', getElementById: get, createElement: node, addEventListener() {} },
         CustomEvent: class {
             constructor(type, options = {}) { Object.assign(this, options, { type }); }
@@ -195,4 +205,25 @@ test('rejects external links and cancels when the visit changes', async () => {
     await settle();
     assert.equal(f.share.size, 0);
     assert.equal(f.get('noorCancelImport').hidden, true);
+});
+
+test('loads at the short reports URL and pulls a pasted preparation using asynchronous extension storage', async () => {
+    const f = fixture(visit, { manager: 'modern', reportsPath: '/reports/' });
+    f.get('noorDetailUrl').value = noor + details;
+    f.click();
+    await settle();
+    assert.equal(f.get('noorImportPrepared').dataset.noorBridge, '2.3');
+    assert.equal(new URL(f.opened()).pathname, details);
+    await f.visitNoor(f.opened(), visit.teacherName, visit.school);
+    await f.poll();
+    assert.equal(f.get('noorPreparationTitle').textContent, 'المرونة');
+    assert.equal(f.share.size, 0);
+});
+
+test('reports when the script loaded without extension storage', () => {
+    const f = fixture(visit, { manager: 'none' });
+    f.click();
+    assert.equal(f.get('noorImportPrepared').dataset.noorBridge, 'storage-unavailable');
+    assert.match(f.get('noorBridgeStatus').textContent, /لا يتيح تخزين الربط/);
+    assert.equal(f.opened(), undefined);
 });
