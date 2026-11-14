@@ -176,6 +176,10 @@ function tagRowHtml(k) {
                     <p>تحليلٌ حيٌّ للحصة داخل جهازك: حركة الطلبة والانتظار وزمن عناصر الحصة والصفّارة وكلام المعلّم — تُتابَع لحظةً بلحظة،
                        ثمّ يُقترح تقييمٌ لكلّ بندٍ عليه شاهد.</p>
                 </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" id="eyeCancelAnalysis" class="hidden svf-btn svf-btn-secondary">إلغاء التحليل</button>
+                    <button type="button" id="eyeNewVisit" class="svf-btn svf-btn-primary">بدء زيارة جديدة</button>
+                </div>
             </div>
 
             <section id="eyeSetup" class="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
@@ -551,6 +555,8 @@ function tagRowHtml(k) {
         $('eyeResumeGo').addEventListener('click', resumeGo);
         $('eyeResumeAn').addEventListener('click', resumeAnalyze);
         $('eyeResumeDrop').addEventListener('click', resumeDrop);
+        $('eyeCancelAnalysis').addEventListener('click', cancelAnalysis);
+        $('eyeNewVisit').addEventListener('click', startNewVisit);
         $('eyeCamRestart').addEventListener('click', restartCamera);
         // الصفحة تُخفى (تطبيقٌ آخر، قفل الشاشة) أو تُغلق: نسخةٌ احتياطيّةٌ فوراً — Safari قد يُغلقها في الخلفيّة دون إنذار
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') ckSave(); });
@@ -749,6 +755,8 @@ function tagRowHtml(k) {
         $('eyeSetup').classList.toggle('hidden', S.running || pairing);
         $('eyeWork').classList.toggle('hidden', !(S.running || S.result));
         $('eyeLiveBar').classList.toggle('hidden', !S.running);
+        $('eyeCancelAnalysis').classList.toggle('hidden', !S.running && !S.result);
+        $('eyeNewVisit').disabled = pairing;
         // وضع الحصة المبسّط: أثناء الرصد وحده — بعد الإيقاف تظهر النتيجة والأدوات كلّها
         const simple = S.running && S.simple !== false;
         $('eyeBody').toggleAttribute('data-eye-simple', simple);
@@ -4710,7 +4718,6 @@ function tagRowHtml(k) {
                     <button type="button" id="eyeApply" class="svf-btn svf-btn-secondary">تطبيق المحدَّد فقط</button>
                     <span id="eyeApplyN" class="text-xs text-slate-500"></span>
                     <span class="flex-1"></span>
-                    <button type="button" id="eyeNew" class="svf-btn svf-btn-ghost">رصد جديد</button>
                 </div>
             </div>
             ${talkHtml}
@@ -4771,7 +4778,6 @@ function tagRowHtml(k) {
         if ($('eyeBlindReveal')) { $('eyeBlindReveal').addEventListener('click', blindReveal); blindProgress(); }
         bindTrialCard();
         $('eyeToNotes') && $('eyeToNotes').addEventListener('click', () => toNotes(data.summary));
-        $('eyeNew').addEventListener('click', () => { lastClear(); reset(); });
         $('eyeAdvR') && $('eyeAdvR').addEventListener('change', e => { $('eyeAdv').checked = e.target.checked; savePrefs(); applyAdv(); resuggest(); });
         $('eyeCard').addEventListener('click', () => shareCard('share'));
         $('eyePrint').addEventListener('click', () => shareCard('print'));
@@ -5271,10 +5277,38 @@ function tagRowHtml(k) {
         toast('أُدرج الملخّص في «الملاحظات العامة» — يُرفع إلى خانة الملاحظات في البوّابة');
     }
 
+    function clearAnalysis() {
+        if (S.running) stop(false);
+        ckClear();
+        lastClear();
+        $('eyeData').value = '';
+        S.written = '';
+        reset();
+        decorate();
+        renderResume();
+    }
+
+    function cancelAnalysis() {
+        if (!root.confirm('إلغاء رصد العين وتحليله في النموذج المفتوح؟ ستبقى بيانات الزيارة والدرجات والملاحظات في الاستمارة.')) return;
+        clearAnalysis();
+        scrollUnderHead($('eyeSetup'));
+        toast('أُلغي تحليل عين المشرف في النموذج المفتوح');
+    }
+
+    function startNewVisit() {
+        if (typeof performReset !== 'function' || typeof toggleSupervisoryView !== 'function') return;
+        if (!root.confirm('بدء زيارة جديدة بنموذج فارغ؟ ستبقى الزيارات المحفوظة في «زياراتي»، وستُمسح التغييرات غير المحفوظة في الزيارة المفتوحة.')) return;
+        clearAnalysis();
+        performReset();
+        toggleSupervisoryView('form-view');
+        $('teacherName')?.focus();
+    }
+
     function reset() {
         if (S.running) return;
         if (S.link || !$('eyePair').classList.contains('hidden')) cancelPhone();   // ربطٌ معلَّقٌ لزيارةٍ أخرى
         S.endBellCandidates = []; S.endBellState = {};
+        S.poseReadings = [];
         S.secs = []; S.grid = null; S.events = []; S.counts = {}; S.result = null; S.tl = null; S.savedHeat = null;
         S.ctxEvents = []; S.ctxCur = null; S.pSnap = null; S.src = null; S.consent = false; S.hadAudio = false; S.classMax = 0;
         S.rollSpans = []; S.rollSig = '';
