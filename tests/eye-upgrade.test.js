@@ -179,6 +179,20 @@ test('eye-biomechanics: فرز 35 طالباً واختيار المؤدي وت�
   assert.ok(frame?.angles.some(a => a.label === 'ميل خط الكتف والرسغ'));
   const occluded = pose.map((p, i) => i === 16 ? { ...p, visibility: 0.1 } : p);
   assert.ok(!poseInput.analyze(occluded, target, canvas, 'shot_put', 'right', bio)?.angles.some(a => a.label === 'ميل خط الكتف والرسغ'));
+
+  const pupil = { id: 1, x: .1, y: .2, w: .12, h: .5, fx: .16, fy: .7, sig: 'blue' };
+  const other = { ...pupil, id: 2, x: .5, fx: .56, sig: 'red' };
+  const crossing = { ...other, x: .15, fx: .21 };
+  const sim = (a, b) => a === b ? 1 : 0;
+  assert.equal(poseInput.pickAt([pupil, other], .18, .4), pupil);
+  assert.equal(poseInput.pickAt([pupil, crossing], .18, .4), null);
+  assert.equal(poseInput.pickAt([pupil, other], .36, .4), null);
+  const lock = { person: pupil, seen: 1, blocked: false };
+  assert.equal(poseInput.resolveFocus(lock, [pupil, crossing], 1.5, sim), null);
+  assert.equal(poseInput.resolveFocus(lock, [crossing], 2, sim), null);
+  assert.equal(poseInput.resolveFocus(lock, [{ ...crossing, id: 1 }], 2.5, sim), null);
+  assert.equal(poseInput.resolveFocus(lock, [pupil, other], 3, sim), pupil);
+  assert.equal(poseInput.resolveFocus(lock, [pupil], 6.5, sim), null);
 });
 
 // 7. اختبارات معايرة الملعب والمحطات الأربع

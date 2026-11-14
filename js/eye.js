@@ -86,7 +86,7 @@
                  timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5,
                  // نموذج الكشف: gpu/cached ‏null حتّى يُفحص الجهاز، planKey المستوى المحمَّل، sslow بطء القويّ، down القويّ إن تُرك أثناء الحصة
                  gpu: null, gpuName: '', cached: null, planKey: '', fellBack: '', sslow: 0, r: 1, down: '', readyBusy: false };
-    const POSE = { skill: null, model: null, loading: null, canvas: null, lastAt: -Infinity, focus: null, frame: null };
+    const POSE = { skill: null, model: null, loading: null, canvas: null, lastAt: -Infinity, lock: null, picking: false, target: null, frame: null };
     const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false, lost: false });
     // نافذة «التثبيت على الجهاز» في Chrome وEdge: تُحفظ لزرّ الفحص — لصاحب العين وحده، فلا يتغيّر المتصفّح عند غيره من المشرفين
     let installEvt = null;
@@ -356,7 +356,8 @@ function tagRowHtml(k) {
                                 <select id="eyePoseHand" class="border rounded px-2 py-1"><option value="right">اليمنى</option><option value="left">اليسرى</option></select>
                             </label>
                             <button type="button" id="eyePoseSave" class="svf-btn svf-btn-secondary svf-btn-sm" disabled>حفظ قراءة الزوايا</button>
-                            <button type="button" id="eyePoseRefocus" class="hidden svf-btn svf-btn-ghost svf-btn-sm">إعادة البحث عن مؤدٍ</button>
+                            <button type="button" id="eyePoseRefocus" aria-pressed="false" class="hidden svf-btn svf-btn-secondary svf-btn-sm">حدد الطالب</button>
+                            <button type="button" id="eyePoseUnlock" class="hidden svf-btn svf-btn-ghost svf-btn-sm">إلغاء تثبيت الطالب</button>
                             <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
                             <button type="button" id="eyeTeacherBtn" class="eye-adv eye-advtool svf-btn svf-btn-secondary" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
                             <button type="button" id="eyeCamRestart" class="hidden svf-btn svf-btn-moe"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>إعادة تشغيل الكاميرا</button>
@@ -645,7 +646,8 @@ function tagRowHtml(k) {
         $('eyePoseSkill').addEventListener('change', togglePose);
         $('eyePoseHand').addEventListener('change', clearPoseFrame);
         $('eyePoseSave').addEventListener('click', savePoseReading);
-        $('eyePoseRefocus').addEventListener('click', () => { POSE.focus = null; clearPoseFrame(); });
+        $('eyePoseRefocus').addEventListener('click', togglePosePick);
+        $('eyePoseUnlock').addEventListener('click', clearPoseLock);
         $('eyeConsent').addEventListener('change', () => { if (checked('eyeConsent')) message(''); });
         // فهم الكلام: متاحٌ حيث يدعم المتصفّح التعرّف على الكلام (Chrome، Edge، Safari)
         if (!SR()) { $('eyeSpeech').disabled = true; $('eyeSpeechLbl').title = 'هذا المتصفّح لا يدعم التعرّف على الكلام — استعمل Chrome'; $('eyeSpeechLbl').classList.add('opacity-50'); }
@@ -1607,13 +1609,12 @@ function tagRowHtml(k) {
     }
     function toggleRoiMode() {
         if (!S.running || !S.video) { toast('تُحدَّد منطقة الصف والكاميرا تعمل', 'info'); return; }
-        if (S.pickTeacher) { S.pickTeacher = false; teacherUi(); }
+        if (S.pickTeacher) S.pickTeacher = false;
+        POSE.picking = false;
         S.roiMode = !S.roiMode;
         S.roiDraft = S.roiMode ? [] : null;
         if (S.roiMode) revealStage();
-        $('eyeView').style.pointerEvents = S.roiMode ? 'auto' : 'none';
-        $('eyeView').style.cursor = S.roiMode ? 'crosshair' : '';
-        roiHint();
+        teacherUi();
         drawView();
     }
     function roiHint() {
@@ -1627,6 +1628,7 @@ function tagRowHtml(k) {
     }
     function roiPoint(e) {
         if (S.pickTeacher) { pickTeacherAt(e); return; }
+        if (POSE.picking) { pickPoseAt(e); return; }
         if (!S.roiMode) return;
         e.preventDefault();
         const c = $('eyeView'), r = c.getBoundingClientRect();
@@ -1664,6 +1666,7 @@ function tagRowHtml(k) {
         if (S.teacher) { S.teacher = null; S.pickTeacher = false; teacherUi(); toast('أُلغي تحديد المعلّم — يُعدّ مع الطلبة'); drawView(); return; }
         if (!S.running || !S.video || !AI.ok) { toast('يُحدَّد المعلّم والكاميرا وكشف الطلبة يعملان', 'info'); return; }
         if (S.roiMode) toggleRoiMode();
+        POSE.picking = false;
         S.pickTeacher = !S.pickTeacher;
         if (S.pickTeacher) revealStage();
         teacherUi();
@@ -1683,8 +1686,17 @@ function tagRowHtml(k) {
     }
     function teacherUi() {
         const c = $('eyeView'), b = $('eyeTeacherBtn'), hint = $('eyeRoiHint');
-        if (c) { c.style.pointerEvents = S.pickTeacher || S.roiMode ? 'auto' : 'none'; c.style.cursor = S.pickTeacher || S.roiMode ? 'crosshair' : ''; }
-        if (hint && !S.roiMode) { hint.textContent = S.pickTeacher ? 'المس المعلّم على الشاشة (النقطة التي عليه)' : ''; hint.classList.toggle('hidden', !S.pickTeacher); }
+        const picking = S.pickTeacher || S.roiMode || POSE.picking;
+        if (c) { c.style.pointerEvents = picking ? 'auto' : 'none'; c.style.cursor = picking ? 'crosshair' : ''; }
+        roiHint();
+        if (hint && !S.roiMode && picking) {
+            hint.textContent = POSE.picking ? 'المس جسم الطالب الذي تريد تثبيته للتحليل' : 'المس المعلّم على الشاشة (النقطة التي عليه)';
+            hint.classList.remove('hidden');
+        }
+        const poseBtn = $('eyePoseRefocus');
+        poseBtn.textContent = POSE.picking ? 'إلغاء الاختيار' : POSE.lock ? 'تغيير الطالب' : 'حدد الطالب';
+        poseBtn.setAttribute('aria-pressed', String(POSE.picking));
+        $('eyePoseUnlock').classList.toggle('hidden', !POSE.lock);
         if (b) { b.querySelector('span').textContent = S.teacher ? 'إلغاء تحديد المعلّم' : S.pickTeacher ? 'إلغاء' : 'تحديد المعلّم'; b.disabled = !S.running || !S.video; }
     }
 
@@ -2411,6 +2423,7 @@ function tagRowHtml(k) {
         $('eyeRelink').classList.add('hidden');
         S.linkDown = false; S.linkFailed = false;
         if (S.running && S.via === 'phone') {              // عاد الهاتف أثناء الرصد
+            if (POSE.lock || POSE.picking) clearPoseLock();
             S.video.srcObject = stream;
             S.video.play().catch(() => {});
             S.prev = null; AI.prevG = null;
@@ -2496,6 +2509,7 @@ function tagRowHtml(k) {
         if (!S.running) return;
         setRoi(null);
         S.teacher = null; S.pickTeacher = false;
+        if (POSE.lock || POSE.picking) clearPoseLock();
         if (AI.T) AI.T = E().newTracker();
         S.prev = null; AI.prevG = null;
         teacherUi();
@@ -3022,7 +3036,7 @@ function tagRowHtml(k) {
         const v = S.video;
         if (!S.running || !AI.ok || AI.busy || !v || v.readyState < 2 || !v.videoWidth || phoneFrozen()) return;
         AI.busy = true;
-        const id = S.runId, t0 = performance.now();
+        const id = S.runId, tracker = AI.T, t0 = performance.now();
         try {
             const vw = v.videoWidth, vh = v.videoHeight;
             const box = E().polyBox(S.roi, 0.04);     // تُقصّ منطقة الصفّ وتُكبَّر: الطالب البعيد يُكشف أوضح
@@ -3041,7 +3055,7 @@ function tagRowHtml(k) {
             const shift = prev ? E().grayShift(prev, gray) : 0;
             const thr = E().SENS[sens()].thr;
             const res = await AI.engine.detect(c, rgba, cw, ch);
-            if (!S.running || S.runId !== id) return;
+            if (!S.running || S.runId !== id || AI.T !== tracker) return;
             const dets = (res.object || []).filter(o => o.label === 'person' && o.score >= E().PERSON_MIN_SCORE).map(o => {
                 const b = o.boxRaw;
                 return {
@@ -3099,10 +3113,57 @@ function tagRowHtml(k) {
         drawView();
     }
 
+    function clearPoseLock() {
+        POSE.picking = false;
+        POSE.lock = null;
+        POSE.target = null;
+        teacherUi();
+        clearPoseFrame();
+        if (POSE.skill) poseStatus('اضغط «حدد الطالب» ثم المس جسمه في الصورة.');
+    }
+
+    function posePeople(newerThan) {
+        return (AI.T?.tracks || []).filter(tr => tr.ok !== false && tr.last >= newerThan).map(tr => {
+            const p = tr.hist[tr.hist.length - 1];
+            return { id: tr.id, x: p.nx - p.w / 2, y: p.cy - p.h / 2, w: p.w, h: p.h,
+                fx: p.nx, fy: p.ny, sig: p.sig, seen: tr.last };
+        }).filter(p => p.w > 0 && p.h > 0);
+    }
+
+    function togglePosePick() {
+        if (!S.running || !POSE.skill || !POSE.model) return;
+        if (!AI.ok) { toast('انتظر حتى يعمل كشف الطلبة.', 'info'); return; }
+        if (S.roiMode) toggleRoiMode();
+        S.pickTeacher = false;
+        POSE.picking = !POSE.picking;
+        if (POSE.picking) { clearPoseFrame(); revealStage(); }
+        teacherUi();
+    }
+
+    function pickPoseAt(e) {
+        e.preventDefault();
+        if (phoneFrozen() || camFrozen()) { toast('انتظر عودة الصورة قبل تحديد الطالب.', 'info'); return; }
+        const r = $('eyeView').getBoundingClientRect(), R = fitRect(r.width, r.height);
+        const x = (e.clientX - r.left - R.ox) / R.rw, y = (e.clientY - r.top - R.oy) / R.rh;
+        const person = root.SvfEyePose.pickAt(posePeople(now() - DOT_HIDE), x, y);
+        if (!person || person.id === S.teacher?.id || !E().inPoly(person.fx, person.fy, S.roi)) {
+            toast('المس طالبًا واضحًا داخل المنطقة بعد ابتعاده عن زملائه.', 'info');
+            return;
+        }
+        POSE.lock = { person, seen: person.seen, blocked: false };
+        POSE.target = { box: person, t: person.seen };
+        POSE.picking = false;
+        POSE.lastAt = -Infinity;
+        teacherUi();
+        clearPoseFrame();
+        poseStatus('ثُبّت الطالب · بانتظار قراءة واضحة للزوايا.');
+    }
+
     function togglePose() {
         const skill = $('eyePoseSkill').value;
         POSE.skill = null;
-        POSE.focus = null;
+        if (!skill) clearPoseLock();
+        else { POSE.picking = false; teacherUi(); }
         POSE.lastAt = -Infinity;
         $('eyePoseRefocus').classList.add('hidden');
         $('eyePoseHandLabel').classList.add('hidden');
@@ -3110,6 +3171,7 @@ function tagRowHtml(k) {
         if (!skill) { poseStatus(''); return; }
         if (!S.running || !S.video || !checked('eyeAI') || !S.consent) {
             $('eyePoseSkill').value = '';
+            clearPoseLock();
             poseStatus('شغّل الرصد بالكاميرا وفعّل كشف الطلبة وأذِن بالرصد، ثم اختر المهارة.');
             return;
         }
@@ -3124,28 +3186,28 @@ function tagRowHtml(k) {
                 POSE.model = model;
                 $('eyePoseRefocus').classList.remove('hidden');
                 $('eyePoseHandLabel').classList.toggle('hidden', skill !== 'shot_put');
-                poseStatus('قف بزاوية جانبية وأظهر جسم المؤدي كاملًا في منطقة الصف.');
+                poseStatus(POSE.lock ? 'الطالب مثبّت · بانتظار قراءة واضحة.' : 'اضغط «حدد الطالب» ثم المس جسمه في الصورة.');
             }
         }).catch(() => {
             if (S.running && S.runId === runId && POSE.skill === skill) {
                 $('eyePoseSkill').value = '';
                 POSE.skill = null;
+                clearPoseLock();
                 poseStatus('تعذّر تحميل نموذج المفاصل. تحقق من الاتصال عند أول تشغيل، ثم اختر المهارة مجددًا.');
             }
         });
     }
 
     function capturePose(t, capture, area) {
-        if (!POSE.skill || !POSE.model || camFrozen() || (t >= POSE.lastAt && t - POSE.lastAt < 0.55)) return;
+        if (!POSE.skill || !POSE.model || !POSE.lock || POSE.picking || phoneFrozen() || camFrozen() ||
+            (t >= POSE.lastAt && t - POSE.lastAt < 0.55)) return;
         POSE.lastAt = t;
         const api = root.SvfEyePose, bio = root.SvfEyeBiomechanics;
-        const visible = AI.T.tracks.filter(tr => tr.ok !== false && tr.last === t).map(tr => {
-            const p = tr.hist[tr.hist.length - 1];
-            return { id: tr.id, x: p.nx - p.w / 2, y: p.cy - p.h / 2, w: p.w, h: p.h,
-                fx: p.nx, fy: p.ny, speed: E().trackMotion(tr).speed };
-        }).filter(tr => E().inPoly(tr.fx, tr.fy, S.roi));
-        const candidates = POSE.focus == null ? visible : visible.filter(tr => tr.id === POSE.focus);
-        const target = bio.selectSpotlightPerformers(candidates, { teacherId: S.teacher?.id, maxTargets: 1 })[0];
+        const person = api.resolveFocus(POSE.lock, posePeople(t), t, root.SvfEyeReID?.colorSim);
+        const target = person && E().inPoly(person.fx, person.fy, S.roi)
+            ? bio.selectSpotlightPerformers([person], { teacherId: S.teacher?.id, maxTargets: 1 })[0]
+            : null;
+        POSE.target = target ? { box: target.box, t } : null;
         const canvas = POSE.canvas || (POSE.canvas = document.createElement('canvas'));
         let frame = null;
         try {
@@ -3178,16 +3240,21 @@ function tagRowHtml(k) {
         }
         $('eyePoseSave').disabled = !frame;
         if (!frame) {
-            poseStatus('تعذّرت قراءة المؤدي بوضوح. أبعد التداخل أو أعد البحث عن مؤدٍ.');
+            const msg = POSE.lock.blocked
+                ? 'توقفت القراءة لتداخل الطلبة أو فقدان التتبّع. إذا استمر التعذّر، اضغط «تغيير الطالب» وحدّده مجددًا.'
+                : 'الطالب مثبّت. أظهر جسمه كاملًا للحصول على قراءة واضحة.';
+            poseStatus(msg);
             return;
         }
-        POSE.focus = target.trackId;
-        poseStatus(frame.skillAr + ' · ' + frame.angles.map(a => a.label + ' ' + a.value + '°').join(' · '));
+        poseStatus('الطالب مثبّت · ' + frame.skillAr + ' · ' + frame.angles.map(a => a.label + ' ' + a.value + '°').join(' · '));
     }
 
     function savePoseReading() {
         const frame = POSE.frame;
-        if (!S.running || !frame || Math.abs(now() - frame.t) > 2) { toast('انتظر ظهور قراءة حديثة واضحة', 'info'); return; }
+        if (!S.running || !frame || POSE.picking || phoneFrozen() || camFrozen() || Math.abs(now() - frame.t) > DOT_HIDE) {
+            toast('انتظر ظهور قراءة حديثة واضحة', 'info');
+            return;
+        }
         const readings = S.poseReadings;
         if (readings.some(r => r.t === frame.t) || readings.length >= 20) return;
         readings.push({ t: frame.t, skillAr: frame.skillAr, angles: frame.angles });
@@ -3303,6 +3370,12 @@ function tagRowHtml(k) {
             if (S.camFrozenFor === 3) toast('توقّفت الكاميرا — ثوانيها لا تُحسب. «إعادة تشغيل الكاميرا» تكمل الرصد نفسه', 'error');
         }
         if (S.audio && S.audio.ctx && S.audio.ctx.state === 'suspended') S.audio.ctx.resume().catch(() => {});
+        if (POSE.target && (now() - POSE.target.t > DOT_HIDE || phoneFrozen() || camFrozen())) {
+            POSE.target = null;
+            POSE.lock.blocked = true;
+            clearPoseFrame();
+            poseStatus('توقفت القراءة. إن لم يستعد التتبّع، حدّد الطالب من جديد.');
+        }
         // فهم الكلام عبر خدمة المتصفّح بلا إنترنت: ثوانٍ لا تُحسب في معدّلات الكلام
         if (S.sp && S.sp.on && S.sp.mode !== 'local' && (navigator.onLine === false || Date.now() - (S.sp.netAt || 0) < 5000)) S.spOff++;
         renderKpis(M, S.lastSec);
@@ -3509,8 +3582,8 @@ function tagRowHtml(k) {
             }
         }
         const P = ([x, y]) => [R.ox + x * R.rw, R.oy + y * R.rh];
-        if (POSE.frame && Math.abs(now() - POSE.frame.t) <= 2) {
-            root.SvfEyePose.draw(g, R, POSE.frame.target, POSE.frame.points);
+        if (POSE.target && !POSE.picking && Math.abs(now() - POSE.target.t) <= DOT_HIDE) {
+            root.SvfEyePose.draw(g, R, POSE.target, POSE.frame?.points);
         }
         const poly = S.roiMode ? S.roiDraft : S.roi;
         if (poly && poly.length) {
@@ -3558,13 +3631,16 @@ function tagRowHtml(k) {
     function release() {
         speechStop();
         POSE.skill = null;
-        POSE.focus = null;
+        POSE.lock = null;
+        POSE.target = null;
+        POSE.picking = false;
         POSE.frame = null;
         POSE.canvas = null;
         $('eyePoseSkill').value = '';
         $('eyePoseSave').disabled = true;
         $('eyePoseHandLabel').classList.add('hidden');
         $('eyePoseRefocus').classList.add('hidden');
+        $('eyePoseUnlock').classList.add('hidden');
         poseStatus('');
         S.timers.forEach(t => clearInterval(t));
         S.timers = [];
@@ -3897,6 +3973,7 @@ function tagRowHtml(k) {
         const old = S.stream;
         S.stream = stream;
         if (old) old.getTracks().forEach(t => t.stop());
+        if (POSE.lock || POSE.picking) clearPoseLock();
         S.video.srcObject = stream;
         S.video.play().catch(() => {});
         S.prev = null; AI.prevG = null;

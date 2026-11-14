@@ -14,6 +14,38 @@
     };
     const LINKS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
 
+    function pickAt(people, x, y) {
+        const hits = people.filter(p => x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h);
+        return hits.length === 1 ? hits[0] : null;
+    }
+
+    function overlaps(a, b) {
+        const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        return w > 0 && h > 0 && w * h >= Math.min(a.w * a.h, b.w * b.h) * 0.22;
+    }
+
+    function resolveFocus(lock, people, now, similarity) {
+        const target = people.find(p => p.id === lock.person.id);
+        const prior = lock.person;
+        const gap = now - lock.seen;
+        const match = p => !!(prior.sig && p.sig && similarity) && similarity(prior.sig, p.sig) >= 0.72;
+        const close = p => Math.hypot(p.fx - prior.fx, p.fy - prior.fy) <= Math.max(prior.h, p.h) * 1.15;
+        if (target && gap >= 0 && gap <= 3 && close(target) &&
+            (!prior.sig || !target.sig || !similarity || match(target))) {
+            const others = people.filter(p => p !== target);
+            if (!others.some(p => overlaps(target, p)) &&
+                (!lock.blocked || (match(target) && !others.some(p => close(p) && match(p))))) {
+                lock.person = target.sig ? target : { ...target, sig: prior.sig };
+                lock.seen = now;
+                lock.blocked = false;
+                return target;
+            }
+        }
+        lock.blocked = true;
+        return null;
+    }
+
     async function load() {
         const { FilesetResolver, PoseLandmarker } = await import(ASSET + '/vision_bundle.mjs');
         const vision = await FilesetResolver.forVisionTasks(ASSET + '/wasm');
@@ -65,7 +97,7 @@
         return { skill, skillAr: result.skillAr, angles, points: local.map(p => p && ({ x: crop.x + p.x * crop.w, y: crop.y + p.y * crop.h })) };
     }
 
-    function draw(ctx, frame, target, points) {
+    function draw(ctx, frame, target, points = []) {
         const x = p => frame.ox + frame.rw * p.x;
         const y = p => frame.oy + frame.rh * p.y;
         const box = target.box;
@@ -85,7 +117,7 @@
         ctx.restore();
     }
 
-    const api = { load, cropFrame, analyze, draw };
+    const api = { load, cropFrame, analyze, draw, pickAt, resolveFocus };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.SvfEyePose = api;
 })(typeof window !== 'undefined' ? window : globalThis);
