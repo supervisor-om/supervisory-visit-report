@@ -176,7 +176,7 @@
     }
 
     importButton.addEventListener('click', () => {
-        if (importButton.dataset.noorBridge !== '2')
+        if (importButton.dataset.noorBridge !== '2.1')
             status.textContent = 'ثبّت أو حدّث سكربت الربط، ثم أعد تحميل عين المشرف. يمكنك أيضًا استخدام اللصق اليدوي.';
     });
 
@@ -187,7 +187,7 @@
     }
 
     importButton.addEventListener('svf:noor-request', event => {
-        if (!enabled()) return;
+        if (!enabled() || importButton.dataset.noorBridge !== '2.1') return;
         const mismatch = matchVisit();
         if (mismatch) { status.textContent = mismatch; return; }
         const link = $('noorDetailUrl').value.trim();
@@ -206,7 +206,8 @@
         confirm.checked = false;
         $('noorApproveEvidence').disabled = true;
         cancelButton.hidden = false;
-        status.textContent = 'بانتظار فتح تحضير الحصة في تبويب نور. إذا لم يفتح التبويب، اسمح لعين المشرف بفتح نافذة جديدة وأعد المحاولة.';
+        status.textContent = link ? 'بانتظار تحميل صفحة عرض التحضير في نور.'
+            : 'بانتظار عرض تحضير «' + $('teacherName').value.trim() + '» في نور. من قائمة المعلمين افتح تحضير الحصة المطلوبة.';
         event.preventDefault();
     });
 

@@ -64,6 +64,7 @@ function fixture(visit) {
             await settle();
         },
         async visitNoor(url, teacher, school) {
+            const noorNodes = [];
             const widget = {
                 querySelector: sel => ({ innerText: sel.includes('header') ? 'الهدف' : 'تنمية المرونة' })
             };
@@ -74,9 +75,13 @@ function fixture(visit) {
                 document: { readyState: 'complete', querySelector: () => ({
                     querySelector: () => ({ innerText: 'المرونة' }),
                     querySelectorAll: () => [{ innerText: 'المعلم: ' + teacher }]
-                }), querySelectorAll: () => [widget], getElementById: () => ({ innerText: school }) }
+                }), querySelectorAll: () => [widget], getElementById: () => ({ innerText: school }),
+                createElement() { const el = { ...node(), style: {} }; noorNodes.push(el); return el; },
+                body: { append(el) { el.isConnected = true; } }
+                }
             });
             await settle();
+            return noorNodes;
         }
     };
 }
@@ -89,8 +94,9 @@ test('one click opens Noor and the matching preparation arrives in the original 
     f.click();
     await settle();
     assert.equal(new URL(f.opened()).origin, noor);
-    await f.visitNoor(f.opened(), '', '');
-    assert.equal(f.share.size, 1);
+    const [, status] = await f.visitNoor(f.opened(), '', '');
+    assert.match(status.textContent, /قائمة المعلمين/);
+    assert.equal(f.share.size, 2);
     await f.visitNoor(noor + details, 'أحمد السيابي', visit.school);
     await f.poll();
     assert.match(f.get('noorImportStatus').textContent, /لا يطابق/);
@@ -100,6 +106,21 @@ test('one click opens Noor and the matching preparation arrives in the original 
     assert.equal(f.get('noorPreparationTitle').textContent, 'المرونة');
     assert.equal(f.get('noorImportPreview').hidden, false);
     assert.equal(f.get('noorEvidenceData').value, '');
+    assert.equal(f.share.size, 0);
+});
+
+test('a separate Noor details tab sends only when the supervisor presses its button', async () => {
+    const f = fixture(visit);
+    f.click();
+    await settle();
+    const [, status, send] = await f.visitNoor(noor + details, visit.teacherName, visit.school);
+    assert.equal(send.hidden, false);
+    assert.equal(f.share.size, 2);
+    assert.match(status.textContent, /طلب سحب مفتوح/);
+    send.dispatchEvent({ type: 'click', isTrusted: true });
+    await settle();
+    await f.poll();
+    assert.equal(f.get('noorPreparationTitle').textContent, 'المرونة');
     assert.equal(f.share.size, 0);
 });
 
