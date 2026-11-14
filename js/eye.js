@@ -210,7 +210,7 @@ function tagRowHtml(k) {
                         <details class="basis-full">
                             <summary class="cursor-pointer">ربط وسيط المراجعة</summary>
                             <div class="mt-2 grid sm:grid-cols-2 gap-2">
-                                <label>رابط الوسيط <input id="eyeLabUrl" type="url" class="block w-full border rounded p-2" autocomplete="off" placeholder="https://"></label>
+                                <label>رابط الوسيط <input id="eyeLabUrl" type="url" class="block w-full border rounded p-2" autocomplete="off" value="https://eye-lab-relay-production.up.railway.app/"></label>
                                 <label>كلمة وسيط المختبر <input id="eyeLabKey" type="password" class="block w-full border rounded p-2" autocomplete="off"></label>
                             </div>
                         </details>
@@ -2673,7 +2673,11 @@ function tagRowHtml(k) {
                 headers: { 'content-type': 'application/json', 'x-svf-key': session.key },
                 body: JSON.stringify({ task: 'eye-lab-check' }), signal: AbortSignal.timeout(10000)
             });
-            if (!check.ok || !(await check.json()).ready) throw new Error('الوسيط غير جاهز. تحقّق من الرابط وكلمة المختبر وإعداد Gemini.');
+            const readiness = await check.json().catch(() => null);
+            if (!check.ok || !readiness?.ready) {
+                const issue = { 401: 'كلمة وسيط المختبر غير صحيحة.', 503: 'أضف مفتاح Gemini إلى خادم وسيط المختبر.', 502: 'تحقّق من صلاحية مفتاح Gemini والنموذج في الوسيط.' };
+                throw new Error(issue[check.status] || 'الوسيط غير جاهز. تحقّق من عنوانه.');
+            }
             if (lab !== session || !S.running || document.hidden) {
                 if (lab === session && S.running) renderLab({ status: 'لم تبدأ المشاركة لأن صفحة الاختبار غير ظاهرة.' });
                 return;

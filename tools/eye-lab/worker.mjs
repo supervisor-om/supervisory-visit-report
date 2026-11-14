@@ -4,6 +4,11 @@ const GUIDE = `أنت تراجع تجربة مؤقتة لكاشف عين الم�
 
 export default {
     async fetch(req, env) {
+        const path = new URL(req.url).pathname;
+        if (req.method === 'GET' && path === '/healthz') {
+            return Response.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
+        }
+        if (path !== '/') return new Response(null, { status: 404 });
         const origin = req.headers.get('Origin');
         const allowed = (env.ALLOWED_ORIGINS || 'https://supervisor-mct.com').split(',').map(x => x.trim());
         if (!allowed.includes(origin)) return new Response(null, { status: 403 });
@@ -36,19 +41,29 @@ export default {
         } catch (_) { return json({ error: 'تعذّرت قراءة الطلب.' }, 400); }
 
         const { from, to, mime, media, eye, task } = body || {};
-        if (task === 'eye-lab-check') return json({ ready: true });
+        const model = env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+        if (!/^gemini-[a-z0-9.-]+$/.test(model)) return json({ error: 'اسم نموذج Gemini غير صالح.' }, 500);
+        const modelUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + model;
+        const providerHeaders = { 'x-goog-api-key': env.GEMINI_API_KEY };
+        if (task === 'eye-lab-check') {
+            try {
+                const check = await fetch(modelUrl, { headers: providerHeaders, signal: AbortSignal.timeout(7000) });
+                if (check.ok && (await check.json()).supportedGenerationMethods?.includes('generateContent')) {
+                    return json({ ready: true });
+                }
+                return json({ error: 'تعذّر التحقق من إعداد Gemini (' + check.status + ').' }, 502);
+            } catch (_) { return json({ error: 'تعذّر الاتصال بـGemini للتحقق من الجاهزية.' }, 502); }
+        }
         if (task !== 'eye-lab' || !TYPES.has(mime) || !Number.isInteger(from) || !Number.isInteger(to) ||
             from < 0 || to - from < 2 || to - from > 25 || typeof media !== 'string' || media.length > 2000000 ||
             media.length < 100 || !/^[A-Za-z0-9+/]+={0,2}$/.test(media) || JSON.stringify(eye ?? null).length > 12000) {
             return json({ error: 'مقطع أو سجل غير صالح.' }, 400);
         }
 
-        const model = env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
-        if (!/^gemini-[a-z0-9.-]+$/.test(model)) return json({ error: 'اسم نموذج Gemini غير صالح.' }, 500);
         try {
-            const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+            const res = await fetch(modelUrl + ':generateContent', {
                 method: 'POST', signal: AbortSignal.timeout(30000),
-                headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+                headers: { ...providerHeaders, 'content-type': 'application/json' },
                 body: JSON.stringify({
                     systemInstruction: { parts: [{ text: GUIDE }] },
                     contents: [{ role: 'user', parts: [

@@ -12,7 +12,7 @@ function request(body, overrides = {}) {
     });
 }
 
-test('requires HTTPS, origin, credentials and valid input', async () => {
+test('requires HTTPS, origin, credentials and valid input', async (t) => {
     assert.equal(lab.endpoint(' https://lab.example '), 'https://lab.example/');
     for (const url of ['http://lab.example', 'https://x:y@lab.example', 'https://lab.example/?secret=x']) {
         assert.throws(() => lab.endpoint(url));
@@ -23,7 +23,16 @@ test('requires HTTPS, origin, credentials and valid input', async () => {
     assert.equal((await worker.fetch(request({ ...payload, to: 42 }), env)).status, 400);
     assert.equal((await worker.fetch(request({ ...payload, mime: 'audio/wav' }), env)).status, 400);
     assert.equal((await worker.fetch(request(payload, { 'content-length': '2200000' }), env)).status, 413);
+    assert.deepEqual(await (await worker.fetch(new Request('https://lab.example/healthz'), {})).json(), { status: 'ok' });
+    assert.equal((await worker.fetch(new Request('https://lab.example/other'), {})).status, 404);
+    const check = t.mock.method(globalThis, 'fetch', async (url, options) => {
+        assert.match(url, /\/models\/gemini-3\.1-flash-lite$/);
+        assert.equal(options.headers['x-goog-api-key'], env.GEMINI_API_KEY);
+        return Response.json({ supportedGenerationMethods: ['generateContent'] });
+    });
     assert.deepEqual(await (await worker.fetch(request({ task: 'eye-lab-check' }), env)).json(), { ready: true });
+    check.mock.mockImplementation(async () => Response.json({}, { status: 403 }));
+    assert.equal((await worker.fetch(request({ task: 'eye-lab-check' }), env)).status, 502);
 });
 
 test('sends video and synchronized telemetry and filters out-of-window notes', async (t) => {
