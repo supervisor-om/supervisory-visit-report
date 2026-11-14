@@ -176,7 +176,7 @@
     }
 
     importButton.addEventListener('click', () => {
-        if (importButton.dataset.noorBridge !== '2.1')
+        if (importButton.dataset.noorBridge !== '2.2')
             status.textContent = 'ثبّت أو حدّث سكربت الربط، ثم أعد تحميل عين المشرف. يمكنك أيضًا استخدام اللصق اليدوي.';
     });
 
@@ -187,7 +187,7 @@
     }
 
     importButton.addEventListener('svf:noor-request', event => {
-        if (!enabled() || importButton.dataset.noorBridge !== '2.1') return;
+        if (!enabled() || importButton.dataset.noorBridge !== '2.2') return;
         const mismatch = matchVisit();
         if (mismatch) { status.textContent = mismatch; return; }
         const link = $('noorDetailUrl').value.trim();
@@ -196,7 +196,7 @@
             try { url = new URL(link); } catch { /* يُعرض تنبيه الرابط أدناه. */ }
             if (url?.origin !== 'https://lms.moe.gov.om' || url.username || url.password ||
                 !/^\/tsupv\/courses\/view_preparation\/[A-Za-z0-9_-]+(?:\/cid:[A-Za-z0-9_-]+)?\/?$/.test(url.pathname)) {
-                status.textContent = 'ألصق رابط «عرض التحضير» من نور، أو اترك الحقل فارغًا وافتح التحضير من قائمة المعلمين.';
+                status.textContent = 'ألصق رابط «عرض التحضير» من نور أو اترك الحقل فارغًا للبحث تلقائيًا.';
                 return;
             }
         }
@@ -207,7 +207,7 @@
         $('noorApproveEvidence').disabled = true;
         cancelButton.hidden = false;
         status.textContent = link ? 'بانتظار تحميل صفحة عرض التحضير في نور.'
-            : 'بانتظار عرض تحضير «' + $('teacherName').value.trim() + '» في نور. من قائمة المعلمين افتح تحضير الحصة المطلوبة.';
+            : 'جارٍ البحث عن تحضير «' + $('teacherName').value.trim() + '» في نور.';
         event.preventDefault();
     });
 
@@ -223,6 +223,10 @@
         try { data = JSON.parse(event.detail); } catch { return; }
         const incoming = data?.lesson;
         const clean = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
+        if (typeof data?.progress === 'string') {
+            status.textContent = clean(data.progress, 250);
+            return;
+        }
         if (!incoming) {
             status.textContent = clean(data?.error, 250) || 'لم يصل تحضير صالح.';
             if (data?.done) finishRequest();
