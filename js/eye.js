@@ -85,6 +85,7 @@
                  timer: null, lastMs: 0, slow: 0, count: 0, ttl: 2.5,
                  // نموذج الكشف: gpu/cached ‏null حتّى يُفحص الجهاز، planKey المستوى المحمَّل، sslow بطء القويّ، down القويّ إن تُرك أثناء الحصة
                  gpu: null, gpuName: '', cached: null, planKey: '', fellBack: '', sslow: 0, r: 1, down: '', readyBusy: false };
+    const POSE = { skill: null, model: null, loading: null, canvas: null, lastAt: -Infinity, focus: null, frame: null };
     const freshAcc = () => ({ sum: 0, n: 0, bad: 0, voice: 0, af: 0, whistle: false, lost: false });
     // نافذة «التثبيت على الجهاز» في Chrome وEdge: تُحفظ لزرّ الفحص — لصاحب العين وحده، فلا يتغيّر المتصفّح عند غيره من المشرفين
     let installEvt = null;
@@ -322,6 +323,17 @@ function tagRowHtml(k) {
                                 </div>
                                 <ol id="eyeStationSchedule" class="mt-2 space-y-1"></ol>
                             </details>
+                            <label class="flex items-center gap-2">التحليل الحركي
+                                <select id="eyePoseSkill" class="border rounded px-2 py-1">
+                                    <option value="">متوقف</option><option value="shot_put">دفع الجلة</option>
+                                    <option value="football_heading">ضرب الكرة بالرأس</option><option value="vertical_jump">الوثب</option>
+                                </select>
+                            </label>
+                            <label id="eyePoseHandLabel" class="hidden">يد الدفع
+                                <select id="eyePoseHand" class="border rounded px-2 py-1"><option value="right">اليمنى</option><option value="left">اليسرى</option></select>
+                            </label>
+                            <button type="button" id="eyePoseSave" class="svf-btn svf-btn-secondary svf-btn-sm" disabled>حفظ قراءة الزوايا</button>
+                            <button type="button" id="eyePoseRefocus" class="hidden svf-btn svf-btn-ghost svf-btn-sm">إعادة البحث عن مؤدٍ</button>
                             <button type="button" id="eyeRoiClear" class="hidden svf-btn svf-btn-ghost svf-btn-sm">مسح المنطقة</button>
                             <button type="button" id="eyeTeacherBtn" class="eye-adv eye-advtool svf-btn svf-btn-secondary" disabled title="المس المعلّم على الشاشة: يُستثنى من عدد الطلبة، ويُرصد هل يقف على أطرافهم ويتنقّل بينهم"><i class="fa-solid fa-user-tie" aria-hidden="true"></i><span>تحديد المعلّم</span></button>
                             <button type="button" id="eyeCamRestart" class="hidden svf-btn svf-btn-moe"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>إعادة تشغيل الكاميرا</button>
@@ -329,6 +341,7 @@ function tagRowHtml(k) {
                             <label class="flex items-center gap-2 min-h-[44px] px-1" title="أطفئها لتُخفى الصورة ويظهر الطلبة نقاطاً على صورةٍ رماديّة لا تُعرف فيها الوجوه"><input type="checkbox" id="eyeShowVideo" class="w-5 h-5" checked> إظهار الصورة</label>
                             <label class="flex items-center gap-2 min-h-[44px] px-1"><input type="checkbox" id="eyeHeatToggle" class="w-5 h-5"> خريطة الحركة</label>
                         </div>
+                        <p id="eyePoseStatus" class="hidden text-sm text-slate-600" role="status"></p>
                         <div id="eyeDotKey" class="eye-adv hidden flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600" aria-label="مفتاح نقاط الطلبة">
                             ${[['move', 'ينتقل في الملعب'], ['place', 'يتمرّن في مكانه'], ['still', 'ساكن'], ['out', 'خارج المنطقة']].map(([k, t]) =>
                                 `<span class="flex items-center gap-1"><i class="inline-block w-2.5 h-2.5 rounded-full" style="background:${DOT[k]};box-shadow:0 0 0 1.5px #082742"></i>${t}</span>`).join('')}
@@ -592,6 +605,10 @@ function tagRowHtml(k) {
             }
         });
         $('eyeView').addEventListener('pointerdown', roiPoint);
+        $('eyePoseSkill').addEventListener('change', togglePose);
+        $('eyePoseHand').addEventListener('change', clearPoseFrame);
+        $('eyePoseSave').addEventListener('click', savePoseReading);
+        $('eyePoseRefocus').addEventListener('click', () => { POSE.focus = null; clearPoseFrame(); });
         $('eyeConsent').addEventListener('change', () => { if (checked('eyeConsent')) message(''); });
         // فهم الكلام: متاحٌ حيث يدعم المتصفّح التعرّف على الكلام (Chrome، Edge، Safari)
         if (!SR()) { $('eyeSpeech').disabled = true; $('eyeSpeechLbl').title = 'هذا المتصفّح لا يدعم التعرّف على الكلام — استعمل Chrome'; $('eyeSpeechLbl').classList.add('opacity-50'); }
@@ -2491,6 +2508,7 @@ function tagRowHtml(k) {
         S.mic = checked('eyeTeacherMic') ? 'teacher' : 'device';
         S.pSnap = null; S.pSnapAt = -1; S.classMax = 0;
         S.tl = null;
+        S.poseReadings = [];
         S.consent = src !== 'none' || !!S.audio || checked('eyeSpeech') ? checked('eyeConsent') : false;
         S.sp = null;
         S.sample = null; S.sampleRound = 'a'; S.marks = []; S.samplePick = -1;
@@ -2904,12 +2922,116 @@ function tagRowHtml(k) {
             }
             const tc = S.pSnap.tc;
             aiState('في الملعب: ' + S.pSnap.n + (S.pSnap.r ? ' · خارجها: ' + S.pSnap.o : '') + (S.teacher ? (tc ? ' · المعلّم ' + (tc.edge === true ? 'على الطرف' : tc.edge === false ? 'في الوسط' : 'محدَّد') : ' · المعلّم غاب عن الكشف') : ''));
+            capturePose(t, c, box);
             drawView();
         } catch (e) {
             if (AI.engine && AI.engine.level === 'strong' && AI.fail >= 1) { AI.fail = 0; downgrade('error'); return; }
             if (++AI.fail > 5) { AI.ok = false; aiState(''); message('توقّف كشف الطلبة لخطأٍ في الجهاز — يكمل الرصد بحركة الصورة.'); }
         } finally { AI.busy = false; }
     }
+    function poseStatus(text) {
+        const status = $('eyePoseStatus');
+        status.textContent = text;
+        status.classList.toggle('hidden', !text);
+    }
+
+    function clearPoseFrame() {
+        POSE.frame = null;
+        $('eyePoseSave').disabled = true;
+        drawView();
+    }
+
+    function togglePose() {
+        const skill = $('eyePoseSkill').value;
+        POSE.skill = null;
+        POSE.focus = null;
+        POSE.lastAt = -Infinity;
+        $('eyePoseRefocus').classList.add('hidden');
+        $('eyePoseHandLabel').classList.add('hidden');
+        clearPoseFrame();
+        if (!skill) { poseStatus(''); return; }
+        if (!S.running || !S.video || !checked('eyeAI') || !S.consent) {
+            $('eyePoseSkill').value = '';
+            poseStatus('شغّل الرصد بالكاميرا وفعّل كشف الطلبة وأذِن بالرصد، ثم اختر المهارة.');
+            return;
+        }
+        POSE.skill = skill;
+        const runId = S.runId;
+        poseStatus('جارٍ تحميل نموذج المفاصل…');
+        if (!POSE.loading) {
+            POSE.loading = root.SvfEyePose.load().catch(err => { POSE.loading = null; throw err; });
+        }
+        POSE.loading.then(model => {
+            if (S.running && S.runId === runId && POSE.skill === skill) {
+                POSE.model = model;
+                $('eyePoseRefocus').classList.remove('hidden');
+                $('eyePoseHandLabel').classList.toggle('hidden', skill !== 'shot_put');
+                poseStatus('قف بزاوية جانبية وأظهر جسم المؤدي كاملًا في منطقة الصف.');
+            }
+        }).catch(() => {
+            if (S.running && S.runId === runId && POSE.skill === skill) {
+                $('eyePoseSkill').value = '';
+                POSE.skill = null;
+                poseStatus('تعذّر تحميل نموذج المفاصل. تحقق من الاتصال عند أول تشغيل، ثم اختر المهارة مجددًا.');
+            }
+        });
+    }
+
+    function capturePose(t, capture, area) {
+        if (!POSE.skill || !POSE.model || camFrozen() || (t >= POSE.lastAt && t - POSE.lastAt < 0.55)) return;
+        POSE.lastAt = t;
+        const api = root.SvfEyePose, bio = root.SvfEyeBiomechanics;
+        const visible = AI.T.tracks.filter(tr => tr.ok !== false && tr.last === t).map(tr => {
+            const p = tr.hist[tr.hist.length - 1];
+            return { id: tr.id, x: p.nx - p.w / 2, y: p.cy - p.h / 2, w: p.w, h: p.h,
+                fx: p.nx, fy: p.ny, speed: E().trackMotion(tr).speed };
+        }).filter(tr => E().inPoly(tr.fx, tr.fy, S.roi));
+        const candidates = POSE.focus == null ? visible : visible.filter(tr => tr.id === POSE.focus);
+        const target = bio.selectSpotlightPerformers(candidates, { teacherId: S.teacher?.id, maxTargets: 1 })[0];
+        const canvas = POSE.canvas || (POSE.canvas = document.createElement('canvas'));
+        let frame = null;
+        try {
+            if (target) {
+                const { crop } = target;
+                const x = Math.max(crop.x, area.x), y = Math.max(crop.y, area.y);
+                target.crop = {
+                    x, y,
+                    w: Math.min(crop.x + crop.w, area.x + area.w) - x,
+                    h: Math.min(crop.y + crop.h, area.y + area.h) - y
+                };
+            }
+            if (target && api.cropFrame(canvas, capture, area, target.crop)) {
+                const poses = POSE.model.detect(canvas).landmarks || [];
+                if (poses.length === 1) {
+                    frame = api.analyze(poses[0], target, canvas, POSE.skill, $('eyePoseHand').value, bio);
+                }
+            }
+        } catch (_) {
+            $('eyePoseSkill').value = '';
+            togglePose();
+            poseStatus('تعذّر تحليل إطار الكاميرا. اختر المهارة مجددًا للمحاولة.');
+            return;
+        }
+        POSE.frame = frame && { ...frame, target, t };
+        $('eyePoseSave').disabled = !frame;
+        if (!frame) {
+            poseStatus('تعذّرت قراءة المؤدي بوضوح. أبعد التداخل أو أعد البحث عن مؤدٍ.');
+            return;
+        }
+        POSE.focus = target.trackId;
+        poseStatus(frame.skillAr + ' · ' + frame.angles.map(a => a.label + ' ' + a.value + '°').join(' · '));
+    }
+
+    function savePoseReading() {
+        const frame = POSE.frame;
+        if (!S.running || !frame || Math.abs(now() - frame.t) > 2) { toast('انتظر ظهور قراءة حديثة واضحة', 'info'); return; }
+        const readings = S.poseReadings;
+        if (readings.some(r => r.t === frame.t) || readings.length >= 20) return;
+        readings.push({ t: frame.t, skillAr: frame.skillAr, angles: frame.angles });
+        ckSave();
+        toast('حُفظت قراءة الزوايا في تفاصيل التحليل');
+    }
+
     // من القويّ إلى الخفيف أثناء الحصة: بطءٌ أو خطأٌ في بطاقة الرسوم. يُذكر في نتيجة الفحص فيختار «تلقائيّ» الخفيف بعدها
     function downgrade(why) {
         const id = S.runId, old = AI.engine;
@@ -3223,6 +3345,9 @@ function tagRowHtml(k) {
             }
         }
         const P = ([x, y]) => [R.ox + x * R.rw, R.oy + y * R.rh];
+        if (POSE.frame && Math.abs(now() - POSE.frame.t) <= 2) {
+            root.SvfEyePose.draw(g, R, POSE.frame.target, POSE.frame.points);
+        }
         const poly = S.roiMode ? S.roiDraft : S.roi;
         if (poly && poly.length) {
             g.save();
@@ -3268,6 +3393,15 @@ function tagRowHtml(k) {
     // ── الإيقاف والتحليل ──
     function release() {
         speechStop();
+        POSE.skill = null;
+        POSE.focus = null;
+        POSE.frame = null;
+        POSE.canvas = null;
+        $('eyePoseSkill').value = '';
+        $('eyePoseSave').disabled = true;
+        $('eyePoseHandLabel').classList.add('hidden');
+        $('eyePoseRefocus').classList.add('hidden');
+        poseStatus('');
         S.timers.forEach(t => clearInterval(t));
         S.timers = [];
         if (AI.timer) { clearTimeout(AI.timer); AI.timer = null; }
@@ -3352,7 +3486,7 @@ function tagRowHtml(k) {
         const M = E().summarize(recNow());
         const hasTaps = S.events.length > 0 || Object.keys(S.counts).some(k => S.counts[k] > 0);
         const sp = S.sp && S.sp.segs.length ? S.sp : S.spSeed && S.spSeed.segs.length ? S.spSeed : null;
-        if (!M.observed && !M.ctx.covered && !hasTaps && !sp && !hasSample(S.sample)) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا، أو المس «عناصر الحصة» أو الوسوم أو «عيّنة الطلبة» أثناء الحصة.'); return; }
+        if (!M.observed && !M.ctx.covered && !hasTaps && !sp && !hasSample(S.sample) && !S.poseReadings?.length) { message('لا شيء يُحلَّل بعد: شغّل الكاميرا، أو المس «عناصر الحصة» أو الوسوم أو «عيّنة الطلبة» أثناء الحصة.'); return; }
         // «طلبة خارج النشاط»: تقترحه الكاميرا من منطقة الصفّ، ويبقى عدد المشرف إن لمسه
         let outAuto = 0;
         if (M.people && M.people.roi && M.people.outsideMed > 0 && !(S.counts.out > 0)) {
@@ -3378,6 +3512,8 @@ function tagRowHtml(k) {
         const GD = guideOn();
         if (GD && sp) keep.gspeech = LG().speechCoverage(SX() ? SX().lessonSegs(sp.segs, rollS) : sp.segs, GD, S.guide.skills);
         const LS = E().live(recNow(), M).series;
+        const context = E().ctxSeries(S.ctxEvents, S.secs.length);
+        const observed = root.SvfEyeSofit?.visitSummary(S.secs, context, M.states, E().whistleEvents(S.secs));
         const packed = (ser, k, sc) => { const t = E().pack(ser, k, sc); return /[0-9]/.test(t) ? t : ''; };
         const data = {
             v: 2, at: new Date().toISOString(), src: M.observed ? S.src : (S.src === 'none' || M.ctx.covered ? 'none' : 'taps'), sens: sens(),
@@ -3394,6 +3530,8 @@ function tagRowHtml(k) {
             counts: Object.assign({}, S.counts),
             ev: S.events.filter(e => e.t != null).slice(-300).map(e => [e.t, e.k]),
             endBellCandidates: (S.endBellCandidates || []).slice(),
+            poseReadings: S.poseReadings || [],
+            observedActivity: observed && (observed.activity || observed.response) ? observed : null,
             cx: S.ctxEvents.map(e => e.source === 'auto' ? [e.t, e.k, 'auto'] : [e.t, e.k]),
             outAuto, dishAuto,
             det: S.src !== 'none' && AI.ok && AI.engine && AI.count ? AI.engine.name : null,   // نموذج الكشف الذي رصد هذه الحصة
@@ -3461,6 +3599,7 @@ function tagRowHtml(k) {
             v: 1, at: Date.now(), sec: S.lastSec, src: S.src, via: S.via, mic: S.mic, hadAudio: !!S.hadAudio, consent: !!S.consent,
             speechConsent: !!S.speechConsent, form: formSig(),
             endBellCandidates: S.endBellCandidates || [],
+            poseReadings: S.poseReadings || [],
             secs: S.secs, grid: S.grid ? Array.from(S.grid) : null, events: S.events, counts: S.counts, ctx: S.ctxEvents, ctxCur: S.ctxCur,
             lost: S.lostSec || 0, gap: S.gapSec || 0, resumes: S.resumes || 0, spOff: S.spOff || 0, classMax: S.classMax || 0,
             roi: S.roi, sample: S.sample, sampleRound: S.sampleRound, marks: S.marks, field: S.field,
@@ -3479,6 +3618,7 @@ function tagRowHtml(k) {
         S.grid = R.grid ? Uint32Array.from(R.grid) : new Uint32Array(E().GRID_W * E().GRID_H);
         S.events = R.events || []; S.counts = Object.assign({}, R.counts || {});
         S.endBellCandidates = R.endBellCandidates || [];
+        S.poseReadings = Array.isArray(R.poseReadings) ? R.poseReadings.slice(0, 20) : [];
         S.endBellState = {};
         S.ctxEvents = R.ctx || []; S.ctxCur = R.ctxCur || null;
         S.lostSec = R.lost || 0; S.gapSec = (R.gap || 0) + gap; S.resumes = (R.resumes || 0) + (resuming ? 1 : 0);
@@ -4026,12 +4166,15 @@ function tagRowHtml(k) {
         } catch { return ''; }
     };
 
-    function growDraftHtml(data, dp) {
+    function growDraftHtml(data, dp, canImport = false) {
         const draft = root.SvfEyeFusion?.draftForVisit(data, { prompts: dp });
+        const agreement = draft?.grow.willTable[0];
+        const observed = data.observedActivity;
         return draft ? `<details class="mt-4 pt-3 border-t border-slate-100">
             <summary class="font-bold cursor-pointer">مسودة المداولة · GROW والقبعات الست</summary>
             <dl class="mt-2 text-sm leading-7">${Object.entries({ 'الهدف': draft.grow.goal, 'الواقع': draft.grow.reality,
                 'الخيارات': draft.grow.options }).map(([label, value]) => `<dt class="font-bold">${label}</dt><dd>${esc(value)}</dd>`).join('')}</dl>
+            ${observed?.response ? `<p class="mt-2 text-sm">صفارات قابلة للمقارنة ${observed.response.events.length} من ${observed.response.count} · تغيّر مرصود في الحركة ${observed.response.events.filter(e => e.responseSec != null).length}</p>` : ''}
             <ul class="mt-2 text-sm leading-7">${Object.values(draft.sixHats).map(line => `<li>${esc(line)}</li>`).join('')}</ul>
             <details class="mt-3">
                 <summary class="cursor-pointer font-bold">الشواهد المرتبطة ببنود الزيارة</summary>
@@ -4039,6 +4182,8 @@ function tagRowHtml(k) {
             </details>
             <h3 class="font-bold mt-3">خطة المتابعة المقترحة</h3>
             <ul class="text-sm leading-7">${draft.grow.willTable.map(row => `<li>${esc(row.action)} · ${esc(row.indicator)} · ${esc(row.timeframe)}</li>`).join('')}</ul>
+            ${agreement && canImport ? `<button type="button" class="svf-btn svf-btn-secondary svf-btn-sm mt-2" data-eye-agreement
+                data-goal-text="${esc(draft.grow.goal)}" data-action-text="${esc(agreement.action)}" data-indicator-text="${esc(agreement.indicator)}">تعبئة خانات الاتفاق الفارغة</button>` : ''}
         </details>` : '';
     }
 
@@ -4516,6 +4661,12 @@ function tagRowHtml(k) {
                     </div>
                 </div>
             </div>
+            ${Array.isArray(data.poseReadings) && data.poseReadings.length ? `<details class="bg-white rounded-2xl border border-slate-200 p-5">
+                <summary class="cursor-pointer font-bold">قراءات الزوايا الحركية المحفوظة</summary>
+                <p class="mt-2 text-sm text-slate-600">قياسات ثنائية الأبعاد من زاوية الكاميرا.</p>
+                <ul class="mt-2 space-y-2">${data.poseReadings.map(row => `<li><bdi>${mmss(Math.round(row.t))}</bdi> · ${esc(row.skillAr)} ·
+                    ${row.angles.map(a => esc(a.label) + ' ' + esc(a.value) + '°').join(' · ')}</li>`).join('')}</ul>
+            </details>` : ''}
             ${trialCardHtml(data)}
             ${followHtml}
             ${targetsHtml}
@@ -5491,7 +5642,7 @@ function tagRowHtml(k) {
             ${det ? `<div class="flex flex-wrap gap-1.5 mt-3">${det.map(r => `<span class="text-xs rounded-lg border px-2 py-1 ${r.verdict === 'ok' ? 'border-green-200 text-green-800' : r.verdict === 'missing' ? 'border-red-200 text-red-800' : 'border-amber-200 text-amber-800'}">${esc(r.short)} ${r.minutes} د</span>`).join('')}</div>` : ''}
             ${evTalk}
             ${spHtml}
-            ${growDraftHtml(d, dp)}
+            ${growDraftHtml(d, dp, true)}
             ${dp.good.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-green-700 mb-1">ما يُعزَّز</div>${dp.good.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${dp.ask.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-amber-700 mb-1">أسئلةٌ من الرصد</div>${dp.ask.map(t => `<div class="text-sm text-slate-700 leading-7">• ${esc(t)}</div>`).join('')}</div>` : ''}
             ${mom.length ? `<div class="mt-3"><div class="text-[11px] font-bold text-slate-600 mb-1">لحظاتٌ للنقاش</div>${mom.slice(0, 8).map(x => `<div class="text-sm text-slate-700 leading-7">

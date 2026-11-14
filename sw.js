@@ -8,13 +8,16 @@
 //
 // عند أي تعديل جوهري: ارفع رقم VERSION لتُمسح الذاكرة القديمة تلقائياً.
 // =========================================================================
-const VERSION = 'v88';
+const VERSION = 'v89';
 const CACHE_NAME = `supervisory-${VERSION}`;
 // النماذج والمكتبات الثقيلة (vendor/) في ذاكرةٍ مستقلّةٍ لا يمسحها رفع VERSION — النموذج القويّ وحده ٣٦ ميغابايت،
 // فلا يُعاد تنزيله مع كلّ تحديثٍ للموقع. تُرفع VENDOR_VERSION فقط إن تغيّر ملفٌّ في vendor/ بالاسم نفسه.
 const VENDOR_VERSION = 'v1';
 const VENDOR_CACHE = `supervisory-vendor-${VENDOR_VERSION}`;
 const isVendor = url => url.pathname.indexOf('/vendor/') !== -1;
+const POSE_CACHE = 'supervisory-pose-v1';
+const POSE_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/';
+const POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 
 const ASSETS = [
     './',
@@ -48,6 +51,7 @@ const ASSETS = [
     './js/eye-core.js', './js/eye-reid.js', './js/eye-formations.js', './js/eye-sofit.js', './js/eye-biomechanics.js', './js/eye-homography.js', './js/eye-hud.js', './js/eye-grow-bridge.js', './js/eye-speech.js', './js/eye-fusion.js', './js/eye-lesson-end.js', './js/eye-draft.js', './js/eye-yolox.js', './js/eye-detect-worker.js',
     './js/lesson-guide-data.js', './js/lesson-guide.js', './js/eye-guide-import.js',
     './js/eye-link.js',
+    './js/eye-pose.js',
     './js/eye.js',
     './cam.html',
     './js/eye-report.js',
@@ -113,6 +117,17 @@ function putInCache(request, response, name) {
     return response;
 }
 
+async function poseAsset(request) {
+    const cache = await caches.open(POSE_CACHE).catch(() => null);
+    const cached = cache && await cache.match(request).catch(() => null);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (cache && (response.ok || response.type === 'opaque')) {
+        await cache.put(request, response.clone()).catch(() => {});
+    }
+    return response;
+}
+
 self.addEventListener('fetch', event => {
     const request = event.request;
     if (request.method !== 'GET') return;
@@ -122,6 +137,11 @@ self.addEventListener('fetch', event => {
     if (url.hostname === 'firestore.googleapis.com') return;
 
     const sameOrigin = url.origin === self.location.origin;
+
+    if (url.href === POSE_MODEL || url.href.startsWith(POSE_CDN)) {
+        event.respondWith(poseAsset(request));
+        return;
+    }
 
     // نموذج كشف الطلبة (vendor/ — ملفّاتٌ ثابتةٌ كبيرة لا تتغيّر إلّا بإصدار): الذاكرة أولاً،
     // فيُجلب مرّةً عند أوّل استعمالٍ لعين المشرف (أو «فحص الجاهزيّة») ثمّ يعمل بلا شبكة. لا يُخزَّن مسبقاً: يحتاجه صاحبها وحده.

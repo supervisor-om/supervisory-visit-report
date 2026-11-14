@@ -515,7 +515,13 @@
     if (Number.isFinite(act?.mvpa)) draftFacts.push('النشاط المعتدل إلى الشديد في العينات المرصودة: ' + act.mvpa + '%.');
     if (Number.isFinite(observed.people?.queuePct)) draftFacts.push('متوسط الطلبة المنتظرين للدور أثناء النشاط: ' + observed.people.queuePct + '%.');
     if (Number.isFinite(observed.people?.teacher?.cover)) draftFacts.push('تغطية منطقة النشاط: ' + observed.people.teacher.cover + '%.');
-    if (Number.isFinite(observed.resp?.med)) draftFacts.push('وسيط استجابة الصافرة: ' + observed.resp.med + ' ثانية.');
+    const sampled = data.observedActivity;
+    if (sampled?.activity) draftFacts.push('في ' + sampled.samples + ' عينات من كشف الطلبة، بلغت نسبة العينات التي تحرك فيها 45% من الطلبة فأكثر ' + sampled.activity.mvpaPct + '%.');
+    if (Number.isFinite(sampled?.response?.avgLatencySec)) {
+      draftFacts.push('متوسط زمن تغيّر الحركة بعد الصافرة في المشاهد المرصودة: ' + sampled.response.avgLatencySec + ' ثانية.');
+    } else if (Number.isFinite(observed.resp?.med)) {
+      draftFacts.push('وسيط استجابة الصافرة: ' + observed.resp.med + ' ثانية.');
+    }
     const suggestions = (data.sugg || []).filter(item => item.evidence);
     const prompts = opts?.prompts || {};
     if (!draftFacts.length && !suggestions.length && !prompts.ask?.length && !prompts.good?.length) return null;
@@ -523,9 +529,16 @@
     const reality = draftFacts.join(' ') || 'راجع الشواهد الموثقة في الاستمارة وحدّد نقطة البداية.';
     const question = prompts.ask?.[0] || 'أيّ ممارسة تريد أن تطوّرها في الحصة المقبلة؟';
     const strength = prompts.good?.[0] || 'ما الممارسة التي دعمت تعلم الطلبة وتريد مواصلتها؟';
-    const goal = 'اتفق مع المعلم على هدف واحد قابل للرصد في الحصة المقبلة.';
-    const action = 'جرّب الإجراء المتفق عليه في الحصة المقبلة.';
-    const indicator = 'قارن الشاهد نفسه بين الزيارتين.';
+    const metric = sampled?.activity ? {
+      goal: 'زيادة حصة العينات التي تتحرك فيها نسبة 45% فأكثر من الطلبة.',
+      action: 'مراجعة الفترات منخفضة الحركة مع المعلم وتجريب تعديل واحد في تنظيمها.',
+      indicator: 'خط الأساس ' + sampled.activity.mvpaPct + '% من العينات. قارنها في الزيارة التالية.'
+    } : {
+      goal: 'اتفق مع المعلم على هدف واحد قابل للرصد في الحصة المقبلة.',
+      action: 'جرّب الإجراء المتفق عليه في الحصة المقبلة.',
+      indicator: 'قارن الشاهد نفسه بين الزيارتين.'
+    };
+    const { goal, action, indicator } = metric;
     const timeframe = 'يُحدد في المداولة';
     return {
       indicators13: Array.from({ length: 13 }, (_, i) => {

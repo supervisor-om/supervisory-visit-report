@@ -28,6 +28,7 @@ const bridge = loadMod('eye-grow-bridge.js');
 global.SvfEyeGrowBridge = bridge;
 const fusion = loadMod('eye-fusion.js');
 const bio = loadMod('eye-biomechanics.js');
+const poseInput = loadMod('eye-pose.js');
 const homo = loadMod('eye-homography.js');
 const hud = loadMod('eye-hud.js');
 
@@ -106,10 +107,22 @@ test('eye-sofit: حساب MVPA وسرعة استجابة الطلبة للصاف
 
   const wr = sofit.whistleResponses([10.0], [
     { t: 8.5, movingRatio: 0.1, structuredRatio: 0.3 },
-    { t: 12.2, movingRatio: 0.5, structuredRatio: 0.8 }
+    { t: 12.2, movingRatio: 0.5, structuredRatio: 0.8 },
+    { t: 13.2, movingRatio: 0.6, structuredRatio: 0.8 }
   ]);
   assert.strictEqual(wr.count, 1);
   assert.strictEqual(wr.avgLatencySec, 2.2);
+  assert.strictEqual(sofit.whistleResponses([10], [{ t: 9, movingRatio: 0.1 }, { t: 12, movingRatio: 0.5 }]).avgLatencySec, null);
+
+  const secs = Array.from({ length: 63 }, () => ({ p: { n: 10, mv: 7 } }));
+  for (let t = 45; t < 51; t++) secs[t].p.mv = 1;
+  const context = secs.map(() => 'apply');
+  const states = secs.map((_, t) => t < 20 ? 'r' : 'a');
+  const seen = sofit.visitSummary(secs, context, states, [10, 50]);
+  assert.strictEqual(seen.samples, 3);
+  assert.strictEqual(seen.activity.ctxPct.G, 100);
+  assert.strictEqual(seen.response.events.length, 1);
+  assert.strictEqual(seen.response.avgLatencySec, 1);
 });
 
 // 5. اختبارات جسر الربط بالبنود الـ 13 ونموذج GROW
@@ -154,6 +167,18 @@ test('eye-biomechanics: فرز 35 طالباً واختيار المؤدي وت�
   assert.strictEqual(shot.valid, true);
   assert.ok(shot.angles.blockKneeDeg >= 170);
   assert.ok(shot.angles.releaseAngleDeg >= 34 && shot.angles.releaseAngleDeg <= 45);
+
+  const target = top[0];
+  const source = { width: 640, height: 360 };
+  let draw;
+  const canvas = { getContext: () => ({ drawImage: (...args) => { draw = args; } }) };
+  assert.ok(poseInput.cropFrame(canvas, source, { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, target.crop));
+  assert.strictEqual(draw[0], source);
+  assert.ok(Math.abs(draw[1] - (target.crop.x - 0.25) * 1280) < 0.001);
+  const frame = poseInput.analyze(pose, target, canvas, 'shot_put', 'right', bio);
+  assert.ok(frame?.angles.some(a => a.label === 'ميل خط الكتف والرسغ'));
+  const occluded = pose.map((p, i) => i === 16 ? { ...p, visibility: 0.1 } : p);
+  assert.ok(!poseInput.analyze(occluded, target, canvas, 'shot_put', 'right', bio)?.angles.some(a => a.label === 'ميل خط الكتف والرسغ'));
 });
 
 // 7. اختبارات معايرة الملعب والمحطات الأربع

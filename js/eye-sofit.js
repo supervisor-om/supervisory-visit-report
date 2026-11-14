@@ -8,6 +8,7 @@
   'use strict';
 
   const SOFIT_STEP = 20;
+  const VISIT_CONTEXT = { warm: 'F', fit: 'F', teach: 'S', apply: 'G' };
   const MVPA_GOAL = 50; // الهدف المعياري العالمي: 50% على الأقل من زمن الحصة في نشاط حركي معتدل إلى شديد
 
   const SOFIT_CTX = {
@@ -42,17 +43,16 @@
     const ctxCounts = { M: 0, K: 0, F: 0, S: 0, G: 0 };
     const tchCounts = { teach: 0, manage: 0, observe: 0 };
 
+    let ctxN = 0, tchN = 0;
     samples.forEach(s => {
       const activeRatio = s.movingRatio != null ? s.movingRatio : (s.mvpa || 0);
       if (activeRatio >= 0.45) mvpaCount++;
       if (activeRatio >= 0.7) vigCount++;
       if (activeRatio < 0.2) waitCount++;
 
-      const c = (s.ctx && ctxCounts[s.ctx] != null) ? s.ctx : (activeRatio >= 0.5 ? 'S' : 'M');
-      ctxCounts[c]++;
+      if (Object.hasOwn(ctxCounts, s.ctx)) { ctxCounts[s.ctx]++; ctxN++; }
 
-      const tRole = (s.tchRole && tchCounts[s.tchRole] != null) ? s.tchRole : 'observe';
-      tchCounts[tRole]++;
+      if (Object.hasOwn(tchCounts, s.tchRole)) { tchCounts[s.tchRole]++; tchN++; }
     });
 
     const n = samples.length;
@@ -61,10 +61,10 @@
     const waitingPct = Math.round((waitCount * 100) / n);
 
     const ctxPct = {};
-    Object.keys(ctxCounts).forEach(k => { ctxPct[k] = Math.round((ctxCounts[k] * 100) / n); });
+    Object.keys(ctxCounts).forEach(k => { ctxPct[k] = ctxN ? Math.round((ctxCounts[k] * 100) / ctxN) : null; });
 
     const tchPct = {};
-    Object.keys(tchCounts).forEach(k => { tchPct[k] = Math.round((tchCounts[k] * 100) / n); });
+    Object.keys(tchCounts).forEach(k => { tchPct[k] = tchN ? Math.round((tchCounts[k] * 100) / tchN) : null; });
 
     return {
       mvpaPct,
@@ -85,30 +85,18 @@
     }
 
     const events = [];
+    const measured = timeline.filter(f => Number.isFinite(f.t) && Number.isFinite(f.movingRatio));
     whistles.forEach(wt => {
-      // البحث عن أول تغير واضح في سرعة الحركة أو انتظام التشكيل خلال 12 ثانية بعد الصافرة
-      const before = timeline.filter(f => f.t >= wt - 3 && f.t <= wt);
-      const after = timeline.filter(f => f.t > wt && f.t <= wt + 12);
-      if (!after.length) return;
-
-      const baseMove = before.length
-        ? before.reduce((a, b) => a + (b.movingRatio || 0), 0) / before.length
-        : (after[0].movingRatio || 0);
-
-      let responseT = null;
-      for (let i = 0; i < after.length; i++) {
-        const delta = Math.abs((after[i].movingRatio || 0) - baseMove);
-        if (delta >= 0.22 || (after[i].structuredRatio || 0) >= 0.7) {
-          responseT = Math.round((after[i].t - wt) * 10) / 10;
-          break;
-        }
-      }
-
-      events.push({
-        whistleTime: wt,
-        responseSec: responseT,
-        status: responseT != null && responseT <= 4.5 ? 'استجابة سريعة' : responseT != null ? 'استجابة متوسطة' : 'لم ترصد استجابة'
-      });
+      const before = measured.filter(f => f.t >= wt - 6 && f.t < wt);
+      const after = measured.filter(f => f.t > wt && f.t <= wt + 12);
+      if (!before.length || !after.length) return;
+      const baseMove = before.reduce((sum, f) => sum + f.movingRatio, 0) / before.length;
+      const changed = f => baseMove >= 0.35 ? f.movingRatio <= baseMove * 0.45
+        : baseMove <= 0.2 && f.movingRatio >= Math.max(0.35, baseMove + 0.25);
+      const response = after.find((f, i) => after[i + 1] && after[i + 1].t - f.t <= 1.5 &&
+        changed(f) && changed(after[i + 1]));
+      const responseSec = response ? Math.round((response.t - wt) * 10) / 10 : null;
+      events.push({ whistleTime: wt, responseSec, status: responseSec == null ? 'لم ترصد استجابة' : 'رُصد تغير الحركة' });
     });
 
     const valid = events.filter(e => e.responseSec != null);
@@ -123,13 +111,34 @@
     };
   }
 
+  // تستخدم الواجهة ثواني كشف الطلبة، وتستبعد الحضور والفترات التي لا صورة صالحة فيها.
+  function visitSummary(secs, context, states, whistles) {
+    const timeline = [];
+    const samples = [];
+    for (let t = 0; t < secs.length; t++) {
+      const row = secs[t], people = row?.p;
+      if (!people?.n || !Number.isFinite(people.mv) || !/[ai]/.test(states[t] || '')) continue;
+      const movingRatio = people.mv / people.n;
+      timeline.push({ t, movingRatio });
+      if (t % SOFIT_STEP !== 0) continue;
+      samples.push({ movingRatio, ctx: VISIT_CONTEXT[context[t]] || null });
+    }
+    const response = whistleResponses(whistles, timeline);
+    return {
+      samples: samples.length,
+      activity: samples.length >= 3 ? sofit({ samples }) : null,
+      response: response.events.length ? response : null
+    };
+  }
+
   const sofitApi = {
     SOFIT_STEP,
     MVPA_GOAL,
     SOFIT_CTX,
     SOFIT_TCH,
     sofit,
-    whistleResponses
+    whistleResponses,
+    visitSummary
   };
 
   root.SvfEyeSofit = sofitApi;

@@ -342,6 +342,15 @@
             }
             else if (b.id === 'debriefWord') exportWord();
             else if (b.id === 'debriefEyeCard') { if (typeof root.svfEyeShareCard === 'function') root.svfEyeShareCard(); }
+            else if (b.hasAttribute('data-eye-agreement')) {
+                update(st => {
+                    const agree = st.agree || (st.agree = {});
+                    for (const field of ['goal', 'action', 'indicator']) {
+                        if (!clean(agree[field])) agree[field] = b.dataset[field + 'Text'] || '';
+                    }
+                }, true);
+                root.showToast && showToast('أُدرج المقترح في خانات الاتفاق الفارغة');
+            }
             else if (b.id === 'debriefEyeIndicator') {
                 // أهداف العين القابلة للقياس ← «مؤشّر النجاح» في الاتّفاق (يُضاف إلى ما كُتب، ولا يتكرّر)
                 const t = typeof root.svfEyeIndicatorText === 'function' ? root.svfEyeIndicatorText() : '';

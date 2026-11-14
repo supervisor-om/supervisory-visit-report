@@ -334,7 +334,7 @@
         const pts = (dets || []).filter(d => d && (d.score == null || d.score >= PERSON_MIN_SCORE)).map(d => ({
             fx: (d.x + d.w / 2) * ar, fy: d.y + d.h, cx: (d.x + d.w / 2) * ar, cy: d.y + d.h / 2, h: d.h,
             nx: d.x + d.w / 2, ny: d.y + d.h, act: d.act || 0, dish: d.dish == null ? null : !!d.dish,
-            sig: d.sig || null, hi: d.score == null || d.score >= HIGH_SCORE
+            w: d.w, sig: d.sig || null, hi: d.score == null || d.score >= HIGH_SCORE
         }));
         T.tracks = T.tracks.filter(tr => t - tr.last <= ttl);
         const pred = T.tracks.map(tr => predict(tr, t));
